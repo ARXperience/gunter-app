@@ -1,0 +1,81 @@
+/* =============================================
+   GUNTER APP - Config Page Polish
+   ============================================= */
+
+.config-page { position: relative; z-index: 1; }
+
+.env-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 16px;
+}
+.env-card {
+    padding: 24px 20px;
+    border-radius: var(--theme-radius-lg, 16px);
+    cursor: pointer;
+    transition: transform 280ms cubic-bezier(.22,.61,.36,1), border-color 280ms ease, box-shadow 280ms ease;
+    animation: ecIn 500ms cubic-bezier(.22,.61,.36,1) both;
+    position: relative;
+    overflow: hidden;
+}
+.env-card:nth-child(1) { animation-delay: 40ms; }
+.env-card:nth-child(2) { animation-delay: 90ms; }
+.env-card:nth-child(3) { animation-delay: 140ms; }
+.env-card:nth-child(4) { animation-delay: 190ms; }
+@keyframes ecIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.env-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px color-mix(in srgb, var(--accent-primary) 12%, transparent);
+}
+.env-card.selected {
+    border-color: var(--accent-primary) !important;
+    box-shadow: 0 0 0 1px var(--accent-primary), 0 12px 32px color-mix(in srgb, var(--accent-primary) 22%, transparent);
+}
+.env-card__icon {
+    font-size: 36px;
+    margin-bottom: 14px;
+    display: inline-block;
+    transition: transform 400ms cubic-bezier(.22,.61,.36,1);
+}
+.env-card:hover .env-card__icon { transform: scale(1.15) rotate(-4deg); }
+
+.env-card__title {
+    margin: 0 0 6px;
+    font-size: 20px;
+}
+.env-card__description {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin: 0 0 14px;
+}
+.env-card__features {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 6px;
+}
+.env-card__feature {
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding-left: 16px;
+    position: relative;
+}
+.env-card__feature::before {
+    content: '—';
+    position: absolute; left: 0;
+    color: var(--accent-primary);
+}
+
+.env-card--zen [class*="env-card__feature"]::before { content: '·'; font-size: 18px; line-height: 0.8; }
+
+.config-form {
+    margin-top: 28px;
+    padding: 28px;
+    border-radius: var(--theme-radius-lg, 16px);
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}

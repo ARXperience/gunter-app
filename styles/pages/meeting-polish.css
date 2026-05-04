@@ -1,0 +1,66 @@
+/* =============================================
+   GUNTER APP - Meeting Page Polish
+   ============================================= */
+
+.meeting-page { position: relative; z-index: 1; }
+
+.meeting-header {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--bg-deep-navy) 75%, transparent) 0%, transparent 100%);
+}
+.meeting-header__title {
+    font-size: clamp(20px, 2.2vw, 28px);
+    line-height: 1.15;
+}
+
+.meeting-panel {
+    padding: 22px;
+    border-radius: var(--theme-radius-lg, 12px);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    animation: mpIn 500ms cubic-bezier(.22,.61,.36,1) both;
+}
+.meeting-panel:nth-child(1) { animation-delay: 40ms; }
+.meeting-panel:nth-child(2) { animation-delay: 90ms; }
+.meeting-panel:nth-child(3) { animation-delay: 140ms; }
+@keyframes mpIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.meeting-panel__title {
+    font-size: 15px;
+    letter-spacing: var(--theme-uppercase-letter-spacing, 2px);
+    text-transform: uppercase;
+}
+
+.audio-btn--record.recording {
+    animation: recPulse 1.4s ease-in-out infinite;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 60%, transparent);
+}
+@keyframes recPulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 60%, transparent); }
+    50%      { box-shadow: 0 0 0 14px color-mix(in srgb, var(--accent-primary) 0%, transparent); }
+}
+
+.transcription-item {
+    animation: trIn 300ms ease both;
+}
+@keyframes trIn {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+.gunter-message {
+    animation: trIn 260ms ease both;
+}
+
+/* Wave bars idle state */
+.wave-bar {
+    background: linear-gradient(180deg, var(--accent-primary), color-mix(in srgb, var(--accent-primary) 40%, transparent));
+    border-radius: 2px;
+    transition: height 120ms ease;
+}

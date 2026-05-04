@@ -1,0 +1,148 @@
+/* =============================================
+   GUNTER - Responsive Mobile (≤768px)
+   -------------------------------------------------
+   Reglas globales para móvil:
+   - Touch targets ≥ 44×44 (WCAG 2.5.5 AAA)
+   - Inputs con font-size 16px (evita zoom iOS)
+   - Modales scrollables y safe-area
+   - Sin overflow horizontal
+   ============================================= */
+
+/* Sin scroll horizontal accidental */
+html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+
+@media (max-width: 768px) {
+
+    /* ---------- Touch targets ---------- */
+    button,
+    .btn,
+    [role="button"],
+    a.btn,
+    .audio-btn,
+    .modal__close,
+    select,
+    input[type="checkbox"] + label,
+    input[type="radio"] + label {
+        min-height: 44px;
+    }
+
+    .btn,
+    button.btn {
+        padding: 12px 16px;
+    }
+
+    /* Inputs: 16px evita el zoom automático en iOS */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="search"],
+    input[type="tel"],
+    input[type="url"],
+    input[type="number"],
+    textarea,
+    select,
+    .form-input {
+        font-size: 16px !important;
+        min-height: 44px;
+        padding: 10px 12px;
+    }
+
+    textarea {
+        min-height: 88px;
+    }
+
+    /* Iconos dentro de botones no deben encoger el touch area */
+    button svg,
+    .btn svg {
+        pointer-events: none;
+    }
+
+    /* ---------- Modales scrollables + safe area ---------- */
+    .modal-overlay {
+        padding: env(safe-area-inset-top, 12px) 12px env(safe-area-inset-bottom, 12px);
+        align-items: flex-start;
+        overflow-y: auto;
+    }
+
+    .modal {
+        width: 100%;
+        max-width: 100%;
+        max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
+        padding: 20px;
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    /* Si hay header/body/footer dentro del modal, el body crece y scrollea */
+    .modal__header,
+    .modal__footer {
+        flex-shrink: 0;
+    }
+
+    .modal__body {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        padding-right: 4px;
+    }
+
+    /* Modal sin __body explícito: hacer scrollable el modal entero */
+    .modal:not(:has(.modal__body)) {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+
+    /* ---------- Tipografía ajustada ---------- */
+    h1 { font-size: clamp(1.5rem, 5vw, 2rem); }
+    h2 { font-size: clamp(1.25rem, 4.5vw, 1.625rem); }
+    h3 { font-size: clamp(1.125rem, 4vw, 1.375rem); }
+
+    /* Permite que cualquier contenedor con texto largo no rompa el layout */
+    p, li, span, h1, h2, h3, h4 {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    /* ---------- Tablas / listas con scroll horizontal seguro ---------- */
+    table,
+    .table-wrap {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ---------- Imágenes nunca rebasan ---------- */
+    img, video, canvas, svg {
+        max-width: 100%;
+        height: auto;
+    }
+
+    /* ---------- Dashboard / cards padding razonable ---------- */
+    .container,
+    .meeting-content,
+    .dashboard-grid,
+    .gday-shell {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+}
+
+/* Pantallas muy estrechas (<= 380px): apretamos un poco más */
+@media (max-width: 380px) {
+    .btn,
+    button.btn {
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+
+    .modal {
+        padding: 16px;
+    }
+}

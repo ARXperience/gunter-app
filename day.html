@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gunter Día — Tu asistente personal de agenda, tareas y recordatorios">
+    <title>Gunter Día | Asistente</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="styles/design-system.css">
+    <link rel="stylesheet" href="styles/pages/day.css">
+    <link rel="stylesheet" href="styles/pages/premium-intel-panels.css">
+    <link rel="stylesheet" href="styles/responsive-mobile.css">
+    <link rel="stylesheet" href="styles/ui-polish.css">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00d4ff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="assets/gunter/gunter_transparent_default_1769134184933.png">
+</head>
+
+<body>
+    <div class="gday">
+
+        <div class="gday__shell">
+
+            <!-- ========== SIDEBAR ========== -->
+            <aside class="gday__sidebar">
+                <div class="gday__brand">
+                    <div class="gday__brand-mark" id="gday-brand-avatar"></div>
+                    <div>
+                        <div class="gday__brand-sub">Asistente</div>
+                        <div class="gday__brand-name">Gunter</div>
+                    </div>
+                </div>
+
+                <!-- Product switch -->
+                <div class="gday__product-switch">
+                    <a href="day.html" class="is-active">Día</a>
+                    <a href="dashboard.html">Reuniones</a>
+                </div>
+
+                <nav class="gday__nav">
+                    <a href="day.html" class="gday__nav-item is-active">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                        <span>Hoy</span>
+                    </a>
+                    <a href="day.html#tasks" class="gday__nav-item" data-scroll-to="tasks-card">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 11 12 14 22 4"/>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                        </svg>
+                        <span>Tareas</span>
+                    </a>
+                    <a href="day.html#events" class="gday__nav-item" data-scroll-to="events-card">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        <span>Eventos</span>
+                    </a>
+                    <a href="day.html#reminders" class="gday__nav-item" data-scroll-to="reminders-card">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                        <span>Recordatorios</span>
+                    </a>
+                    <a href="day.html#chat" class="gday__nav-item" data-scroll-to="chat-card">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        <span>Chat con Gunter</span>
+                    </a>
+                    <a href="config.html#preferences" class="gday__nav-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/>
+                        </svg>
+                        <span>Configuración</span>
+                    </a>
+                </nav>
+
+                <div class="gday__sidebar-footer">
+                    <div id="gday-user-name">Tu cuenta</div>
+                    <small style="opacity:0.6;">Local · sin servidor</small>
+                </div>
+            </aside>
+
+            <!-- ========== MAIN ========== -->
+            <main class="gday__main">
+
+                <!-- Header -->
+                <header class="gday__header">
+                    <div>
+                        <div class="gday__eyebrow" id="gday-greeting">Buen día</div>
+                        <h1 class="gday__title" id="gday-date">—</h1>
+                        <p class="gday__subtitle" id="gday-subtitle">Esto es lo que tienes por delante.</p>
+                    </div>
+                    <div class="gday__header-stats" id="gday-stats">
+                        <span class="gday__chip"><span>📋</span> <strong id="stat-tasks">0</strong> tareas</span>
+                        <span class="gday__chip"><span>📅</span> <strong id="stat-events">0</strong> eventos</span>
+                        <span class="gday__chip gday__chip--danger" id="stat-overdue-chip" style="display:none;">
+                            <span>⏰</span> <strong id="stat-overdue">0</strong> vencidas
+                        </span>
+                    </div>
+                </header>
+
+
+                <!-- DYNAMIC TABS BAR (aparecen según flags premium) -->
+                <nav class="gday__tabs" id="gday-tabs" role="tablist"></nav>
+
+                <!-- Next up ribbon (siempre visible arriba del tab Hoy) -->
+                <div id="gday-next-ribbon"></div>
+
+                <!-- TAB: HOY (default) -->
+                <section class="gday__tab-panel gday-today" data-tab-panel="today">
+
+                    <!-- Quick-add bar (captura universal) -->
+                    <div class="gday__quickbar" id="gday-quickbar-drop">
+                        <div class="gday__quickbar-label">Captura rápida</div>
+                        <form class="gday__quickbar-form" id="gday-quickbar-form">
+                            <button type="button" id="gday-doc-btn" class="gday__doc-btn"
+                                title="Subir recibo o factura">📎</button>
+                            <input type="file" id="gday-doc-file" accept="image/*,application/pdf" capture="environment" hidden>
+                            <input type="text" id="gday-quickbar-input"
+                                placeholder='"recuérdame llamar a Ana mañana", "agenda reunión viernes 3pm", o arrastra una factura'
+                                autocomplete="off">
+                            <button type="submit">➤ Enviar</button>
+                        </form>
+                        <p class="gday__quickbar-hint">Lenguaje natural en español · Tareas, eventos, recordatorios, facturas</p>
+                    </div>
+
+                    <!-- Document preview card (hidden by default) -->
+                    <div id="gday-doc-preview" class="gday__doc-preview" hidden></div>
+
+                    <!-- Premium intel shortcuts (Sprint G) -->
+                    <div id="gday-today-shortcuts"></div>
+
+                    <!-- Row 1: Tareas + Eventos -->
+                    <div class="gday-today__row">
+                        <div class="gday__card" id="tasks-card">
+                            <div class="gday__card-actions">
+                                <h3><span class="gday__card-icon">📋</span> Tareas de hoy</h3>
+                                <button class="gday__btn" id="gday-show-all-tasks">Ver todas</button>
+                            </div>
+                            <div id="gday-tasks-mount"></div>
+                        </div>
+                        <div class="gday__card" id="events-card">
+                            <div class="gday__card-actions">
+                                <h3><span class="gday__card-icon">📅</span> Eventos de hoy</h3>
+                                <button class="gday__btn" id="gday-show-all-events">Ver todos</button>
+                            </div>
+                            <div id="gday-events-mount"></div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Recordatorios + Chat -->
+                    <div class="gday-today__row">
+                        <div class="gday__card" id="reminders-card">
+                            <div class="gday__card-actions">
+                                <h3><span class="gday__card-icon">⏰</span> Recordatorios activos</h3>
+                                <button class="gday__btn" id="gday-enable-notifications">🔔 Activar</button>
+                            </div>
+                            <div id="gday-reminders-mount">
+                                <p class="gday__empty">No tienes recordatorios activos.</p>
+                            </div>
+                        </div>
+                        <div class="gday__card gday-today__chat" id="chat-card">
+                            <div class="gday__card-actions">
+                                <h3><span class="gday__card-icon">💬</span> Chat con Gunter</h3>
+                                <button class="gday__btn" id="gday-clear-chat" title="Limpiar historial">Limpiar</button>
+                            </div>
+                            <div id="gday-chat-mount"></div>
+                        </div>
+                    </div>
+
+                </section>
+                <!-- /TAB: HOY -->
+
+                <!-- TAB: PLAN DEL DÍA (premium intel - Sprint C) -->
+                <section class="gday__tab-panel" data-tab-panel="plan-day" hidden>
+                    <div id="gday-plan-day"></div>
+                </section>
+
+                <!-- TAB: PLAN SEMANAL (premium intel - Sprint C) -->
+                <section class="gday__tab-panel" data-tab-panel="plan-week" hidden>
+                    <div id="gday-plan-week"></div>
+                </section>
+
+                <!-- TAB: URGENCIA (premium intel - Sprint C) -->
+                <section class="gday__tab-panel" data-tab-panel="urgency" hidden>
+                    <div id="gday-urgency"></div>
+                </section>
+
+                <!-- TAB: PROYECTO 360 (premium intel - Sprint D) -->
+                <section class="gday__tab-panel" data-tab-panel="project-360" hidden>
+                    <div id="gday-project-360"></div>
+                </section>
+
+                <!-- TAB: DECISIONES (premium intel - Sprint D) -->
+                <section class="gday__tab-panel" data-tab-panel="decisions" hidden>
+                    <div id="gday-decisions"></div>
+                </section>
+
+                <!-- TAB: DELEGACIÓN (premium intel - Sprint E) -->
+                <section class="gday__tab-panel" data-tab-panel="delegation" hidden>
+                    <div id="gday-delegation"></div>
+                </section>
+
+                <!-- TAB: ALERTAS WHATSAPP (premium intel - Sprint F) -->
+                <section class="gday__tab-panel" data-tab-panel="alerts-wa" hidden>
+                    <div id="gday-alerts-wa"></div>
+                </section>
+
+                <!-- TAB: PRODUCTIVIDAD (premium) -->
+                <section class="gday__tab-panel" data-tab-panel="productivity" hidden>
+                    <div id="gday-productivity"></div>
+                </section>
+
+                <!-- TAB: MEMORIA (premium) -->
+                <section class="gday__tab-panel" data-tab-panel="memory" hidden>
+                    <div id="gday-meeting-memory"></div>
+                </section>
+
+                <!-- TAB: WHATSAPP (premium) -->
+                <section class="gday__tab-panel" data-tab-panel="whatsapp" hidden>
+                    <div id="gday-whatsapp"></div>
+                </section>
+
+                <!-- TAB: VOZ (premium) -->
+                <section class="gday__tab-panel" data-tab-panel="voice" hidden>
+                    <div id="gday-voice"></div>
+                </section>
+
+                <!-- TAB: WAKE WORD (premium) -->
+                <section class="gday__tab-panel" data-tab-panel="wake" hidden>
+                    <div id="gday-wake"></div>
+                </section>
+
+                <!-- TAB: DOCUMENTOS (premium) -->
+                <section class="gday__tab-panel" data-tab-panel="documents" hidden>
+                    <div id="gday-documents"></div>
+                </section>
+
+                <!-- v2 — TAB: COMPROMISOS (F2) -->
+                <section class="gday__tab-panel" data-tab-panel="commitments" hidden>
+                    <div id="gday-commitments"></div>
+                </section>
+
+                <!-- v2 — TAB: PULSO PROACTIVO (F3) -->
+                <section class="gday__tab-panel" data-tab-panel="proactive" hidden>
+                    <div id="gday-proactive"></div>
+                </section>
+
+                <!-- v2 — TAB: FORECAST (F6) -->
+                <section class="gday__tab-panel" data-tab-panel="forecast" hidden>
+                    <div id="gday-forecast"></div>
+                </section>
+
+            </main>
+        </div>
+
+    </div>
+
+    <!-- ========== SCRIPTS ========== -->
+    <script src="js/config.js"></script>
+    <script src="js/premium-features-service.js"></script>
+
+    <!-- Avatar (neutral, no theme) -->
+    <script src="js/gunter-avatar.js"></script>
+    <script src="js/gunter-reactions.js"></script>
+
+    <!-- Core -->
+    <script src="js/core/models.js"></script>
+    <script src="js/core/trace-logger.js"></script>
+    <script src="js/core/context-provider.js"></script>
+    <script src="js/core/date-service.js"></script>
+    <script src="js/services/nlp-llm-service.js"></script>
+    <script src="js/services/tasks-service.js"></script>
+    <!-- Google Calendar services must load before events-service so the push hook finds them -->
+    <script src="js/services/google-auth-service.js"></script>
+    <script src="js/services/calendar-service.js"></script>
+    <script src="js/services/events-service.js"></script>
+    <script src="js/services/status-bus.js"></script>
+    <script src="js/services/connectivity-monitor.js"></script>
+    <script src="js/services/notifications-service.js"></script>
+    <script src="js/services/transcript-store.js"></script>
+    <script src="js/services/error-mapper.js"></script>
+    <script src="js/services/document-service.js"></script>
+    <script src="js/services/whatsapp-service.js"></script>
+
+    <!-- Memoria de proyectos compartida con WhatsApp (Fase 11) -->
+    <script src="js/services/project-knowledge-service.js"></script>
+    <script src="js/services/knowledge-sync-service.js"></script>
+
+    <!-- Premium Intelligence (Sprint B) -->
+    <script src="js/services/premium-intelligence-service.js"></script>
+    <script src="js/services/voice-service.js"></script>
+    <script src="js/services/wake-word-service.js"></script>
+
+    <!-- Adapters (Fase 7) — capa de indirección para futuro backend -->
+    <script src="js/adapters/storage-adapter.js"></script>
+    <script src="js/adapters/auth-adapter.js"></script>
+    <script src="js/adapters/notification-adapter.js"></script>
+    <script src="js/adapters/calendar-adapter.js"></script>
+    <script src="js/adapters/voice-adapter.js"></script>
+    <script src="js/adapters/index.js"></script>
+
+    <script src="js/core/time-parser.js"></script>
+    <script src="js/core/intent-engine.js"></script>
+    <script src="js/core/entity-extractor.js"></script>
+    <script src="js/core/decision-engine.js"></script>
+    <script src="js/core/action-engine.js"></script>
+    <script src="js/core/pipeline.js"></script>
+
+    <!-- Widgets existentes (el today-widget se estiliza con overrides) -->
+    <script src="js/controllers/today-widget.js"></script>
+    <script src="js/controllers/assistant-controller.js"></script>
+    <script src="js/controllers/productivity-panel.js"></script>
+
+    <!-- Premium Intelligence panels (Sprint C-F) -->
+    <script src="js/controllers/daily-planner-panel.js"></script>
+    <script src="js/controllers/weekly-planner-panel.js"></script>
+    <script src="js/controllers/urgency-ranking-panel.js"></script>
+    <script src="js/controllers/project-360-panel.js"></script>
+    <script src="js/controllers/decisions-panel.js"></script>
+    <script src="js/controllers/delegation-panel.js"></script>
+    <script src="js/controllers/smart-alerts-panel.js"></script>
+    <script src="js/controllers/today-shortcuts.js"></script>
+
+    <!-- Memoria semántica (Fase 4) -->
+    <script src="js/services/embedding-service.js"></script>
+    <script src="js/services/semantic-index.js"></script>
+
+    <!-- v2 — Memoria Conversacional Cross-Sesión (F1) -->
+    <script src="js/services/conversation-memory-service.js"></script>
+
+    <!-- v2 — Detector de Compromisos Cruzados (F2) -->
+    <script src="js/services/commitments-service.js"></script>
+    <script src="js/controllers/commitments-panel.js"></script>
+
+    <!-- v2 — Pulso Proactivo (F3) -->
+    <script src="js/services/proactive-service.js"></script>
+    <script src="js/controllers/proactive-panel.js"></script>
+
+    <!-- v2 — Clima de Reunión (F4) — solo se usa en meeting.html, pero exponemos servicio por si day.html lo consulta -->
+    <script src="js/services/meeting-climate-service.js"></script>
+
+    <!-- v2 — Modo Espejo (F5) -->
+    <script src="js/services/style-mirror-service.js"></script>
+
+    <!-- v2 — Forecast Probabilístico (F6) -->
+    <script src="js/services/forecast-service.js"></script>
+    <script src="js/controllers/forecast-panel.js"></script>
+    <script src="js/controllers/meeting-memory.js"></script>
+    <script src="js/controllers/day-whatsapp-tab.js"></script>
+    <script src="js/controllers/day-secondary-tabs.js"></script>
+
+    <!-- Tab router (debe ir antes del day-controller) -->
+    <script src="js/controllers/day-tabs.js"></script>
+
+    <!-- Gunter Día controller -->
+    <script src="js/controllers/day-controller.js"></script>
+
+    <!-- PWA registration (Fase 8) -->
+    <script src="js/services/pwa-register.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,265 @@
+/* =============================================
+   GUNTER APP - Presentation Mode Styles
+   Fullscreen presentation styling
+   ============================================= */
+
+/* ===== PRESENTATION MODE LAYOUT ===== */
+
+body.presentation-mode {
+    overflow: hidden;
+}
+
+body.presentation-mode * {
+    cursor: none !important;
+}
+
+body.presentation-mode .results-header,
+body.presentation-mode .neural-mesh-bg,
+body.presentation-mode #particle-canvas {
+    display: none !important;
+}
+
+body.presentation-mode .results-page {
+    padding: 0;
+    max-width: 100%;
+}
+
+/* ===== PRESENTATION SECTIONS ===== */
+
+body.presentation-mode section,
+body.presentation-mode .analysis-section {
+    display: none;
+    min-height: 100vh;
+    padding: 4rem;
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+body.presentation-mode section.presentation-active,
+body.presentation-mode .analysis-section.presentation-active {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* ===== PRESENTATION TYPOGRAPHY ===== */
+
+body.presentation-mode h1 {
+    font-size: clamp(3rem, 6vw, 5rem);
+    margin-bottom: 2rem;
+}
+
+body.presentation-mode h2 {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    margin-bottom: 1.5rem;
+}
+
+body.presentation-mode h3 {
+    font-size: clamp(2rem, 4vw, 3rem);
+    margin-bottom: 1rem;
+}
+
+body.presentation-mode p,
+body.presentation-mode li {
+    font-size: clamp(1.25rem, 2vw, 1.75rem);
+    line-height: 1.8;
+}
+
+/* ===== PRESENTATION CONTROLS ===== */
+
+.presentation-controls {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1rem 2rem;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+    z-index: 10000;
+    cursor: auto !important;
+}
+
+body.presentation-mode .presentation-controls {
+    display: flex;
+}
+
+.presentation-btn {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    color: #fff;
+    cursor: pointer !important;
+    transition: all 0.3s ease;
+}
+
+.presentation-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: var(--accent-primary);
+    transform: scale(1.1);
+}
+
+.presentation-progress {
+    font-size: 1rem;
+    color: #fff;
+    font-weight: 500;
+    min-width: 80px;
+    text-align: center;
+}
+
+/* ===== PRESENTATION SPOTLIGHT ===== */
+
+body.presentation-mode::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+            transparent 0%,
+            transparent 10%,
+            rgba(0, 0, 0, 0.3) 20%);
+    pointer-events: none;
+    z-index: 9999;
+}
+
+/* ===== PRESENTATION LASER POINTER ===== */
+
+.presentation-laser-pointer {
+    position: fixed;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 0, 0, 0.8), transparent);
+    pointer-events: none;
+    z-index: 10001;
+    display: none;
+}
+
+body.presentation-mode .presentation-laser-pointer {
+    display: block;
+}
+
+/* ===== PRESENTATION CHARTS ===== */
+
+body.presentation-mode canvas {
+    max-height: 60vh;
+}
+
+body.presentation-mode .chart-container {
+    margin: 2rem 0;
+}
+
+/* ===== PRESENTATION CARDS ===== */
+
+body.presentation-mode .card,
+body.presentation-mode .widget {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 2rem;
+    margin: 1rem 0;
+}
+
+/* ===== PRESENTATION LISTS ===== */
+
+body.presentation-mode ul,
+body.presentation-mode ol {
+    margin-left: 2rem;
+}
+
+body.presentation-mode li {
+    margin-bottom: 1rem;
+}
+
+/* ===== PRESENTATION TABLES ===== */
+
+body.presentation-mode table {
+    font-size: 1.25rem;
+    width: 100%;
+    margin: 2rem 0;
+}
+
+body.presentation-mode th,
+body.presentation-mode td {
+    padding: 1rem;
+}
+
+/* ===== PRESENTATION PROGRESS BAR ===== */
+
+.presentation-progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    transition: width 0.5s ease;
+    z-index: 10002;
+}
+
+body.presentation-mode .presentation-progress-bar {
+    display: block;
+}
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 768px) {
+
+    body.presentation-mode section,
+    body.presentation-mode .analysis-section {
+        padding: 2rem;
+    }
+
+    .presentation-controls {
+        bottom: 1rem;
+        padding: 0.75rem 1.5rem;
+        gap: 1rem;
+    }
+
+    .presentation-btn {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+/* ===== ACCESSIBILITY ===== */
+
+@media (prefers-reduced-motion: reduce) {
+
+    body.presentation-mode section,
+    body.presentation-mode .analysis-section {
+        transition: none;
+    }
+}
+
+/* ===== PRINT STYLES ===== */
+
+@media print {
+
+    .presentation-controls,
+    .presentation-laser-pointer,
+    .presentation-progress-bar {
+        display: none !important;
+    }
+
+    body.presentation-mode section,
+    body.presentation-mode .analysis-section {
+        display: block !important;
+        page-break-after: always;
+        min-height: auto;
+    }
+}

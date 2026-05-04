@@ -1,0 +1,110 @@
+/* =============================================
+   GUNTER APP - THEME: EMPRESARIAL
+   Corporate Sleek — Steel Blue + Precision
+   Carácter: sharp, data-dense, grid-first, cold.
+   ============================================= */
+
+[data-theme="empresarial"] {
+    --accent-primary: #00d4ff;
+    --accent-secondary: #4a9eff;
+    --accent-tertiary: #0066cc;
+
+    --bg-deep-navy: #060a14;
+    --bg-obsidian: #0a1020;
+    --bg-card: rgba(11, 17, 30, 0.72);
+    --bg-card-hover: rgba(18, 27, 45, 0.85);
+
+    --glass-bg: rgba(0, 80, 140, 0.04);
+    --glass-border: rgba(0, 212, 255, 0.16);
+
+    --glow-primary: 0 0 24px rgba(0, 212, 255, 0.35), 0 0 60px rgba(0, 212, 255, 0.14);
+
+    --font-primary: 'Inter', -apple-system, sans-serif;
+    --font-display: 'Outfit', 'Inter', sans-serif;
+
+    --theme-radius: 4px;
+    --theme-radius-lg: 8px;
+    --theme-border-width: 1px;
+    --theme-letter-spacing: -0.005em;
+    --theme-uppercase-letter-spacing: 2.5px;
+}
+
+[data-theme="empresarial"] body { font-family: var(--font-primary); letter-spacing: var(--theme-letter-spacing); }
+
+[data-theme="empresarial"] h1,
+[data-theme="empresarial"] h2,
+[data-theme="empresarial"] h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+[data-theme="empresarial"] .btn--primary {
+    background: linear-gradient(135deg, #00d4ff, #4a9eff);
+    color: #02121e;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    border-radius: var(--theme-radius);
+    box-shadow: 0 4px 16px rgba(0, 212, 255, 0.25);
+}
+[data-theme="empresarial"] .btn--primary:hover {
+    box-shadow: 0 6px 24px rgba(0, 212, 255, 0.45);
+    transform: translateY(-1px);
+}
+
+[data-theme="empresarial"] .status-badge--info,
+[data-theme="empresarial"] .status-badge--success {
+    background: rgba(0, 212, 255, 0.08);
+    color: #00d4ff;
+    border-color: rgba(0, 212, 255, 0.32);
+    text-transform: uppercase;
+    letter-spacing: var(--theme-uppercase-letter-spacing);
+    font-weight: 600;
+    font-size: 11px;
+}
+
+[data-theme="empresarial"] .gunter-avatar-img { filter: drop-shadow(0 0 30px rgba(0, 212, 255, 0.5)); }
+
+[data-theme="empresarial"] .glass-card,
+[data-theme="empresarial"] .project-card,
+[data-theme="empresarial"] .result-section {
+    border-color: rgba(0, 212, 255, 0.10);
+    border-radius: var(--theme-radius-lg);
+    background: linear-gradient(180deg, rgba(11, 17, 30, 0.82) 0%, rgba(7, 12, 22, 0.86) 100%);
+    position: relative;
+}
+[data-theme="empresarial"] .result-section::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(0, 212, 255, 0.6) 50%, transparent 100%);
+}
+[data-theme="empresarial"] .glass-card:hover,
+[data-theme="empresarial"] .project-card:hover {
+    border-color: rgba(0, 212, 255, 0.32);
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.12);
+}
+
+[data-theme="empresarial"] .text-gradient {
+    background: linear-gradient(135deg, #00d4ff 0%, #4a9eff 60%, #0066cc 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+[data-theme="empresarial"] .sidebar { border-right-color: rgba(0, 212, 255, 0.08); }
+[data-theme="empresarial"] .sidebar__nav-item.active {
+    background: rgba(0, 212, 255, 0.12);
+    color: #00d4ff;
+    border-left: 2px solid #00d4ff;
+    border-radius: 0 var(--theme-radius) var(--theme-radius) 0;
+}
+
+/* Dense, data-table feel for bullets / lists */
+[data-theme="empresarial"] .analysis-result-card h3 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: var(--theme-uppercase-letter-spacing);
+    color: #94a3b8;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.15);
+    padding-bottom: 8px;
+}

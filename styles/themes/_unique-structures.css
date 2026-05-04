@@ -1,0 +1,228 @@
+/* =============================================
+   GUNTER APP - Unique Theme Structures
+   -------------------------------------------------
+   Cada modo cambia ESTRUCTURA, no solo color.
+   Diferencias de layout, tipografía y decoración
+   que se perciben inmediatamente al cambiar de tema.
+   ============================================= */
+
+
+/* ===== EMPRESARIAL: DATA-GRID, TABULAR, TICKER-LIKE ===== */
+
+[data-theme="empresarial"] .result-section,
+[data-theme="empresarial"] .meeting-panel,
+[data-theme="empresarial"] .env-card {
+    border-left: 3px solid var(--accent-primary);
+    border-radius: 0 10px 10px 0;
+}
+[data-theme="empresarial"] .result-section__title {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    font-size: 13px;
+    color: var(--accent-primary);
+}
+[data-theme="empresarial"] .result-section__title::before {
+    content: '◆ ';
+    color: var(--accent-primary);
+    font-size: 10px;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+[data-theme="empresarial"] code,
+[data-theme="empresarial"] .kpi-number {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-variant-numeric: tabular-nums;
+}
+[data-theme="empresarial"] .analysis-card {
+    border-left: 2px solid transparent;
+    transition: border-left-color 250ms ease, transform 200ms ease, background 200ms ease;
+}
+[data-theme="empresarial"] .analysis-card:hover {
+    border-left-color: var(--accent-primary);
+    transform: translateX(4px);
+}
+
+
+/* ===== ARTISTICO: ASYMMETRIC, ROTATED, EDITORIAL ===== */
+
+[data-theme="artistico"] .result-section,
+[data-theme="artistico"] .meeting-panel {
+    border-radius: 30px 4px 30px 4px;
+    padding: 32px;
+}
+[data-theme="artistico"] .result-section:nth-child(even),
+[data-theme="artistico"] .meeting-panel:nth-child(even) {
+    border-radius: 4px 30px 4px 30px;
+    transform: translateX(8px);
+}
+[data-theme="artistico"] .result-section__title {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+    position: relative;
+    display: inline-block;
+}
+[data-theme="artistico"] .result-section__title::after {
+    content: '';
+    position: absolute; left: 0; bottom: -6px;
+    width: 44px; height: 3px;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 3px;
+    transform: skewX(-20deg);
+}
+[data-theme="artistico"] .env-card {
+    border-radius: 30px 4px 30px 4px;
+}
+[data-theme="artistico"] .analysis-card {
+    border-radius: 18px;
+    transition: transform 300ms cubic-bezier(.22,.61,.36,1), box-shadow 300ms ease;
+}
+[data-theme="artistico"] .analysis-card:hover {
+    transform: translateY(-4px) rotate(-0.5deg);
+    box-shadow: 0 20px 40px color-mix(in srgb, var(--accent-primary) 20%, transparent);
+}
+
+
+/* ===== PODCAST: VINYL, CIRCULAR, ANALOG ===== */
+
+[data-theme="podcast"] .result-section,
+[data-theme="podcast"] .meeting-panel {
+    border-radius: 20px;
+    padding: 26px;
+    position: relative;
+}
+[data-theme="podcast"] .result-section::after {
+    content: '';
+    position: absolute; top: 18px; right: 20px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%, var(--accent-primary), color-mix(in srgb, var(--accent-primary) 30%, #000));
+    box-shadow: 0 0 14px color-mix(in srgb, var(--accent-primary) 50%, transparent);
+}
+[data-theme="podcast"] .result-section__title {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+}
+[data-theme="podcast"] .env-card { border-radius: 22px; }
+[data-theme="podcast"] .env-card__icon {
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent-primary) 20%, transparent) 0%, transparent 70%);
+    padding: 12px;
+    border-radius: 50%;
+}
+[data-theme="podcast"] .analysis-card {
+    border-radius: 18px;
+    border: 1px solid color-mix(in srgb, var(--accent-primary) 15%, transparent);
+}
+[data-theme="podcast"] .btn {
+    border-radius: 999px;
+}
+[data-theme="podcast"] .transcription-item {
+    border-radius: 16px;
+    border-left: 3px solid var(--accent-primary);
+}
+
+
+/* ===== ZEN: SPACIOUS, SERIF, MINIMAL, ENSO ===== */
+
+[data-theme="zen"] .result-section,
+[data-theme="zen"] .meeting-panel {
+    padding: 48px 40px;
+    border: none;
+    border-top: 1px solid color-mix(in srgb, var(--accent-primary) 25%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--accent-primary) 15%, transparent);
+    border-radius: 0;
+    background: color-mix(in srgb, var(--bg-deep-navy) 92%, transparent) !important;
+}
+[data-theme="zen"] .result-section::before,
+[data-theme="zen"] .result-section::after {
+    display: none;
+}
+[data-theme="zen"] .result-section__header {
+    text-align: center;
+    border-bottom: none;
+    margin-bottom: 32px;
+}
+[data-theme="zen"] .result-section__title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 300;
+    font-size: 36px;
+    font-style: italic;
+    letter-spacing: -0.02em;
+    justify-content: center;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+}
+[data-theme="zen"] .result-section__title::after {
+    content: '';
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--accent-primary);
+    border-radius: 50%;
+    border-right-color: transparent;
+    transform: rotate(-30deg);
+    opacity: 0.5;
+}
+[data-theme="zen"] .result-section__title-icon {
+    font-size: 18px;
+    opacity: 0.55;
+}
+[data-theme="zen"] .env-card {
+    border-radius: 2px;
+    border: 1px solid color-mix(in srgb, var(--accent-primary) 18%, transparent);
+    padding: 32px 24px;
+    text-align: center;
+}
+[data-theme="zen"] .env-card.selected {
+    border-color: var(--accent-primary) !important;
+    box-shadow: none !important;
+    background: color-mix(in srgb, var(--accent-primary) 5%, var(--bg-deep-navy)) !important;
+}
+[data-theme="zen"] .env-card__icon {
+    font-size: 42px;
+    opacity: 0.75;
+    margin-bottom: 20px;
+}
+[data-theme="zen"] .analysis-card {
+    border: 1px solid color-mix(in srgb, var(--accent-primary) 10%, transparent);
+    border-radius: 2px;
+    padding: 28px 24px !important;
+    transition: background 400ms ease, border-color 400ms ease;
+}
+[data-theme="zen"] .analysis-card:hover {
+    background: color-mix(in srgb, var(--accent-primary) 4%, var(--bg-deep-navy));
+    border-color: var(--accent-primary);
+    transform: none !important;
+}
+[data-theme="zen"] .btn {
+    border-radius: 2px;
+}
+[data-theme="zen"] .transcription-item {
+    border: none;
+    border-left: 1px solid color-mix(in srgb, var(--accent-primary) 40%, transparent);
+    border-radius: 0;
+    padding-left: 24px;
+}
+
+
+/* ===== URBAN-CLEAN GLOBAL REFINEMENTS ===== */
+
+[data-theme] {
+    /* Subtle inner highlight on every card — catches the eye without noise */
+    --card-inner-highlight: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset;
+}
+[data-theme] .result-section,
+[data-theme] .meeting-panel,
+[data-theme] .env-card,
+[data-theme] .analysis-card {
+    box-shadow:
+        var(--card-inner-highlight),
+        0 24px 60px -28px rgba(0,0,0,0.55);
+}

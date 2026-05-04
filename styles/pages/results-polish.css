@@ -1,0 +1,116 @@
+/* =============================================
+   GUNTER APP - Results Page Polish
+   -------------------------------------------------
+   Refinamientos editoriales sobre results.html:
+   jerarquía, densidad, micro-animaciones.
+   ============================================= */
+
+/* Guarantee content sits above the interactive canvas background */
+.results-page,
+.meeting-page,
+.config-page,
+.dashboard-page {
+    position: relative;
+    z-index: 1;
+}
+
+/* Hero title: breathing room + better rhythm */
+.results-header__title {
+    font-size: clamp(28px, 3vw, 42px);
+    line-height: 1.1;
+    margin: 10px 0 6px;
+}
+
+.results-header__meta {
+    font-size: 13px;
+    color: var(--text-muted);
+    letter-spacing: var(--theme-uppercase-letter-spacing, 2px);
+    text-transform: uppercase;
+}
+
+/* Section spacing & entrance animation */
+.result-section {
+    padding: 28px;
+    margin-bottom: 24px;
+    animation: gsSectionIn 600ms cubic-bezier(.22,.61,.36,1) both;
+}
+@keyframes gsSectionIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.result-section:nth-child(2) { animation-delay: 40ms; }
+.result-section:nth-child(3) { animation-delay: 80ms; }
+.result-section:nth-child(4) { animation-delay: 120ms; }
+.result-section:nth-child(5) { animation-delay: 160ms; }
+
+.result-section__header {
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--glass-border);
+}
+.result-section__title {
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+}
+.result-section__title-icon {
+    font-size: 26px;
+    opacity: 0.85;
+}
+
+/* Analysis cards grid */
+.analyses-grid .analysis-card {
+    transition: transform 250ms ease, border-color 250ms ease, background 250ms ease;
+}
+.analyses-grid .analysis-card:hover {
+    transform: translateY(-3px);
+}
+
+/* Completed analysis stack entrance */
+.analysis-result-card {
+    animation: gsCardIn 500ms cubic-bezier(.22,.61,.36,1) both;
+}
+@keyframes gsCardIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.985); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Transcription viewer: editorial look */
+.transcription-viewer {
+    padding: 20px 24px;
+    line-height: 1.7;
+    font-size: 15px;
+    max-height: 360px;
+    overflow-y: auto;
+}
+.transcription-text { margin: 0; color: var(--text-secondary); }
+
+/* Buttons general polish */
+.btn {
+    transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+
+/* Gunter insights block breathing */
+.gunter-insights {
+    padding: 24px;
+    gap: 20px;
+}
+.gunter-insights__title { margin-top: 0; }
+
+/* Smooth scroll on jump-to cards */
+html { scroll-behavior: smooth; }
+
+/* Custom scrollbars per theme */
+[data-theme] ::-webkit-scrollbar { width: 8px; height: 8px; }
+[data-theme] ::-webkit-scrollbar-track { background: transparent; }
+[data-theme] ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--accent-primary) 25%, transparent);
+    border-radius: 999px;
+}
+[data-theme] ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--accent-primary) 55%, transparent);
+}

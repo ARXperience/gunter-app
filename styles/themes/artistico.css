@@ -1,0 +1,107 @@
+/* =============================================
+   GUNTER APP - THEME: ARTISTICO
+   Digital Avant-garde — Magenta + Violet Ink
+   Carácter: expresivo, asimétrico, gradient-rich.
+   ============================================= */
+
+[data-theme="artistico"] {
+    --accent-primary: #ff006e;
+    --accent-secondary: #8b5cf6;
+    --accent-tertiary: #ec4899;
+
+    --bg-deep-navy: #0e0716;
+    --bg-obsidian: #160c24;
+    --bg-card: rgba(22, 12, 36, 0.75);
+    --bg-card-hover: rgba(34, 18, 56, 0.85);
+
+    --glass-bg: rgba(255, 0, 110, 0.04);
+    --glass-border: rgba(255, 0, 110, 0.18);
+
+    --glow-primary: 0 0 30px rgba(255, 0, 110, 0.35), 0 0 60px rgba(139, 92, 246, 0.25);
+
+    --font-primary: 'Inter', sans-serif;
+    --font-display: 'Playfair Display', serif;
+
+    --theme-radius: 18px;
+    --theme-radius-lg: 24px;
+    --theme-border-width: 1px;
+    --theme-letter-spacing: 0;
+    --theme-uppercase-letter-spacing: 4px;
+}
+
+[data-theme="artistico"] body { font-family: var(--font-primary); }
+
+[data-theme="artistico"] h1,
+[data-theme="artistico"] h2,
+[data-theme="artistico"] h3,
+[data-theme="artistico"] .result-section__title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-style: italic;
+    letter-spacing: -0.015em;
+}
+
+[data-theme="artistico"] .btn--primary {
+    background: linear-gradient(135deg, #ff006e 0%, #8b5cf6 100%);
+    color: #fef2f2;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 12px 24px;
+    box-shadow: 0 8px 24px rgba(255, 0, 110, 0.3);
+}
+[data-theme="artistico"] .btn--primary:hover {
+    box-shadow: 0 12px 36px rgba(255, 0, 110, 0.5);
+    transform: translateY(-2px) scale(1.02);
+}
+
+[data-theme="artistico"] .status-badge--info,
+[data-theme="artistico"] .status-badge--success {
+    background: linear-gradient(135deg, rgba(255, 0, 110, 0.12), rgba(139, 92, 246, 0.12));
+    color: #fbcfe8;
+    border: 1px solid rgba(255, 0, 110, 0.35);
+    border-radius: 999px;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 12px;
+}
+
+[data-theme="artistico"] .gunter-avatar-img { filter: drop-shadow(0 0 40px rgba(255, 0, 110, 0.6)); }
+
+[data-theme="artistico"] .glass-card,
+[data-theme="artistico"] .project-card,
+[data-theme="artistico"] .result-section {
+    border-color: rgba(255, 0, 110, 0.12);
+    border-radius: var(--theme-radius-lg);
+    background: linear-gradient(150deg, rgba(22, 12, 36, 0.82) 0%, rgba(14, 7, 22, 0.85) 100%);
+    position: relative;
+    overflow: hidden;
+}
+[data-theme="artistico"] .glass-card:hover,
+[data-theme="artistico"] .project-card:hover {
+    border-color: rgba(255, 0, 110, 0.4);
+    box-shadow: 0 0 40px rgba(255, 0, 110, 0.15), 0 0 80px rgba(139, 92, 246, 0.08);
+    transform: translateY(-2px);
+}
+
+[data-theme="artistico"] .text-gradient {
+    background: linear-gradient(120deg, #ff006e 0%, #ec4899 40%, #8b5cf6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+[data-theme="artistico"] .sidebar__nav-item.active {
+    background: linear-gradient(90deg, rgba(255, 0, 110, 0.18), transparent);
+    color: #fbcfe8;
+    border-radius: var(--theme-radius);
+}
+
+[data-theme="artistico"] .analysis-result-card h3 {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 20px;
+    color: #fbcfe8;
+    border-bottom: 1px dashed rgba(255, 0, 110, 0.3);
+    padding-bottom: 10px;
+}

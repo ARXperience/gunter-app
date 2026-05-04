@@ -1,0 +1,240 @@
+/* =============================================
+   GUNTER APP - Config Settings Panel
+   Tabs + cards profesionales
+   ============================================= */
+
+.config-tabs {
+    display: flex;
+    gap: 6px;
+    margin: 24px 0 32px;
+    padding: 6px;
+    background: color-mix(in srgb, var(--bg-deep-navy) 78%, transparent);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    overflow-x: auto;
+}
+.config-tab {
+    flex: 1;
+    min-width: 160px;
+    padding: 12px 18px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: background 200ms ease, color 200ms ease, transform 150ms ease;
+    white-space: nowrap;
+}
+.config-tab:hover {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+.config-tab.is-active {
+    background: var(--accent-primary);
+    color: var(--bg-deep-navy);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--accent-primary) 40%, transparent);
+}
+
+.config-tab-panel[hidden] { display: none !important; }
+
+.config-tab-panel {
+    animation: cfgTabIn 350ms cubic-bezier(.22,.61,.36,1) both;
+}
+@keyframes cfgTabIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Settings cards */
+.settings-card {
+    background: color-mix(in srgb, var(--bg-deep-navy) 85%, transparent);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--theme-radius-lg, 12px);
+    padding: 24px 28px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+.settings-card h3 {
+    margin: 0 0 6px;
+    font-size: 17px;
+    color: var(--text-primary);
+}
+.settings-card__hint {
+    margin: 0 0 18px;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+.settings-card--danger {
+    border-color: rgba(239, 68, 68, 0.3);
+    background: linear-gradient(180deg, rgba(239, 68, 68, 0.05), transparent 80%);
+}
+.settings-card--danger h3 { color: #fca5a5; }
+
+/* Settings rows (label + control) */
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-top: 1px solid color-mix(in srgb, var(--text-muted) 20%, transparent);
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.settings-row:first-of-type { border-top: none; padding-top: 0; }
+.settings-row label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+.settings-row select,
+.settings-row input:not([type="checkbox"]) {
+    max-width: 240px;
+}
+.settings-row--toggle input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 44px; height: 24px;
+    background: color-mix(in srgb, var(--text-muted) 35%, transparent);
+    border-radius: 999px;
+    position: relative;
+    cursor: pointer;
+    transition: background 200ms ease;
+}
+.settings-row--toggle input[type="checkbox"]::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 20px; height: 20px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 200ms cubic-bezier(.22,.61,.36,1);
+}
+.settings-row--toggle input[type="checkbox"]:checked { background: var(--accent-primary); }
+.settings-row--toggle input[type="checkbox"]:checked::after { transform: translateX(20px); }
+
+/* Theme chooser */
+.theme-chooser { display: flex; gap: 8px; flex-wrap: wrap; }
+.theme-chooser button {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 200ms ease;
+}
+.theme-chooser button:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-primary);
+}
+.theme-chooser button.is-active {
+    background: var(--accent-primary);
+    color: var(--bg-deep-navy);
+    border-color: var(--accent-primary);
+    font-weight: 600;
+}
+
+/* Trash */
+.trash-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.trash-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: color-mix(in srgb, var(--bg-obsidian) 70%, transparent);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.trash-item__info { flex: 1; min-width: 200px; }
+.trash-item__name {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 4px;
+    font-size: 15px;
+}
+.trash-item__meta {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.trash-item__actions { display: flex; gap: 6px; }
+.trash-item__actions button {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.trash-item__actions .restore { border-color: var(--accent-primary); color: var(--accent-primary); }
+.trash-item__actions .purge { border-color: rgba(239, 68, 68, 0.45); color: #fca5a5; }
+
+.settings-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    padding: 18px;
+    border: 1px dashed var(--glass-border);
+    border-radius: 10px;
+    margin: 0;
+}
+
+/* KV lists for API status */
+.settings-kv { list-style: none; padding: 0; margin: 0; }
+.settings-kv li {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-top: 1px solid color-mix(in srgb, var(--text-muted) 20%, transparent);
+    font-size: 13px;
+}
+.settings-kv li:first-child { border-top: none; }
+.settings-kv .ok { color: #4ade80; font-weight: 600; }
+.settings-kv .missing { color: #f59e0b; font-weight: 600; }
+
+/* Header that mutates per tab */
+.config-header__title.is-muted { opacity: 0.85; }
+
+/* ============== Fase F.F3 — Datos y Privacidad: títulos de sección + intro ============== */
+.data-section-intro {
+    background: color-mix(in srgb, var(--accent-primary, #00d4ff) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent-primary, #00d4ff) 22%, rgba(255,255,255,0.06));
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+}
+.data-section-intro p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-secondary, #94a3b8); }
+.data-section-intro p strong { color: var(--text-primary, #fff); }
+
+.data-section-title {
+    margin: 24px 0 10px;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted, #64748b);
+    font-weight: 700;
+    border-bottom: 1px dashed rgba(255,255,255,0.08);
+    padding-bottom: 8px;
+}
+.data-section-title--danger {
+    color: #fbbf24;
+    border-bottom-color: rgba(251,191,36,0.3);
+    margin-top: 36px;        /* separación visual del peligro */
+}

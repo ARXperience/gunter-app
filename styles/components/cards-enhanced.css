@@ -1,0 +1,430 @@
+/* =============================================
+   GUNTER APP - Enhanced Cards & Containers
+   Interactive cards with flip, expand, drag
+   ============================================= */
+
+/* ===== BASE CARD STYLES ===== */
+
+.card-enhanced {
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+/* ===== CARD VARIANTS ===== */
+
+/* Elevated Card */
+.card-elevated {
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.4),
+        0 1px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-elevated:hover {
+    transform: translateY(-8px);
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.5),
+        0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Outlined Card */
+.card-outlined {
+    background: transparent;
+    border: 2px solid var(--accent-primary);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.card-outlined::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.card-outlined:hover::before {
+    opacity: 0.1;
+}
+
+/* Filled Card */
+.card-filled {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(74, 158, 255, 0.1));
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.card-filled:hover {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(74, 158, 255, 0.15));
+    border-color: rgba(0, 212, 255, 0.5);
+}
+
+/* Glass Card */
+.card-glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* ===== INTERACTIVE CARDS ===== */
+
+/* Flip Card */
+.card-flip {
+    perspective: 1000px;
+    height: 300px;
+}
+
+.card-flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
+}
+
+.card-flip:hover .card-flip-inner,
+.card-flip.flipped .card-flip-inner {
+    transform: rotateY(180deg);
+}
+
+.card-flip-front,
+.card-flip-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-flip-back {
+    transform: rotateY(180deg);
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(74, 158, 255, 0.1));
+}
+
+/* Expandable Card */
+.card-expandable {
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.card-expandable-header {
+    padding: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.3s ease;
+}
+
+.card-expandable-header:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.card-expandable-icon {
+    transition: transform 0.3s ease;
+}
+
+.card-expandable.expanded .card-expandable-icon {
+    transform: rotate(180deg);
+}
+
+.card-expandable-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.card-expandable.expanded .card-expandable-content {
+    max-height: 1000px;
+    padding: 0 1.5rem 1.5rem;
+}
+
+/* Draggable Card */
+.card-draggable {
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    cursor: grab;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.card-draggable:active {
+    cursor: grabbing;
+    transform: scale(1.05);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.card-draggable.dragging {
+    opacity: 0.7;
+}
+
+/* ===== CARD COMPONENTS ===== */
+
+/* Card Header */
+.card-header {
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.card-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+}
+
+/* Card Body */
+.card-body {
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+/* Card Footer */
+.card-footer {
+    padding-top: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* ===== CARD ACTIONS ===== */
+
+.card-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.card-action-btn {
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.card-action-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--accent-primary);
+}
+
+/* ===== CARD BADGES ===== */
+
+.card-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    padding: 0.25rem 0.75rem;
+    background: var(--accent-primary);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ===== CARD GRID ===== */
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .card-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ===== CARD HOVER EFFECTS ===== */
+
+/* Glow Border on Hover */
+.card-hover-glow {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.card-hover-glow::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+    filter: blur(8px);
+}
+
+.card-hover-glow:hover::before {
+    opacity: 0.6;
+}
+
+/* Tilt on Hover */
+.card-hover-tilt {
+    transition: transform 0.3s ease;
+}
+
+.card-hover-tilt:hover {
+    transform: perspective(1000px) rotateX(2deg) rotateY(-2deg);
+}
+
+/* ===== SPECIAL CARDS ===== */
+
+/* Stat Card */
+.card-stat {
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.card-stat-icon {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 212, 255, 0.1);
+    border-radius: 50%;
+    color: var(--accent-primary);
+}
+
+.card-stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.card-stat-label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.card-stat-trend {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.card-stat-trend.positive {
+    color: var(--accent-green);
+}
+
+.card-stat-trend.negative {
+    color: var(--accent-red);
+}
+
+/* Profile Card */
+.card-profile {
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    padding: 2rem;
+    text-align: center;
+}
+
+.card-profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    margin: 0 auto 1rem;
+    border: 3px solid var(--accent-primary);
+}
+
+.card-profile-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.card-profile-role {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+/* ===== LOADING STATES ===== */
+
+.card-loading {
+    position: relative;
+    pointer-events: none;
+}
+
+.card-loading::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    border-radius: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 768px) {
+
+    .card-enhanced,
+    .card-elevated,
+    .card-outlined,
+    .card-filled,
+    .card-glass {
+        padding: 1rem;
+    }
+
+    .card-stat-value {
+        font-size: 2rem;
+    }
+}

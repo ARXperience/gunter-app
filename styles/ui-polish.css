@@ -1,0 +1,283 @@
+/* =============================================
+   GUNTER - UI Polish (Fase G)
+   -------------------------------------------------
+   Capa transversal de pulido visual y accesibilidad.
+   NO toca lógica, NO redefine layouts. Solo refina:
+     - focus-visible global
+     - microinteracciones consistentes (hover/active)
+     - mobile mejoras (tabs, scroll, touch)
+     - estados disabled más visibles
+     - empty states unificados
+     - reduced-motion respetado
+   ============================================= */
+
+/* ---------- G7: Focus visible global (accesibilidad teclado) ---------- */
+:focus-visible {
+    outline: 2px solid var(--accent-primary, #00d4ff);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+button:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible {
+    outline: 2px solid var(--accent-primary, #00d4ff);
+    outline-offset: 2px;
+}
+/* No quitar outline del browser por accidente */
+*:focus { outline: revert; }
+*:not(:focus-visible) { outline: none; }
+
+/* ---------- G5: Microinteracciones consistentes ---------- */
+
+/* Botones generales tienen un transition base */
+.btn,
+.gps-inline-btn,
+.gpi-btn,
+.gday__btn,
+.gn-vw-indicator,
+button.btn,
+button.gps-inline-btn {
+    transition: transform 0.12s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+.btn:active:not(:disabled),
+.gps-inline-btn:active:not(:disabled),
+.gpi-btn:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+/* Cards lift muy sutil al hover */
+.gday__card:hover,
+.gpi-card:hover,
+.gps-card:hover {
+    transform: translateY(-1px);
+}
+
+/* Estados disabled más claros */
+button[disabled],
+.btn[disabled],
+.gpi-btn:disabled,
+.gps-inline-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: saturate(0.7);
+}
+button[disabled]:hover {
+    transform: none !important;
+}
+
+/* ---------- G3: Empty states unificados (variantes) ---------- */
+.gpi-empty {
+    text-align: center;
+    padding: 36px 24px;
+    color: var(--gpi-text-dim, #93a4b8);
+    font-size: 14px;
+    line-height: 1.6;
+}
+.gpi-empty__icon {
+    font-size: 42px;
+    line-height: 1;
+    margin-bottom: 14px;
+    opacity: 0.85;
+}
+.gpi-empty h4 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    color: var(--gpi-text, #e6ecf4);
+    font-weight: 600;
+}
+.gpi-empty p {
+    margin: 6px 0;
+}
+.gpi-empty__hint {
+    margin-top: 12px !important;
+    font-size: 12px;
+    color: var(--gpi-text-mute, #64748b);
+    font-style: italic;
+}
+.gpi-empty__hint em {
+    color: var(--gpi-accent, #00d4ff);
+    font-style: normal;
+}
+.gpi-empty--good {
+    color: #4ade80;
+}
+.gpi-empty--good h4 { color: #4ade80; }
+
+/* ---------- G2: Loading mejorado con texto multilínea legible ---------- */
+.gpi-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 36px 24px;
+    color: var(--gpi-text-dim, #93a4b8);
+    font-size: 13px;
+    line-height: 1.5;
+    flex-wrap: wrap;
+    text-align: center;
+}
+.gpi-loading span {
+    max-width: 320px;
+}
+@media (max-width: 480px) {
+    .gpi-loading {
+        flex-direction: column;
+        gap: 10px;
+        padding: 28px 16px;
+    }
+}
+
+/* ---------- G4: Mobile improvements ---------- */
+
+/* Day.html tabs: scroll horizontal con indicador visual */
+@media (max-width: 768px) {
+    .gday__tabs {
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--accent-primary, #00d4ff) 35%, transparent) transparent;
+        padding-bottom: 4px;
+        position: relative;
+    }
+    .gday__tabs::-webkit-scrollbar { height: 4px; }
+    .gday__tabs::-webkit-scrollbar-thumb {
+        background: color-mix(in srgb, var(--accent-primary, #00d4ff) 35%, transparent);
+        border-radius: 2px;
+    }
+    .gday__tab {
+        scroll-snap-align: start;
+        flex-shrink: 0;
+        min-height: 44px;
+    }
+
+    /* Sombra fade-out a la derecha indicando scroll */
+    .gday__tabs-wrap,
+    .gday__tabs {
+        position: relative;
+    }
+}
+
+/* Meeting.html tabs móviles: sticky con sombra al hacer scroll */
+@media (max-width: 768px) {
+    .meeting-mtabs {
+        box-shadow: 0 4px 12px -6px rgba(0,0,0,0.5);
+    }
+}
+
+/* Botones de ranking item: en mobile el score se ve compacto */
+@media (max-width: 480px) {
+    .gpi-rank__pos {
+        width: 26px; height: 26px;
+        font-size: 14px;
+    }
+    .gpi-rank__score {
+        font-size: 14px;
+    }
+    .gpi-card { padding: 14px 12px; }
+}
+
+/* ---------- G5: Indicador visual cuando se está cargando ---------- */
+.is-loading {
+    pointer-events: none;
+    opacity: 0.6;
+    position: relative;
+}
+.is-loading::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg,
+        transparent,
+        color-mix(in srgb, var(--accent-primary, #00d4ff) 8%, transparent),
+        transparent);
+    background-size: 200% 100%;
+    animation: gnPolishShimmer 1.4s linear infinite;
+    pointer-events: none;
+}
+@keyframes gnPolishShimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+}
+
+/* ---------- G6: Consistency — botones primarios coherentes ---------- */
+/* No reemplazamos clases, solo aseguramos coherencia mínima */
+.btn--primary,
+.gps-inline-btn--primary,
+.gpi-btn:not(.gpi-btn--ghost):not(.gpi-btn--small) {
+    font-weight: 500;
+    letter-spacing: 0.2px;
+}
+
+/* ---------- G7: Reduced motion respetado ---------- */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    .btn:active,
+    .gps-inline-btn:active,
+    .gpi-btn:active,
+    .gday__card:hover,
+    .gpi-card:hover,
+    .gps-card:hover {
+        transform: none !important;
+    }
+}
+
+/* ---------- G7: Mejor contraste en estados disabled ---------- */
+.gps-switch--readonly {
+    /* Ya definido en advanced-settings.css; reforzar */
+    cursor: not-allowed !important;
+}
+
+/* ---------- G5: Toasts: hover suaviza dismiss ---------- */
+.gunter-toast {
+    transition: transform 300ms cubic-bezier(.22,.61,.36,1), opacity 200ms ease, box-shadow 200ms ease !important;
+}
+.gunter-toast:hover {
+    box-shadow: 0 14px 36px rgba(0,0,0,0.5);
+}
+
+/* ---------- G3: gday__empty con más respiro visual ---------- */
+.gday__empty {
+    text-align: center;
+    color: var(--gday-text-mute, #64748b);
+    font-size: 13px;
+    line-height: 1.55;
+    padding: 24px 16px;
+    font-style: italic;
+    opacity: 0.85;
+}
+
+/* ---------- G7: Touch targets en switches custom ---------- */
+@media (max-width: 768px) {
+    .gps-switch,
+    .form-toggle {
+        min-width: 48px;
+        min-height: 26px;
+    }
+}
+
+/* ---------- G5: Cards premium activas tienen un brillo sutil persistente ---------- */
+.gps-card--active {
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--gps-accent, #00d4ff) 25%, transparent),
+        0 20px 40px -24px rgba(0,0,0,0.55),
+        0 0 24px -10px color-mix(in srgb, var(--gps-accent, #00d4ff) 35%, transparent);
+}
+
+/* ---------- G4: Evitar que cards muy pequeñas en mobile se vean apretadas ---------- */
+@media (max-width: 480px) {
+    .gn-status-board__grid {
+        gap: 8px !important;
+    }
+    .gn-status-item {
+        padding: 8px 10px;
+    }
+}

@@ -1,0 +1,121 @@
+/* =============================================
+   GUNTER APP - Theme Shared Refinements
+   -------------------------------------------------
+   Reglas globales que garantizan legibilidad y
+   una estética urbana / profesional / limpia
+   independientemente del tema activo.
+   ============================================= */
+
+/* Base page background: no more animated canvas behind — just a clean
+   theme-colored gradient for depth. */
+[data-theme] body {
+    background:
+        radial-gradient(ellipse at 20% -10%, color-mix(in srgb, var(--accent-primary) 10%, transparent) 0%, transparent 45%),
+        radial-gradient(ellipse at 85% 110%, color-mix(in srgb, var(--accent-secondary, var(--accent-primary)) 8%, transparent) 0%, transparent 50%),
+        var(--bg-deep-navy);
+    min-height: 100vh;
+}
+
+/* Bring ALL structural containers above canvas + vignette */
+.results-page,
+.meeting-page,
+.config-page,
+.dashboard-page,
+.results-header,
+.meeting-header,
+header,
+main,
+footer {
+    position: relative;
+    z-index: 2;
+}
+
+/* Cards: strong, opaque backdrops with consistent blur */
+[data-theme] .glass-card,
+[data-theme] .result-section,
+[data-theme] .project-card,
+[data-theme] .meeting-panel,
+[data-theme] .env-card,
+[data-theme] .analysis-result-card {
+    background-color: color-mix(in srgb, var(--bg-deep-navy) 82%, transparent);
+    backdrop-filter: blur(22px) saturate(1.1);
+    -webkit-backdrop-filter: blur(22px) saturate(1.1);
+    box-shadow:
+        0 1px 0 color-mix(in srgb, var(--accent-primary) 10%, transparent) inset,
+        0 20px 60px -24px rgba(0,0,0,0.5);
+}
+
+/* Selectable text lives on a readable surface */
+[data-theme] .transcription-item,
+[data-theme] .gunter-message {
+    background-color: color-mix(in srgb, var(--bg-obsidian) 75%, transparent);
+    backdrop-filter: blur(10px);
+}
+
+/* Typography: urban-clean rhythm + legibility */
+[data-theme] {
+    /* Stronger text rules — avoids the 40%/70% whites getting lost */
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.88);
+    --text-muted: rgba(255, 255, 255, 0.62);
+}
+[data-theme] body {
+    font-feature-settings: "ss01", "ss02", "cv11";
+    text-rendering: optimizeLegibility;
+    color: var(--text-secondary);
+    -webkit-font-smoothing: antialiased;
+}
+[data-theme] p, [data-theme] li, [data-theme] label, [data-theme] input, [data-theme] textarea {
+    color: var(--text-secondary);
+    line-height: 1.65;
+}
+[data-theme] .text-muted, [data-theme] .muted { color: var(--text-muted); }
+
+/* Titles: strong, no transparency — readable in any context */
+[data-theme] h1, [data-theme] h2, [data-theme] h3, [data-theme] h4 {
+    color: var(--text-primary);
+    line-height: 1.18;
+    letter-spacing: -0.015em;
+    text-shadow: 0 1px 12px rgba(0,0,0,0.35);
+}
+
+/* Gradient titles: keep the gradient but bump the contrast floor */
+[data-theme] .text-gradient {
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+}
+
+/* Links */
+[data-theme] a {
+    color: var(--accent-primary);
+    text-decoration: none;
+    transition: opacity 160ms ease;
+}
+[data-theme] a:hover { opacity: 0.82; }
+
+/* Uniform focus ring */
+[data-theme] :focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+/* Section rhythm — generous but not wasteful */
+[data-theme] .result-section + .result-section { margin-top: 20px; }
+
+/* Primary header: a faint grid of 8px keeps things urban */
+[data-theme] .results-header::before,
+[data-theme] .meeting-header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+        linear-gradient(to right, color-mix(in srgb, var(--accent-primary) 6%, transparent) 1px, transparent 1px);
+    background-size: 80px 100%;
+    pointer-events: none;
+    opacity: 0.4;
+    mask-image: linear-gradient(180deg, black 0%, transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, black 0%, transparent 100%);
+}
+
+
+/* Utility: keep decorative emojis from messing up vertical rhythm */
+.result-section__title-icon { line-height: 1; display: inline-flex; }

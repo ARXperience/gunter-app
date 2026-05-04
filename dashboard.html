@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gunter App - Dashboard Principal - Centro de Comando">
+    <title>Dashboard | Gunter App</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles/design-system.css">
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/animations.css">
+    <link rel="stylesheet" href="styles/pages/dashboard.css">
+    <link rel="stylesheet" href="styles/responsive-mobile.css">
+    <link rel="stylesheet" href="styles/ui-polish.css">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00d4ff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="assets/gunter/gunter_transparent_default_1769134184933.png">
+</head>
+
+<body>
+    <!-- Neural Mesh Background -->
+    <div class="neural-mesh-bg"></div>
+
+    <div class="dashboard-page">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar__logo">
+                <div class="sidebar__logo-img" id="gunter-sidebar"></div>
+                <span class="sidebar__logo-text text-gradient">Gunter</span>
+            </div>
+
+            <!-- Day ↔ Meetings switch -->
+            <div style="display:flex; padding:4px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:999px; margin: 0 12px 20px;">
+                <a href="day.html" style="flex:1; text-align:center; padding:6px 10px; border-radius:999px; color:rgba(255,255,255,0.55); text-decoration:none; font-size:11px; font-weight:600;">Día</a>
+                <a href="dashboard.html" style="flex:1; text-align:center; padding:6px 10px; border-radius:999px; background:#00d4ff; color:#02121e; text-decoration:none; font-size:11px; font-weight:700;">Reuniones</a>
+            </div>
+
+            <nav class="sidebar__nav">
+                <a href="dashboard.html" class="sidebar__nav-item active">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7" />
+                        <rect x="14" y="3" width="7" height="7" />
+                        <rect x="14" y="14" width="7" height="7" />
+                        <rect x="3" y="14" width="7" height="7" />
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+
+                <a href="config.html#new-project" class="sidebar__nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" y1="19" x2="12" y2="23" />
+                        <line x1="8" y1="23" x2="16" y2="23" />
+                    </svg>
+                    <span>Nueva Reunión</span>
+                </a>
+
+                <a href="results.html" class="sidebar__nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                        <path d="M22 12A10 10 0 0 0 12 2v10z" />
+                    </svg>
+                    <span>Resultados</span>
+                </a>
+
+                <a href="config.html#preferences" class="sidebar__nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24" />
+                    </svg>
+                    <span>Configuración</span>
+                </a>
+            </nav>
+
+            <div class="sidebar__user" id="sidebar-user">
+                <div class="sidebar__user-avatar" id="sidebar-user-avatar">··</div>
+                <div class="sidebar__user-info">
+                    <div class="sidebar__user-name" id="sidebar-user-name">Tu cuenta</div>
+                    <div class="sidebar__user-role" id="sidebar-user-role">Local</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="dashboard-main">
+            <!-- Product switcher (Día ↔ Reuniones) -->
+            <div style="display:flex; padding: 4px; background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius: 999px; margin-bottom: 24px; max-width: 320px;">
+                <a href="day.html" style="flex:1; text-align:center; padding:8px 14px; border-radius:999px; color:rgba(255,255,255,0.6); text-decoration:none; font-size:12px; font-weight:600; letter-spacing:0.3px;">Día</a>
+                <a href="dashboard.html" style="flex:1; text-align:center; padding:8px 14px; border-radius:999px; background:#00d4ff; color:#02121e; text-decoration:none; font-size:12px; font-weight:700; letter-spacing:0.3px;">Reuniones</a>
+            </div>
+
+            <!-- Header -->
+            <header class="dashboard-header">
+                <div>
+                    <span style="display:inline-block; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:#00d4ff; font-weight:600; margin-bottom:6px;">Gunter Reuniones</span>
+                    <h1 class="dashboard-header__title">Proyectos y análisis</h1>
+                    <p class="dashboard-header__subtitle" id="dashboard-subtitle">Tus reuniones grabadas, sus análisis estratégicos y presentaciones.</p>
+                </div>
+                <div class="dashboard-header__actions">
+                    <a href="config.html#new-project" class="btn btn--primary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        Nueva Reunión
+                    </a>
+                </div>
+            </header>
+
+            <!-- Stats Row -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-card__icon stat-card__icon--blue">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                        </svg>
+                    </div>
+                    <div class="stat-card__content">
+                        <div class="stat-card__value" id="stat-total">0</div>
+                        <div class="stat-card__label">Proyectos Totales</div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-card__icon stat-card__icon--green">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                    </div>
+                    <div class="stat-card__content">
+                        <div class="stat-card__value" id="stat-completed">0</div>
+                        <div class="stat-card__label">Completados</div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-card__icon stat-card__icon--purple">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <polyline points="12 6 12 12 16 14" />
+                        </svg>
+                    </div>
+                    <div class="stat-card__content">
+                        <div class="stat-card__value" id="stat-progress">0</div>
+                        <div class="stat-card__label">En Progreso</div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-card__icon stat-card__icon--amber">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        </svg>
+                    </div>
+                    <div class="stat-card__content">
+                        <div class="stat-card__value" id="stat-hours">0</div>
+                        <div class="stat-card__label">Horas de Reuniones</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Projects Section -->
+            <section>
+                <div class="section-header">
+                    <h2 class="section-title">Proyectos Recientes</h2>
+                    <button class="btn btn--ghost">Ver todos</button>
+                </div>
+
+                <div class="projects-grid" id="projects-grid">
+                    <!-- New Project Card -->
+                    <a href="config.html" class="project-card--new">
+                        <div class="project-card--new__icon">+</div>
+                        <span class="project-card--new__text">Crear Nuevo Proyecto</span>
+                    </a>
+                    <!-- Dynamic projects will be rendered here -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/premium-features-service.js"></script>
+    <script src="js/theme-manager.js"></script>
+    <script src="js/theme-backgrounds.js"></script>
+    <script src="js/data-service.js"></script>
+
+    <!-- Fase A.A2 — guard de transcripciones largas (project-knowledge-service usa esto) -->
+    <script src="js/services/transcript-store.js"></script>
+
+    <!-- Memoria de proyectos compartida con WhatsApp (Fase 11) -->
+    <script src="js/services/project-knowledge-service.js"></script>
+    <script src="js/services/knowledge-sync-service.js"></script>
+
+    <!-- Premium Intelligence (Sprint B) -->
+    <script src="js/services/premium-intelligence-service.js"></script>
+
+    <script src="js/gunter-avatar.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // Initialize Gunter avatar in sidebar
+        const gunterSidebar = new GunterAvatar('gunter-sidebar', { size: 48 });
+
+        // Load dynamic stats
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const stats = window.gunterData.getStats();
+
+            document.getElementById('stat-total').textContent = stats.totalProjects;
+            document.getElementById('stat-completed').textContent = stats.completed;
+            document.getElementById('stat-progress').textContent = stats.inProgress;
+            document.getElementById('stat-hours').textContent = stats.meetingHours;
+
+            // Load user name (from localStorage; falls back to neutral defaults)
+            const userName = localStorage.getItem('gunter_username') || '';
+            const userEmail = localStorage.getItem('gunter_user') || '';
+            const subtitle = document.querySelector('.dashboard-header__subtitle');
+            if (subtitle) {
+                subtitle.textContent = userName
+                    ? `Bienvenido de vuelta, ${userName}. Aquí está el estado de tus proyectos.`
+                    : 'Aquí está el estado de tus proyectos.';
+            }
+            // Sidebar user
+            const sidebarName = document.getElementById('sidebar-user-name');
+            const sidebarRole = document.getElementById('sidebar-user-role');
+            const sidebarAv   = document.getElementById('sidebar-user-avatar');
+            if (sidebarName) sidebarName.textContent = userName || (userEmail ? userEmail.split('@')[0] : 'Tu cuenta');
+            if (sidebarRole) sidebarRole.textContent = 'Local · sin servidor';
+            if (sidebarAv) {
+                const initials = (userName || userEmail || 'GU')
+                    .split(/[\s@.]+/).filter(Boolean).slice(0, 2)
+                    .map(s => s[0]?.toUpperCase() || '').join('') || '··';
+                sidebarAv.textContent = initials;
+            }
+
+            // Render recent projects
+            const projects = window.gunterData.getRecentProjects(5);
+            const grid = document.getElementById('projects-grid');
+            const newCardHtml = grid.innerHTML;
+
+            if (projects.length > 0) {
+                let projectsHtml = newCardHtml;
+
+                projects.forEach(project => {
+                    const lastAnalysis = (project.analyses || []).slice(-1)[0];
+                    const viability = lastAnalysis?.analysis?.viability?.status || 'yellow';
+                    const summary = lastAnalysis?.analysis?.project_board?.objective || project.market || 'Sin análisis aún';
+
+                    const envIcons = { empresarial: '🏢', artistico: '🎨', podcast: '🎙️' };
+                    const envNames = { empresarial: 'Empresarial', artistico: 'Artístico', podcast: 'Podcast' };
+                    const statusLabels = { green: 'Viable', yellow: 'En Revisión', red: 'Alto Riesgo' };
+                    const statusClasses = { green: 'success', yellow: 'warning', red: 'danger' };
+
+                    const timeAgo = getTimeAgo(new Date(project.updatedAt));
+
+                    projectsHtml += `
+                        <div class="project-card" data-project-id="${project.id}">
+                            <button class="project-card__delete" onclick="event.stopPropagation(); deleteProject('${project.id}', '${project.name.replace(/'/g, "\\'")}');" title="Eliminar proyecto">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                </svg>
+                            </button>
+                            <div class="project-card__content" onclick="loadProject('${project.id}')">
+                                <div class="project-card__header">
+                                    <div>
+                                        <h3 class="project-card__title">${project.name}</h3>
+                                        <span class="project-card__market">${project.market?.substring(0, 30) || ''}</span>
+                                    </div>
+                                    <span class="status-badge status-badge--${statusClasses[viability] || 'warning'}">
+                                        <span class="status-dot status-dot--${viability}"></span>
+                                        ${statusLabels[viability] || 'En Revisión'}
+                                    </span>
+                                </div>
+                                <div class="project-card__body">
+                                    <p class="project-card__summary">${summary.substring(0, 100)}${summary.length > 100 ? '...' : ''}</p>
+                                </div>
+                                <div class="project-card__footer">
+                                    <div class="project-card__env">
+                                        <span class="project-card__env-icon">${envIcons[project.environment] || '🏢'}</span>
+                                        <span>${envNames[project.environment] || 'Empresarial'}</span>
+                                    </div>
+                                    <span class="project-card__date">${timeAgo}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                grid.innerHTML = projectsHtml;
+            }
+        });
+
+        function getTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return 'Ahora';
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `Hace ${minutes} min`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `Hace ${hours}h`;
+            const days = Math.floor(hours / 24);
+            if (days === 1) return 'Ayer';
+            if (days < 7) return `Hace ${days} días`;
+            const weeks = Math.floor(days / 7);
+            return `Hace ${weeks} semana${weeks > 1 ? 's' : ''}`;
+        }
+
+        function loadProject(projectId) {
+            const project = window.gunterData.getAllProjects().find(p => p.id === projectId);
+            if (project) {
+                localStorage.setItem('gunter_project_id', project.id);
+                localStorage.setItem('gunter_project', project.name);
+                localStorage.setItem('gunter_env', project.environment);
+                localStorage.setItem('gunter_market', project.market || '');
+
+                const lastAnalysis = (project.analyses || []).slice(-1)[0];
+                if (lastAnalysis?.analysis) {
+                    localStorage.setItem('gunter_analysis', JSON.stringify(lastAnalysis.analysis));
+                }
+
+                window.location.href = 'results.html';
+            }
+        }
+
+        function deleteProject(projectId, projectName) {
+            if (confirm(`¿Mover "${projectName}" a la papelera?\n\nPodrás restaurarlo desde Configuración → Papelera.`)) {
+                window.gunterData.deleteProject(projectId);
+                window.location.reload();
+            }
+        }
+    </script>
+
+    <!-- PWA registration (Fase 8) -->
+    <script src="js/services/pwa-register.js"></script>
+</body>
+
+</html>

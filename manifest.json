@@ -1,0 +1,58 @@
+{
+  "id": "/dashboard.html",
+  "name": "Gunter — Asistente personal con IA",
+  "short_name": "Gunter",
+  "description": "Asistente local-first para tareas, eventos, reuniones con análisis estratégico, memoria conversacional, compromisos y forecast.",
+  "start_url": "/dashboard.html",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui", "browser"],
+  "orientation": "any",
+  "background_color": "#0b0f16",
+  "theme_color": "#00d4ff",
+  "lang": "es-MX",
+  "dir": "ltr",
+  "categories": ["productivity", "business", "utilities"],
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": ["focus-existing", "auto"]
+  },
+  "icons": [
+    {
+      "src": "assets/gunter/gunter_transparent_default_1769134184933.png",
+      "sizes": "192x192 256x256 384x384 512x512 1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/gunter/gunter_default_1769130911628.png",
+      "sizes": "192x192 256x256 384x384 512x512 1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Gunter Día",
+      "short_name": "Día",
+      "description": "Asistente diario: tareas, eventos, recordatorios",
+      "url": "/day.html",
+      "icons": [{ "src": "assets/gunter/gunter_transparent_default_1769134184933.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Nueva reunión",
+      "short_name": "Reunión",
+      "description": "Iniciar grabación y transcripción",
+      "url": "/meeting.html",
+      "icons": [{ "src": "assets/gunter/gunter_transparent_listening_1769134210443.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Configuración",
+      "short_name": "Config",
+      "description": "Ajustes de cuenta y premium",
+      "url": "/config.html",
+      "icons": [{ "src": "assets/gunter/gunter_transparent_default_1769134184933.png", "sizes": "192x192" }]
+    }
+  ]
+}

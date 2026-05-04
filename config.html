@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gunter App - Configuración de Contexto - Selecciona tu entorno de trabajo">
+    <title>Configuración | Gunter App</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles/design-system.css">
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/animations.css">
+    <link rel="stylesheet" href="styles/pages/config.css">
+    <link rel="stylesheet" href="styles/pages/config-polish.css">
+    <link rel="stylesheet" href="styles/pages/config-settings.css">
+    <link rel="stylesheet" href="styles/pages/advanced-settings.css">
+    <!-- (audio-trimmer.css eliminado: pertenecía al flujo Nuevo Proyecto) -->
+
+    <!-- Phase 2 Design Enhancements -->
+    <link rel="stylesheet" href="styles/animations-enhanced.css">
+    <link rel="stylesheet" href="styles/glassmorphism.css">
+    <link rel="stylesheet" href="styles/typography-enhanced.css">
+    <link rel="stylesheet" href="styles/components/cards-enhanced.css">
+    <link rel="stylesheet" href="styles/responsive-mobile.css">
+    <link rel="stylesheet" href="styles/ui-polish.css">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00d4ff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="assets/gunter/gunter_transparent_default_1769134184933.png">
+
+    <!-- Medieval Futuristic Theme -->
+</head>
+
+<body>
+    <!-- Neural Mesh Background -->
+    <div class="neural-mesh-bg"></div>
+
+    <main class="config-page">
+        <!-- Header -->
+        <header class="config-header">
+            <a href="dashboard.html" class="config-header__back">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+                Volver al Dashboard
+            </a>
+            <h1 class="config-header__title text-gradient" id="config-header-title">Configuración</h1>
+            <p class="config-header__subtitle" id="config-header-subtitle">
+                Administra tus proyectos, preferencias y datos desde un solo lugar.
+            </p>
+        </header>
+
+        <!-- Tabs (Nuevo Proyecto vive en dashboard.html, no aquí) -->
+        <nav class="config-tabs" role="tablist" aria-label="Secciones de configuración">
+            <button class="config-tab" role="tab" data-tab="premium">✨ Premium</button>
+            <button class="config-tab" role="tab" data-tab="preferences">⚙️ Preferencias</button>
+            <button class="config-tab" role="tab" data-tab="trash">🗑️ Papelera</button>
+            <button class="config-tab" role="tab" data-tab="data">🔐 Datos y Privacidad</button>
+        </nav>
+
+
+
+        <!-- TAB: PREMIUM -->
+        <section class="config-tab-panel" data-panel="premium" hidden>
+            <div id="premium-panel"></div>
+        </section>
+
+
+        <!-- TAB: PREFERENCES -->
+        <section class="config-tab-panel" data-panel="preferences" hidden>
+            <div class="settings-card">
+                <h3>Apariencia</h3>
+                <p class="settings-card__hint">Cambia la paleta, tipografía y personalidad de Gunter en toda la app.</p>
+                <div class="settings-row">
+                    <label>Tema actual</label>
+                    <div class="theme-chooser" id="theme-chooser">
+                        <button type="button" data-theme-value="empresarial">🏢 Empresarial</button>
+                        <button type="button" data-theme-value="artistico">🎨 Artístico</button>
+                        <button type="button" data-theme-value="podcast">🎙️ Podcast</button>
+                        <button type="button" data-theme-value="zen">☯️ Zen</button>
+                    </div>
+                </div>
+
+                <!-- Fase F.F5 — Toggle dark mode (theme-manager ya soporta) -->
+                <div class="settings-row settings-row--toggle" style="margin-top: 12px;">
+                    <label for="pref-dark-mode">Modo oscuro</label>
+                    <input type="checkbox" id="pref-dark-mode" class="form-toggle">
+                </div>
+                <p class="settings-card__hint" style="font-size: 11px; margin-top: 4px;">
+                    Si no eliges un modo, Gunter sigue la preferencia de tu sistema.
+                </p>
+            </div>
+
+            <div class="settings-card">
+                <h3>Idioma de transcripción</h3>
+                <p class="settings-card__hint">Idioma que recibe Whisper y Web Speech durante la reunión.</p>
+                <div class="settings-row">
+                    <label for="pref-language">Idioma</label>
+                    <select id="pref-language" class="form-input">
+                        <option value="es-ES">Español</option>
+                        <option value="en-US">English</option>
+                        <option value="pt-BR">Português</option>
+                        <option value="fr-FR">Français</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <h3>Accesibilidad</h3>
+                <p class="settings-card__hint">Controla las animaciones y efectos si te molestan.</p>
+                <div class="settings-row settings-row--toggle">
+                    <label for="pref-reduce-motion">Reducir animaciones</label>
+                    <input type="checkbox" id="pref-reduce-motion" class="form-toggle">
+                </div>
+                <div class="settings-row settings-row--toggle">
+                    <label for="pref-click-fx">Efectos de click</label>
+                    <input type="checkbox" id="pref-click-fx" class="form-toggle" checked>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- TAB: TRASH -->
+        <section class="config-tab-panel" data-panel="trash" hidden>
+            <div class="settings-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h3>Proyectos eliminados</h3>
+                        <p class="settings-card__hint">Los proyectos borrados desde el Dashboard quedan aquí. Puedes restaurarlos o eliminarlos definitivamente.</p>
+                    </div>
+                    <button type="button" class="btn btn--ghost" id="empty-trash-btn">Vaciar papelera</button>
+                </div>
+                <div id="trash-list" class="trash-list">
+                    <p class="settings-empty">Cargando…</p>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- TAB: DATA -->
+        <section class="config-tab-panel" data-panel="data" hidden>
+            <!-- Fase F.F3 — Reordenamiento + microcopy + zona de peligro separada -->
+
+            <div class="data-section-intro">
+                <p class="settings-card__hint">
+                    Aquí gestionas tus respaldos, espacio en este navegador y conexiones externas. <strong>Estas opciones no eliminan tus proyectos ni tareas</strong>, salvo que uses la zona de peligro al final.
+                </p>
+            </div>
+
+            <!-- 1. Respaldos -->
+            <h4 class="data-section-title">📁 Respaldos</h4>
+
+            <div class="settings-card">
+                <h3>Exportar datos</h3>
+                <p class="settings-card__hint">Descarga un JSON con todos tus proyectos, transcripciones y análisis.</p>
+                <button type="button" class="btn btn--secondary" id="export-data-btn">Descargar respaldo (.json)</button>
+            </div>
+
+            <div class="settings-card">
+                <h3>Importar datos</h3>
+                <p class="settings-card__hint">Restaura un respaldo previo. Se fusionará con lo que tengas actualmente.</p>
+                <input type="file" id="import-data-input" accept=".json" style="display:none;">
+                <button type="button" class="btn btn--secondary" onclick="document.getElementById('import-data-input').click()">Seleccionar archivo…</button>
+                <span id="import-data-status" class="settings-card__hint" style="margin-left:12px;"></span>
+            </div>
+
+            <!-- 2. Almacenamiento local (Fase D) -->
+            <h4 class="data-section-title">📦 Almacenamiento</h4>
+
+            <div class="settings-card" id="storage-card">
+                <h3>📦 Almacenamiento local</h3>
+                <p class="settings-card__hint">Mide cuánto espacio usa Gunter en este navegador y limpia datos antiguos sin borrar lo importante (proyectos, tareas, decisiones, configuración).</p>
+
+                <div id="storage-report" style="margin-top: 12px;">
+                    <p style="color: var(--text-muted); font-size: 13px;">Aún no he medido el almacenamiento. Click "Analizar".</p>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;">
+                    <button type="button" class="btn btn--secondary" id="storage-analyze-btn">📊 Analizar almacenamiento</button>
+                    <button type="button" class="btn btn--secondary" id="storage-dryrun-btn" disabled>🔍 Simular limpieza</button>
+                    <button type="button" class="btn btn--secondary" id="storage-cleanup-btn" disabled>🧹 Limpiar datos antiguos</button>
+                </div>
+                <p class="settings-card__hint" style="margin-top: 8px; font-size: 11px;">
+                    La limpieza sólo borra: audios completados &gt;30 días, sesiones de transcripción completadas &gt;14 días, análisis generados antiguos (rotación a 100), y caché temporal. <strong>NO borra</strong> proyectos, tareas, eventos, documentos, ni configuraciones.
+                </p>
+            </div>
+
+            <!-- 3. Conexiones externas -->
+            <h4 class="data-section-title">🔗 Conexiones externas</h4>
+
+            <div class="settings-card">
+                <h3>Claves de API</h3>
+                <p class="settings-card__hint">Las claves de los servicios externos se leen desde el archivo <code>.env</code> del servidor. Para cambiarlas, edita ese archivo y reinicia <code>npm run dev</code>.</p>
+                <ul class="settings-kv">
+                    <li><strong>OpenAI</strong> (Whisper + análisis): <span id="status-openai">—</span></li>
+                    <li><strong>Gemini</strong> (imágenes de diapositivas): <span id="status-gemini">—</span></li>
+                    <li><strong>Google OAuth</strong> (Calendar): <span id="status-google">—</span></li>
+                </ul>
+            </div>
+
+            <div class="settings-card">
+                <h3>🔗 Integraciones externas</h3>
+                <p class="settings-card__hint">
+                    Google Calendar, WhatsApp y otras integraciones se gestionan desde la pestaña
+                    <strong>✨ Premium</strong>. Allí puedes conectar cada servicio y activar funciones específicas.
+                </p>
+                <a href="#premium" class="btn btn--primary">Ir a Funciones Premium →</a>
+            </div>
+
+            <!-- 3.5 Memoria conversacional (v2 — F1) -->
+            <h4 class="data-section-title">🧬 Memoria conversacional</h4>
+
+            <div class="settings-card" id="conv-memory-card" data-flag-required="conversationMemory">
+                <h3>🧠 Lo que Gunter recuerda de ti</h3>
+                <p class="settings-card__hint">
+                    Memoria de largo plazo de tus conversaciones (web, voz, WhatsApp). Gunter recupera lo relevante automáticamente al responderte. <strong>Solo se almacena en este navegador.</strong>
+                </p>
+
+                <div id="conv-memory-stats" style="margin-top: 12px; display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px;">
+                    <p style="color: var(--text-muted); font-size: 13px; grid-column: 1 / -1;">
+                        Cargando…
+                    </p>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;">
+                    <button type="button" class="btn btn--secondary" id="conv-memory-refresh-btn">🔄 Refrescar</button>
+                    <button type="button" class="btn btn--secondary" id="conv-memory-list-btn">📜 Ver últimos 20 turnos</button>
+                    <button type="button" class="btn btn--secondary" id="conv-memory-forget-btn">🩹 Olvidar lo que contenga…</button>
+                    <button type="button" class="btn btn--danger" id="conv-memory-clear-btn">🧹 Olvidar TODO</button>
+                </div>
+                <div id="conv-memory-list" style="margin-top:12px;"></div>
+
+                <p class="settings-card__hint" style="margin-top: 10px; font-size: 11px;">
+                    Esta función requiere la flag <strong>“Memoria conversacional cross-sesión”</strong> activada en Premium → Funciones avanzadas. Sin la flag, no se guarda nada.
+                </p>
+            </div>
+
+            <!-- 4. Zona de peligro — visualmente separada -->
+            <h4 class="data-section-title data-section-title--danger">⚠️ Zona de peligro</h4>
+
+            <div class="settings-card settings-card--danger">
+                <h3>Borrar todos los datos locales</h3>
+                <p class="settings-card__hint">Esto elimina <strong>todos</strong> los proyectos, análisis, transcripciones y audios guardados en este navegador. <strong>No se puede deshacer.</strong></p>
+                <p class="settings-card__hint" style="margin-top: 6px; font-size: 11px; opacity: 0.85;">
+                    Antes de hacerlo: usa <strong>Exportar datos</strong> arriba para guardar un respaldo.
+                </p>
+                <button type="button" class="btn btn--danger" id="wipe-all-btn" style="margin-top: 10px;">Borrar todo</button>
+            </div>
+        </section>
+        <!-- /TABS -->
+
+        <!-- (Audio Trimmer overlay eliminado: pertenecía al flujo Nuevo Proyecto) -->
+    </main>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/theme-manager.js"></script>
+    <script src="js/theme-backgrounds.js"></script>
+    <script src="js/data-service.js"></script>
+    <script src="js/services/google-auth-service.js"></script>
+    <script src="js/services/calendar-service.js"></script>
+    <script src="js/services/status-bus.js"></script>
+    <script src="js/services/connectivity-monitor.js"></script>
+    <script src="js/services/notifications-service.js"></script>
+    <script src="js/services/transcript-store.js"></script>
+    <script src="js/services/local-data-maintenance-service.js"></script>
+    <script src="js/services/error-mapper.js"></script>
+    <script src="js/services/tasks-service.js"></script>
+    <script src="js/services/events-service.js"></script>
+    <script src="js/services/whatsapp-service.js"></script>
+    <script src="js/services/voice-service.js"></script>
+    <script src="js/services/wake-word-service.js"></script>
+
+    <!-- Adapters (Fase 7) -->
+    <script src="js/adapters/storage-adapter.js"></script>
+    <script src="js/adapters/auth-adapter.js"></script>
+    <script src="js/adapters/notification-adapter.js"></script>
+    <script src="js/adapters/calendar-adapter.js"></script>
+    <script src="js/adapters/voice-adapter.js"></script>
+    <script src="js/adapters/index.js"></script>
+
+    <script src="js/premium-features-service.js"></script>
+    <script src="js/advanced-settings.js"></script>
+
+    <!-- v2 — Memoria Conversacional (F1): se carga aquí solo para que la card de gestión funcione (stats/list/clear/forget). El modo write/recall vive en day.html y meeting.html. -->
+    <script src="js/services/conversation-memory-service.js"></script>
+    <script src="js/controllers/conversation-memory-panel.js"></script>
+
+    <script src="js/config-settings.js"></script>
+    <!-- (ai-analysis, cache-service, audio-chunker, audio-trimmer eliminados:
+         pertenecían al flujo Nuevo Proyecto que ahora vive en dashboard.html) -->
+    <script src="js/app.js"></script>
+    <!-- (Nuevo Proyecto inline script eliminado: el panel ahora vive en dashboard.html) -->
+
+    <!-- Phase 2 Design Enhancements -->
+    <script src="js/particle-effects.js"></script>
+    <script src="js/card-interactions.js"></script>
+
+    <!-- PWA registration (Fase 8) -->
+    <script src="js/services/pwa-register.js"></script>
+
+    <!-- Fase F.F5 — Wiring del toggle dark mode -->
+    <script>
+        (function () {
+            const cb = document.getElementById('pref-dark-mode');
+            if (!cb) return;
+            // Reflejar estado guardado
+            try { cb.checked = localStorage.getItem('gunter_dark_mode') === 'true'; } catch {}
+            cb.addEventListener('change', () => {
+                if (window.GunterTheme?.toggleDarkMode) {
+                    window.GunterTheme.toggleDarkMode(cb.checked);
+                } else {
+                    // Fallback: setear flag y aplicar clase manualmente
+                    try {
+                        localStorage.setItem('gunter_dark_mode', String(cb.checked));
+                        document.documentElement.classList.toggle('dark-mode', cb.checked);
+                    } catch {}
+                }
+            });
+        })();
+    </script>
+
+    <!-- Fase D — Wiring del card de almacenamiento local -->
+    <script>
+        (function () {
+            const M = () => window.GunterLocalDataMaintenance;
+            const NS = () => window.GunterNotificationsService;
+
+            const reportEl   = document.getElementById('storage-report');
+            const analyzeBtn = document.getElementById('storage-analyze-btn');
+            const dryrunBtn  = document.getElementById('storage-dryrun-btn');
+            const cleanupBtn = document.getElementById('storage-cleanup-btn');
+            if (!reportEl || !analyzeBtn) return;
+
+            let lastReport = null;
+            let lastDryRun = null;
+
+            analyzeBtn.addEventListener('click', async () => {
+                if (!M()) {
+                    reportEl.innerHTML = `<p style="color:#fca5a5;">⚠ El servicio de mantenimiento no está disponible.</p>`;
+                    return;
+                }
+                analyzeBtn.disabled = true;
+                analyzeBtn.textContent = '⏳ Midiendo…';
+                try {
+                    lastReport = await M().getStorageReport();
+                    renderReport(lastReport);
+                    dryrunBtn.disabled = false;
+                } catch (e) {
+                    reportEl.innerHTML = `<p style="color:#fca5a5;">⚠ No pude analizar: ${escapeHtml(e.message || String(e))}</p>`;
+                } finally {
+                    analyzeBtn.disabled = false;
+                    analyzeBtn.textContent = '📊 Analizar almacenamiento';
+                }
+            });
+
+            dryrunBtn.addEventListener('click', async () => {
+                if (!M()) return;
+                dryrunBtn.disabled = true;
+                dryrunBtn.textContent = '⏳ Simulando…';
+                try {
+                    lastDryRun = await M().runSafeMaintenance({ dryRun: true });
+                    renderDryRun(lastDryRun);
+                    cleanupBtn.disabled = !(lastDryRun.totalFreedBytes > 0);
+                } catch (e) {
+                    appendErrorBox('No pude simular la limpieza: ' + (e.message || ''));
+                } finally {
+                    dryrunBtn.disabled = false;
+                    dryrunBtn.textContent = '🔍 Simular limpieza';
+                }
+            });
+
+            cleanupBtn.addEventListener('click', async () => {
+                if (!lastDryRun || lastDryRun.totalFreedBytes <= 0) return;
+                const items = (lastDryRun.steps?.audio?.deletedCount || 0) +
+                              (lastDryRun.steps?.transcription?.deletedCount || 0) +
+                              (lastDryRun.steps?.analyses?.deletedCount || 0) +
+                              (lastDryRun.steps?.cache?.deletedCount || 0);
+                const ok = window.confirm(
+                    `Voy a limpiar ${items} elementos antiguos y liberar aproximadamente ${M().formatBytes(lastDryRun.totalFreedBytes)}.\n\n` +
+                    `NO eliminaré: proyectos, tareas, eventos, decisiones, documentos, configuración premium ni el proyecto actual.\n\n` +
+                    `¿Confirmas?`
+                );
+                if (!ok) return;
+
+                cleanupBtn.disabled = true;
+                cleanupBtn.textContent = '⏳ Limpiando…';
+                try {
+                    const realResult = await M().runSafeMaintenance({ dryRun: false });
+                    if (realResult.success) {
+                        toast(`✓ Limpieza completada. Se liberaron aproximadamente ${realResult.totalFreedFormatted}.`, 'success');
+                        // Re-analizar para ver el nuevo estado
+                        lastReport = await M().getStorageReport();
+                        renderReport(lastReport);
+                        lastDryRun = null;
+                    } else {
+                        toast('No pude completar la limpieza. No se borró información crítica.', 'error');
+                    }
+                } catch (e) {
+                    toast('No pude completar la limpieza: ' + (e.message || ''), 'error');
+                } finally {
+                    cleanupBtn.disabled = true;
+                    cleanupBtn.textContent = '🧹 Limpiar datos antiguos';
+                }
+            });
+
+            function renderReport(r) {
+                const ls = r.localStorage;
+                const idb = r.indexedDB;
+                const recHtml = (r.recommendations || []).map(rec => {
+                    const color = rec.severity === 'critical' ? '#ef4444'
+                                : rec.severity === 'high' ? '#fbbf24'
+                                : rec.severity === 'warn' ? '#fbbf24'
+                                : rec.severity === 'ok' ? '#4ade80' : '#94a3b8';
+                    return `<li style="color:${color};">${escapeHtml(rec.message)}</li>`;
+                }).join('');
+
+                const largeKeys = (ls.largestKeys || []).map(k =>
+                    `<li><code>${escapeHtml(k.key)}</code> — ${escapeHtml(k.formatted)}</li>`
+                ).join('') || '<li>(sin keys medibles)</li>';
+
+                reportEl.innerHTML = `
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 10px;">
+                        <div style="background: var(--bg-card,#111827); border:1px solid var(--glass-border,rgba(255,255,255,0.08)); border-radius: 8px; padding: 10px;">
+                            <strong style="font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted,#94a3b8);">Configuración rápida</strong>
+                            <p style="margin: 4px 0; font-size: 18px; font-weight: 600;">${escapeHtml(ls.totalFormatted)} <span style="font-size: 12px; color: var(--text-muted,#94a3b8);">(${ls.usedPct}% del navegador)</span></p>
+                            <small style="color: var(--text-muted,#94a3b8);">${ls.gunterKeysCount} datos guardados — ${escapeHtml(ls.gunterFormatted)}</small>
+                        </div>
+                        <div style="background: var(--bg-card,#111827); border:1px solid var(--glass-border,rgba(255,255,255,0.08)); border-radius: 8px; padding: 10px;">
+                            <strong style="font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted,#94a3b8);">Audios</strong>
+                            <p style="margin: 4px 0; font-size: 18px; font-weight: 600;">${idb.counts.audioVault ?? '—'}</p>
+                            <small style="color: var(--text-muted,#94a3b8);">grabaciones guardadas</small>
+                        </div>
+                        <div style="background: var(--bg-card,#111827); border:1px solid var(--glass-border,rgba(255,255,255,0.08)); border-radius: 8px; padding: 10px;">
+                            <strong style="font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted,#94a3b8);">Transcripción</strong>
+                            <p style="margin: 4px 0; font-size: 18px; font-weight: 600;">${idb.counts.transcriptionChunks ?? 0} chunks</p>
+                            <small style="color: var(--text-muted,#94a3b8);">${idb.counts.transcriptionMeta ?? 0} sesiones</small>
+                        </div>
+                        <div style="background: var(--bg-card,#111827); border:1px solid var(--glass-border,rgba(255,255,255,0.08)); border-radius: 8px; padding: 10px;">
+                            <strong style="font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted,#94a3b8);">Documentos</strong>
+                            <p style="margin: 4px 0; font-size: 18px; font-weight: 600;">${idb.counts.documents ?? 0}</p>
+                            <small style="color: var(--text-muted,#94a3b8);">recibos / facturas</small>
+                        </div>
+                        <div style="background: var(--bg-card,#111827); border:1px solid var(--glass-border,rgba(255,255,255,0.08)); border-radius: 8px; padding: 10px;">
+                            <strong style="font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted,#94a3b8);">Memoria semántica</strong>
+                            <p style="margin: 4px 0; font-size: 18px; font-weight: 600;">${idb.counts.embeddings ?? 0}</p>
+                            <small style="color: var(--text-muted,#94a3b8);">vectores · ${idb.counts.semanticIndex ?? 0} chunks indexados</small>
+                        </div>
+                        <div style="background: var(--bg-card,#111827); border:1px solid var(--glass-border,rgba(255,255,255,0.08)); border-radius: 8px; padding: 10px;">
+                            <strong style="font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted,#94a3b8);">Tareas / Eventos</strong>
+                            <p style="margin: 4px 0; font-size: 18px; font-weight: 600;">${idb.counts.tasks ?? 0}t / ${idb.counts.events ?? 0}e</p>
+                            <small style="color: var(--text-muted,#94a3b8);">${idb.counts.reminders ?? 0} recordatorios</small>
+                        </div>
+                    </div>
+
+                    <details style="margin-top: 12px;">
+                        <summary style="cursor: pointer; font-size: 12px; color: var(--text-muted,#94a3b8);">Ver datos más pesados guardados en este navegador</summary>
+                        <ul style="font-size: 12px; color: var(--text-muted,#94a3b8); margin: 8px 0; padding-left: 20px;">${largeKeys}</ul>
+                    </details>
+
+                    <ul style="margin-top: 10px; padding-left: 20px; font-size: 13px; line-height: 1.6;">${recHtml}</ul>
+
+                    ${idb.totalEstimateFormatted ? `<p style="font-size: 11px; color: var(--text-muted,#94a3b8); margin-top: 8px;">Total navegador: ${escapeHtml(idb.totalEstimateFormatted)}</p>` : ''}
+                `;
+            }
+
+            function renderDryRun(d) {
+                const lines = [];
+                if (d.steps?.audio?.deletedCount)         lines.push(`🔊 ${d.steps.audio.deletedCount} audio(s) (~${d.steps.audio.freedBytesEstimateFormatted})`);
+                if (d.steps?.transcription?.deletedCount) lines.push(`🎙️ ${d.steps.transcription.deletedCount} sesion(es) de transcripción (~${d.steps.transcription.freedBytesEstimateFormatted})`);
+                if (d.steps?.analyses?.deletedCount)      lines.push(`📊 ${d.steps.analyses.deletedCount} análisis antiguo(s) (~${d.steps.analyses.freedBytesEstimateFormatted})`);
+                if (d.steps?.cache?.deletedCount)         lines.push(`💾 ${d.steps.cache.deletedCount} item(s) de caché (~${d.steps.cache.freedBytesEstimateFormatted})`);
+                const docs = d.steps?.documents?.candidates || 0;
+                if (docs)                                 lines.push(`📄 ${docs} documento(s) >1 año (revisión manual, no se borrarán)`);
+
+                const html = lines.length
+                    ? `<div style="background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.3); border-radius: 8px; padding: 12px; margin-top: 12px;">
+                        <strong style="color:#4ade80;">Simulación: liberaría ~${d.totalFreedFormatted}</strong>
+                        <ul style="margin: 8px 0 0; padding-left: 20px; font-size: 13px;">${lines.map(l => `<li>${l}</li>`).join('')}</ul>
+                       </div>`
+                    : `<div style="background: rgba(148,163,184,0.06); border: 1px solid rgba(148,163,184,0.3); border-radius: 8px; padding: 12px; margin-top: 12px;">
+                        <strong>Todo está bien.</strong> No encontré datos antiguos para limpiar.
+                       </div>`;
+
+                appendBox(html);
+            }
+
+            function appendBox(html) {
+                const old = reportEl.querySelector('.storage-extra'); if (old) old.remove();
+                const div = document.createElement('div');
+                div.className = 'storage-extra';
+                div.innerHTML = html;
+                reportEl.appendChild(div);
+            }
+            function appendErrorBox(msg) {
+                appendBox(`<div style="color:#fca5a5; margin-top:12px;">⚠ ${escapeHtml(msg)}</div>`);
+            }
+
+            function toast(msg, variant) {
+                if (NS()?.showToast) NS().showToast(msg, { variant: variant === 'success' ? 'success' : 'error', duration: 4500, silent: true });
+                else console.log('[storage]', msg);
+            }
+            function escapeHtml(s) {
+                return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+            }
+        })();
+    </script>
+
+    <!-- Medieval Futuristic Theme -->
+</body>
+
+</html>

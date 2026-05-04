@@ -1,0 +1,106 @@
+/* =============================================
+   GUNTER APP - THEME: PODCAST
+   Studio Lo-Fi — Warm Amber + Plum
+   Carácter: cálido, analógico, redondeado, cozy.
+   ============================================= */
+
+[data-theme="podcast"] {
+    --accent-primary: #ffaa00;
+    --accent-secondary: #a855f7;
+    --accent-tertiary: #f59e0b;
+
+    --bg-deep-navy: #100801;
+    --bg-obsidian: #1b0e02;
+    --bg-card: rgba(30, 18, 4, 0.78);
+    --bg-card-hover: rgba(46, 28, 8, 0.88);
+
+    --glass-bg: rgba(255, 170, 0, 0.05);
+    --glass-border: rgba(255, 170, 0, 0.22);
+
+    --glow-primary: 0 0 28px rgba(255, 170, 0, 0.38), 0 0 60px rgba(168, 85, 247, 0.2);
+
+    --font-primary: 'Outfit', sans-serif;
+    --font-display: 'Outfit', sans-serif;
+
+    --theme-radius: 14px;
+    --theme-radius-lg: 20px;
+    --theme-border-width: 1px;
+    --theme-letter-spacing: 0.01em;
+    --theme-uppercase-letter-spacing: 2.8px;
+}
+
+[data-theme="podcast"] body {
+    font-family: var(--font-primary);
+    letter-spacing: var(--theme-letter-spacing);
+}
+
+[data-theme="podcast"] h1,
+[data-theme="podcast"] h2,
+[data-theme="podcast"] h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+}
+
+[data-theme="podcast"] .btn--primary {
+    background: linear-gradient(135deg, #ffaa00 0%, #f59e0b 100%);
+    color: #1b0e02;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 12px 24px;
+    box-shadow: 0 6px 20px rgba(255, 170, 0, 0.35);
+}
+[data-theme="podcast"] .btn--primary:hover {
+    box-shadow: 0 10px 28px rgba(255, 170, 0, 0.5);
+    transform: translateY(-2px);
+}
+
+[data-theme="podcast"] .status-badge--info,
+[data-theme="podcast"] .status-badge--success {
+    background: rgba(255, 170, 0, 0.12);
+    color: #fbbf24;
+    border-color: rgba(255, 170, 0, 0.4);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: var(--theme-uppercase-letter-spacing);
+    text-transform: uppercase;
+}
+
+[data-theme="podcast"] .gunter-avatar-img { filter: drop-shadow(0 0 36px rgba(255, 170, 0, 0.55)); }
+
+[data-theme="podcast"] .glass-card,
+[data-theme="podcast"] .project-card,
+[data-theme="podcast"] .result-section {
+    border-color: rgba(255, 170, 0, 0.14);
+    border-radius: var(--theme-radius-lg);
+    background: linear-gradient(160deg, rgba(30, 18, 4, 0.88) 0%, rgba(22, 12, 2, 0.92) 100%);
+}
+[data-theme="podcast"] .glass-card:hover,
+[data-theme="podcast"] .project-card:hover {
+    border-color: rgba(255, 170, 0, 0.35);
+    box-shadow: 0 0 30px rgba(255, 170, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+[data-theme="podcast"] .text-gradient {
+    background: linear-gradient(120deg, #ffaa00 0%, #f59e0b 50%, #a855f7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+[data-theme="podcast"] .sidebar__nav-item.active {
+    background: rgba(255, 170, 0, 0.14);
+    color: #ffaa00;
+    border-radius: var(--theme-radius);
+}
+
+[data-theme="podcast"] .analysis-result-card h3 {
+    font-size: 18px;
+    color: #fcd34d;
+    font-weight: 700;
+    border-bottom: 2px dotted rgba(255, 170, 0, 0.3);
+    padding-bottom: 8px;
+}

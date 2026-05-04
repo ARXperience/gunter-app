@@ -1,0 +1,142 @@
+/* =============================================
+   GUNTER APP - THEME: ZEN
+   Serene Sage — Warm Gold + Soft Jade
+   Carácter: minimal, serif, negative space, wabi-sabi.
+   ============================================= */
+
+[data-theme="zen"] {
+    --accent-primary: #e8c87a;
+    --accent-secondary: #9ec4a4;
+    --accent-tertiary: #b48a48;
+
+    --bg-deep-navy: #0f0e0a;
+    --bg-obsidian: #14130d;
+    --bg-card: rgba(26, 24, 16, 0.78);
+    --bg-card-hover: rgba(36, 32, 22, 0.88);
+
+    --glass-bg: rgba(180, 138, 72, 0.04);
+    --glass-border: rgba(232, 200, 122, 0.16);
+
+    --glow-primary: 0 0 30px rgba(232, 200, 122, 0.3), 0 0 60px rgba(158, 196, 164, 0.15);
+
+    --font-primary: 'Inter', sans-serif;
+    --font-display: 'Playfair Display', serif;
+
+    --theme-radius: 2px;
+    --theme-radius-lg: 4px;
+    --theme-border-width: 1px;
+    --theme-letter-spacing: 0.02em;
+    --theme-uppercase-letter-spacing: 5px;
+}
+
+[data-theme="zen"] body {
+    font-family: var(--font-primary);
+    letter-spacing: var(--theme-letter-spacing);
+    line-height: 1.7;
+}
+
+[data-theme="zen"] h1,
+[data-theme="zen"] h2,
+[data-theme="zen"] h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+}
+[data-theme="zen"] h1 { font-weight: 300; }
+
+[data-theme="zen"] .btn--primary {
+    background: transparent;
+    color: #e8c87a;
+    font-weight: 500;
+    border: 1px solid rgba(232, 200, 122, 0.45);
+    border-radius: var(--theme-radius);
+    padding: 12px 28px;
+    letter-spacing: var(--theme-uppercase-letter-spacing);
+    text-transform: uppercase;
+    font-size: 11px;
+    transition: all 400ms ease;
+}
+[data-theme="zen"] .btn--primary:hover {
+    background: rgba(232, 200, 122, 0.08);
+    border-color: #e8c87a;
+    letter-spacing: 6px;
+    box-shadow: 0 0 40px rgba(232, 200, 122, 0.2);
+}
+
+[data-theme="zen"] .status-badge--info,
+[data-theme="zen"] .status-badge--success {
+    background: transparent;
+    color: #e8c87a;
+    border: 1px solid rgba(232, 200, 122, 0.4);
+    border-radius: 0;
+    text-transform: uppercase;
+    letter-spacing: var(--theme-uppercase-letter-spacing);
+    font-weight: 400;
+    font-size: 10px;
+    padding: 3px 10px;
+}
+
+[data-theme="zen"] .gunter-avatar-img { filter: drop-shadow(0 0 36px rgba(232, 200, 122, 0.45)); }
+
+[data-theme="zen"] .glass-card,
+[data-theme="zen"] .project-card,
+[data-theme="zen"] .result-section {
+    border: 1px solid rgba(232, 200, 122, 0.10);
+    border-radius: var(--theme-radius-lg);
+    background: linear-gradient(180deg, rgba(26, 24, 16, 0.82) 0%, rgba(20, 19, 13, 0.85) 100%);
+    position: relative;
+}
+[data-theme="zen"] .result-section::before {
+    content: '';
+    position: absolute; top: 16px; left: 16px;
+    width: 20px; height: 20px;
+    border-top: 1px solid rgba(232, 200, 122, 0.4);
+    border-left: 1px solid rgba(232, 200, 122, 0.4);
+    pointer-events: none;
+}
+[data-theme="zen"] .result-section::after {
+    content: '';
+    position: absolute; bottom: 16px; right: 16px;
+    width: 20px; height: 20px;
+    border-bottom: 1px solid rgba(232, 200, 122, 0.4);
+    border-right: 1px solid rgba(232, 200, 122, 0.4);
+    pointer-events: none;
+}
+[data-theme="zen"] .glass-card:hover,
+[data-theme="zen"] .project-card:hover {
+    border-color: rgba(232, 200, 122, 0.35);
+    box-shadow: 0 0 36px rgba(232, 200, 122, 0.12);
+}
+
+[data-theme="zen"] .text-gradient {
+    background: linear-gradient(135deg, #e8c87a 0%, #9ec4a4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+[data-theme="zen"] .sidebar__nav-item.active {
+    background: transparent;
+    color: #e8c87a;
+    border-left: 1px solid #e8c87a;
+    padding-left: 18px;
+    border-radius: 0;
+}
+
+[data-theme="zen"] .analysis-result-card h3 {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 400;
+    color: #e8c87a;
+    border: none;
+    padding-bottom: 4px;
+    position: relative;
+}
+[data-theme="zen"] .analysis-result-card h3::after {
+    content: '';
+    display: block;
+    width: 40px; height: 1px;
+    background: rgba(232, 200, 122, 0.4);
+    margin-top: 8px;
+}
