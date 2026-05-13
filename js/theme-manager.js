@@ -38,8 +38,7 @@ class GunterThemeManager {
     // Páginas donde el tema SÍ aplica (flujo de reunión)
     static isThemedPage() {
         const p = (location.pathname || '').toLowerCase();
-        return /meeting\.html$|results\.html$/.test(p)
-            || (/config\.html$/.test(p) && (location.hash === '' || location.hash === '#new-project'));
+        return /meeting\.html$|results\.html$|new-project\.html$/.test(p);
     }
 
     // Load theme from project settings

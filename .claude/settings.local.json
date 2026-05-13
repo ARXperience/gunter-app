@@ -111,7 +111,8 @@
       "Bash(head -40 .claude/skills/find-skills/SKILL.md)",
       "Bash(npx --yes skills add https://github.com/softaworks/agent-toolkit --skill skill-judge --agent claude-code -y)",
       "Bash(head -30 .claude/skills/skill-judge/SKILL.md)",
-      "Bash(ls .claude/skills/)"
+      "Bash(ls .claude/skills/)",
+      "Bash(git ls-remote *)"
     ]
   }
 }
