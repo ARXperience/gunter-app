@@ -140,7 +140,9 @@
         proactivePulseAggression: 'normal',   // 'soft' | 'normal' | 'high'
         meetingClimate: false,
         mirrorStyle: false,
-        projectForecast: false
+        projectForecast: false,
+        tutorMode: false,
+        tutorLibrary: 'grinberg-obra-completa'
     });
 
     const ENUMS = Object.freeze({

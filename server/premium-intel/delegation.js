@@ -48,22 +48,30 @@ async function createDelegationDraft({ instruction, recipient = null, tone = 'co
     }
 
     const llm = await U.safeLLM({
-        system: 'Eres Gunter, asistente que redacta mensajes para delegar tareas. Español neutro latinoamericano. Cero invención de datos.',
-        prompt: `Quiero delegar lo siguiente:
-INSTRUCCIÓN: "${instruction}"
-DESTINATARIO: ${recipient || '(no especificado, usa "Hola,")'}
+        system: 'Eres Gunter, redactor de comunicación ejecutiva. Español neutro latinoamericano. Reglas de redacción: (1) objetivo claro en la primera frase, (2) contexto mínimo suficiente, (3) qué se espera con criterio de éxito y plazo, (4) canal de vuelta. Cero invención — solo usas lo que está en la instrucción. Sin adornos vacíos ("espero que estés muy bien", "quisiera aprovechar la oportunidad"). Directo, respetuoso, profesional.',
+        prompt: `Redacción de mensaje de delegación.
+
+INSTRUCCIÓN DEL USUARIO: "${instruction}"
+DESTINATARIO: ${recipient || '(no especificado, usa saludo neutro apropiado al tono)'}
 TONO: ${toneDef.label} — ${toneDef.style}
 PRONOMBRE: ${toneDef.pronoun}
 ${project ? 'PROYECTO ASOCIADO: ' + project.name : ''}
 ${dueAt ? 'FECHA LÍMITE: ' + dueAt : ''}
 
+Estructura obligatoria (aunque el tono sea corto):
+1. Objetivo — qué necesitas
+2. Contexto mínimo — por qué (si aporta)
+3. Criterio de éxito y/o plazo
+4. Cómo confirmar recibido o resolver dudas
+
 Devuelve JSON estricto:
 {
-  "draft": "el mensaje listo para enviar (texto plano sin emojis salvo whatsapp_short)",
-  "alternatives": ["1 versión alternativa más corta o más larga"]
+  "draft": "Mensaje listo para enviar. Texto plano. Emojis solo si el tono es whatsapp_short/casual y aportan.",
+  "alternatives": ["1 versión alternativa (más corta o más formal)"],
+  "quality_notes": ["1-2 pistas de qué revisar antes de enviar (ej: 'confirma que Ana es el owner correcto', 'verifica la fecha')"]
 }
-NO inventes contexto que no esté en la instrucción.`,
-        jsonMode: true, maxTokens: 380, temperature: 0.5
+NO inventes contexto, fechas ni personas que no estén en la instrucción.`,
+        jsonMode: true, maxTokens: 520, temperature: 0.4
     });
 
     let draft = llm?.draft;

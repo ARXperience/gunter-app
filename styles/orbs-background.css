@@ -1,0 +1,206 @@
+/* =============================================
+   GUNTER — Orbes 3D animados de fondo
+   -------------------------------------------------
+   Reemplaza el .neural-mesh-bg viejo. 5 orbes flotantes
+   con blur, gradiente radial y animación suave.
+
+   USO:
+     <div class="gn-orbs" aria-hidden="true">
+       <div class="gn-orb gn-orb--1"></div>
+       <div class="gn-orb gn-orb--2"></div>
+       <div class="gn-orb gn-orb--3"></div>
+       <div class="gn-orb gn-orb--4"></div>
+       <div class="gn-orb gn-orb--5"></div>
+     </div>
+
+   Alternativa auto-mounted: el JS del Companion inyecta
+   los orbes al body si no existen.
+
+   Performance:
+     - Cada orbe es un div con box-shadow + border-radius
+     - GPU-accelerated (transform + opacity only)
+     - Respeta prefers-reduced-motion
+   ============================================= */
+
+.gn-orbs {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-orbs, -1);
+  overflow: hidden;
+  pointer-events: none;
+  /* Fondo simplificado — solo un tinte muy sutil en las esquinas,
+     sin orbes visibles que dominen la composición. */
+  background:
+    radial-gradient(ellipse at top left,
+      rgba(139, 92, 246, 0.06) 0%,
+      transparent 40%),
+    radial-gradient(ellipse at bottom right,
+      rgba(236, 72, 153, 0.04) 0%,
+      transparent 40%),
+    var(--bg-deep);
+}
+
+/* Orbes ocultos por default. Se activan con .with-orbs en body si el usuario los quiere. */
+.gn-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0;
+  will-change: transform;
+  mix-blend-mode: screen;
+  display: none;
+}
+
+body.with-orbs .gn-orb {
+  display: block;
+  opacity: 0.30;
+}
+
+/* Orbe 1 · Púrpura, arriba-izquierda, grande */
+.gn-orb--1 {
+  width: 480px;
+  height: 480px;
+  top: -120px;
+  left: -80px;
+  background: radial-gradient(circle at 35% 35%,
+    #A78BFA 0%,
+    #8B5CF6 40%,
+    #6D28D9 100%);
+  animation: gn-orb-float-1 28s var(--ease-in-out) infinite;
+}
+
+/* Orbe 2 · Rosa, centro-derecha */
+.gn-orb--2 {
+  width: 380px;
+  height: 380px;
+  top: 20%;
+  right: -60px;
+  background: radial-gradient(circle at 40% 40%,
+    #F9A8D4 0%,
+    #EC4899 45%,
+    #BE185D 100%);
+  animation: gn-orb-float-2 32s var(--ease-in-out) infinite;
+  animation-delay: -6s;
+}
+
+/* Orbe 3 · Naranja, abajo-centro */
+.gn-orb--3 {
+  width: 340px;
+  height: 340px;
+  bottom: -80px;
+  left: 30%;
+  background: radial-gradient(circle at 45% 45%,
+    #FDBA74 0%,
+    #F97316 45%,
+    #C2410C 100%);
+  animation: gn-orb-float-3 24s var(--ease-in-out) infinite;
+  animation-delay: -12s;
+}
+
+/* Orbe 4 · Índigo pequeño, arriba-derecha */
+.gn-orb--4 {
+  width: 240px;
+  height: 240px;
+  top: 8%;
+  right: 25%;
+  background: radial-gradient(circle at 40% 40%,
+    #A5B4FC 0%,
+    #6366F1 50%,
+    #4338CA 100%);
+  animation: gn-orb-float-4 36s var(--ease-in-out) infinite;
+  animation-delay: -18s;
+  opacity: 0.45;
+}
+
+/* Orbe 5 · Cian pequeño, abajo-izquierda */
+.gn-orb--5 {
+  width: 220px;
+  height: 220px;
+  bottom: 12%;
+  left: 8%;
+  background: radial-gradient(circle at 40% 40%,
+    #67E8F9 0%,
+    #06B6D4 50%,
+    #0E7490 100%);
+  animation: gn-orb-float-5 30s var(--ease-in-out) infinite;
+  animation-delay: -24s;
+  opacity: 0.40;
+}
+
+/* =============================================
+   ANIMACIONES — cada orbe flota distinto
+   Solo transform (GPU-friendly)
+   ============================================= */
+
+@keyframes gn-orb-float-1 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  25%      { transform: translate(60px, 80px) rotate(90deg) scale(1.08); }
+  50%      { transform: translate(-40px, 120px) rotate(180deg) scale(0.95); }
+  75%      { transform: translate(-80px, 40px) rotate(270deg) scale(1.05); }
+}
+
+@keyframes gn-orb-float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(-70px, 60px) scale(1.1); }
+  66%      { transform: translate(-30px, -80px) scale(0.92); }
+}
+
+@keyframes gn-orb-float-3 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50%      { transform: translate(80px, -120px) rotate(180deg) scale(1.15); }
+}
+
+@keyframes gn-orb-float-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40%      { transform: translate(-40px, 60px) scale(1.2); }
+  80%      { transform: translate(30px, 100px) scale(0.85); }
+}
+
+@keyframes gn-orb-float-5 {
+  0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  30%      { transform: translate(70px, -50px) scale(1.15) rotate(120deg); }
+  60%      { transform: translate(120px, 30px) scale(0.9) rotate(240deg); }
+}
+
+/* =============================================
+   ACCESIBILIDAD — sin animación si el user lo pide
+   ============================================= */
+@media (prefers-reduced-motion: reduce) {
+  .gn-orb,
+  .gn-orb--1,
+  .gn-orb--2,
+  .gn-orb--3,
+  .gn-orb--4,
+  .gn-orb--5 {
+    animation: none !important;
+  }
+}
+
+/* =============================================
+   MOBILE — orbes más pequeños para no saturar
+   ============================================= */
+@media (max-width: 768px) {
+  .gn-orb--1 { width: 320px; height: 320px; }
+  .gn-orb--2 { width: 260px; height: 260px; }
+  .gn-orb--3 { width: 240px; height: 240px; }
+  .gn-orb--4 { width: 180px; height: 180px; }
+  .gn-orb--5 { width: 160px; height: 160px; }
+  .gn-orbs {
+    /* En móvil, un poco menos de brillo para preservar batería */
+    opacity: 0.85;
+  }
+}
+
+@media (max-width: 480px) {
+  .gn-orb {
+    filter: blur(50px);
+  }
+}
+
+/* =============================================
+   OPCIONAL — Cuando la app está en background,
+   pausamos animación via JS: body.app-hidden
+   ============================================= */
+body.app-hidden .gn-orb {
+  animation-play-state: paused;
+}

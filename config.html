@@ -2,6 +2,8 @@
 <html lang="es">
 
 <head>
+    <script src="js/services/log-buffer.js?v41-waphone-1783320000000"></script>
+    <script src="js/services/auth-service.js?v41-waphone-1783320000000"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Gunter App - Configuración de Contexto - Selecciona tu entorno de trabajo">
@@ -42,9 +44,15 @@
     <link rel="apple-touch-icon" href="assets/gunter/gunter_transparent_default_1769134184933.png">
 
     <!-- Medieval Futuristic Theme -->
+    <link rel="stylesheet" href="styles/gunter-mascot.css?v41-waphone-1783320000000">
+    <link rel="stylesheet" href="styles/gunter-companion.css?v41-waphone-1783320000000">
+        <link rel="preload" as="style" href="styles/gunter-design-system.css">
+    <link rel="preload" as="style" href="styles/gunter-legacy-overrides.css">
+<link rel="stylesheet" href="styles/gunter-design-system.css?v41-waphone-1783320000000">
+    <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v41-waphone-1783320000000">
 </head>
 
-<body>
+<body class="at-light">
     <!-- Neural Mesh Background -->
     <div class="neural-mesh-bg"></div>
 
@@ -267,50 +275,51 @@
 
     <!-- Scripts -->
     <script src="js/config.js"></script>
-    <script src="js/theme-manager.js"></script>
-    <script src="js/theme-backgrounds.js"></script>
-    <script src="js/data-service.js"></script>
-    <script src="js/services/google-auth-service.js"></script>
-    <script src="js/services/calendar-service.js"></script>
-    <script src="js/services/status-bus.js"></script>
-    <script src="js/services/connectivity-monitor.js"></script>
-    <script src="js/services/notifications-service.js"></script>
-    <script src="js/services/transcript-store.js"></script>
-    <script src="js/services/local-data-maintenance-service.js"></script>
-    <script src="js/services/error-mapper.js"></script>
-    <script src="js/services/tasks-service.js"></script>
-    <script src="js/services/events-service.js"></script>
-    <script src="js/services/whatsapp-service.js"></script>
-    <script src="js/services/voice-service.js"></script>
-    <script src="js/services/wake-word-service.js"></script>
+    <script src="js/theme-manager.js" defer></script>
+    <script src="js/theme-backgrounds.js" defer></script>
+    <script src="js/data-service.js" defer></script>
+    <script src="js/services/google-auth-service.js" defer></script>
+    <script src="js/services/calendar-service.js" defer></script>
+    <script src="js/services/status-bus.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/connectivity-monitor.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/notifications-service.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/transcript-store.js" defer></script>
+    <script src="js/services/local-data-maintenance-service.js" defer></script>
+    <script src="js/services/error-mapper.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/tasks-service.js" defer></script>
+    <script src="js/services/events-service.js" defer></script>
+    <script src="js/services/whatsapp-service.js" defer></script>
+    <script src="js/services/voice-service.js" defer></script>
+    <script src="js/services/wake-word-service.js" defer></script>
 
     <!-- Adapters (Fase 7) -->
-    <script src="js/adapters/storage-adapter.js"></script>
-    <script src="js/adapters/auth-adapter.js"></script>
-    <script src="js/adapters/notification-adapter.js"></script>
-    <script src="js/adapters/calendar-adapter.js"></script>
-    <script src="js/adapters/voice-adapter.js"></script>
-    <script src="js/adapters/index.js"></script>
+    <script src="js/adapters/storage-adapter.js" defer></script>
+    <script src="js/adapters/auth-adapter.js" defer></script>
+    <script src="js/adapters/notification-adapter.js" defer></script>
+    <script src="js/adapters/calendar-adapter.js" defer></script>
+    <script src="js/adapters/voice-adapter.js" defer></script>
+    <script src="js/adapters/index.js" defer></script>
 
-    <script src="js/premium-features-service.js"></script>
-    <script src="js/advanced-settings.js"></script>
+    <script src="js/premium-features-service.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/advanced-settings.js" defer></script>
 
-    <!-- v2 — Memoria Conversacional (F1): se carga aquí solo para que la card de gestión funcione (stats/list/clear/forget). El modo write/recall vive en day.html y meeting.html. -->
-    <script src="js/services/conversation-memory-service.js"></script>
-    <script src="js/controllers/conversation-memory-panel.js"></script>
+    <!-- v2 — Memoria Conversacional (F1): se carga aquí solo para que la card de gestión funcione (stats/list/clear/forget). El modo write/recall vive en day.html y meeting.html. -->    <script src="js/services/embedding-service.js?v41-waphone-1783320000000" defer></script>
 
-    <script src="js/config-settings.js"></script>
+    <script src="js/services/conversation-memory-service.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/controllers/conversation-memory-panel.js" defer></script>
+
+    <script src="js/config-settings.js" defer></script>
     <!-- (ai-analysis, cache-service, audio-chunker, audio-trimmer eliminados:
          pertenecían al flujo Nuevo Proyecto que ahora vive en dashboard.html) -->
-    <script src="js/app.js"></script>
+    <script src="js/app.js" defer></script>
     <!-- (Nuevo Proyecto inline script eliminado: el panel ahora vive en dashboard.html) -->
 
     <!-- Phase 2 Design Enhancements -->
-    <script src="js/particle-effects.js"></script>
-    <script src="js/card-interactions.js"></script>
+    <script src="js/particle-effects.js" defer></script>
+    <script src="js/card-interactions.js" defer></script>
 
     <!-- PWA registration (Fase 8) -->
-    <script src="js/services/pwa-register.js"></script>
+    <script src="js/services/pwa-register.js" defer></script>
 
     <!-- Fase F.F5 — Wiring del toggle dark mode -->
     <script>
@@ -520,6 +529,20 @@
     </script>
 
     <!-- Medieval Futuristic Theme -->
+    <script src="js/services/sw-updater.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/theme-toggle.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/actions-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/nlp-llm-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/commitments-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/proactive-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/style-mirror-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/forecast-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/tutor-service.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/gunter-rules-service.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/gunter-mood-service.js?v41-waphone-1783320000000" defer></script>
+
+
+
+
+
+
+
+    <script src="js/services/gunter-companion.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/smooth-scroll.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/gunter-onboarding.js?v41-waphone-1783320000000" defer></script>
 </body>
 
 </html>

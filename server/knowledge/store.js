@@ -25,18 +25,26 @@
 
 const fs = require('fs');
 const path = require('path');
+const userStore = require('../user-store');
+const ctx = require('../user-context');
 
-const DATA_DIR     = path.join(__dirname, '..', '..', 'whatsapp-data', 'knowledge');
-const FILE_SNAP    = path.join(DATA_DIR, 'snapshot.json');
-const FILE_INDEX   = path.join(DATA_DIR, 'index.json');
-const FILE_SUMS    = path.join(DATA_DIR, 'summaries.json');
-const FILE_ALIASES = path.join(DATA_DIR, 'contact-aliases.json');
+// Multi-tenant: cada usuario tiene su carpeta knowledge/ (el dueño hereda
+// la legacy whatsapp-data/knowledge/ por migración automática).
+function kFile(name) { return path.join(userStore.userKnowledgeDir(), name); }
 
-let memSnapshot = null;
-let memIndex = null;
+// Caches en memoria POR USUARIO (uid → data)
+const memSnapshots = new Map();
+const memIndexes = new Map();
+const MAX_MEM_USERS = 20;   // higiene: no retener snapshots de usuarios inactivos
 
-function ensureDir() {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+function _memGet(map) { return map.get(ctx.currentUserId()) || null; }
+function _memSet(map, value) {
+    const uid = ctx.currentUserId();
+    map.set(uid, value);
+    if (map.size > MAX_MEM_USERS) {
+        const oldest = map.keys().next().value;
+        if (oldest !== uid) map.delete(oldest);
+    }
 }
 
 function lower(s) {
@@ -51,21 +59,27 @@ function safeRead(file, fallback) {
 }
 
 function safeWrite(file, data) {
-    ensureDir();
     fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
 }
 
 // ---------- Snapshot persistence ----------
 function loadSnapshot() {
-    if (memSnapshot) return memSnapshot;
-    memSnapshot = safeRead(FILE_SNAP, null);
-    return memSnapshot;
+    let snap = _memGet(memSnapshots);
+    if (snap) return snap;
+    snap = safeRead(kFile('snapshot.json'), null);
+    if (snap) _memSet(memSnapshots, snap);
+    return snap;
 }
 function loadIndex() {
-    if (memIndex) return memIndex;
-    memIndex = safeRead(FILE_INDEX, null);
-    if (!memIndex && memSnapshot) memIndex = buildIndex(memSnapshot);
-    return memIndex;
+    let idx = _memGet(memIndexes);
+    if (idx) return idx;
+    idx = safeRead(kFile('index.json'), null);
+    if (!idx) {
+        const snap = loadSnapshot();
+        if (snap) idx = buildIndex(snap);
+    }
+    if (idx) _memSet(memIndexes, idx);
+    return idx;
 }
 
 function putSnapshot(snapshot) {
@@ -73,10 +87,11 @@ function putSnapshot(snapshot) {
         throw new Error('Snapshot inválido: falta projects[]');
     }
     snapshot.receivedAt = new Date().toISOString();
-    memSnapshot = snapshot;
-    memIndex = buildIndex(snapshot);
-    safeWrite(FILE_SNAP, snapshot);
-    safeWrite(FILE_INDEX, memIndex);
+    const idx = buildIndex(snapshot);
+    _memSet(memSnapshots, snapshot);
+    _memSet(memIndexes, idx);
+    safeWrite(kFile('snapshot.json'), snapshot);
+    safeWrite(kFile('index.json'), idx);
     return {
         ok: true,
         lastSyncedAt: snapshot.syncedAt || snapshot.receivedAt,
@@ -169,33 +184,33 @@ function buildIndex(snapshot) {
 
 // ---------- Summaries cache ----------
 function getSummary(projectId) {
-    const all = safeRead(FILE_SUMS, {});
+    const all = safeRead(kFile('summaries.json'), {});
     return all[projectId] || null;
 }
 function setSummary(projectId, summary) {
-    const all = safeRead(FILE_SUMS, {});
+    const all = safeRead(kFile('summaries.json'), {});
     all[projectId] = { ...summary, cachedAt: new Date().toISOString() };
-    safeWrite(FILE_SUMS, all);
+    safeWrite(kFile('summaries.json'), all);
     return all[projectId];
 }
 function clearSummary(projectId) {
-    const all = safeRead(FILE_SUMS, {});
+    const all = safeRead(kFile('summaries.json'), {});
     delete all[projectId];
-    safeWrite(FILE_SUMS, all);
+    safeWrite(kFile('summaries.json'), all);
 }
 
 // ---------- Contact aliases ----------
 function touchAlias(contactId, projectId) {
     if (!contactId || !projectId) return;
-    const all = safeRead(FILE_ALIASES, {});
+    const all = safeRead(kFile('contact-aliases.json'), {});
     if (!all[contactId]) all[contactId] = { projects: {}, updatedAt: null };
     all[contactId].projects[projectId] = (all[contactId].projects[projectId] || 0) + 1;
     all[contactId].updatedAt = new Date().toISOString();
-    safeWrite(FILE_ALIASES, all);
+    safeWrite(kFile('contact-aliases.json'), all);
 }
 
 function getAliases(contactId) {
-    const all = safeRead(FILE_ALIASES, {});
+    const all = safeRead(kFile('contact-aliases.json'), {});
     const entry = all[contactId];
     if (!entry) return [];
     return Object.entries(entry.projects)

@@ -8,10 +8,10 @@
    ============================================= */
 
 const fs = require('fs');
-const path = require('path');
+const userStore = require('../user-store');
 
-const DIR = path.join(__dirname, '..', '..', 'whatsapp-data');
-const FILE = path.join(DIR, 'personality.json');
+// Multi-tenant: personalidad por usuario del contexto
+function FILE() { return userStore.userFile('wa-personality.json'); }
 
 const DEFAULTS = {
     voiceStyle: 'professional',
@@ -23,15 +23,12 @@ const DEFAULTS = {
     updatedAt: null
 };
 
-function ensure() {
-    if (!fs.existsSync(DIR)) fs.mkdirSync(DIR, { recursive: true });
-}
 
 function get() {
     try {
-        ensure();
-        if (!fs.existsSync(FILE)) return { ...DEFAULTS };
-        const parsed = JSON.parse(fs.readFileSync(FILE, 'utf8'));
+
+        if (!fs.existsSync(FILE())) return { ...DEFAULTS };
+        const parsed = JSON.parse(fs.readFileSync(FILE(), 'utf8'));
         return { ...DEFAULTS, ...parsed };
     } catch {
         return { ...DEFAULTS };
@@ -39,10 +36,10 @@ function get() {
 }
 
 function set(patch) {
-    ensure();
+
     const current = get();
     const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
-    fs.writeFileSync(FILE, JSON.stringify(next, null, 2), 'utf8');
+    fs.writeFileSync(FILE(), JSON.stringify(next, null, 2), 'utf8');
     return next;
 }
 

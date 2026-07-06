@@ -17,19 +17,17 @@
    ============================================= */
 
 const fs = require('fs');
-const path = require('path');
 const openai = require('../openai-client');
+const userStore = require('../user-store');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const FILE     = path.join(DATA_DIR, 'style-mirror.json');
-
-function ensureDir() { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true }); }
+// Multi-tenant: perfiles de estilo por usuario del contexto actual
+function filePath() { return userStore.userFile('style-mirror.json'); }
 
 function loadAll() {
     try {
-        ensureDir();
-        if (!fs.existsSync(FILE)) return {};
-        return JSON.parse(fs.readFileSync(FILE, 'utf8')) || {};
+        const fp = filePath();
+        if (!fs.existsSync(fp)) return {};
+        return JSON.parse(fs.readFileSync(fp, 'utf8')) || {};
     } catch (e) {
         console.warn('[style-mirror] loadAll:', e.message);
         return {};
@@ -38,8 +36,7 @@ function loadAll() {
 
 function saveAll(obj) {
     try {
-        ensureDir();
-        fs.writeFileSync(FILE, JSON.stringify(obj, null, 2), 'utf8');
+        fs.writeFileSync(filePath(), JSON.stringify(obj, null, 2), 'utf8');
         return true;
     } catch (e) {
         console.warn('[style-mirror] saveAll:', e.message);

@@ -1,0 +1,472 @@
+/* =============================================
+   GUNTER MASCOTA — SVG animado v10 (Adventure Time refined)
+   -------------------------------------------------
+   Estados: default, hover, thinking, talking, listening, celebration, waddle
+   Idle: breathing + blink pattern + look-around + waddle (cada ~12s) +
+         head tilt curioso + wing subtle flap.
+   Cartoon squash-and-stretch, timing con --ease-bounce.
+   ============================================= */
+
+
+/* ─────────────────────────────────────
+   Contenedor SVG — waddle sutil + sway
+   ───────────────────────────────────── */
+.gn-mascot {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+    will-change: transform;
+    transform-origin: 50% 95%;
+    /* Waddle cartoon: se mece cada 6s. */
+    animation: gn-mascot-waddle 6s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite;
+}
+
+@keyframes gn-mascot-waddle {
+    0%   { transform: translateX(0) rotate(0deg); }
+    12%  { transform: translateX(-1.2px) rotate(-2deg); }
+    25%  { transform: translateX(-1px) rotate(-1deg) translateY(-0.6px); }
+    37%  { transform: translateX(0) rotate(0deg); }
+    50%  { transform: translateX(1.2px) rotate(2deg); }
+    62%  { transform: translateX(1px) rotate(1deg) translateY(-0.6px); }
+    75%  { transform: translateX(0) rotate(0deg); }
+    88%  { transform: translateX(0) rotate(0deg) translateY(-0.3px); }
+    100% { transform: translateX(0) rotate(0deg); }
+}
+
+
+/* ─────────────────────────────────────
+   CUERPO — breathing (squash suave)
+   ───────────────────────────────────── */
+.gn-mascot__body {
+    transform-origin: center 65%;
+    animation: gn-body-breathe 3.4s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite;
+}
+
+@keyframes gn-body-breathe {
+    0%, 100% { transform: scale(1, 1); }
+    50%      { transform: scale(1.035, 0.965); }
+}
+
+
+/* ─────────────────────────────────────
+   BARRIGA
+   ───────────────────────────────────── */
+.gn-mascot__belly {
+    transform-origin: center 70%;
+    animation: gn-belly-breathe 3.4s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite;
+}
+
+@keyframes gn-belly-breathe {
+    0%, 100% { transform: scale(1); opacity: 0.98; }
+    50%      { transform: scale(1.02, 0.98); opacity: 1; }
+}
+
+
+/* ─────────────────────────────────────
+   OJOS — blink pattern AT (parpadeo lento cute + doble ocasional)
+   ───────────────────────────────────── */
+.gn-mascot__eye {
+    transform-origin: center center;
+}
+
+.gn-mascot__eye--left  { animation: gn-eye-blink 6.4s ease-in-out infinite; }
+.gn-mascot__eye--right { animation: gn-eye-blink 6.4s ease-in-out infinite; animation-delay: 0.03s; }
+
+@keyframes gn-eye-blink {
+    /* Blink lento tipo Gunter real: cierra despacio, mantiene 1 frame, abre despacio */
+    0%, 42%, 50%, 100% { transform: scaleY(1); }
+    45%                { transform: scaleY(0.08); }
+    47%                { transform: scaleY(0.08); }
+    /* Double blink (más "confundido/curioso" AT) */
+    55%                { transform: scaleY(1); }
+    57%                { transform: scaleY(0.1); }
+    60%                { transform: scaleY(1); }
+}
+
+/* Pupilas — mirada errante cartoon (Gunter siempre mira a otros lados) */
+.gn-mascot__pupil {
+    transform-origin: center center;
+    animation: gn-pupil-look 14s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite;
+}
+
+@keyframes gn-pupil-look {
+    0%, 6%, 96%, 100% { transform: translateX(0) translateY(0); }
+    10%, 18%          { transform: translateX(-1.8px) translateY(-0.5px); }   /* izq-arriba */
+    24%               { transform: translateX(0) translateY(-1.2px); }        /* arriba */
+    32%, 40%          { transform: translateX(1.8px) translateY(0.6px); }     /* der-abajo */
+    46%               { transform: translateX(0) translateY(1px); }           /* abajo (mira a ti) */
+    54%, 62%          { transform: translateX(-1.5px) translateY(1px); }      /* izq-abajo (avergonzado) */
+    68%, 76%          { transform: translateX(1.5px) translateY(-0.5px); }    /* der-arriba */
+    82%, 90%          { transform: translateX(0) translateY(0); }             /* centrada */
+}
+
+
+/* ─────────────────────────────────────
+   BRILLO — micro-drift opuesto a pupila
+   ───────────────────────────────────── */
+.gn-mascot__shine {
+    animation: gn-shine-drift 14s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite;
+}
+
+@keyframes gn-shine-drift {
+    0%, 100% { transform: translate(0, 0); opacity: 1; }
+    50%      { transform: translate(0.4px, -0.4px); opacity: 0.9; }
+}
+
+
+/* ─────────────────────────────────────
+   PICO — respira + microabertura curiosa
+   ───────────────────────────────────── */
+.gn-mascot__beak {
+    transform-origin: center top;
+    animation: gn-beak-breathe 3.4s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite;
+}
+
+@keyframes gn-beak-breathe {
+    0%, 88%, 100% { transform: scaleY(1); }
+    50%           { transform: scaleY(1.08); }
+    92%           { transform: scaleY(1.15) translateY(0.3px); }   /* "wenk!" ocasional */
+    96%           { transform: scaleY(1); }
+}
+
+
+/* ─────────────────────────────────────
+   ALETAS — flap AT (levanta y baja como confundido)
+   ───────────────────────────────────── */
+.gn-mascot__wing {
+    transform-origin: 50% 15%;
+}
+
+.gn-mascot__wing--left  { animation: gn-wing-left  5s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite; }
+.gn-mascot__wing--right { animation: gn-wing-right 5s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite; animation-delay: -2.5s; }
+
+@keyframes gn-wing-left {
+    0%, 45%, 100% { transform: rotate(0deg); }
+    20%           { transform: rotate(-6deg); }
+    55%           { transform: rotate(-14deg) translateY(-1px); }   /* flap "wenk!" */
+    62%           { transform: rotate(-4deg); }
+    75%           { transform: rotate(-10deg); }
+    85%           { transform: rotate(0deg); }
+}
+
+@keyframes gn-wing-right {
+    0%, 45%, 100% { transform: rotate(0deg); }
+    20%           { transform: rotate(6deg); }
+    55%           { transform: rotate(14deg) translateY(-1px); }
+    62%           { transform: rotate(4deg); }
+    75%           { transform: rotate(10deg); }
+    85%           { transform: rotate(0deg); }
+}
+
+
+/* ─────────────────────────────────────
+   PIES — tap sincronizado con waddle
+   ───────────────────────────────────── */
+.gn-mascot__foot { animation: gn-foot-tap 6s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite; }
+.gn-mascot__foot--left  { animation-delay: 0s; }
+.gn-mascot__foot--right { animation-delay: 3s; }
+
+@keyframes gn-foot-tap {
+    0%, 20%, 100% { transform: translateY(0) scaleX(1); }
+    10%           { transform: translateY(-1.6px) scaleX(0.92); }
+    50%, 60%      { transform: translateY(0) scaleX(1); }
+}
+
+
+/* ─────────────────────────────────────
+   HOVER — excited cartoon (Adventure Time squash+stretch)
+   ───────────────────────────────────── */
+.gn-comp__bubble:hover .gn-mascot {
+    animation: gn-mascot-excited 0.72s var(--ease-bounce, cubic-bezier(.34,1.56,.64,1)) forwards;
+}
+
+@keyframes gn-mascot-excited {
+    0%   { transform: translateY(0) rotate(0) scale(1); }
+    25%  { transform: translateY(-10px) rotate(-8deg) scale(1.12, 0.9); }   /* stretch up */
+    45%  { transform: translateY(3px) rotate(0) scale(0.92, 1.12); }       /* squash floor */
+    65%  { transform: translateY(-5px) rotate(6deg) scale(1.05, 0.98); }
+    82%  { transform: translateY(-1px) rotate(-2deg) scale(1.02); }
+    100% { transform: translateY(0) rotate(0) scale(1); }
+}
+
+.gn-comp__bubble:hover .gn-mascot__eye {
+    animation-play-state: paused;
+    transform: scaleY(1.2);
+}
+
+.gn-comp__bubble:hover .gn-mascot__beak {
+    animation: gn-beak-open 0.72s var(--ease-bounce, cubic-bezier(.34,1.56,.64,1)) forwards;
+}
+
+@keyframes gn-beak-open {
+    0%   { transform: scaleY(1); }
+    50%  { transform: scaleY(1.4) translateY(1px); }
+    100% { transform: scaleY(1.15); }
+}
+
+.gn-comp__bubble:hover .gn-mascot__wing {
+    animation: gn-wing-hover 0.72s var(--ease-bounce, cubic-bezier(.34,1.56,.64,1)) forwards;
+}
+
+@keyframes gn-wing-hover {
+    0%   { transform: rotate(0); }
+    50%  { transform: rotate(-25deg) translateY(-2px); }
+    100% { transform: rotate(-8deg); }
+}
+
+
+/* ─────────────────────────────────────
+   THINKING — cabeza ladeada + respira rápido
+   ───────────────────────────────────── */
+.gn-mascot.is-thinking {
+    animation: gn-thinking-tilt 2s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite;
+}
+
+@keyframes gn-thinking-tilt {
+    0%, 100% { transform: rotate(0deg); }
+    50%      { transform: rotate(3deg) translateY(-1px); }
+}
+
+.gn-mascot.is-thinking .gn-mascot__body { animation-duration: 1.6s; }
+
+.gn-mascot.is-thinking .gn-mascot__beak {
+    animation: gn-thinking-mouth 0.7s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite;
+}
+
+@keyframes gn-thinking-mouth {
+    0%, 100% { transform: scaleY(1) translateX(0); }
+    50%      { transform: scaleY(0.85) translateX(0.6px); }
+}
+
+.gn-mascot.is-thinking .gn-mascot__brow {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.gn-mascot.is-thinking .gn-mascot__pupil {
+    animation: gn-thinking-look 1.4s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite;
+}
+
+@keyframes gn-thinking-look {
+    0%, 100% { transform: translate(0, -1px); }
+    50%      { transform: translate(1.2px, -0.5px); }
+}
+
+
+/* ─────────────────────────────────────
+   TALKING — boca abre/cierra + wobble sutil
+   ───────────────────────────────────── */
+.gn-mascot.is-talking {
+    animation: gn-talking-wobble 0.7s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite;
+}
+
+@keyframes gn-talking-wobble {
+    0%, 100% { transform: rotate(0deg) translateY(0); }
+    25%      { transform: rotate(-1.5deg) translateY(-0.5px); }
+    75%      { transform: rotate(1.5deg) translateY(-0.5px); }
+}
+
+.gn-mascot.is-talking .gn-mascot__beak {
+    animation: gn-talking-mouth 0.28s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite;
+}
+
+@keyframes gn-talking-mouth {
+    0%, 100% { transform: scaleY(1); }
+    50%      { transform: scaleY(1.55) translateY(0.6px); }
+}
+
+
+/* ─────────────────────────────────────
+   LISTENING — alerta cartoon con orejas/aletas erguidas
+   ───────────────────────────────────── */
+.gn-mascot.is-listening .gn-mascot__eye {
+    animation: none;
+    transform: scaleY(1.15);
+}
+
+.gn-mascot.is-listening .gn-mascot__wing {
+    animation: gn-wing-alert 0.85s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite;
+}
+
+@keyframes gn-wing-alert {
+    0%, 100% { transform: rotate(0deg); }
+    50%      { transform: rotate(-18deg) translateY(-2px); }
+}
+
+.gn-mascot.is-listening .gn-mascot__body {
+    animation-duration: 1.5s;
+}
+
+/* Ripple concéntrico cuando listening */
+.gn-comp__bubble--listening::before,
+.gn-comp__bubble--listening::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 2px solid rgba(236, 72, 153, 0.55);
+    animation: gn-listen-ripple 1.6s var(--ease-out, cubic-bezier(.33,1,.68,1)) infinite;
+    pointer-events: none;
+}
+
+.gn-comp__bubble--listening::after { animation-delay: 0.8s; }
+
+@keyframes gn-listen-ripple {
+    0%   { transform: scale(0.85); opacity: 0.9; }
+    100% { transform: scale(1.6); opacity: 0; }
+}
+
+
+/* ─────────────────────────────────────
+   CELEBRATION — jump con spin cartoon
+   ───────────────────────────────────── */
+.gn-mascot.is-celebration {
+    animation: gn-celebration 0.95s var(--ease-bounce, cubic-bezier(.34,1.56,.64,1));
+}
+
+@keyframes gn-celebration {
+    0%   { transform: translateY(0) rotate(0) scale(1); }
+    18%  { transform: translateY(-4px) rotate(0) scale(1.1, 0.85); }   /* squash prep */
+    35%  { transform: translateY(-18px) rotate(20deg) scale(0.92, 1.15); }
+    55%  { transform: translateY(-10px) rotate(-14deg) scale(1.04); }
+    72%  { transform: translateY(-14px) rotate(10deg); }
+    88%  { transform: translateY(-2px) rotate(-4deg) scale(1.08, 0.94); }
+    100% { transform: translateY(0) rotate(0) scale(1); }
+}
+
+.gn-mascot.is-celebration .gn-mascot__wing {
+    animation: gn-celebration-flap 0.95s var(--ease-bounce, cubic-bezier(.34,1.56,.64,1));
+}
+
+@keyframes gn-celebration-flap {
+    0%   { transform: rotate(0); }
+    35%  { transform: rotate(-30deg) translateY(-2px); }
+    55%  { transform: rotate(-20deg); }
+    100% { transform: rotate(0); }
+}
+
+
+/* ─────────────────────────────────────
+   PEEK — cuando aparece la burbuja tooltip
+   Gunter "asoma" con un tilt curioso hacia el bocadillo
+   ───────────────────────────────────── */
+.gn-comp.is-bubble .gn-mascot {
+    animation: gn-mascot-peek 1.2s var(--ease-bounce, cubic-bezier(.34,1.56,.64,1)) both;
+}
+
+@keyframes gn-mascot-peek {
+    0%   { transform: rotate(0deg) translateY(0); }
+    30%  { transform: rotate(-8deg) translateY(-2px); }
+    55%  { transform: rotate(-4deg) translateY(0); }
+    80%  { transform: rotate(-6deg); }
+    100% { transform: rotate(-5deg); }
+}
+
+
+/* ─────────────────────────────────────
+   v37 · MOODS (estados de ánimo)
+   Se aplican como clase extra en .gn-mascot
+   ───────────────────────────────────── */
+
+/* De luto — caído, desaturado, parpadeo lento */
+.gn-mascot.is-mood-mourning {
+    filter: saturate(0.55) brightness(0.92);
+    transform: translateY(2px);
+    animation-duration: 9s;   /* waddle más lento, sin ganas */
+}
+.gn-mascot.is-mood-mourning .gn-mascot__eye--left,
+.gn-mascot.is-mood-mourning .gn-mascot__eye--right {
+    animation-duration: 9s;   /* parpadeo apagado */
+}
+.gn-mascot.is-mood-mourning .gn-mascot__wing--left,
+.gn-mascot.is-mood-mourning .gn-mascot__wing--right {
+    animation: none;
+    transform: rotate(4deg) translateY(1.5px);   /* alas caídas */
+}
+
+/* Pasivo-agresivo — mirada lateral fija, quieto */
+.gn-mascot.is-mood-passive-aggressive {
+    animation: none;   /* no waddle: está "ofendido", no se mueve por vos */
+}
+.gn-mascot.is-mood-passive-aggressive .gn-mascot__pupil {
+    animation: none;
+    transform: translateX(2px);   /* mira de reojo, fijo */
+}
+.gn-mascot.is-mood-passive-aggressive .gn-mascot__eye--left,
+.gn-mascot.is-mood-passive-aggressive .gn-mascot__eye--right {
+    transform: scaleY(0.75);   /* ojos entrecerrados */
+    animation: none;
+}
+
+/* Orgulloso — pecho inflado + micro-rebote */
+.gn-mascot.is-mood-proud .gn-mascot__body {
+    transform: scale(1.05, 1.02);
+    animation: gn-proud-puff 2.4s var(--ease-in-out, cubic-bezier(.65,0,.35,1)) infinite;
+}
+@keyframes gn-proud-puff {
+    0%, 100% { transform: scale(1.05, 1.02); }
+    50%      { transform: scale(1.08, 1.0); }
+}
+.gn-mascot.is-mood-proud .gn-mascot__wing--left  { transform: rotate(-12deg); animation: none; }
+.gn-mascot.is-mood-proud .gn-mascot__wing--right { transform: rotate(12deg);  animation: none; }
+
+/* Entusiasmado — waddle acelerado + saltitos */
+.gn-mascot.is-mood-excited {
+    animation-duration: 2.8s;   /* waddle al doble de ritmo */
+}
+.gn-mascot.is-mood-excited .gn-mascot__foot--left,
+.gn-mascot.is-mood-excited .gn-mascot__foot--right {
+    animation-duration: 1.6s;
+}
+
+/* Gruñón — ceño (cejas visibles) + quieto */
+.gn-mascot.is-mood-grumpy .gn-mascot__brow {
+    opacity: 1 !important;
+    transform: translateY(1px) !important;
+}
+.gn-mascot.is-mood-grumpy {
+    animation-duration: 10s;
+}
+
+/* Dormido — párpados medio cerrados, super lento */
+.gn-mascot.is-mood-sleepy .gn-mascot__eye--left,
+.gn-mascot.is-mood-sleepy .gn-mascot__eye--right {
+    transform: scaleY(0.45);
+    animation: gn-sleepy-blink 5s ease-in-out infinite;
+}
+@keyframes gn-sleepy-blink {
+    0%, 80%, 100% { transform: scaleY(0.45); }
+    88%, 94%      { transform: scaleY(0.08); }
+}
+.gn-mascot.is-mood-sleepy {
+    animation-duration: 12s;
+    filter: brightness(0.95);
+}
+
+/* Zen — flotación suave, sin waddle */
+.gn-mascot.is-mood-zen {
+    animation: gn-zen-float 5s ease-in-out infinite;
+}
+@keyframes gn-zen-float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-3px); }
+}
+
+
+/* ─────────────────────────────────────
+   REDUCED MOTION
+   ───────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .gn-mascot,
+    .gn-mascot__body,
+    .gn-mascot__belly,
+    .gn-mascot__eye,
+    .gn-mascot__pupil,
+    .gn-mascot__shine,
+    .gn-mascot__beak,
+    .gn-mascot__wing,
+    .gn-mascot__foot {
+        animation: none !important;
+    }
+}

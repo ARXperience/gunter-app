@@ -522,3 +522,208 @@
     height: 60px;
     border-radius: 50%;
 }
+
+/* =============================================
+   GUNTER — Extensiones de animación (glassmorphism)
+   Todos los keyframes con prefijo gn- para no colisionar
+   con los existentes.
+   ============================================= */
+
+/* --- Card entrance con stagger --- */
+@keyframes gn-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.gn-card-enter {
+  animation: gn-card-enter var(--dur-normal) var(--ease-out) both;
+}
+
+/* Stagger delay helpers */
+.gn-stagger-1 { animation-delay: 60ms; }
+.gn-stagger-2 { animation-delay: 120ms; }
+.gn-stagger-3 { animation-delay: 180ms; }
+.gn-stagger-4 { animation-delay: 240ms; }
+.gn-stagger-5 { animation-delay: 300ms; }
+.gn-stagger-6 { animation-delay: 360ms; }
+.gn-stagger-7 { animation-delay: 420ms; }
+.gn-stagger-8 { animation-delay: 480ms; }
+
+/* --- Bounce sutil al hacer tap --- */
+@keyframes gn-tap-bounce {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+
+.gn-tap {
+  animation: gn-tap-bounce var(--dur-fast) var(--ease-bounce);
+}
+
+/* --- Ripple radial (usable con JS ripple) --- */
+@keyframes gn-ripple {
+  0%   { transform: scale(0); opacity: 0.5; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.gn-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+  animation: gn-ripple 600ms var(--ease-out);
+}
+
+/* --- Shake para errores --- */
+@keyframes gn-shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(4px); }
+}
+
+.gn-shake {
+  animation: gn-shake 400ms var(--ease-in-out);
+}
+
+/* --- Flash suave (highlight momentáneo tras cambio) --- */
+@keyframes gn-flash {
+  0%   { background: rgba(139, 92, 246, 0); }
+  30%  { background: rgba(139, 92, 246, 0.15); }
+  100% { background: rgba(139, 92, 246, 0); }
+}
+
+.gn-flash {
+  animation: gn-flash 800ms var(--ease-out);
+}
+
+/* --- Pop desde punto (para bocadillos y tooltips) --- */
+@keyframes gn-pop-in {
+  0%   { transform: scale(0.6) translateY(8px); opacity: 0; }
+  60%  { transform: scale(1.03) translateY(0); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.gn-pop-in {
+  animation: gn-pop-in var(--dur-fast) var(--ease-bounce) both;
+  transform-origin: bottom right;
+}
+
+/* --- Slide up modal --- */
+@keyframes gn-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.gn-modal-in {
+  animation: gn-modal-in var(--dur-normal) var(--ease-emphasized) both;
+}
+
+/* --- Backdrop entrance --- */
+@keyframes gn-backdrop-in {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to   { opacity: 1; backdrop-filter: blur(12px); }
+}
+
+.gn-backdrop-in {
+  animation: gn-backdrop-in var(--dur-fast) var(--ease-out) both;
+}
+
+/* --- Toast entrance (bottom slide) --- */
+@keyframes gn-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.gn-toast-in {
+  animation: gn-toast-in var(--dur-normal) var(--ease-bounce) both;
+}
+
+/* --- Highlight ring pulsante (tour onboarding) --- */
+@keyframes gn-spotlight {
+  0%, 100% {
+    box-shadow:
+      0 0 0 4px rgba(139, 92, 246, 0.4),
+      0 0 0 12px rgba(139, 92, 246, 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(139, 92, 246, 0.6),
+      0 0 0 20px rgba(139, 92, 246, 0.20);
+  }
+}
+
+.gn-spotlight {
+  animation: gn-spotlight 1.4s var(--ease-in-out) infinite;
+  border-radius: var(--radius-md);
+}
+
+/* --- Listening (círculos concéntricos) --- */
+@keyframes gn-listen-ripple {
+  0%   { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+.gn-listening {
+  position: relative;
+}
+
+.gn-listening::before,
+.gn-listening::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--accent-pink);
+  border-radius: inherit;
+  animation: gn-listen-ripple 1.6s var(--ease-out) infinite;
+  pointer-events: none;
+}
+
+.gn-listening::after {
+  animation-delay: 0.8s;
+}
+
+/* --- Success check (usable en confirmaciones) --- */
+@keyframes gn-check-draw {
+  from { stroke-dashoffset: 24; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  .gn-card-enter,
+  .gn-tap,
+  .gn-ripple,
+  .gn-shake,
+  .gn-flash,
+  .gn-pop-in,
+  .gn-modal-in,
+  .gn-backdrop-in,
+  .gn-toast-in,
+  .gn-spotlight,
+  .gn-listening::before,
+  .gn-listening::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

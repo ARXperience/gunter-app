@@ -303,6 +303,9 @@
           section: 'advanced' },
         { id: 'projectForecast', icon: '🔮', title: 'Forecast de proyectos',
           description: 'Predice cuándo cierra realmente cada proyecto basado en velocidad histórica. Alerta de puntos de no-retorno.',
+          section: 'advanced' },
+        { id: 'tutorMode', icon: '📚', title: 'Modo tutor / sabio',
+          description: 'Gunter enseña sobre la biblioteca curada (33 obras de Grinberg): explica conceptos citando obra y página, sesiones guiadas capítulo por capítulo, repaso espaciado y trivia. Al desactivarlo, el tab Tutor desaparece y las conversaciones vuelven al modo asistente normal.',
           section: 'advanced' }
     ];
 

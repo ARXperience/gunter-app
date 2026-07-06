@@ -1,181 +1,290 @@
 /* =============================================
-   GUNTER APP - DESIGN SYSTEM VARIABLES
-   Neo-Professional Theme
+   GUNTER APP — DESIGN TOKENS (Glassmorphism)
+   -------------------------------------------------
+   Paleta: gradientes purple → pink → orange sobre
+   fondo navy-purple profundo. Cards translúcidas con
+   backdrop-filter blur.
+
+   Backward compat: los tokens legacy (--accent-*, --bg-*,
+   --glass-*, etc.) se mantienen — apuntan a los valores
+   nuevos para que ningún archivo existente rompa.
    ============================================= */
 
 :root {
-  /* ===== COLOR PALETTE ===== */
+  /* ============================================
+     COLOR — Fondos globales
+     ============================================ */
+  --bg-deep: #0A0518;                  /* casi negro con toque púrpura */
+  --bg-deep-alt: #150929;               /* para gradientes de fondo */
+  --bg-panel: #0F0722;                  /* paneles opacos */
+  --bg-elevated: #170C2E;               /* elevación 1 */
 
-  /* Primary Backgrounds */
-  --bg-deep-navy: #0a0f1c;
-  --bg-obsidian: #12141a;
-  --bg-card: rgba(18, 20, 26, 0.7);
-  --bg-card-hover: rgba(25, 28, 38, 0.85);
+  /* Backward compat: nombres viejos apuntan a los nuevos */
+  --bg-deep-navy: var(--bg-deep);
+  --bg-obsidian: var(--bg-panel);
 
-  /* Accent Colors */
-  --accent-primary: #00d4ff;
-  /* Electric Blue */
-  --accent-secondary: #7b68ee;
-  /* Medium Slate Blue */
-  --accent-magenta: #ff006e;
-  /* Neon Magenta */
-  --accent-green: #00ff88;
-  /* Success Green */
-  --accent-amber: #ffaa00;
-  /* Warning Amber */
-  --accent-red: #ff4757;
-  /* Danger Red */
+  /* ============================================
+     COLOR — Orbes 3D (fondo animado)
+     ============================================ */
+  --orb-purple: #8B5CF6;
+  --orb-pink:   #EC4899;
+  --orb-orange: #F97316;
+  --orb-red:    #EF4444;
+  --orb-indigo: #6366F1;
+  --orb-cyan:   #06B6D4;
 
-  /* Text Colors */
-  --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --text-muted: rgba(255, 255, 255, 0.4);
-  --text-accent: var(--accent-primary);
+  /* ============================================
+     COLOR — Gradientes vibrantes (acentos)
+     ============================================ */
+  --grad-primary: linear-gradient(135deg,
+    #8B5CF6 0%,
+    #EC4899 50%,
+    #F97316 100%);
+  --grad-secondary: linear-gradient(135deg,
+    #06B6D4 0%,
+    #8B5CF6 100%);
+  --grad-warm: linear-gradient(135deg,
+    #EF4444 0%,
+    #F97316 100%);
+  --grad-cool: linear-gradient(135deg,
+    #6366F1 0%,
+    #06B6D4 100%);
+  --grad-success: linear-gradient(135deg,
+    #10B981 0%,
+    #06B6D4 100%);
 
-  /* Glassmorphism */
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-blur: 20px;
+  /* Gradientes SUAVES para fondos de cards */
+  --grad-glass-soft: linear-gradient(135deg,
+    rgba(139, 92, 246, 0.10) 0%,
+    rgba(236, 72, 153, 0.06) 50%,
+    rgba(249, 115, 22, 0.04) 100%);
 
-  /* ===== TYPOGRAPHY ===== */
+  /* ============================================
+     COLOR — Glassmorphism
+     ============================================ */
+  --glass-surface:  rgba(255, 255, 255, 0.06);
+  --glass-elevated: rgba(255, 255, 255, 0.10);
+  --glass-border:   rgba(255, 255, 255, 0.12);
+  --glass-border-hi: rgba(255, 255, 255, 0.24);
+  --glass-blur:     20px;
+  --glass-saturate: 140%;
+
+  /* Backward compat */
+  --bg-card: var(--glass-surface);
+  --bg-card-hover: var(--glass-elevated);
+  --glass-bg: var(--glass-surface);
+
+  /* ============================================
+     COLOR — Acentos utilitarios
+     ============================================ */
+  --accent-purple:  #8B5CF6;
+  --accent-pink:    #EC4899;
+  --accent-orange:  #F97316;
+  --accent-cyan:    #06B6D4;
+  --accent-indigo:  #6366F1;
+
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger:  #EF4444;
+  --info:    #06B6D4;
+
+  /* Backward compat (los archivos viejos usan estos nombres) */
+  --accent-primary:   var(--accent-purple);
+  --accent-secondary: var(--accent-indigo);
+  --accent-magenta:   var(--accent-pink);
+  --accent-green:     var(--success);
+  --accent-amber:     var(--warning);
+  --accent-red:       var(--danger);
+
+  /* ============================================
+     COLOR — Texto
+     ============================================ */
+  --text-primary:   #FFFFFF;
+  --text-secondary: rgba(255, 255, 255, 0.72);
+  --text-muted:     rgba(255, 255, 255, 0.48);
+  --text-disabled:  rgba(255, 255, 255, 0.32);
+  --text-accent:    var(--accent-purple);
+
+  /* ============================================
+     TIPOGRAFÍA
+     ============================================ */
   --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Outfit', var(--font-primary);
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-mono:    'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
 
-  /* Specialized Fonts */
-  --font-business: 'Inter', var(--font-primary);
-  --font-creative: 'Outfit', serif;
-  /* Would be better as Playfair Display if available */
-  --font-warm: 'Outfit', var(--font-primary);
-  /* Would be better as Montserrat or Quicksand */
+  /* Backward compat */
+  --font-business: var(--font-primary);
+  --font-creative: var(--font-display);
+  --font-warm:     var(--font-display);
 
-  /* Font Sizes */
-  --text-xs: 0.75rem;
-  /* 12px */
-  --text-sm: 0.875rem;
-  /* 14px */
-  --text-base: 1rem;
-  /* 16px */
-  --text-lg: 1.125rem;
-  /* 18px */
-  --text-xl: 1.25rem;
-  /* 20px */
-  --text-2xl: 1.5rem;
-  /* 24px */
-  --text-3xl: 1.875rem;
-  /* 30px */
-  --text-4xl: 2.25rem;
-  /* 36px */
-  --text-5xl: 3rem;
-  /* 48px */
-  --text-6xl: 3.75rem;
-  /* 60px */
+  /* Escalas (rem base 16px) */
+  --text-2xs:   0.625rem;   /* 10px */
+  --text-xs:    0.75rem;    /* 12px */
+  --text-sm:    0.875rem;   /* 14px */
+  --text-base:  1rem;       /* 16px */
+  --text-lg:    1.125rem;   /* 18px */
+  --text-xl:    1.375rem;   /* 22px */
+  --text-2xl:   1.75rem;    /* 28px */
+  --text-3xl:   2.25rem;    /* 36px */
+  --text-4xl:   2.75rem;    /* 44px */
+  --text-5xl:   3.5rem;     /* 56px */
+  --text-6xl:   4.5rem;     /* 72px */
 
-  /* Font Weights */
-  --font-light: 300;
-  --font-normal: 400;
-  --font-medium: 500;
+  /* Pesos */
+  --font-light:    300;
+  --font-normal:   400;
+  --font-medium:   500;
   --font-semibold: 600;
-  --font-bold: 700;
+  --font-bold:     700;
+  --font-black:    800;
 
-  /* ===== SPACING ===== */
-  --space-1: 0.25rem;
-  /* 4px */
-  --space-2: 0.5rem;
-  /* 8px */
-  --space-3: 0.75rem;
-  /* 12px */
-  --space-4: 1rem;
-  /* 16px */
-  --space-5: 1.25rem;
-  /* 20px */
-  --space-6: 1.5rem;
-  /* 24px */
-  --space-8: 2rem;
-  /* 32px */
-  --space-10: 2.5rem;
-  /* 40px */
-  --space-12: 3rem;
-  /* 48px */
-  --space-16: 4rem;
-  /* 64px */
-  --space-20: 5rem;
-  /* 80px */
+  /* Line-height */
+  --leading-tight:  1.15;
+  --leading-snug:   1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
 
-  /* ===== BORDERS & RADIUS ===== */
-  --radius-sm: 0.375rem;
-  /* 6px */
-  --radius-md: 0.5rem;
-  /* 8px */
-  --radius-lg: 0.75rem;
-  /* 12px */
-  --radius-xl: 1rem;
-  /* 16px */
-  --radius-2xl: 1.5rem;
-  /* 24px */
-  --radius-full: 9999px;
+  /* Letter-spacing */
+  --track-tight:  -0.02em;
+  --track-normal: 0;
+  --track-wide:   0.02em;
+  --track-wider:  0.05em;
 
-  /* Border Strategies */
-  --theme-radius: var(--radius-xl);
+  /* ============================================
+     ESPACIADO (grid de 4px)
+     ============================================ */
+  --space-1:  0.25rem;   /* 4px */
+  --space-2:  0.5rem;    /* 8px */
+  --space-3:  0.75rem;   /* 12px */
+  --space-4:  1rem;      /* 16px  ← base */
+  --space-5:  1.25rem;   /* 20px */
+  --space-6:  1.5rem;    /* 24px  ← padding card */
+  --space-8:  2rem;      /* 32px */
+  --space-10: 2.5rem;    /* 40px */
+  --space-12: 3rem;      /* 48px */
+  --space-16: 4rem;      /* 64px */
+  --space-20: 5rem;      /* 80px */
+
+  /* ============================================
+     BORDER RADIUS
+     ============================================ */
+  --radius-xs:   0.375rem;  /* 6px */
+  --radius-sm:   0.5rem;    /* 8px  — chips */
+  --radius-md:   1rem;      /* 16px — inputs, botones */
+  --radius-lg:   1.5rem;    /* 24px — cards */
+  --radius-xl:   2rem;      /* 32px — cards grandes */
+  --radius-2xl:  1.5rem;    /* backward compat */
+  --radius-full: 9999px;    /* círculos, pills */
+
+  --theme-radius: var(--radius-lg);
   --theme-border-width: 1px;
 
-  /* ===== SHADOWS & GLOWS ===== */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.6);
+  /* ============================================
+     SOMBRAS & ELEVACIÓN
+     ============================================ */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.20);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.30);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.40);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.50);
 
-  /* Neon Glows */
-  --glow-primary: 0 0 20px rgba(0, 212, 255, 0.3), 0 0 40px rgba(0, 212, 255, 0.1);
-  --glow-magenta: 0 0 20px rgba(255, 0, 110, 0.3), 0 0 40px rgba(255, 0, 110, 0.1);
-  --glow-green: 0 0 20px rgba(0, 255, 136, 0.3), 0 0 40px rgba(0, 255, 136, 0.1);
-  --glow-amber: 0 0 20px rgba(255, 170, 0, 0.3), 0 0 40px rgba(255, 170, 0, 0.1);
+  /* Sombras con brillo (para elementos activos) */
+  --shadow-glow-purple: 0 0 24px rgba(139, 92, 246, 0.45), 0 0 48px rgba(139, 92, 246, 0.20);
+  --shadow-glow-pink:   0 0 24px rgba(236, 72, 153, 0.45), 0 0 48px rgba(236, 72, 153, 0.20);
+  --shadow-glow-orange: 0 0 24px rgba(249, 115, 22, 0.45), 0 0 48px rgba(249, 115, 22, 0.20);
+  --shadow-glow-cyan:   0 0 24px rgba(6, 182, 212, 0.45), 0 0 48px rgba(6, 182, 212, 0.20);
 
-  /* ===== TRANSITIONS ===== */
-  --transition-fast: 150ms ease;
-  --transition-base: 250ms ease;
-  --transition-slow: 400ms ease;
-  --transition-bounce: 500ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  --transition-theme: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Backward compat con nombres viejos */
+  --glow-primary: var(--shadow-glow-purple);
+  --glow-magenta: var(--shadow-glow-pink);
+  --glow-green:   var(--shadow-glow-cyan);
+  --glow-amber:   var(--shadow-glow-orange);
 
-  /* ===== Z-INDEX ===== */
-  --z-base: 0;
+  /* ============================================
+     ANIMACIÓN — Curvas
+     ============================================ */
+  --ease-linear:      linear;
+  --ease-out:         cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:      cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-bounce:      cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-emphasized:  cubic-bezier(0.2, 0, 0, 1);
+
+  /* ============================================
+     ANIMACIÓN — Duraciones
+     ============================================ */
+  --dur-instant: 100ms;
+  --dur-fast:    200ms;
+  --dur-normal:  300ms;
+  --dur-slow:    500ms;
+  --dur-hero:    800ms;
+
+  /* Backward compat */
+  --transition-fast:  var(--dur-instant) var(--ease-out);
+  --transition-base:  var(--dur-fast) var(--ease-out);
+  --transition-slow:  var(--dur-normal) var(--ease-out);
+  --transition-bounce: var(--dur-fast) var(--ease-bounce);
+  --transition-theme:  all var(--dur-normal) var(--ease-in-out);
+
+  /* ============================================
+     Z-INDEX
+     ============================================ */
+  --z-base:     0;
+  --z-orbs:     -1;         /* fondo animado */
+  --z-content:  1;
   --z-dropdown: 100;
-  --z-sticky: 200;
-  --z-modal: 300;
-  --z-toast: 400;
-  --z-tooltip: 500;
+  --z-sticky:   200;
+  --z-modal:    300;
+  --z-toast:    400;
+  --z-companion: 450;        /* widget flotante de Gunter */
+  --z-tooltip:  500;
+  --z-onboarding: 600;
 }
 
-/* ===== DARK MODE ENHANCEMENTS (WCAG AAA) ===== */
+/* =============================================
+   DARK MODE (aún más profundo)
+   ============================================= */
 .dark-mode {
-  /* Enhanced contrast for WCAG AAA (21:1) */
-  --bg-deep-navy: #000000;
-  --bg-obsidian: #0a0a0a;
-  --bg-card: rgba(10, 10, 10, 0.9);
-  --bg-card-hover: rgba(20, 20, 20, 0.95);
+  --bg-deep:     #05010D;
+  --bg-deep-alt: #0A0421;
+  --bg-panel:    #0A0417;
+  --bg-elevated: #100722;
 
-  /* Text with AAA contrast */
-  --text-primary: #ffffff;
+  --glass-surface:  rgba(255, 255, 255, 0.04);
+  --glass-elevated: rgba(255, 255, 255, 0.08);
+  --glass-border:   rgba(255, 255, 255, 0.10);
+
+  --text-primary:   #FFFFFF;
   --text-secondary: rgba(255, 255, 255, 0.85);
-  --text-muted: rgba(255, 255, 255, 0.6);
-
-  /* Brighter accents for better visibility */
-  --accent-primary: #00e5ff;
-  --accent-secondary: #8b7aff;
-  --accent-green: #00ffaa;
+  --text-muted:     rgba(255, 255, 255, 0.60);
 }
 
-/* ===== THEME TRANSITION SUPPORT ===== */
+/* =============================================
+   PREFERENCIAS DE ACCESIBILIDAD
+   ============================================= */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0.01ms;
+    --dur-fast:    0.01ms;
+    --dur-normal:  0.01ms;
+    --dur-slow:    0.01ms;
+    --dur-hero:    0.01ms;
+  }
+}
+
+/* =============================================
+   THEME TRANSITION SUPPORT
+   ============================================= */
 .theme-transitioning,
 .theme-transitioning * {
   transition: background-color var(--transition-theme),
-    color var(--transition-theme),
-    border-color var(--transition-theme),
-    box-shadow var(--transition-theme) !important;
+              color var(--transition-theme),
+              border-color var(--transition-theme),
+              box-shadow var(--transition-theme) !important;
 }
 
-/* ===== RESET & BASE ===== */
+/* =============================================
+   RESET & BASE
+   ============================================= */
 *,
 *::before,
 *::after {
@@ -193,87 +302,76 @@ body {
   font-family: var(--font-primary);
   font-size: var(--text-base);
   font-weight: var(--font-normal);
-  line-height: 1.6;
+  line-height: var(--leading-normal);
   color: var(--text-primary);
-  background: var(--bg-deep-navy);
+  background: var(--bg-deep);
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  position: relative;
 }
 
-/* ===== TYPOGRAPHY BASE ===== */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
+/* =============================================
+   TIPOGRAFÍA BASE
+   ============================================= */
+h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
   font-weight: var(--font-bold);
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--track-tight);
+  color: var(--text-primary);
 }
 
-h1 {
-  font-size: var(--text-5xl);
-}
-
-h2 {
-  font-size: var(--text-4xl);
-}
-
-h3 {
-  font-size: var(--text-3xl);
-}
-
-h4 {
-  font-size: var(--text-2xl);
-}
-
-h5 {
-  font-size: var(--text-xl);
-}
-
-h6 {
-  font-size: var(--text-lg);
-}
+h1 { font-size: var(--text-5xl); }
+h2 { font-size: var(--text-4xl); }
+h3 { font-size: var(--text-3xl); }
+h4 { font-size: var(--text-2xl); }
+h5 { font-size: var(--text-xl); }
+h6 { font-size: var(--text-lg); }
 
 p {
   color: var(--text-secondary);
   margin-bottom: var(--space-4);
+  line-height: var(--leading-relaxed);
 }
 
 a {
-  color: var(--accent-primary);
+  color: var(--accent-purple);
   text-decoration: none;
-  transition: color var(--transition-fast);
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 a:hover {
-  color: var(--accent-secondary);
+  color: var(--accent-pink);
 }
 
-/* ===== UTILITIES ===== */
-.text-gradient {
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+/* Selección de texto — con brillo del gradiente */
+::selection {
+  background: rgba(139, 92, 246, 0.35);
+  color: #FFFFFF;
 }
 
-.glow-text {
-  text-shadow: 0 0 10px var(--accent-primary), 0 0 20px rgba(0, 212, 255, 0.5);
+/* Scrollbar minimalista pero visible */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.35);
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(236, 72, 153, 0.55);
+  background-clip: padding-box;
+  border: 2px solid transparent;
 }

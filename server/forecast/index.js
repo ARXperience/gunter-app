@@ -21,21 +21,21 @@ const knowledge = require('../knowledge');
 let commitments = null;
 try { commitments = require('../commitments'); } catch {}
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const FILE     = path.join(DATA_DIR, 'forecast-history.json');
+const userStore = require('../user-store');
 
-function ensureDir() { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true }); }
+// Multi-tenant: histórico de simulaciones por usuario del contexto actual
+function filePath() { return userStore.userFile('forecast-history.json'); }
 
 function loadAll() {
     try {
-        ensureDir();
-        if (!fs.existsSync(FILE)) return {};
-        return JSON.parse(fs.readFileSync(FILE, 'utf8')) || {};
+        const fp = filePath();
+        if (!fs.existsSync(fp)) return {};
+        return JSON.parse(fs.readFileSync(fp, 'utf8')) || {};
     } catch { return {}; }
 }
 
 function saveAll(obj) {
-    try { ensureDir(); fs.writeFileSync(FILE, JSON.stringify(obj, null, 2), 'utf8'); }
+    try { fs.writeFileSync(filePath(), JSON.stringify(obj, null, 2), 'utf8'); }
     catch (e) { console.warn('[forecast] save:', e.message); }
 }
 

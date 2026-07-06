@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0d1220">
+    <title>Gunter — Acceso</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/gunter-design-system.css?v41-waphone-1783320000000">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body {
+            font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+            background: radial-gradient(1100px 700px at 80% -10%, rgba(88,120,255,.16), transparent 60%),
+                        radial-gradient(900px 600px at -10% 110%, rgba(60,200,190,.10), transparent 55%),
+                        #0d1220;
+            color: #eef1f8;
+            display: grid; place-items: center;
+            padding: 20px;
+        }
+        .glogin {
+            width: 100%; max-width: 420px;
+            background: rgba(22, 28, 44, .88);
+            border: 1px solid rgba(140, 150, 180, .22);
+            border-radius: 22px;
+            padding: 34px 30px 28px;
+            box-shadow: 0 24px 70px rgba(0, 0, 0, .5);
+            backdrop-filter: blur(14px);
+        }
+        .glogin__mascot {
+            width: 74px; height: 74px; margin: 0 auto 14px;
+            display: grid; place-items: center;
+            font-size: 40px;
+            background: linear-gradient(150deg, rgba(88,120,255,.22), rgba(60,200,190,.14));
+            border: 1px solid rgba(140,150,180,.25);
+            border-radius: 999px;
+        }
+        .glogin h1 {
+            font-family: 'Bricolage Grotesque', sans-serif;
+            font-size: 26px; font-weight: 800; text-align: center; letter-spacing: -.02em;
+        }
+        .glogin__sub { text-align: center; color: #8a93a8; font-size: 13.5px; margin: 6px 0 24px; line-height: 1.5; }
+        .glogin__field { margin-bottom: 14px; }
+        .glogin__field label { display: block; font-size: 12.5px; font-weight: 700; color: #aab3c8; margin-bottom: 6px; letter-spacing: .02em; }
+        .glogin__field input {
+            width: 100%; padding: 12px 14px;
+            background: rgba(12, 16, 28, .7);
+            border: 1px solid rgba(140,150,180,.25);
+            border-radius: 12px;
+            color: #eef1f8; font-size: 15px; font-family: inherit;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+        .glogin__field input:focus { outline: none; border-color: #6a8bff; box-shadow: 0 0 0 3px rgba(106,139,255,.18); }
+        .glogin__btn {
+            width: 100%; padding: 13px; margin-top: 8px;
+            background: linear-gradient(135deg, #5878ff, #4cc2b8);
+            border: 0; border-radius: 12px;
+            color: #fff; font-size: 15px; font-weight: 800; font-family: inherit;
+            cursor: pointer; transition: transform .15s ease, filter .15s ease;
+        }
+        .glogin__btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+        .glogin__btn:disabled { opacity: .55; cursor: wait; transform: none; }
+        .glogin__toggle { text-align: center; margin-top: 18px; font-size: 13.5px; color: #8a93a8; }
+        .glogin__toggle a { color: #7d9aff; font-weight: 700; text-decoration: none; cursor: pointer; }
+        .glogin__err {
+            display: none; margin: 0 0 14px; padding: 11px 13px;
+            background: rgba(230, 90, 90, .12); border: 1px solid rgba(230,90,90,.3);
+            border-radius: 11px; color: #ff9c9c; font-size: 13.5px; line-height: 1.45;
+        }
+        .glogin__err.show { display: block; }
+        .glogin__notice {
+            margin: 0 0 18px; padding: 12px 14px;
+            background: rgba(88, 120, 255, .1); border: 1px solid rgba(88,120,255,.28);
+            border-radius: 11px; color: #aebfff; font-size: 13.5px; line-height: 1.5;
+        }
+        .glogin__pending { text-align: center; padding: 8px 0 4px; }
+        .glogin__pending .big { font-size: 46px; margin-bottom: 12px; }
+        .glogin__pending h2 { font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; margin-bottom: 8px; }
+        .glogin__pending p { color: #8a93a8; font-size: 13.5px; line-height: 1.55; }
+        .glogin__pending .dots::after { content: ''; animation: gdots 1.6s steps(4) infinite; }
+        @keyframes gdots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+        .glogin__out { margin-top: 16px; background: none; border: 1px solid rgba(140,150,180,.3); color: #aab3c8;
+            padding: 9px 18px; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .hidden { display: none !important; }
+        @media (max-width: 480px) { .glogin { padding: 26px 20px 22px; } }
+    </style>
+</head>
+<body>
+    <main class="glogin" role="main">
+        <div class="glogin__mascot" aria-hidden="true">🐧</div>
+        <h1 id="glogin-title">Gunter</h1>
+        <p class="glogin__sub" id="glogin-sub">Tu asistente personal. Inicia sesión para continuar.</p>
+
+        <div class="glogin__err" id="glogin-err" role="alert"></div>
+        <div class="glogin__notice hidden" id="glogin-setup-notice">
+            <strong>Primera vez por aquí.</strong> Todavía no existe ningún usuario:
+            la cuenta que crees ahora será la del <strong>administrador</strong>, con control total del sistema.
+        </div>
+
+        <!-- LOGIN -->
+        <form id="glogin-form-login" autocomplete="on">
+            <div class="glogin__field">
+                <label for="gl-user">Usuario</label>
+                <input id="gl-user" name="username" autocomplete="username" required
+                       autocapitalize="none" spellcheck="false" placeholder="tu-usuario">
+            </div>
+            <div class="glogin__field">
+                <label for="gl-pass">Contraseña</label>
+                <input id="gl-pass" name="password" type="password" autocomplete="current-password" required placeholder="••••••••">
+            </div>
+            <button class="glogin__btn" type="submit" id="gl-submit">Entrar</button>
+            <p class="glogin__toggle">¿No tienes cuenta? <a id="gl-to-register">Regístrate</a></p>
+        </form>
+
+        <!-- REGISTRO -->
+        <form id="glogin-form-register" class="hidden" autocomplete="on">
+            <div class="glogin__field">
+                <label for="gr-name">Tu nombre</label>
+                <input id="gr-name" name="displayName" autocomplete="name" required maxlength="60" placeholder="Como quieres que Gunter te llame">
+            </div>
+            <div class="glogin__field">
+                <label for="gr-user">Usuario</label>
+                <input id="gr-user" name="username" autocomplete="username" required
+                       autocapitalize="none" spellcheck="false" pattern="[a-z0-9_.\-]{3,24}"
+                       title="3-24 caracteres: minúsculas, números, punto, guion" placeholder="minusculas-sin-espacios">
+            </div>
+            <div class="glogin__field">
+                <label for="gr-email">Email <span style="font-weight:400;color:#6b7488">(opcional)</span></label>
+                <input id="gr-email" name="email" type="email" autocomplete="email" placeholder="tu@correo.com">
+            </div>
+            <div class="glogin__field">
+                <label for="gr-pass">Contraseña <span style="font-weight:400;color:#6b7488">(mínimo 8)</span></label>
+                <input id="gr-pass" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
+            </div>
+            <div class="glogin__field">
+                <label for="gr-pass2">Repite la contraseña</label>
+                <input id="gr-pass2" type="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
+            </div>
+            <button class="glogin__btn" type="submit" id="gr-submit">Crear cuenta</button>
+            <p class="glogin__toggle">¿Ya tienes cuenta? <a id="gl-to-login">Inicia sesión</a></p>
+        </form>
+
+        <!-- PENDIENTE DE APROBACIÓN -->
+        <div id="glogin-pending" class="glogin__pending hidden">
+            <div class="big">⏳</div>
+            <h2>Cuenta creada, falta un paso</h2>
+            <p>El administrador tiene que aprobar tu acceso.<br>
+               Esta página se actualiza sola cuando te aprueben<span class="dots"></span></p>
+            <button class="glogin__out" id="gl-pending-logout" type="button">Salir y volver después</button>
+        </div>
+
+        <!-- BLOQUEADO -->
+        <div id="glogin-blocked" class="glogin__pending hidden">
+            <div class="big">🚫</div>
+            <h2>Cuenta bloqueada</h2>
+            <p>Tu acceso fue suspendido por el administrador.<br>Si crees que es un error, contáctalo directamente.</p>
+            <button class="glogin__out" id="gl-blocked-logout" type="button">Volver al inicio de sesión</button>
+        </div>
+    </main>
+
+    <script>
+        (function () {
+            'use strict';
+            const qs = new URLSearchParams(location.search);
+            const nextPage = (() => {
+                // Solo rutas internas relativas — nunca URLs absolutas (anti open-redirect)
+                const n = qs.get('next') || 'index.html';
+                return /^[a-z0-9_-]+\.html(\?.*)?$/i.test(n) ? n : 'index.html';
+            })();
+
+            const $ = id => document.getElementById(id);
+            const err = $('glogin-err');
+            const views = ['glogin-form-login', 'glogin-form-register', 'glogin-pending', 'glogin-blocked'];
+            let pollTimer = null;
+
+            function show(viewId) {
+                views.forEach(v => $(v).classList.toggle('hidden', v !== viewId));
+                err.classList.remove('show');
+                clearInterval(pollTimer);
+                if (viewId === 'glogin-pending') {
+                    pollTimer = setInterval(checkApproved, 15000);
+                }
+            }
+            function showErr(msg) { err.textContent = msg; err.classList.add('show'); }
+
+            async function api(path, opts) {
+                const resp = await fetch(path, opts);
+                const json = await resp.json().catch(() => ({}));
+                return { status: resp.status, json };
+            }
+
+            async function checkApproved() {
+                const { status, json } = await api('/api/auth/me');
+                if (status === 200 && json?.user?.status === 'approved') {
+                    location.replace(nextPage);
+                } else if (status === 200 && json?.user?.status === 'blocked') {
+                    show('glogin-blocked');
+                }
+            }
+
+            async function boot() {
+                // ¿Ya hay sesión activa?
+                const me = await api('/api/auth/me').catch(() => null);
+                if (me?.status === 200 && me.json?.user) {
+                    const st = me.json.user.status;
+                    if (st === 'approved') return location.replace(nextPage);
+                    if (st === 'pending') return show('glogin-pending');
+                    if (st === 'blocked') return show('glogin-blocked');
+                }
+                if (qs.get('reason') === 'blocked') show('glogin-blocked');
+
+                // ¿Primer arranque? → modo crear admin
+                const setup = await api('/api/auth/setup-status').catch(() => null);
+                if (setup?.json?.needsSetup) {
+                    $('glogin-setup-notice').classList.remove('hidden');
+                    $('glogin-sub').textContent = 'Configura tu cuenta de administrador para empezar.';
+                    $('gr-submit').textContent = 'Crear cuenta admin';
+                    show('glogin-form-register');
+                }
+            }
+
+            // ── Login ──
+            $('glogin-form-login').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = $('gl-submit'); btn.disabled = true;
+                const { status, json } = await api('/api/auth/login', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: $('gl-user').value.trim(), password: $('gl-pass').value })
+                }).catch(() => ({ status: 0, json: null }));
+                btn.disabled = false;
+                if (status === 200 && json?.success) {
+                    const st = json.user.status;
+                    if (st === 'approved') location.replace(nextPage);
+                    else if (st === 'pending') show('glogin-pending');
+                    else show('glogin-blocked');
+                } else if (status === 0) showErr('No se pudo conectar con el servidor. ¿Está encendido?');
+                else showErr(json?.error || 'No se pudo iniciar sesión.');
+            });
+
+            // ── Registro ──
+            $('glogin-form-register').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if ($('gr-pass').value !== $('gr-pass2').value) return showErr('Las contraseñas no coinciden.');
+                const btn = $('gr-submit'); btn.disabled = true;
+                const { status, json } = await api('/api/auth/register', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        displayName: $('gr-name').value.trim(),
+                        username: $('gr-user').value.trim().toLowerCase(),
+                        email: $('gr-email').value.trim(),
+                        password: $('gr-pass').value
+                    })
+                }).catch(() => ({ status: 0, json: null }));
+                btn.disabled = false;
+                if (status === 200 && json?.success) {
+                    if (json.isFirst || json.user.status === 'approved') location.replace(nextPage);
+                    else show('glogin-pending');
+                } else if (status === 0) showErr('No se pudo conectar con el servidor. ¿Está encendido?');
+                else showErr(json?.error || 'No se pudo crear la cuenta.');
+            });
+
+            $('gl-to-register').addEventListener('click', () => show('glogin-form-register'));
+            $('gl-to-login').addEventListener('click', () => show('glogin-form-login'));
+            const doLogout = async () => {
+                await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+                sessionStorage.removeItem('gunter_auth_user');
+                show('glogin-form-login');
+            };
+            $('gl-pending-logout').addEventListener('click', doLogout);
+            $('gl-blocked-logout').addEventListener('click', doLogout);
+
+            boot();
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+{
+  "author": {
+    "name": "Jacobo Grinberg-Zylberbaum",
+    "years": "1946-1994",
+    "bio": "Psicofisiólogo mexicano. Investigador de la conciencia, meditación, comunicación no-local y chamanismo. Creador de la Teoría Sintégica. Desapareció en 1994 sin explicación.",
+    "affiliation": "UNAM, Instituto Nacional para el Estudio de la Conciencia (INPEC)"
+  },
+  "collection_id": "grinberg-obra-completa",
+  "collection_title": "Obra completa de Jacobo Grinberg-Zylberbaum",
+  "total_works": 33,
+  "language": "es",
+  "themes_root": [
+    { "id": "meditation",     "label": "Meditación · práctica y fenómenos" },
+    { "id": "self",           "label": "El yo · construcción y disolución" },
+    { "id": "consciousness",  "label": "Conciencia · neurofisiología y experiencia" },
+    { "id": "syntergic",      "label": "Teoría Sintégica · campo unificado" },
+    { "id": "shamanism",      "label": "Chamanismo mexicano · prácticas ancestrales" },
+    { "id": "psychophysio",   "label": "Psicofisiología · electrofisiología y correlatos" },
+    { "id": "reality",        "label": "Construcción de la realidad" },
+    { "id": "beyond-language","label": "Comunicación más allá del lenguaje" }
+  ],
+  "curricula": [
+    {
+      "id": "introduccion-grinberg",
+      "label": "Introducción a Grinberg",
+      "description": "Ruta suave para conocer el pensamiento y práctica del autor sin saltar directo a la teoría técnica.",
+      "path": ["8", "3", "2", "5", "13"]
+    },
+    {
+      "id": "meditacion-profunda",
+      "label": "Meditación · de la práctica al fenómeno",
+      "description": "Del ejercicio diario a la fenomenología de la conciencia meditativa.",
+      "path": ["8", "13", "6", "17", "16"]
+    },
+    {
+      "id": "conciencia-y-cerebro",
+      "label": "Conciencia y cerebro",
+      "description": "Neurofisiología de la conciencia y la Teoría Sintégica.",
+      "path": ["1", "9", "22", "24", "27"]
+    },
+    {
+      "id": "chamanismo-mexicano",
+      "label": "Chamanismo mexicano · serie completa",
+      "description": "Los siete volúmenes sobre chamanes mexicanos.",
+      "path": ["28", "29", "11", "30", "31", "32", "33"]
+    }
+  ],
+  "works": [
+    { "n": "1",  "title": "El Cerebro Consciente y el Campo Unificado",             "themes": ["consciousness", "syntergic"],                "difficulty": "intermedio",  "prerequisites": [],           "keyConcepts": ["campo neuronal", "campo unificado", "atención"], "file": "1- El cerebro consciente.pdf" },
+    { "n": "2",  "title": "El Yo Como Idea",                                        "themes": ["self", "consciousness"],                     "difficulty": "principiante","prerequisites": [],           "keyConcepts": ["identidad", "narrativa del yo", "disolución"], "file": "2 - El yo como idea.pdf" },
+    { "n": "3",  "title": "Fluir Sin el Yo",                                        "themes": ["self", "meditation"],                        "difficulty": "principiante","prerequisites": ["2"],        "keyConcepts": ["fluir", "no-yo", "presencia"], "file": "3 -Fluir sin el yo.pdf" },
+    { "n": "4",  "title": "La Conquista del Templo",                                "themes": ["consciousness", "meditation"],               "difficulty": "intermedio",  "prerequisites": ["8"],        "keyConcepts": ["templo interno", "espacio sagrado"], "file": "4- La Conquista del Templo.pdf" },
+    { "n": "5",  "title": "La Construcción de la Realidad",                         "themes": ["reality", "consciousness"],                  "difficulty": "intermedio",  "prerequisites": ["2"],        "keyConcepts": ["realidad co-creada", "percepción", "consenso"], "file": "5- La Construcción de la Realidad.pdf" },
+    { "n": "6",  "title": "La Experiencia Interna",                                 "themes": ["consciousness", "meditation"],               "difficulty": "intermedio",  "prerequisites": ["8"],        "keyConcepts": ["primera persona", "fenomenología"], "file": "6- La Experiencia Interna.pdf" },
+    { "n": "7",  "title": "La Luz Angelmática",                                     "themes": ["consciousness", "syntergic"],                "difficulty": "avanzado",    "prerequisites": ["1", "9"],   "keyConcepts": ["luz interior", "estados no-ordinarios"], "file": "7- La Luz Angelmática.pdf" },
+    { "n": "8",  "title": "La Meditación",                                          "themes": ["meditation"],                                "difficulty": "principiante","prerequisites": [],           "keyConcepts": ["técnica base", "postura", "respiración", "atención"], "file": "8- La Meditación.pdf" },
+    { "n": "9",  "title": "La Teoría Sintégica",                                    "themes": ["syntergic", "consciousness"],                "difficulty": "avanzado",    "prerequisites": ["1"],        "keyConcepts": ["sintergia", "campo neuronal", "estructura pre-espacial"], "file": "9- La Teoría Sintégica.pdf" },
+    { "n": "10", "title": "Las Creaciones de la Existencia",                        "themes": ["reality", "consciousness"],                  "difficulty": "avanzado",    "prerequisites": ["5", "9"],   "keyConcepts": ["ontología", "generación de mundos"], "file": "10- Las Creaciones de la Existencia.pdf" },
+    { "n": "11", "title": "Los Chamanes de México · Vol 3 · Pachita",               "themes": ["shamanism"],                                 "difficulty": "intermedio",  "prerequisites": ["28"],       "keyConcepts": ["Pachita", "cirugía psíquica", "trance"], "file": "11- Los chamanes de México - Vol 3 - Pachita.pdf" },
+    { "n": "12", "title": "Más Allá de los Lenguajes",                              "themes": ["beyond-language", "consciousness"],          "difficulty": "avanzado",    "prerequisites": ["9"],        "keyConcepts": ["comunicación no-verbal", "campo compartido"], "file": "12- Más Allá de los Lenguajes.pdf" },
+    { "n": "13", "title": "Meditación Auto-alusiva",                                "themes": ["meditation", "self"],                        "difficulty": "intermedio",  "prerequisites": ["8"],        "keyConcepts": ["auto-referencia", "meta-atención"], "file": "13- Meditación Auto-alusiva.pdf" },
+    { "n": "14", "title": "El Espacio y la Conciencia",                             "themes": ["consciousness", "syntergic"],                "difficulty": "avanzado",    "prerequisites": ["9"],        "keyConcepts": ["espacio pre-percepción", "topología"], "file": "14- El espacio y la conciencia.pdf" },
+    { "n": "15", "title": "La Fuerza Vital del Cielo Anterior",                     "themes": ["syntergic", "consciousness"],                "difficulty": "avanzado",    "prerequisites": ["9"],        "keyConcepts": ["cielo anterior", "campo primordial"], "file": "15- La fuerza vital del cielo anterior.pdf" },
+    { "n": "16", "title": "Retorno a la Luz",                                       "themes": ["meditation", "consciousness"],               "difficulty": "avanzado",    "prerequisites": ["7"],        "keyConcepts": ["retorno", "iluminación"], "file": "16- Retorno a la luz..pdf" },
+    { "n": "17", "title": "Sabor de la Iluminación",                                "themes": ["meditation", "consciousness"],               "difficulty": "avanzado",    "prerequisites": ["8", "16"],  "keyConcepts": ["experiencia directa", "gnosis"], "file": "17- Sabor de la Iluminación..pdf" },
+    { "n": "18", "title": "Visión Extra-Ocular",                                    "themes": ["psychophysio", "consciousness"],             "difficulty": "avanzado",    "prerequisites": ["22"],       "keyConcepts": ["visión sin ojos", "percepción no-local"], "file": "18- Visión Extra-Ocular.pdf" },
+    { "n": "19", "title": "Cantos de Ignorancia Iluminada",                         "themes": ["meditation", "beyond-language"],             "difficulty": "avanzado",    "prerequisites": ["17"],       "keyConcepts": ["no-saber", "poesía mística"], "file": "19- Cantos de ignorancia iluminada.pdf" },
+    { "n": "20", "title": "El Potencial Transferido",                               "themes": ["psychophysio", "syntergic"],                 "difficulty": "avanzado",    "prerequisites": ["22"],       "keyConcepts": ["transferencia neuronal", "entrelazamiento"], "file": "20- El Potencial Transferido..pdf" },
+    { "n": "21", "title": "Los Cristales de la Galaxia",                            "themes": ["syntergic", "consciousness"],                "difficulty": "avanzado",    "prerequisites": ["9"],        "keyConcepts": ["cristal", "estructura de conciencia"], "file": "21- Los cristales de la galaxia.pdf" },
+    { "n": "22", "title": "Correlativos Electrofisiológicos de la Comunicación",    "themes": ["psychophysio", "beyond-language"],           "difficulty": "avanzado",    "prerequisites": ["1"],        "keyConcepts": ["EEG", "correlación cerebral no-local", "tesis doctoral"], "file": "22- Correlativos Electrofisiológicos De La Comunicación Humana. (Tesis Doctoral).pdf" },
+    { "n": "23", "title": "El Prototipo",                                           "themes": ["consciousness", "self"],                     "difficulty": "intermedio",  "prerequisites": ["2"],        "keyConcepts": ["prototipo", "arquetipo psicofísico"], "file": "23- El prototipo.pdf" },
+    { "n": "24", "title": "Psicofisiología del Poder",                              "themes": ["psychophysio", "consciousness"],             "difficulty": "avanzado",    "prerequisites": ["1"],        "keyConcepts": ["poder personal", "coherencia neuronal"], "file": "24- Psicofisiología del poder.pdf" },
+    { "n": "25", "title": "En Busca del Ser",                                       "themes": ["self", "consciousness"],                     "difficulty": "intermedio",  "prerequisites": ["2"],        "keyConcepts": ["indagación", "identidad esencial"], "file": "25- En busca del ser.pdf" },
+    { "n": "26", "title": "El Vehículo de las Transformaciones",                    "themes": ["consciousness", "meditation"],               "difficulty": "avanzado",    "prerequisites": ["8", "9"],   "keyConcepts": ["cambio profundo", "transformación estable"], "file": "26- El vehículo de las transformaciones.pdf" },
+    { "n": "27", "title": "Los Fundamentos de la Experiencia",                      "themes": ["consciousness", "syntergic"],                "difficulty": "avanzado",    "prerequisites": ["1", "9"],   "keyConcepts": ["experiencia primaria", "fundamentos"], "file": "27- Los fundamentos de la experiencia.pdf" },
+    { "n": "28", "title": "Los Chamanes de México · Vol 1",                         "themes": ["shamanism"],                                 "difficulty": "principiante","prerequisites": [],           "keyConcepts": ["chamanismo mexicano", "cosmovisión"], "file": "28- Los chamanes de México - Vol 1.pdf" },
+    { "n": "29", "title": "Los Chamanes de México · Vol 2",                         "themes": ["shamanism"],                                 "difficulty": "principiante","prerequisites": ["28"],       "keyConcepts": ["chamanes", "prácticas"], "file": "29- Los chamanes de México - Vol 2.pdf" },
+    { "n": "30", "title": "Los Chamanes de México · Vol 4",                         "themes": ["shamanism"],                                 "difficulty": "intermedio",  "prerequisites": ["28"],       "keyConcepts": ["Vol 4"], "file": "30- Los chamanes de México - Vol 4.pdf" },
+    { "n": "31", "title": "Los Chamanes de México · Vol 5",                         "themes": ["shamanism"],                                 "difficulty": "intermedio",  "prerequisites": ["28"],       "keyConcepts": ["Vol 5"], "file": "31- Los chamanes de México - Vol 5.pdf" },
+    { "n": "32", "title": "Los Chamanes de México · Vol 6",                         "themes": ["shamanism"],                                 "difficulty": "intermedio",  "prerequisites": ["28"],       "keyConcepts": ["Vol 6"], "file": "32- Los chamanes de México - Vol 6.pdf" },
+    { "n": "33", "title": "Los Chamanes de México · Vol 7",                         "themes": ["shamanism"],                                 "difficulty": "intermedio",  "prerequisites": ["28"],       "keyConcepts": ["Vol 7"], "file": "33- Los chamanes de México - Vol 7.pdf" }
+  ]
+}

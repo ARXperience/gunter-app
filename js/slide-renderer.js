@@ -161,14 +161,43 @@
                 position: absolute; inset: 0;
                 background-size: cover; background-position: center;
                 z-index: 0;
-                filter: saturate(1.05);
+                /* Filtro neutro: no procesar. La imagen ya sale con la estética del theme. */
+                filter: none;
             }
+            /* Split real: en editorial-left la imagen ocupa lado derecho 45%,
+               en editorial-right ocupa lado izquierdo. Cero overlap con texto. */
+            .gslide--layout-editorial-left .gslide-image  { inset: 0 0 0 55%; }
+            .gslide--layout-editorial-right .gslide-image { inset: 0 55% 0 0; }
+            /* Transición suave imagen ↔ texto: gradient fade en el borde interior
+               (no hard-cut brutalist). Se integra profesionalmente con el color de fondo. */
+            .gslide--layout-editorial-left .gslide-image::before,
+            .gslide--layout-editorial-right .gslide-image::before {
+                content: ''; position: absolute; top: 0; bottom: 0; width: 96px; z-index: 5;
+                pointer-events: none;
+            }
+            .gslide--layout-editorial-left .gslide-image::before  {
+                left: 0;
+                background: linear-gradient(to right, var(--slide-bg) 0%, transparent 100%);
+            }
+            .gslide--layout-editorial-right .gslide-image::before {
+                right: 0;
+                background: linear-gradient(to left, var(--slide-bg) 0%, transparent 100%);
+            }
+            /* Sombra interior sutil en el borde de la imagen — le da depth editorial */
+            .gslide--layout-editorial-left .gslide-image::after,
+            .gslide--layout-editorial-right .gslide-image::after {
+                content: ''; position: absolute; top: 0; bottom: 0; width: 1px; z-index: 6;
+                background: color-mix(in srgb, var(--slide-text) 12%, transparent);
+            }
+            .gslide--layout-editorial-left .gslide-image::after  { left: 0; }
+            .gslide--layout-editorial-right .gslide-image::after { right: 0; }
+            /* Zoom Ken Burns muy sutil — ~4% en 14s. Casi imperceptible pero editorial. */
             .gslide.is-active .gslide-image {
                 animation: gslideImageZoom 14s ease-out forwards;
             }
             @keyframes gslideImageZoom {
                 from { transform: scale(1.0); }
-                to   { transform: scale(1.08); }
+                to   { transform: scale(1.04); }
             }
             .gslide-image--placeholder {
                 background:
@@ -182,13 +211,37 @@
                 font-family: var(--slide-font-heading);
             }
 
-            /* Scrims per layout for legibility */
-            .gslide-scrim { position: absolute; inset: 0; z-index: 1; }
-            .gslide-scrim--editorial-left   { background: linear-gradient(90deg, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.65) 35%, rgba(0,0,0,0.12) 70%, transparent 100%); }
-            .gslide-scrim--editorial-right  { background: linear-gradient(270deg, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.65) 35%, rgba(0,0,0,0.12) 70%, transparent 100%); }
-            .gslide-scrim--hero             { background: radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.85) 75%); }
-            .gslide-scrim--pull-quote       { background: radial-gradient(ellipse at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.88) 75%); }
-            .gslide-scrim--kpi-hero         { background: linear-gradient(135deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.1) 100%); }
+            /* Scrims per layout — profesionales, no oscurecen demasiado la imagen */
+            .gslide-scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+            .gslide-scrim--editorial-left   { display: none; }
+            .gslide-scrim--editorial-right  { display: none; }
+            /* Hero: viñeta editorial suave — mantiene la imagen legible pero la protege del texto centrado */
+            .gslide-scrim--hero {
+                background:
+                    linear-gradient(180deg,
+                        color-mix(in srgb, var(--slide-bg) 12%, transparent) 0%,
+                        transparent 30%,
+                        transparent 70%,
+                        color-mix(in srgb, var(--slide-bg) 55%, transparent) 100%),
+                    radial-gradient(ellipse at center,
+                        transparent 40%,
+                        color-mix(in srgb, var(--slide-bg) 45%, transparent) 100%);
+            }
+            /* Pull quote: la imagen queda en el fondo, atenuada, texto grande sobre gradient a la palette */
+            .gslide-scrim--pull-quote {
+                background:
+                    linear-gradient(180deg,
+                        color-mix(in srgb, var(--slide-bg) 55%, transparent) 0%,
+                        color-mix(in srgb, var(--slide-bg) 75%, transparent) 100%);
+            }
+            /* KPI hero: la imagen va derecha 40%, texto a la izquierda — gradient direccional */
+            .gslide-scrim--kpi-hero {
+                background: linear-gradient(90deg,
+                    var(--slide-bg) 0%,
+                    color-mix(in srgb, var(--slide-bg) 90%, transparent) 40%,
+                    color-mix(in srgb, var(--slide-bg) 30%, transparent) 65%,
+                    transparent 100%);
+            }
 
             .gslide-inner {
                 position: relative; z-index: 2;
@@ -197,16 +250,16 @@
                 padding: 72px 88px;
                 box-sizing: border-box;
             }
-
-            /* Layouts */
-            .gslide--layout-editorial-left  .gslide-inner { justify-content: center; align-items: flex-start; }
-            .gslide--layout-editorial-right .gslide-inner { justify-content: center; align-items: flex-end; text-align: right; }
-            .gslide--layout-editorial-right .gslide-bullets li { text-align: left; }
+            /* En editorial split, restringir el ancho del texto a su 55% */
+            .gslide--layout-editorial-left  .gslide-inner { justify-content: center; align-items: flex-start; padding-right: calc(45% + 40px); }
+            .gslide--layout-editorial-right .gslide-inner { justify-content: center; align-items: flex-start; padding-left: calc(45% + 40px); text-align: left; }
             .gslide--layout-hero            .gslide-inner { justify-content: center; align-items: center; text-align: center; }
             .gslide--layout-pull-quote      .gslide-inner { justify-content: center; align-items: center; text-align: center; }
             .gslide--layout-kpi-hero        .gslide-inner { justify-content: center; align-items: flex-start; }
 
             .gslide-hero, .gslide-editorial, .gslide-kpi-wrap, .gslide-quote-wrap { max-width: 780px; }
+            .gslide--layout-editorial-left .gslide-editorial,
+            .gslide--layout-editorial-right .gslide-editorial { max-width: 100%; }
             .gslide-hero { max-width: 960px; }
 
             /* Typography scale */

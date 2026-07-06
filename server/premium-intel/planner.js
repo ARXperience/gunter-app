@@ -94,9 +94,10 @@ async function getDailyPlan({ date, tz = 'America/Bogota', force = false } = {})
     let recommendation = null;
     if (U.openai.hasKey() && (topPriorities.length > 0 || risks.length > 0)) {
         const llm = await U.safeLLM({
-            system: 'Eres Gunter, asistente personal en español latino. Responde breve, concreto, sin inventar.',
-            prompt: `Es ${dateStr}. Estos son los datos del día:
-PRIORIDADES (top ${topPriorities.length}):
+            system: 'Eres Gunter, chief of staff del usuario. Español latino neutro. Estás dando el brief matutino a un decisor: tesis primero, evidencia después, sin muletillas ni "hola buenos días". Nombras lo concreto, nunca en abstracto.',
+            prompt: `Brief del día ${dateStr}.
+
+PRIORIDADES (top ${topPriorities.length}, score = urgencia ponderada):
 ${topPriorities.map(p => `- ${p.title} [${p.kind}, score ${p.score}, ${p.reason}]${p.project ? ' — proyecto ' + p.project : ''}`).join('\n')}
 
 EVENTOS (${eventsToday.length}):
@@ -107,11 +108,12 @@ ${risks.map(r => '- ' + r).join('\n') || '(ninguno)'}
 
 Devuelve JSON ESTRICTO (sin markdown):
 {
-  "naturalResponse": "1-2 frases en español latino con tono asistente, mencionando lo más importante del día",
-  "recommendation": "1 frase con la recomendación principal (qué hacer primero o por qué)"
+  "naturalResponse": "1-2 frases: dime el foco del día en 1 tesis + el evento/riesgo que no puedes ignorar. Nombra proyectos y horas. Sin '¡Hola!' ni cierres.",
+  "recommendation": "1 frase accionable: qué hacer PRIMERO (dentro de los próximos 90 minutos) y por qué. Con verbo imperativo.",
+  "focus_block_suggestion": "1 frase: qué bloque de tiempo protegido conviene reservar hoy (ej: '10:00-11:30 para propuesta ACME')."
 }
 NO inventes datos no listados.`,
-            jsonMode: true, maxTokens: 280, temperature: 0.3
+            jsonMode: true, maxTokens: 340, temperature: 0.25
         });
         if (llm?.naturalResponse) {
             naturalResponse = llm.naturalResponse;

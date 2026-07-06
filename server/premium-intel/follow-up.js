@@ -85,7 +85,8 @@ async function getProjectFollowUps({ projectId = null } = {}) {
 
     if (U.openai.hasKey() && (data.inactiveProjects.length || data.projectsAtRisk.length)) {
         const llm = await U.safeLLM({
-            prompt: `Estos son los hallazgos del seguimiento de proyectos:
+            system: 'Eres un jefe de proyectos senior. Hablas al owner del portfolio. Español latino neutro. Sin adornos, sin muletillas, sin "espero que te sirva". Tesis primero, acción concreta después.',
+            prompt: `Estado del portfolio (auto-detectado):
 
 PROYECTOS QUIETOS (>${INACTIVE_DAYS} días sin actividad):
 ${data.inactiveProjects.slice(0, 5).map(p => `- ${p.projectName}: ${p.daysSinceActivity} días`).join('\n') || '(ninguno)'}
@@ -98,10 +99,11 @@ ${data.overdueByProject.slice(0, 4).map(p => `- ${p.projectName}: ${p.count} ven
 
 Devuelve JSON estricto:
 {
-  "naturalResponse": "1-2 frases en español latino describiendo el estado",
-  "topRecommendation": "1 frase con la acción más urgente"
+  "naturalResponse": "1-2 frases: nombra el proyecto crítico y el patrón (ej: 'X lleva 12 días sin movimiento, con 3 tareas vencidas'). No repitas todos los proyectos, señala el peor.",
+  "topRecommendation": "1 frase accionable: qué hacer HOY con nombre propio (ej: 'Escribe hoy a Ana pidiendo cierre de la propuesta pendiente antes del viernes').",
+  "risk_signal": "verde|amarillo|rojo — un solo semáforo global del portfolio"
 }`,
-            jsonMode: true, maxTokens: 220
+            jsonMode: true, maxTokens: 260, temperature: 0.3
         });
         if (llm?.naturalResponse) naturalResponse = llm.naturalResponse;
     }
@@ -136,22 +138,31 @@ async function getMeetingFollowUp({ projectId, meetingId = null } = {}) {
     let llmResult = null;
     if (U.openai.hasKey()) {
         llmResult = await U.safeLLM({
-            system: 'Eres un asistente que extrae información estructurada de transcripciones de reuniones. Cero invención.',
-            prompt: `Transcripción de la reunión "${project.name}":
+            system: 'Eres jefe de proyectos senior extrayendo el follow-up de una reunión. Español latino. Cero fabricación. Si algo no se dijo explícitamente, va en gaps o se omite. Distingues DECISIÓN (resolución tomada), COMPROMISO (tarea con dueño y plazo), OPCIÓN EN EVALUACIÓN (aún no decidida) — no las confundas.',
+            prompt: `Reunión: "${project.name}"
+
+TRANSCRIPCIÓN:
 """
 ${transcript.slice(0, 3500)}
 """
 
-Devuelve JSON estricto en español latino:
+Devuelve JSON estricto en español latino, con priorización por impacto:
 {
-  "tasks": [{ "title": "string corto", "responsible": "nombre o null", "when": "fecha aprox o null" }],
-  "decisions": [{ "text": "decisión tomada", "responsible": "nombre o null" }],
-  "questions": ["pregunta abierta sin respuesta"],
-  "risks": ["riesgo o bloqueo identificado"],
-  "nextSteps": ["próximo paso concreto"]
+  "executive_summary": "1-2 frases: qué salió de esta reunión que un stakeholder ausente necesita saber.",
+  "tasks": [
+    { "title": "verbo + qué (5-12 palabras)", "responsible": "nombre o null", "when": "fecha ISO/aprox o null", "evidence": "cita corta de la transcripción o paráfrasis", "priority": "alta|media|baja" }
+  ],
+  "decisions": [
+    { "text": "decisión concreta tomada", "responsible": "quién la impulsó o null", "impact": "alto|medio|bajo", "reversibility": "reversible|difícil|irreversible" }
+  ],
+  "questions": [{ "q": "pregunta abierta sin respuesta", "blocks": "qué se detiene hasta responderla" }],
+  "risks": [{ "risk": "riesgo o bloqueo identificado", "mitigation_hint": "acción sugerida" }],
+  "nextSteps": [{ "step": "próximo paso concreto", "owner": "quién lo hace", "by": "cuándo" }],
+  "gaps": ["información crítica que faltó definir (owner, deadline, criterio de éxito)"],
+  "gunter_note": "1 frase con la observación más útil que el owner debería considerar"
 }
-Máximo 5 items por lista. Si no hay nada de un tipo, lista vacía. NO inventes.`,
-            jsonMode: true, maxTokens: 800, temperature: 0.2
+Máximo 6 items por lista. Ordena por prioridad/impacto descendente. Si no hay nada de un tipo, lista vacía. NO inventes nombres, fechas ni cifras.`,
+            jsonMode: true, maxTokens: 1200, temperature: 0.2
         });
     }
 

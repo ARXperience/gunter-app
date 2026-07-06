@@ -396,22 +396,42 @@
         const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
         const speechContext = meetingActive ? 'meeting' : 'wake-word-response';
 
+        // Path 1: Pipeline completo (day.html)
         if (window.GunterPipeline?.handleUserInput) {
             try {
                 const result = await window.GunterPipeline.handleUserInput(text);
                 const reply = result?.response?.speech || 'Listo.';
-                // Hablar la respuesta. shouldSpeak() respeta voiceInMeetings y voiceMode.
-                // Si está bloqueado, GunterVoice.speak() simplemente no hace nada (silent).
                 if (window.GunterVoice?.speak) {
-                    // En reunión NUNCA forzamos: respetamos config del usuario.
                     const force = !meetingActive;
                     window.GunterVoice.speak(reply, { context: speechContext, force });
                 }
-                // En reunión, abrir el assistant siempre (respuesta visible aunque la voz esté off)
                 ensureAssistantOpen();
                 await window.GunterAssistantController?.send?.(text);
+                return;
             } catch (e) {
                 console.error('[wake-word] pipeline error:', e);
+            }
+        }
+
+        // Path 2: Fallback universal — usa el companion en cualquier página.
+        // Así "Hi Gunter" funciona en dashboard, results, config, etc.
+        if (window.GunterCompanion) {
+            try {
+                window.GunterCompanion.expand?.();
+                // Feed el texto como si el usuario lo hubiera escrito
+                if (window.GunterCompanion.__handleFromWake) {
+                    window.GunterCompanion.__handleFromWake(text);
+                } else {
+                    // Fallback: escribir en el input y submit
+                    const input = document.getElementById('gn-comp-input');
+                    const form = document.getElementById('gn-comp-form');
+                    if (input && form) {
+                        input.value = text;
+                        form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                    }
+                }
+            } catch (e) {
+                console.error('[wake-word] companion route error:', e);
             }
         }
     }

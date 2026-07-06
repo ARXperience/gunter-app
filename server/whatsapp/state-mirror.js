@@ -8,34 +8,31 @@
    ============================================= */
 
 const fs = require('fs');
-const path = require('path');
+const userStore = require('../user-store');
 
-const DIR = path.join(__dirname, '..', '..', 'whatsapp-data');
-const FILE = path.join(DIR, 'state-mirror.json');
+// Multi-tenant: espejo de tasks/events por usuario del contexto
+function FILE() { return userStore.userFile('wa-state-mirror.json'); }
 
 const EMPTY = { tasks: [], events: [], reminders: [], updatedAt: null };
 
-function ensure() {
-    if (!fs.existsSync(DIR)) fs.mkdirSync(DIR, { recursive: true });
-}
 
 function get() {
     try {
-        ensure();
-        if (!fs.existsSync(FILE)) return { ...EMPTY };
-        return JSON.parse(fs.readFileSync(FILE, 'utf8')) || { ...EMPTY };
+
+        if (!fs.existsSync(FILE())) return { ...EMPTY };
+        return JSON.parse(fs.readFileSync(FILE(), 'utf8')) || { ...EMPTY };
     } catch { return { ...EMPTY }; }
 }
 
 function set(state) {
-    ensure();
+
     const next = {
         tasks: Array.isArray(state.tasks) ? state.tasks.slice(0, 200) : [],
         events: Array.isArray(state.events) ? state.events.slice(0, 200) : [],
         reminders: Array.isArray(state.reminders) ? state.reminders.slice(0, 100) : [],
         updatedAt: new Date().toISOString()
     };
-    fs.writeFileSync(FILE, JSON.stringify(next, null, 2), 'utf8');
+    fs.writeFileSync(FILE(), JSON.stringify(next, null, 2), 'utf8');
     return next;
 }
 

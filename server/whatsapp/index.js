@@ -14,8 +14,18 @@ const pino = require('pino');
 const QR = require('qrcode');
 const store = require('./message-log');
 const handler = require('./handler');
+const userContext = require('../user-context');
+const authStore = require('../auth/store');
 
 const SESSION_DIR = path.join(__dirname, '..', '..', 'whatsapp-session');
+
+// Multi-usuario: el número puente es UNO (este socket), pero cada mensaje
+// entrante se procesa en el contexto del usuario dueño de ese teléfono.
+// Teléfono no registrado → contexto del dueño del sistema (comportamiento previo).
+function resolveUserByPhone(phone) {
+    try { return authStore.findByPhone(phone)?.id || null; }
+    catch { return null; }
+}
 
 let sock = null;
 let state = 'disconnected'; // 'disconnected' | 'qr_ready' | 'connecting' | 'connected' | 'error'
@@ -119,6 +129,10 @@ async function start() {
                 const phone = from.split('@')[0];
                 const ts = new Date((m.messageTimestamp || 0) * 1000 || Date.now()).toISOString();
 
+                // Multi-usuario: el pipeline completo (memoria, log, knowledge,
+                // premium-intel, sync-queue) corre como el usuario de ese teléfono
+                const uid = resolveUserByPhone(phone);
+                await userContext.runAs(uid, async () => {
                 try {
                     let reply = '';
                     let ignored = false;
@@ -147,7 +161,7 @@ async function start() {
                     // Texto
                     } else {
                         const text = extractText(m);
-                        if (!text) continue;
+                        if (!text) return;   // dentro de runAs: return = saltar este mensaje
                         store.appendMessage({ direction: 'in', from: phone, text, id: m.key.id, timestamp: ts });
                         const res = await handler.handle(text, { from: phone });
                         reply = res.reply; ignored = !!res.ignored;
@@ -163,6 +177,7 @@ async function start() {
                 } catch (e) {
                     console.error('[wa] handler error:', e);
                 }
+                });   // fin runAs(uid)
             }
         });
     } catch (err) {

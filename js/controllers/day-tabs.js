@@ -27,7 +27,9 @@
         // ===== v2 — Funciones avanzadas =====
         { id: 'commitments',  label: 'Compromisos',   icon: '🤝', flag: 'commitmentTracker',  mounter: 'mountCommitments' },
         { id: 'proactive',    label: 'Pulso',         icon: '⚡', flag: 'proactivePulse',     mounter: 'mountProactive' },
-        { id: 'forecast',     label: 'Forecast',      icon: '🔮', flag: 'projectForecast',    mounter: 'mountForecast' }
+        { id: 'forecast',     label: 'Forecast',      icon: '🔮', flag: 'projectForecast',    mounter: 'mountForecast' },
+        // ===== Modo tutor · biblioteca curada =====
+        { id: 'tutor',        label: 'Tutor',         icon: '📚', flag: 'tutorMode',          mounter: 'mountTutor' }
     ];
 
     let bar = null;
@@ -168,6 +170,11 @@
         mountForecast: () => {
             if (window.GunterForecastPanel?.mount) {
                 window.GunterForecastPanel.mount('#gday-forecast');
+            }
+        },
+        mountTutor: () => {
+            if (window.GunterTutorPanel?.mount) {
+                window.GunterTutorPanel.mount('#gday-tutor');
             }
         }
     };

@@ -1,0 +1,246 @@
+/* =============================================
+   Adventure Time — Extension: body.at-light overrides
+   Se carga DESPUÉS de adventure-time.css para overrides
+   específicos del modo light.
+   ============================================= */
+
+body.at-light {
+  background: var(--at-bg) !important;
+  color: var(--at-ink) !important;
+}
+
+body.at-light .gn-orbs {
+  background: var(--at-bg) !important;
+}
+body.at-light .gn-orb { display: none !important; }
+
+body.at-light h1, body.at-light h2, body.at-light h3,
+body.at-light h4, body.at-light h5, body.at-light h6,
+body.at-light .config-header__title,
+body.at-light .dashboard-header__title,
+body.at-light .meeting-header__title,
+body.at-light .results-title {
+  color: var(--at-ink) !important;
+}
+
+body.at-light .config-header__subtitle,
+body.at-light .dashboard-header__subtitle,
+body.at-light .settings-card__hint,
+body.at-light .gn-comp__chat-title small {
+  color: var(--at-muted) !important;
+}
+
+/* ═══ Sidebar cartoon ═══ */
+body.at-light .sidebar {
+  background: var(--at-surface) !important;
+  border-right: var(--at-border-w) solid var(--at-ink) !important;
+  box-shadow: 6px 0 0 var(--at-ink);
+}
+
+body.at-light .sidebar__nav-item {
+  color: var(--at-ink) !important;
+  border-radius: var(--at-r-md);
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+  text-decoration: none !important;
+}
+body.at-light .sidebar__nav-item:hover {
+  background: var(--at-tertiary-lo) !important;
+  transform: translate(-2px, -2px) rotate(-1deg);
+}
+body.at-light .sidebar__nav-item.active {
+  background: var(--at-secondary-hi) !important;
+  color: var(--at-ink) !important;
+  border: var(--at-border-w-sm) solid var(--at-ink);
+  box-shadow: var(--at-shadow-sm);
+}
+
+body.at-light .dashboard-main {
+  background: var(--at-bg) !important;
+}
+
+body.at-light .dashboard-header {
+  padding: 24px 0;
+  border-bottom: var(--at-border-w-sm) dashed var(--at-ink);
+  margin-bottom: 24px;
+}
+
+/* ═══ Project + stat cards ═══ */
+body.at-light .project-card,
+body.at-light .project-card--new {
+  background: var(--at-surface) !important;
+  border: var(--at-border-w) solid var(--at-ink) !important;
+  border-radius: var(--at-r-md) !important;
+  box-shadow: var(--at-shadow-md) !important;
+  color: var(--at-ink) !important;
+  text-decoration: none !important;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+body.at-light .project-card:hover {
+  transform: translate(-3px, -3px) rotate(-1deg);
+  box-shadow: 10px 10px 0 0 var(--at-ink) !important;
+}
+body.at-light .project-card--new {
+  background: var(--at-primary-lo) !important;
+  border-style: dashed !important;
+}
+body.at-light .project-card--new:hover {
+  background: var(--at-primary-hi) !important;
+  transform: translate(-3px, -3px) rotate(2deg) !important;
+}
+
+body.at-light .stat-card {
+  background: var(--at-surface) !important;
+  border: var(--at-border-w) solid var(--at-ink) !important;
+  border-radius: var(--at-r-md) !important;
+  box-shadow: var(--at-shadow-md) !important;
+  color: var(--at-ink) !important;
+  padding: 20px !important;
+}
+body.at-light .stat-card:nth-child(1) { background: var(--at-tertiary-hi) !important; }
+body.at-light .stat-card:nth-child(2) { background: var(--at-secondary-hi) !important; }
+body.at-light .stat-card:nth-child(3) { background: var(--at-warn) !important; }
+body.at-light .stat-card:nth-child(4) { background: var(--at-primary-hi) !important; }
+body.at-light .stat-card * { color: var(--at-ink) !important; }
+
+/* ═══ Companion widget en modo light ═══ */
+body.at-light .gn-comp__bubble {
+  background: var(--at-primary-hi) !important;
+  border: var(--at-border-w) solid var(--at-ink) !important;
+  box-shadow: var(--at-shadow-md) !important;
+}
+body.at-light .gn-comp__chat {
+  background: var(--at-surface) !important;
+  border: var(--at-border-w) solid var(--at-ink) !important;
+  box-shadow: var(--at-shadow-lg) !important;
+}
+body.at-light .gn-comp__chat-log { background: var(--at-surface-alt) !important; }
+body.at-light .gn-comp__chat-title strong { color: var(--at-ink) !important; }
+body.at-light .gn-comp__chat-close {
+  color: var(--at-ink) !important;
+  border: var(--at-border-w-sm) solid var(--at-ink);
+  border-radius: var(--at-r-full);
+  background: var(--at-surface);
+}
+
+body.at-light .gn-comp__typing {
+  background: var(--at-surface) !important;
+  border: var(--at-border-w-sm) solid var(--at-ink);
+  border-radius: 18px 18px 18px 4px !important;
+  box-shadow: 3px 3px 0 0 var(--at-ink);
+}
+body.at-light .gn-comp__typing span { background: var(--at-ink) !important; }
+
+/* ═══ Onboarding ═══ */
+body.at-light .gn-onboarding__backdrop {
+  background: rgba(28, 27, 27, 0.55) !important;
+}
+body.at-light .gn-onboarding__title { color: var(--at-ink) !important; }
+body.at-light .gn-onboarding__body { color: var(--at-ink-soft) !important; }
+body.at-light .gn-onboarding__skip { color: var(--at-muted) !important; }
+
+/* ═══ Meeting page ═══ */
+body.at-light .meeting-page { background: var(--at-bg) !important; }
+body.at-light .meeting-header {
+  background: var(--at-surface) !important;
+  border-bottom: var(--at-border-w) solid var(--at-ink) !important;
+  box-shadow: 0 4px 0 0 var(--at-ink);
+}
+body.at-light .meeting-panel {
+  background: var(--at-surface) !important;
+  border: var(--at-border-w) solid var(--at-ink) !important;
+  border-radius: var(--at-r-md) !important;
+  box-shadow: var(--at-shadow-md) !important;
+  color: var(--at-ink) !important;
+}
+body.at-light .meeting-panel__title, body.at-light .meeting-panel__header {
+  color: var(--at-ink) !important;
+}
+
+/* ═══ Config page ═══ */
+body.at-light .config-page { background: var(--at-bg) !important; }
+body.at-light .config-header {
+  padding-bottom: 20px;
+  border-bottom: var(--at-border-w-sm) dashed var(--at-ink);
+  margin-bottom: 24px;
+}
+body.at-light .config-header__back {
+  color: var(--at-ink) !important;
+  font-family: var(--at-font-label);
+  font-weight: 700;
+  text-decoration: none !important;
+}
+
+/* ═══ Step indicator (Nueva Reunión) ═══ */
+body.at-light .step {
+  background: var(--at-surface) !important;
+  border: var(--at-border-w-sm) solid var(--at-ink) !important;
+  box-shadow: var(--at-shadow-sm);
+}
+body.at-light .step__number {
+  color: var(--at-ink) !important;
+  font-family: var(--at-font-display);
+  font-weight: 800;
+}
+body.at-light .step__label {
+  color: var(--at-ink) !important;
+  font-family: var(--at-font-label);
+  font-weight: 700;
+}
+body.at-light .step.active { background: var(--at-primary-hi) !important; }
+body.at-light .step-connector {
+  background: var(--at-ink) !important;
+  height: 3px;
+}
+
+/* ═══ Audio upload dropzone ═══ */
+body.at-light .audio-upload-dropzone {
+  background: var(--at-surface) !important;
+  border: var(--at-border-w) dashed var(--at-ink) !important;
+  border-radius: var(--at-r-md) !important;
+  color: var(--at-ink) !important;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+body.at-light .audio-upload-dropzone:hover,
+body.at-light .audio-upload-dropzone.dragover {
+  background: var(--at-primary-lo) !important;
+  border-style: solid !important;
+  box-shadow: var(--at-shadow-md) !important;
+  transform: translate(-2px, -2px) rotate(-1deg);
+}
+
+/* ═══ Selección + scrollbar ═══ */
+body.at-light ::selection { background: var(--at-primary-hi) !important; color: var(--at-ink) !important; }
+body.at-light ::-webkit-scrollbar { width: 12px; height: 12px; }
+body.at-light ::-webkit-scrollbar-track { background: var(--at-bg-dim); }
+body.at-light ::-webkit-scrollbar-thumb {
+  background: var(--at-primary-hi);
+  border: 2px solid var(--at-ink);
+  border-radius: var(--at-r-full);
+}
+
+/* ═══ Links ═══ */
+body.at-light a {
+  color: var(--at-primary) !important;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+body.at-light a:hover {
+  color: var(--at-primary-hi) !important;
+  background: rgba(255, 113, 206, 0.15);
+}
+body.at-light .sidebar__nav-item,
+body.at-light .config-tab,
+body.at-light .btn,
+body.at-light .gn-glass-btn,
+body.at-light .config-header__back,
+body.at-light .project-card {
+  text-decoration: none !important;
+}
+
+/* ═══ Widget floating: safe-area en mobile con brutalismo ═══ */
+@media (max-width: 640px) {
+  body.at-light .gn-comp__bubble {
+    box-shadow: 4px 4px 0 0 var(--at-ink) !important;
+  }
+}

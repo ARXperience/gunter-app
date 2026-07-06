@@ -7,28 +7,25 @@
    ============================================= */
 
 const fs = require('fs');
-const path = require('path');
+const userStore = require('../user-store');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'whatsapp-data');
-const FILE = path.join(DATA_DIR, 'memory.json');
+// Multi-tenant: memoria WA por usuario del contexto (el mensaje entrante
+// se procesa dentro de runAs(<usuario del teléfono>))
+function filePath() { return userStore.userFile('wa-memory.json'); }
 const MAX_HISTORY = 20;       // últimos N turnos por contacto
 const MAX_FACTS_AGE_DAYS = 90;
 
-function ensure() {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-}
 function readAll() {
     try {
-        ensure();
-        if (!fs.existsSync(FILE)) return {};
-        return JSON.parse(fs.readFileSync(FILE, 'utf8')) || {};
+        const fp = filePath();
+        if (!fs.existsSync(fp)) return {};
+        return JSON.parse(fs.readFileSync(fp, 'utf8')) || {};
     } catch {
         return {};
     }
 }
 function writeAll(data) {
-    ensure();
-    fs.writeFileSync(FILE, JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(filePath(), JSON.stringify(data, null, 2), 'utf8');
 }
 
 function ensureContact(all, phone) {

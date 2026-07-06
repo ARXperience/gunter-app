@@ -10,6 +10,18 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+// Log ring buffer — captura console.* para el panel admin (instalar ANTES
+// de cargar módulos para registrar también sus warnings de arranque).
+const logRing = require('./server/log-ring');
+logRing.install();
+
+// Auth — usuarios, sesiones y guard de /api/*
+const auth = require('./server/auth');
+
+// Multi-tenant — el usuario de la sesión viaja por AsyncLocalStorage
+// a todos los módulos (cada usuario tiene su carpeta en data/users/)
+const userContext = require('./server/user-context');
+
 // WhatsApp integration (lazy required so the app runs even if deps missing)
 let wa = null, waStore = null, waMemory = null, waPersonality = null, waMirror = null;
 try {
@@ -47,11 +59,22 @@ catch (e) { console.warn('⚠️  Style-mirror module not available:', e.message
 try { forecast = require('./server/forecast'); }
 catch (e) { console.warn('⚠️  Forecast module not available:', e.message); }
 
+// Etapa 3 — Actions dispatcher (control unificado de features)
+let actions = null;
+try { actions = require('./server/actions/dispatcher'); }
+catch (e) { console.warn('⚠️  Actions dispatcher not available:', e.message); }
+
+// Modo Tutor — biblioteca curada + sesiones
+let tutor = null;
+try { tutor = require('./server/tutor'); }
+catch (e) { console.warn('⚠️  Tutor module not available:', e.message); }
+
 // Configuration
 const PORT = process.env.PORT || 3001;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const OWNER_PHONE = process.env.OWNER_PHONE || null;   // Etapa 3 — owner autorizado por WA
 
 if (!OPENAI_API_KEY) {
     console.error('❌ ERROR: OPENAI_API_KEY NOT FOUND IN .ENV FILE');
@@ -110,8 +133,8 @@ const corsHeaders = buildCorsHeaders(null);
 // when produced by the rolling MediaRecorder.
 const MAX_BODY_SIZE = 200 * 1024 * 1024;
 
-// Create server
-const server = http.createServer(async (req, res) => {
+// Handler principal — corre DENTRO del contexto de usuario (ALS)
+const handleRequest = async (req, res) => {
     // CORS dinámico per-request (respeta ALLOWED_ORIGINS o cae a '*')
     const reqOrigin = req.headers.origin || null;
     const resCors = buildCorsHeaders(reqOrigin);
@@ -162,6 +185,39 @@ const server = http.createServer(async (req, res) => {
         };
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify(health, null, 2));
+    }
+
+    // ===== /api/auth/* — Registro, login, sesiones, admin =====
+    if (parsedUrl.pathname.startsWith('/api/auth/')) {
+        const sub = parsedUrl.pathname.slice('/api/auth/'.length).replace(/\/+$/, '');
+        if (req.method === 'GET') {
+            const result = auth.handle(sub, 'GET', parsedUrl.query, req);
+            res.writeHead(result.status, { 'Content-Type': 'application/json', ...(result.headers || {}) });
+            return res.end(JSON.stringify(result.body));
+        }
+        let body = '';
+        req.on('data', c => { body += c.toString(); });
+        req.on('end', () => {
+            try {
+                const parsed = body ? JSON.parse(body) : {};
+                const result = auth.handle(sub, req.method, parsed, req);
+                res.writeHead(result.status, { 'Content-Type': 'application/json', ...(result.headers || {}) });
+                res.end(JSON.stringify(result.body));
+            } catch (e) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: 'JSON inválido: ' + e.message }));
+            }
+        });
+        return;
+    }
+
+    // ===== GUARD GLOBAL — todo /api/* (excepto health y auth) requiere sesión aprobada =====
+    if (parsedUrl.pathname.startsWith('/api/')) {
+        const denied = auth.guard(req);
+        if (denied) {
+            res.writeHead(denied.code, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ success: false, error: denied.error, message: denied.message }));
+        }
     }
 
     // Transcription endpoint
@@ -566,6 +622,15 @@ const server = http.createServer(async (req, res) => {
             const q = wa.getQR();
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(q));
+            return;
+        }
+
+        // El número puente es del sistema: solo el admin lo conecta/desconecta.
+        // (req.gunterUser lo setea el guard; sin él = service token = nivel admin)
+        if ((sub === 'connect' || sub === 'disconnect') && req.method === 'POST'
+            && req.gunterUser && req.gunterUser.role !== 'admin') {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'admin_only', message: 'Solo el administrador puede conectar o desconectar el WhatsApp del sistema.' }));
             return;
         }
 
@@ -979,6 +1044,76 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ============================================
+    // TUTOR — biblioteca curada + sesiones
+    // ============================================
+    if (parsedUrl.pathname === '/api/tutor' && req.method === 'POST' && tutor) {
+        let body = '';
+        req.on('data', c => { body += c.toString(); });
+        req.on('end', async () => {
+            try {
+                const { op, ...params } = JSON.parse(body || '{}');
+                const result = await tutor.handle(op, params);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(result));
+            } catch (e) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: e.message }));
+            }
+        });
+        return;
+    }
+
+    // ACTIONS DISPATCHER (Etapa 3 — control unificado de features)
+    // Usa el vocabulario compartido con WA. Un solo lugar para
+    // toggle flags / query features / listar activas.
+    // ============================================
+    if (parsedUrl.pathname === '/api/actions' && req.method === 'POST' && actions) {
+        let body = '';
+        req.on('data', c => { body += c.toString(); });
+        req.on('end', async () => {
+            try {
+                const { op = 'dispatch', text, flag, value, meta, flags } = JSON.parse(body || '{}');
+                let result;
+                switch (op) {
+                    case 'dispatch':
+                        // op principal: procesa texto libre desde el widget
+                        result = await actions.dispatch({
+                            text,
+                            channel: 'browser',
+                            identifier: reqOrigin || 'browser',
+                            ownerPhone: OWNER_PHONE
+                        });
+                        break;
+                    case 'get_state':
+                        result = { state: actions.getState() };
+                        break;
+                    case 'set':
+                        // Set directo (usado por el UI de Premium al toggle un switch)
+                        actions.setDirect(flag, value, meta || { source: 'browser' });
+                        result = { flag, value };
+                        break;
+                    case 'sync_from_browser':
+                        actions.syncFromBrowser(flags || {});
+                        result = { ok: true };
+                        break;
+                    case 'list_vocabulary':
+                        result = { features: actions.vocabulary.listAll() };
+                        break;
+                    default:
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        return res.end(JSON.stringify({ success: false, warnings: ['unknown-op:' + op] }));
+                }
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, data: result }));
+            } catch (err) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, warnings: [err.message] }));
+            }
+        });
+        return;
+    }
+
+    // ============================================
     // EMBEDDINGS - text-embedding-3-small (Fase 4)
     // ============================================
     if (parsedUrl.pathname === '/api/embeddings' && req.method === 'POST') {
@@ -1137,6 +1272,23 @@ const server = http.createServer(async (req, res) => {
             res.writeHead(200, headers);
             res.end(content, 'utf-8');
         }
+    });
+};
+
+// Create server — resuelve el usuario de la sesión y ejecuta el handler
+// dentro de su contexto. Los stores per-user leen el uid de aquí.
+//
+// ⚠️ Los eventos del request ('data'/'end') se emiten desde el contexto del
+// socket TCP, FUERA del ALS. AsyncResource.bind liga cada listener al
+// contexto del usuario para que no se pierda dentro de los callbacks.
+const { AsyncResource } = require('async_hooks');
+const server = http.createServer((req, res) => {
+    const who = auth.authenticate(req);
+    const uid = who && who.kind === 'user' ? who.user.id : null;
+    userContext.runAs(uid, () => {
+        const origOn = req.on.bind(req);
+        req.on = (ev, cb) => origOn(ev, AsyncResource.bind(cb));
+        handleRequest(req, res);
     });
 });
 

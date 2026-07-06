@@ -3,6 +3,13 @@
 .env.local
 .env.*.local
 
+# Datos de runtime — TODO data/ es privado (usuarios, sesiones, tokens,
+# datos personales por usuario, notas, saber personal, flags)
+data/
+
+# Claude Code — worktrees temporales
+.claude/worktrees/
+
 # WhatsApp — session credentials + message log (contain private data)
 whatsapp-session/
 whatsapp-data/
@@ -19,3 +26,10 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 *.cpuprofile
+
+# Tutor library (binarios grandes + texto extraído regenerable con los
+# scripts de server/tutor/ — solo el catálogo va al repo)
+tutor-library/pdfs/
+tutor-library/index/
+tutor-library/_incoming/
+tutor-library/text/

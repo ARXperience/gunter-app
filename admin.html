@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0d1220">
+    <title>Gunter — Administración</title>
+    <script src="js/services/log-buffer.js?v41-waphone-1783320000000"></script>
+    <script src="js/services/auth-service.js?v41-waphone-1783320000000"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/gunter-design-system.css?v41-waphone-1783320000000">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+            background: radial-gradient(1100px 700px at 85% -10%, rgba(88,120,255,.13), transparent 60%), #0d1220;
+            color: #eef1f8; min-height: 100vh;
+            padding: 28px 18px 80px;
+        }
+        .gadm { max-width: 1080px; margin: 0 auto; }
+        .gadm__head { display: flex; align-items: center; gap: 14px; margin-bottom: 26px; flex-wrap: wrap; }
+        .gadm__head h1 { font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+        .gadm__head .back { color: #7d9aff; text-decoration: none; font-weight: 700; font-size: 13.5px; margin-left: auto; }
+        .gadm__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 26px; }
+        .gadm__stat {
+            background: rgba(22,28,44,.85); border: 1px solid rgba(140,150,180,.2);
+            border-radius: 16px; padding: 16px 18px;
+        }
+        .gadm__stat .n { font-family: 'Bricolage Grotesque', sans-serif; font-size: 28px; font-weight: 800; }
+        .gadm__stat .l { color: #8a93a8; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; margin-top: 2px; }
+        .gadm__stat.warn .n { color: #ffc46b; }
+        .gadm__stat.ok .n { color: #6fe3b0; }
+        .gadm__card {
+            background: rgba(22,28,44,.85); border: 1px solid rgba(140,150,180,.2);
+            border-radius: 18px; padding: 22px; margin-bottom: 22px;
+        }
+        .gadm__card h2 { font-family: 'Bricolage Grotesque', sans-serif; font-size: 17px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        .gadm__card h2 .badge { background: rgba(255,180,90,.16); color: #ffc46b; font-size: 12px; padding: 3px 9px; border-radius: 999px; font-family: 'Plus Jakarta Sans'; }
+        .gadm__empty { color: #6b7488; font-size: 13.5px; padding: 8px 0; }
+        table.gadm__tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+        .gadm__tbl th { text-align: left; color: #8a93a8; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; padding: 8px 10px; border-bottom: 1px solid rgba(140,150,180,.15); }
+        .gadm__tbl td { padding: 10px; border-bottom: 1px solid rgba(140,150,180,.08); vertical-align: middle; }
+        .gadm__tbl tr:last-child td { border-bottom: 0; }
+        .gadm__tbl .who strong { display: block; }
+        .gadm__tbl .who span { color: #6b7488; font-size: 12px; }
+        .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 800; }
+        .pill--pending { background: rgba(255,180,90,.15); color: #ffc46b; }
+        .pill--approved { background: rgba(110,220,170,.13); color: #6fe3b0; }
+        .pill--blocked { background: rgba(230,90,90,.14); color: #ff9c9c; }
+        .pill--admin { background: rgba(150,130,255,.16); color: #b6a8ff; }
+        .abtn {
+            border: 1px solid rgba(140,150,180,.28); background: rgba(12,16,28,.5); color: #c6cddd;
+            font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 11px; border-radius: 9px;
+            cursor: pointer; margin: 2px 3px 2px 0; transition: filter .12s ease, transform .12s ease;
+        }
+        .abtn:hover { filter: brightness(1.25); transform: translateY(-1px); }
+        .abtn--ok { background: rgba(110,220,170,.14); border-color: rgba(110,220,170,.35); color: #6fe3b0; }
+        .abtn--warn { background: rgba(255,180,90,.12); border-color: rgba(255,180,90,.3); color: #ffc46b; }
+        .abtn--danger { background: rgba(230,90,90,.12); border-color: rgba(230,90,90,.32); color: #ff9c9c; }
+        .gadm__sys { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 13px; }
+        .gadm__sys div { background: rgba(12,16,28,.5); border-radius: 11px; padding: 10px 13px; }
+        .gadm__sys .k { color: #8a93a8; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; display: block; margin-bottom: 3px; }
+        .svc { display: inline-block; margin: 3px 6px 3px 0; font-size: 12.5px; }
+        .svc::before { content: '●'; margin-right: 5px; }
+        .svc.on::before { color: #6fe3b0; } .svc.off::before { color: #ff9c9c; }
+        .gadm__logctl { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .gadm__logctl select, .gadm__logctl input {
+            background: rgba(12,16,28,.7); border: 1px solid rgba(140,150,180,.25); border-radius: 9px;
+            color: #eef1f8; font-family: inherit; font-size: 13px; padding: 7px 10px;
+        }
+        .gadm__logctl input { flex: 1; min-width: 160px; }
+        .gadm__logs {
+            background: #0a0e18; border: 1px solid rgba(140,150,180,.15); border-radius: 12px;
+            padding: 14px; max-height: 420px; overflow: auto; font-family: 'Cascadia Code', Consolas, monospace;
+            font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+        }
+        .gadm__logs .lw { color: #ffc46b; } .gadm__logs .le { color: #ff9c9c; } .gadm__logs .li { color: #9aa6c0; }
+        .gadm__logs .ts { color: #5a647c; }
+        .toastbox { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .toastbox .t { background: #1c2333; border: 1px solid rgba(140,150,180,.3); color: #eef1f8; padding: 11px 18px; border-radius: 12px; font-size: 13.5px; box-shadow: 0 10px 28px rgba(0,0,0,.4); animation: tin .2s ease; }
+        .toastbox .t.err { border-color: rgba(230,90,90,.4); color: #ff9c9c; }
+        @keyframes tin { from { opacity: 0; transform: translateY(8px); } }
+        @media (max-width: 720px) {
+            .gadm__tbl thead { display: none; }
+            .gadm__tbl tr { display: block; padding: 10px 0; border-bottom: 1px solid rgba(140,150,180,.12); }
+            .gadm__tbl td { display: block; border: 0; padding: 4px 2px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="gadm">
+        <div class="gadm__head">
+            <h1>🛡️ Administración</h1>
+            <a class="back" href="index.html">← Volver a Gunter</a>
+        </div>
+
+        <div class="gadm__grid" id="adm-stats"></div>
+
+        <section class="gadm__card" id="adm-pending-card">
+            <h2>⏳ Solicitudes pendientes <span class="badge" id="adm-pending-count" hidden>0</span></h2>
+            <div id="adm-pending"></div>
+        </section>
+
+        <section class="gadm__card">
+            <h2>👥 Usuarios</h2>
+            <div id="adm-users"></div>
+        </section>
+
+        <section class="gadm__card">
+            <h2>🖥️ Sistema</h2>
+            <div class="gadm__sys" id="adm-sys"></div>
+            <div style="margin-top:12px" id="adm-services"></div>
+        </section>
+
+        <section class="gadm__card">
+            <h2>📜 Logs del servidor</h2>
+            <div class="gadm__logctl">
+                <select id="adm-log-level">
+                    <option value="all">Todos</option>
+                    <option value="warn">Warnings + errores</option>
+                    <option value="error">Solo errores</option>
+                </select>
+                <input id="adm-log-search" placeholder="Filtrar texto…">
+                <button class="abtn" id="adm-log-refresh">↻ Actualizar</button>
+            </div>
+            <div class="gadm__logs" id="adm-logs">Cargando…</div>
+        </section>
+    </div>
+    <div class="toastbox" id="toastbox"></div>
+
+    <script>
+        (function () {
+            'use strict';
+            const $ = id => document.getElementById(id);
+            const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+            function toast(msg, isErr) {
+                const t = document.createElement('div');
+                t.className = 't' + (isErr ? ' err' : '');
+                t.textContent = msg;
+                $('toastbox').appendChild(t);
+                setTimeout(() => t.remove(), 3500);
+            }
+
+            async function api(path, body) {
+                const resp = await fetch(path, body
+                    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+                    : undefined);
+                const json = await resp.json().catch(() => ({}));
+                if (resp.status === 401) { location.replace('login.html?next=admin.html'); throw new Error('auth'); }
+                if (resp.status === 403) { location.replace('index.html'); throw new Error('admin_only'); }
+                return json;
+            }
+
+            const fmtDate = iso => iso ? new Date(iso).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+            const fmtUptime = s => {
+                const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+                return (d ? d + 'd ' : '') + h + 'h ' + m + 'm';
+            };
+
+            // ── Stats + sistema ──
+            async function loadStats() {
+                const st = await api('/api/auth/admin/stats');
+                if (!st.success) return;
+                const u = st.users, s = st.system;
+                $('adm-stats').innerHTML = `
+                    <div class="gadm__stat"><div class="n">${u.total}</div><div class="l">Usuarios</div></div>
+                    <div class="gadm__stat ${u.pending ? 'warn' : ''}"><div class="n">${u.pending}</div><div class="l">Pendientes</div></div>
+                    <div class="gadm__stat ok"><div class="n">${u.approved}</div><div class="l">Aprobados</div></div>
+                    <div class="gadm__stat"><div class="n">${u.blocked}</div><div class="l">Bloqueados</div></div>
+                    <div class="gadm__stat"><div class="n">${st.sessions.active}</div><div class="l">Sesiones activas</div></div>`;
+                $('adm-sys').innerHTML = `
+                    <div><span class="k">Uptime</span>${fmtUptime(s.uptime)}</div>
+                    <div><span class="k">Memoria</span>${s.memoryMB} MB</div>
+                    <div><span class="k">Node</span>${esc(s.node)} · ${esc(s.platform)}</div>
+                    <div><span class="k">Logs en buffer</span>${st.logs.total} (${st.logs.errors} err · ${st.logs.warnings} warn)</div>`;
+            }
+
+            async function loadHealth() {
+                try {
+                    const h = await (await fetch('/api/health')).json();
+                    $('adm-services').innerHTML = '<span class="k" style="color:#8a93a8;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em">Servicios</span><br>' +
+                        Object.entries(h.services || {}).map(([k, v]) =>
+                            `<span class="svc ${v ? 'on' : 'off'}">${esc(k)}</span>`).join('');
+                } catch { }
+            }
+
+            // ── Usuarios ──
+            function userActions(u) {
+                const b = [];
+                if (u.status === 'pending') {
+                    b.push(`<button class="abtn abtn--ok" data-op="approve" data-id="${u.id}">✓ Aprobar</button>`);
+                    b.push(`<button class="abtn abtn--danger" data-op="remove" data-id="${u.id}" data-name="${esc(u.username)}">✕ Rechazar</button>`);
+                } else if (u.status === 'approved') {
+                    b.push(`<button class="abtn abtn--warn" data-op="block" data-id="${u.id}">🚫 Bloquear</button>`);
+                    b.push(u.role === 'admin'
+                        ? `<button class="abtn" data-op="demote" data-id="${u.id}">Quitar admin</button>`
+                        : `<button class="abtn" data-op="promote" data-id="${u.id}">👑 Hacer admin</button>`);
+                    b.push(`<button class="abtn abtn--danger" data-op="remove" data-id="${u.id}" data-name="${esc(u.username)}">🗑️</button>`);
+                } else {
+                    b.push(`<button class="abtn abtn--ok" data-op="unblock" data-id="${u.id}">Desbloquear</button>`);
+                    b.push(`<button class="abtn abtn--danger" data-op="remove" data-id="${u.id}" data-name="${esc(u.username)}">🗑️</button>`);
+                }
+                return b.join('');
+            }
+
+            function userRow(u) {
+                return `<tr>
+                    <td class="who"><strong>${esc(u.displayName)}</strong><span>@${esc(u.username)}${u.email ? ' · ' + esc(u.email) : ''}${u.waPhone ? ' · 📱 +' + esc(u.waPhone) : ''}</span></td>
+                    <td>${u.role === 'admin' ? '<span class="pill pill--admin">admin</span>' : 'usuario'}</td>
+                    <td><span class="pill pill--${u.status}">${{ pending: 'pendiente', approved: 'aprobado', blocked: 'bloqueado' }[u.status]}</span></td>
+                    <td>${fmtDate(u.lastLoginAt)}<br><span style="color:#6b7488;font-size:11.5px">${u.loginCount || 0} logins</span></td>
+                    <td>${userActions(u)}</td>
+                </tr>`;
+            }
+
+            async function loadUsers() {
+                const r = await api('/api/auth/admin/users');
+                if (!r.success) return;
+                const pending = r.users.filter(u => u.status === 'pending');
+                const rest = r.users.filter(u => u.status !== 'pending');
+
+                $('adm-pending-count').hidden = !pending.length;
+                $('adm-pending-count').textContent = pending.length;
+                $('adm-pending').innerHTML = pending.length
+                    ? `<table class="gadm__tbl"><thead><tr><th>Quién</th><th>Rol</th><th>Estado</th><th>Registro</th><th>Acciones</th></tr></thead><tbody>` +
+                      pending.map(u => userRow({ ...u, lastLoginAt: u.createdAt })).join('') + '</tbody></table>'
+                    : '<p class="gadm__empty">No hay solicitudes esperando. Todo tranquilo por ahora.</p>';
+
+                $('adm-users').innerHTML = rest.length
+                    ? `<table class="gadm__tbl"><thead><tr><th>Quién</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th>Acciones</th></tr></thead><tbody>` +
+                      rest.map(userRow).join('') + '</tbody></table>'
+                    : '<p class="gadm__empty">Todavía no hay usuarios registrados.</p>';
+            }
+
+            document.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.abtn[data-op]');
+                if (!btn) return;
+                const { op, id, name } = btn.dataset;
+                const routes = { approve: 'approve', block: 'block', unblock: 'unblock', remove: 'remove', promote: 'role', demote: 'role' };
+                if (!routes[op]) return;
+                if (op === 'remove' && !confirm(`¿Eliminar definitivamente a @${name}? Esta acción no se puede deshacer.`)) return;
+                if (op === 'block' && !confirm('¿Bloquear este usuario? Se cerrarán sus sesiones activas.')) return;
+                btn.disabled = true;
+                const body = { userId: id };
+                if (op === 'promote') body.role = 'admin';
+                if (op === 'demote') body.role = 'user';
+                const r = await api('/api/auth/admin/' + routes[op], body).catch(() => ({ success: false, error: 'Sin conexión' }));
+                if (r.success) { toast('Listo ✓'); refresh(); }
+                else { toast(r.error || 'No se pudo', true); btn.disabled = false; }
+            });
+
+            // ── Logs ──
+            async function loadLogs() {
+                const level = $('adm-log-level').value;
+                const search = $('adm-log-search').value.trim();
+                const qs = new URLSearchParams({ limit: 150, level, ...(search ? { search } : {}) });
+                const r = await api('/api/auth/admin/logs?' + qs);
+                if (!r.success) return;
+                const cls = { info: 'li', warn: 'lw', error: 'le' };
+                $('adm-logs').innerHTML = r.entries.length
+                    ? r.entries.map(en =>
+                        `<div class="${cls[en.level] || 'li'}"><span class="ts">${esc(en.ts.slice(11, 19))}</span> ${esc(en.msg)}</div>`).join('')
+                    : '<span style="color:#5a647c">Sin entradas con ese filtro.</span>';
+                $('adm-logs').scrollTop = $('adm-logs').scrollHeight;
+            }
+            $('adm-log-refresh').addEventListener('click', loadLogs);
+            $('adm-log-level').addEventListener('change', loadLogs);
+            let logDeb;
+            $('adm-log-search').addEventListener('input', () => { clearTimeout(logDeb); logDeb = setTimeout(loadLogs, 350); });
+
+            // ── Refresh general ──
+            async function refresh() {
+                try { await Promise.all([loadStats(), loadUsers(), loadHealth()]); }
+                catch (e) { if (e.message !== 'auth' && e.message !== 'admin_only') toast('Error cargando datos', true); }
+            }
+
+            // Gate: solo admins (auth-service ya redirige si no hay sesión)
+            window.GunterAuth.onReady((user) => {
+                if (user.role !== 'admin') { location.replace('index.html'); return; }
+                refresh();
+                loadLogs();
+                setInterval(refresh, 30000);   // auto-refresh cada 30s (aparecen solicitudes nuevas solas)
+            });
+        })();
+    </script>
+</body>
+</html>

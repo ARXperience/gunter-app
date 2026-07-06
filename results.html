@@ -2,6 +2,8 @@
 <html lang="es">
 
 <head>
+    <script src="js/services/log-buffer.js?v41-waphone-1783320000000"></script>
+    <script src="js/services/auth-service.js?v41-waphone-1783320000000"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Gunter App - Tablero de Estrategia - Resultados del análisis">
@@ -43,15 +45,21 @@
 
 
     <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
     <!-- jsPDF for PDF export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
     <!-- pptxgenjs for native editable PowerPoint export (Fase 5) -->
-    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" defer></script>
+    <link rel="stylesheet" href="styles/gunter-mascot.css?v41-waphone-1783320000000">
+    <link rel="stylesheet" href="styles/gunter-companion.css?v41-waphone-1783320000000">
+        <link rel="preload" as="style" href="styles/gunter-design-system.css">
+    <link rel="preload" as="style" href="styles/gunter-legacy-overrides.css">
+<link rel="stylesheet" href="styles/gunter-design-system.css?v41-waphone-1783320000000">
+    <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v41-waphone-1783320000000">
 </head>
 
-<body>
+<body class="at-light">
     <!-- Neural Mesh Background -->
     <div class="neural-mesh-bg"></div>
 
@@ -389,46 +397,46 @@
 
     <!-- Scripts -->
     <script src="js/config.js"></script>
-    <script src="js/premium-features-service.js"></script>
+    <script src="js/premium-features-service.js?v41-waphone-1783320000000" defer></script>
     <!-- Hooks premium: isEnabled('meetingMemory'), isEnabled('meetingDecisionTimeline') -->
-    <script src="js/theme-manager.js"></script>
-    <script src="js/theme-backgrounds.js"></script>
-    <script src="js/data-service.js"></script>
+    <script src="js/theme-manager.js" defer></script>
+    <script src="js/theme-backgrounds.js" defer></script>
+    <script src="js/data-service.js" defer></script>
 
     <!-- Fase B.B4 — transcript-store debe cargar ANTES de project-knowledge-service -->
-    <script src="js/services/transcript-store.js"></script>
+    <script src="js/services/transcript-store.js" defer></script>
 
     <!-- Memoria de proyectos compartida con WhatsApp (Fase 11) -->
-    <script src="js/services/project-knowledge-service.js"></script>
-    <script src="js/services/knowledge-sync-service.js"></script>
+    <script src="js/services/project-knowledge-service.js" defer></script>
+    <script src="js/services/knowledge-sync-service.js" defer></script>
 
     <!-- Premium Intelligence (Sprint B) -->
-    <script src="js/services/premium-intelligence-service.js"></script>
+    <script src="js/services/premium-intelligence-service.js" defer></script>
 
     <!-- Meeting follow-up card (Sprint E) -->
-    <script src="js/controllers/meeting-followup-card.js"></script>
+    <script src="js/controllers/meeting-followup-card.js" defer></script>
 
-    <script src="js/ai-analysis.js"></script>
-    <script src="js/analyses-engine.js"></script>
-    <script src="js/analyses-renderer.js"></script>
-    <script src="js/slide-generator.js"></script>
-    <script src="js/slide-renderer.js"></script>
-    <script src="js/services/slide-exporter.js"></script>
-    <script src="js/gunter-avatar.js"></script>
-    <script src="js/audio-trimmer.js"></script>
-    <script src="js/audio-chunker.js"></script>
-    <script src="js/audio-vault.js"></script>
-    <script src="js/services/status-bus.js"></script>
-    <script src="js/services/connectivity-monitor.js"></script>
-    <script src="js/services/error-mapper.js"></script>
+    <script src="js/ai-analysis.js" defer></script>
+    <script src="js/analyses-engine.js" defer></script>
+    <script src="js/analyses-renderer.js" defer></script>
+    <script src="js/slide-generator.js" defer></script>
+    <script src="js/slide-renderer.js" defer></script>
+    <script src="js/services/slide-exporter.js" defer></script>
+    <script src="js/gunter-avatar.js" defer></script>
+    <script src="js/audio-trimmer.js" defer></script>
+    <script src="js/audio-chunker.js" defer></script>
+    <script src="js/audio-vault.js" defer></script>
+    <script src="js/services/status-bus.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/connectivity-monitor.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/error-mapper.js?v41-waphone-1783320000000" defer></script>
 
     <!-- Adapters (Fase 7) -->
-    <script src="js/adapters/storage-adapter.js"></script>
-    <script src="js/adapters/notification-adapter.js"></script>
-    <script src="js/adapters/voice-adapter.js"></script>
-    <script src="js/adapters/index.js"></script>
+    <script src="js/adapters/storage-adapter.js" defer></script>
+    <script src="js/adapters/notification-adapter.js" defer></script>
+    <script src="js/adapters/voice-adapter.js" defer></script>
+    <script src="js/adapters/index.js" defer></script>
 
-    <script src="js/app.js"></script>
+    <script src="js/app.js" defer></script>
     <script>
         // Initialize Gunter SVG avatar
         const gunterResults = new GunterAvatar('gunter-results', { size: 100 });
@@ -1527,7 +1535,7 @@ ${context}`;
     </script>
 
     <!-- PDF Export Integration -->
-    <script src="js/pdf-exporter.js"></script>
+    <script src="js/pdf-exporter.js" defer></script>
     <script>
         // Initialize PDF exporter
         const pdfExporter = new GunterPDFExporter();
@@ -1574,14 +1582,33 @@ ${context}`;
     </script>
 
     <!-- Phase 2 Design Enhancements -->
-    <script src="js/particle-effects.js"></script>
-    <script src="js/card-interactions.js"></script>
-    <script src="js/widgets.js"></script>
-    <script src="js/presentation-mode.js"></script>
+    <script src="js/particle-effects.js" defer></script>
+    <script src="js/card-interactions.js" defer></script>
+    <script src="js/widgets.js" defer></script>
+    <script src="js/presentation-mode.js" defer></script>
 
     <!-- PWA registration (Fase 8) -->
-    <script src="js/services/pwa-register.js"></script>
+    <script src="js/services/pwa-register.js" defer></script>
 
+    <script src="js/services/sw-updater.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/theme-toggle.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/actions-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/nlp-llm-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/notifications-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/embedding-service.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/conversation-memory-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/commitments-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/proactive-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/style-mirror-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/forecast-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/voice-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/wake-word-service.js?v41-waphone-1783320000000" defer></script>    <script src="js/services/tutor-service.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/gunter-rules-service.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/gunter-mood-service.js?v41-waphone-1783320000000" defer></script>
+
+
+
+
+
+
+
+
+
+
+
+    <script src="js/services/gunter-companion.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/smooth-scroll.js?v41-waphone-1783320000000" defer></script>
+    <script src="js/services/gunter-onboarding.js?v41-waphone-1783320000000" defer></script>
 </body>
 
 </html>

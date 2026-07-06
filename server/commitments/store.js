@@ -13,22 +13,16 @@
    ============================================= */
 
 const fs = require('fs');
-const path = require('path');
+const userStore = require('../user-store');
 
-const DATA_DIR  = path.join(__dirname, '..', '..', 'data');
-const FILE_PATH = path.join(DATA_DIR, 'commitments.json');
-
-function ensureDir() {
-    if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-}
+// Multi-tenant: el archivo se resuelve por usuario del contexto actual
+function filePath() { return userStore.userFile('commitments.json'); }
 
 function loadAll() {
     try {
-        ensureDir();
-        if (!fs.existsSync(FILE_PATH)) return [];
-        const raw = fs.readFileSync(FILE_PATH, 'utf8');
+        const fp = filePath();
+        if (!fs.existsSync(fp)) return [];
+        const raw = fs.readFileSync(fp, 'utf8');
         const arr = JSON.parse(raw);
         return Array.isArray(arr) ? arr : [];
     } catch (e) {
@@ -39,8 +33,7 @@ function loadAll() {
 
 function saveAll(items) {
     try {
-        ensureDir();
-        fs.writeFileSync(FILE_PATH, JSON.stringify(items, null, 2), 'utf8');
+        fs.writeFileSync(filePath(), JSON.stringify(items, null, 2), 'utf8');
         return true;
     } catch (e) {
         console.warn('[commitments] saveAll failed:', e.message);

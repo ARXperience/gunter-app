@@ -74,14 +74,16 @@ async function getUrgencyRanking({ scope = 'today', tz = 'America/Bogota', proje
     let naturalResponse = summary;
     if (ranked.length && U.openai.hasKey()) {
         const llm = await U.safeLLM({
-            prompt: `Estos son los pendientes ordenados por urgencia (top 5):
+            system: 'Eres jefe de operaciones dando una recomendación de foco. Español latino neutro, sin muletillas. Tesis primero, criterio después. Nombras el proyecto/tarea real, nunca en abstracto.',
+            prompt: `Pendientes ordenados por urgencia (top 5, score = ponderación de vencimiento + dinero + impacto):
 ${ranked.slice(0, 5).map((r, i) => `${i + 1}. ${r.title} (score ${r.score}) — ${r.reason}${r.projectName ? ' — proyecto ' + r.projectName : ''}`).join('\n')}
 
 Devuelve JSON estricto:
 {
-  "naturalResponse": "1-2 frases en español latino diciendo qué hacer primero y por qué"
+  "naturalResponse": "1-2 frases: qué atacar primero, por qué (criterio de priorización), y el costo de posponerlo. Nombra la tarea, no digas 'lo más urgente'.",
+  "batching_hint": "1 frase opcional: si dos pendientes pueden hacerse juntos por proyecto o contexto, señala el batch (o null)."
 }`,
-            jsonMode: true, maxTokens: 180
+            jsonMode: true, maxTokens: 220, temperature: 0.25
         });
         if (llm?.naturalResponse) naturalResponse = llm.naturalResponse;
     }

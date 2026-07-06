@@ -95,6 +95,8 @@
     function start() {
         if (tickTimer) return;
         if (!flagOn()) return;
+        // Mobile UX: no tickear si la app está en background (ahorra batería)
+        if (window.GunterVisibility?.isHidden?.()) return;
         // Tick inicial diferido (8s después de carga, no bloquear)
         setTimeout(() => tick(true), 8000);
         tickTimer = setInterval(() => tick(false), TICK_MS_DEFAULT);
@@ -102,6 +104,12 @@
 
     function stop() {
         if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+    }
+
+    // Etapa 6 — pausar en background, reanudar al volver
+    if (typeof window !== 'undefined' && window.GunterVisibility) {
+        window.GunterVisibility.onHide(() => stop());
+        window.GunterVisibility.onShow(() => start());
     }
 
     // Auto-start si flag ya está on

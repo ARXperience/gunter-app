@@ -2,22 +2,22 @@
    GUNTER - Service Worker (Fase 8)
    -------------------------------------------------
    Estrategias por tipo de request:
-     /api/*                  → network-only (jamás cachear; APIs vivas)
-     navegación HTML         → network-first, fallback al cache,
+     /api/*                  �  network-only (jamás cachear; APIs vivas)
+     navegación HTML         �  network-first, fallback al cache,
                                último fallback offline.html
-     assets estáticos        → cache-first con revalidación en background
-     opaco / cross-origin    → bypass (no interfiere)
+     assets estáticos        �  cache-first con revalidación en background
+     opaco / cross-origin    �  bypass (no interfiere)
 
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = 'v1.0.0';
+const SW_VERSION = "v41-waphone-1783320000000";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;
 const CACHE_RUNTIME = `${CACHE_PREFIX}runtime-${SW_VERSION}`;
 
-// Shell mínimo precacheado en install — solo lo que garantiza
+// Shell mínimo precacheado en install � solo lo que garantiza
 // que el visualizador básico levante offline.
 const PRECACHE_URLS = [
     '/',
@@ -27,6 +27,7 @@ const PRECACHE_URLS = [
     '/config.html',
     '/results.html',
     '/index.html',
+    '/login.html',
     '/manifest.json',
     '/styles/variables.css',
     '/styles/components.css',
@@ -60,21 +61,21 @@ self.addEventListener('fetch', (event) => {
 
     const url = new URL(req.url);
 
-    // Bypass cross-origin (CDN, fonts, etc.) — deja que el navegador se encargue
+    // Bypass cross-origin (CDN, fonts, etc.) � deja que el navegador se encargue
     if (url.origin !== self.location.origin) return;
 
-    // /api/* → network-only (jamás cache)
+    // /api/* �  network-only (jamás cache)
     if (url.pathname.startsWith('/api/')) {
         return; // navegador hace fetch directo
     }
 
-    // Navegación a HTML → network-first con fallback al cache
+    // Navegación a HTML �  network-first con fallback al cache
     if (req.mode === 'navigate' || req.headers.get('accept')?.includes('text/html')) {
         event.respondWith(networkFirstHtml(req));
         return;
     }
 
-    // Assets estáticos (css/js/img/font) → cache-first con SWR
+    // Assets estáticos (css/js/img/font) �  cache-first con SWR
     if (/\.(css|js|png|jpg|jpeg|svg|gif|webp|woff2?|ttf|eot|otf|ico)$/i.test(url.pathname)) {
         event.respondWith(cacheFirstSWR(req));
         return;
@@ -90,10 +91,10 @@ async function networkFirstHtml(req) {
         if (fresh && fresh.ok) cache.put(req, fresh.clone()).catch(() => {});
         return fresh;
     } catch (err) {
-        // Sin red → busca en cache (la página solicitada o el shell)
+        // Sin red �  busca en cache (la página solicitada o el shell)
         const cached = await cache.match(req) || await caches.match(req);
         if (cached) return cached;
-        // Último fallback: dashboard del shell
+        // �altimo fallback: dashboard del shell
         const shell = await caches.match('/dashboard.html');
         if (shell) return shell;
         return new Response(
@@ -118,10 +119,10 @@ async function cacheFirstSWR(req) {
         network.catch(() => {});
         return cached;
     }
-    // No estaba en cache → espera a la red
+    // No estaba en cache �  espera a la red
     const fresh = await network;
     if (fresh) return fresh;
-    // Último: 504 silencioso
+    // �altimo: 504 silencioso
     return new Response('Asset no disponible offline', { status: 504, statusText: 'Offline' });
 }
 

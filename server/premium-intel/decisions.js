@@ -76,22 +76,30 @@ async function detectDecisionsFromText({ text, context = {} } = {}) {
     let llmDecisions = [];
     if (U.openai.hasKey() && text.length > 50) {
         const llm = await U.safeLLM({
-            system: 'Eres un extractor de decisiones. Solo devuelves decisiones explícitamente presentes en el texto. Cero invención.',
-            prompt: `Extrae las DECISIONES TOMADAS en este texto. Una decisión es una resolución, acuerdo o cambio explícito (no una propuesta).
+            system: 'Eres un extractor de decisiones para un registro corporativo. Solo devuelves decisiones EXPLÍCITAS. Cero invención. Regla clave: DECISIÓN = resolución tomada ("vamos con X", "queda descartado Y", "aprobado Z"). PROPUESTA/OPCIÓN NO es decisión.',
+            prompt: `Extrae las DECISIONES TOMADAS en este texto. Una decisión es una resolución, acuerdo o cambio explícito (no una propuesta o "podríamos").
 
 TEXTO:
 """
 ${text.slice(0, 4000)}
 """
 
-Devuelve JSON estricto:
+Devuelve JSON estricto en español latino:
 {
   "decisions": [
-    { "decision": "texto corto en español", "responsible": "nombre o null", "impact": "low|medium|high", "tags": [] }
+    {
+      "decision": "Enunciado claro de la decisión (12-24 palabras, verbo en pasado/decidido)",
+      "evidence": "Cita textual corta de la fuente (3-15 palabras) o paráfrasis fiel",
+      "responsible": "Nombre/rol que la impulsó o null",
+      "impact": "low|medium|high",
+      "reversibility": "reversible|dificil|irreversible",
+      "affects": ["área/proyecto impactado (1-3 items)"],
+      "tags": ["tag corto para búsqueda"]
+    }
   ]
 }
-Máximo 6. Si no hay decisiones reales, devuelve {"decisions":[]}.`,
-            jsonMode: true, maxTokens: 600, temperature: 0.2
+Máximo 6, ordenadas por impact descendente. Si no hay decisiones REALES (solo opciones o preguntas), devuelve {"decisions":[]}.`,
+            jsonMode: true, maxTokens: 900, temperature: 0.15
         });
         if (Array.isArray(llm?.decisions)) {
             llmDecisions = llm.decisions.map(d => ({

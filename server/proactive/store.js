@@ -14,20 +14,16 @@
    ============================================= */
 
 const fs = require('fs');
-const path = require('path');
+const userStore = require('../user-store');
 
-const DATA_DIR  = path.join(__dirname, '..', '..', 'data');
-const FILE_PATH = path.join(DATA_DIR, 'proactive-queue.json');
-
-function ensureDir() {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-}
+// Multi-tenant: cola por usuario del contexto actual
+function filePath() { return userStore.userFile('proactive-queue.json'); }
 
 function loadAll() {
     try {
-        ensureDir();
-        if (!fs.existsSync(FILE_PATH)) return [];
-        return JSON.parse(fs.readFileSync(FILE_PATH, 'utf8')) || [];
+        const fp = filePath();
+        if (!fs.existsSync(fp)) return [];
+        return JSON.parse(fs.readFileSync(fp, 'utf8')) || [];
     } catch (e) {
         console.warn('[proactive/store] loadAll:', e.message);
         return [];
@@ -36,8 +32,7 @@ function loadAll() {
 
 function saveAll(items) {
     try {
-        ensureDir();
-        fs.writeFileSync(FILE_PATH, JSON.stringify(items, null, 2), 'utf8');
+        fs.writeFileSync(filePath(), JSON.stringify(items, null, 2), 'utf8');
         return true;
     } catch (e) {
         console.warn('[proactive/store] saveAll:', e.message);

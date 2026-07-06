@@ -375,6 +375,110 @@ Pendiente Fase B: migrar `js/app.js#showToast` para que delegue a `GunterNotific
 
 - ~~`meeting.html:343` tag malformado de `audio-vault.js`~~ — **resuelto**. Verificación 2026-05-01: `<script src="js/audio-vault.js"></script>` está bien formado en la línea 363 actual (numeración cambió tras inserciones v2). Auditoría con `grep -nE '<script src="[^"]*"</script>'` sobre los 6 HTML de producción → 0 matches.
 
+## Sistema Tutor / Sabio (v20–v38 · julio 2026)
+
+Biblioteca curada consultable: **obra completa de Jacobo Grinberg-Zylberbaum (33/33 libros, ~1.5M palabras)**. Flag `tutorMode` (card en config.html · Premium · v2; toggleable por chat).
+
+### Pipeline offline (correr en orden tras cambiar PDFs/textos)
+```bash
+node server/tutor/extract-texts.js    # pdf-parse → tutor-library/text/<n>.json
+node server/tutor/ocr-scanned.js      # tesseract (render pdfjs) para escaneados
+node server/tutor/ocr-direct.js       # fallback: extracción directa de imágenes (PDFs tercos)
+node server/tutor/clean-ocr.js        # corrige errores OCR sistemáticos (aci6n→ación, quc→que)
+node server/tutor/build-index.js      # 1257 chunks + BM25 postings (51k términos) + concepts TF-IDF + cross-refs
+node server/tutor/build-digests.js    # 33 digests: TOC auto (con fallback por tramos), signature passages, reading time
+```
+Salida en `tutor-library/index/` (gitignored, ~10MB). El server la carga lazy en memoria (`server/tutor/sage.js`).
+
+### Endpoint `/api/tutor` (POST { op, ...params })
+- Catálogo/sesión: `catalog, work, curricula, session, progress, suggest`
+- Sage: `sage-status, sage-query` (BM25+cross-refs+experts), `sage-bm25, sage-concepts, sage-crossrefs, sage-experts, sage-digest, sage-chapter, sage-inventory, sage-bulk` (warmup 1-request), `sage-synthesize` (query expansion + matriz por libro), `search` (legacy grep)
+- Personal: `notes-push/notes-pull` (backup huella → `data/tutor-notes.json`), `teach-add/list/remove/search` (saber personal → `data/personal-knowledge.json`)
+
+### Cliente (js/services/ + js/controllers/)
+- `tutor-service.js` — cliente + warm cache (auto-warmup al activar flag) + `buildTutorContext()` (contexto dieta ~3k tokens: inventario comprimido, catálogo solo si la query lo pide, RAG SAGE, digest de obra en curso, chapter focus)
+- `tutor-notes-service.js` — notas/bookmarks/history en localStorage + sync server (push debounce 3s, pull con merge por id al arrancar); analytics: heatmap (fecha local), conceptCloud, bookContribution, queryNotes
+- `repaso-service.js` — spaced repetition SM-2 (tarjetas desde bookmarks + conceptos explorados)
+- `gunter-mood-service.js` — 8 estados de ánimo por señales reales (racha rota→luto, ausencia≥3d→pasivo-agresivo, récord trivia→entusiasmado…); afecta saludo, animación mascota (`is-mood-*` en gunter-mascot.css), status del chat y tono del LLM
+- `gunter-rules-service.js` — reglas personales permanentes (chat: "regla: …", "mis reglas", "borra la regla N"); inyectadas SIEMPRE al prompt
+- `tutor-panel.js` — tab 📚 en day.html: Biblioteca, Rutas, Consulta (BM25+highlight), Síntesis, Conceptos, Mapa (SVG force graph en tutor-map.js), Repaso, Juegos (Trivia + 20 Preguntas), Reflejar, Progreso + study session guiada
+
+### Companion — intents client-side (tryClientIntercepts en gunter-companion.js)
+logs/servicios/diagnóstico · wake-word guía · voces guía · biblioteca · reglas (crear/listar/borrar/toggle) · teach (aprender/listar/olvidar) — responden sin LLM. El prompt del LLM inyecta: mood + reglas + saber personal (RAG teach-search) + memoria conversacional + contexto tutor.
+
+## Autenticación y administración (v39 · julio 2026)
+
+Sistema multi-usuario con aprobación de admin. Sin dependencias nuevas (scrypt nativo de crypto).
+
+```
+server/auth/store.js      Usuarios → data/users.json (scrypt+salt, roles admin|user, estados pending|approved|blocked)
+server/auth/sessions.js   Tokens opacos → data/sessions.json (TTL 30d sliding) + service token (data/service-token.json)
+server/auth/index.js      Handlers /api/auth/* + guard global + rate limit login (6/15min por IP+usuario)
+server/log-ring.js        console.* → buffer circular 600 entradas (con redacción de keys) para el panel admin
+```
+
+**Flujo**: el PRIMER usuario registrado = admin aprobado (bootstrap). Los siguientes quedan `pending`
+→ pantalla de espera en login.html (poll 15s) → el admin aprueba desde admin.html → acceso libre.
+
+**Guard**: todo `/api/*` requiere sesión aprobada (cookie HttpOnly `gunter_session` o `Authorization: Bearer`).
+Públicos: `/api/health`, `/api/auth/*`, archivos estáticos. El service token (disco local, nivel admin) lo usan los smoke tests.
+
+**Endpoints**: `register, login, logout, me, setup-status, change-password` +
+`admin/users|approve|block|unblock|remove|role|reset-password|stats|logs`.
+
+**Cliente**: `js/services/auth-service.js` se carga PRIMERO en las 7 páginas (tras log-buffer) —
+verifica `/api/auth/me`, redirige a login.html sin sesión, monta chip de usuario flotante
+(menú: panel admin si es admin, config, logout). `admin.html` = gestión de usuarios + stats de sistema + logs del server.
+
+## Multi-tenant (v40 · julio 2026)
+
+Cada usuario tiene su propio Gunter — datos 100% aislados por usuario.
+
+```
+server/user-context.js   AsyncLocalStorage: la sesión HTTP define currentUserId().
+                         Sin contexto (WhatsApp, service token, internos) → dueño del
+                         sistema (admin más antiguo); sin usuarios → '_local'.
+server/user-store.js     userFile(name) → data/users/<uid>/<name> + migración
+                         one-shot de archivos legacy a la carpeta del DUEÑO +
+                         removeUserData(uid) (se llama al eliminar usuario).
+```
+
+**Stores per-user** (todos resuelven su archivo por contexto, sin userId por parámetro):
+commitments, proactive-queue, style-mirror, forecast-history, features-state (flags premium
+por usuario), tutor-sessions, tutor-notes, personal-knowledge (teach), knowledge/ (snapshot
++ index + summaries + aliases; caches en memoria son Maps por uid, máx 20 usuarios retenidos).
+El cache TTL de premium-intel (`_util.makeTtlCache`) prefija las claves con el uid.
+
+**⚠️ Gotcha ALS**: los eventos `req.on('data'/'end')` se emiten desde el contexto del socket,
+FUERA del ALS. server.js liga cada listener con `AsyncResource.bind` dentro de `runAs` —
+NO quitar ese wrapper o el contexto de usuario se pierde silenciosamente (los datos caerían
+en la carpeta del dueño).
+
+**Cliente**: auth-service detecta cambio de usuario en el mismo navegador
+(`gunter_device_user`) y limpia TODO el Gunter local (localStorage `gunter*` + IndexedDB
+`gunter_*`) antes de recargar — nadie ve datos ajenos en un dispositivo compartido.
+
+**WhatsApp multi-usuario (v41)**: el bridge sigue siendo UN número (lo conecta solo el admin
+via QR), pero cada usuario vincula SU teléfono (`waPhone` en su perfil — chip de usuario →
+"📱 Vincular mi WhatsApp", o `POST /api/auth/set-phone`). Al llegar un mensaje,
+`whatsapp/index.js` resuelve `findByPhone(remitente)` y ejecuta el pipeline completo dentro de
+`runAs(<ese usuario>)` → cada quien habla con SU Gunter (sus tareas, su memoria, sus proyectos).
+Teléfono no registrado → contexto del dueño (comportamiento previo). Los datos WA son per-user:
+`wa-memory.json, wa-messages.json, wa-sync-queue.json, wa-personality.json, wa-state-mirror.json`
+(migración automática de los legacy `whatsapp-data/*.json` al dueño). Número único por usuario
+(normalizado a dígitos, formato internacional).
+
+## Testing
+
+```bash
+npm test    # test/smoke.js — ~61 asserts contra localhost:3001 en <5s
+```
+Cubre: health, auth (guard 401 + roundtrip registro→aprobación→eliminación), endpoints registrados, dispatch NLU (frases→flags), sage (query/digest/synthesize/inventory/bulk), teach roundtrip, notes-pull, assets críticos, encoding UTF-8. Requiere `data/service-token.json` (se genera al arrancar el server).
+
+**⚠️ Al modificar server/**: reiniciar `node server.js` (los módulos se cargan al arranque; un server viejo no ve módulos nuevos → 404).
+**⚠️ Cache-busting**: los HTML usan `?vNN-nombre-<ts>`; bump con regex `v\d+[a-z]?-[a-z-]+-\d{10,}` en los 7 HTML + service-worker.js + sw-updater.js.
+**⚠️ PowerShell 5.1**: NUNCA usar Get-Content/Set-Content en archivos con emojis/tildes (mojibake). Usar Node fs.
+
 ## Para ejecutar
 
 ```bash

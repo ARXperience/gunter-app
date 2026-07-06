@@ -1,0 +1,597 @@
+/* =============================================
+   GUNTER — Adventure Time BRUTALISMO CARTOON (v2)
+   -------------------------------------------------
+   Estilo: bordes negros gruesos + sombras hard offset,
+   colores planos vibrantes, tipografía Bricolage Grotesque,
+   micro-interacciones juguetonas (rotate+scale hover,
+   translate+no-shadow active).
+
+   Referencia: Adventure Time UI kit brutalismo cartoon.
+   ============================================= */
+
+
+/* ─────────────────────────────────────
+   0 · Fuentes
+   ───────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap');
+
+
+/* ─────────────────────────────────────
+   1 · Design tokens Adventure Time
+   ───────────────────────────────────── */
+:root {
+  /* Colores planos vibrantes (AT palette) */
+  --at-ink:            #1c1b1b;
+  --at-ink-soft:       #313030;
+  --at-primary:        #a72683;     /* Marceline plum */
+  --at-primary-hi:     #ff71ce;     /* Pink flúor */
+  --at-primary-lo:     #ffd8eb;     /* Rosa pastel */
+  --at-secondary:      #006e0f;     /* Green forest */
+  --at-secondary-hi:   #63fe5e;     /* Verde neón */
+  --at-secondary-lo:   #74ff6b;     /* Verde claro */
+  --at-tertiary:       #00677f;
+  --at-tertiary-hi:    #4cd6ff;     /* Cyan flúor */
+  --at-tertiary-lo:    #b7eaff;     /* Cyan pastel */
+  --at-warn:           #ffc93c;     /* Finn yellow */
+  --at-danger:         #ff5252;     /* Marceline red */
+  --at-orange:         #ff9147;
+  --at-purple-light:   #b076e8;
+
+  /* Superficies */
+  --at-bg:             #fcf9f8;     /* Crema claro */
+  --at-bg-dim:         #f0eded;
+  --at-surface:        #ffffff;
+  --at-surface-alt:    #f6f3f2;
+  --at-on-bg:          #1c1b1b;
+  --at-on-surface:     #1c1b1b;
+  --at-muted:          #87717c;
+
+  /* Brutal borders + shadows */
+  --at-border-w:       4px;
+  --at-border-w-sm:    2px;
+  --at-shadow-sm:      4px 4px 0px 0px var(--at-ink);
+  --at-shadow-md:      6px 6px 0px 0px var(--at-ink);
+  --at-shadow-lg:      8px 8px 0px 0px var(--at-ink);
+
+  /* Radios */
+  --at-r-sm:           12px;
+  --at-r-md:           16px;
+  --at-r-lg:           24px;
+  --at-r-xl:           32px;
+  --at-r-full:         9999px;
+
+  /* Fuentes */
+  --at-font-display:   'Bricolage Grotesque', 'Outfit', system-ui, sans-serif;
+  --at-font-body:      'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --at-font-label:     'Space Grotesk', 'Inter', system-ui, sans-serif;
+}
+
+
+/* ─────────────────────────────────────
+   2 · Tipografía global (override amable)
+   ───────────────────────────────────── */
+body {
+  font-family: var(--at-font-body) !important;
+}
+
+h1, h2, h3, h4, h5, h6,
+.config-header__title,
+.dashboard-header__title,
+.results-title,
+.meeting-header__title,
+.gn-onboarding__title,
+.gn-comp__chat-title strong {
+  font-family: var(--at-font-display) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--text-primary);
+}
+
+
+/* ─────────────────────────────────────
+   3 · Utility class: brutal
+   ───────────────────────────────────── */
+.at-card,
+.gn-glass,
+.settings-card,
+.result-section,
+.env-card,
+.stat-card,
+.project-card {
+  background: var(--at-surface) !important;
+  border: var(--at-border-w) solid var(--at-ink) !important;
+  border-radius: var(--at-r-md) !important;
+  box-shadow: var(--at-shadow-md) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  color: var(--at-on-surface) !important;
+  transition:
+    transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.15s ease;
+}
+
+/* Dark base — cards oscuras si estamos sobre fondo oscuro (fallback) */
+body:not(.at-light) .at-card,
+body:not(.at-light) .settings-card,
+body:not(.at-light) .result-section {
+  background: #1a1a26 !important;
+  color: #ffffff !important;
+  border-color: #0F0F14 !important;
+}
+body:not(.at-light) .at-card *,
+body:not(.at-light) .settings-card *,
+body:not(.at-light) .result-section * {
+  color: inherit;
+}
+
+.at-card:hover,
+.gn-glass:hover,
+.env-card:hover,
+.stat-card:hover {
+  transform: translate(-2px, -2px) rotate(-0.5deg) !important;
+  box-shadow: 8px 10px 0px 0px var(--at-ink) !important;
+}
+
+.at-card:active,
+.env-card:active {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 0px 0px 0px 0px var(--at-ink) !important;
+}
+
+
+/* ─────────────────────────────────────
+   4 · Botones cartoon brutalismo
+   ───────────────────────────────────── */
+.btn,
+.gn-glass-btn,
+button.btn {
+  font-family: var(--at-font-label);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  border: var(--at-border-w-sm) solid var(--at-ink);
+  border-radius: var(--at-r-full);
+  box-shadow: var(--at-shadow-sm);
+  background: var(--at-surface);
+  color: var(--at-ink);
+  padding: 12px 24px;
+  min-height: 48px;
+  cursor: pointer;
+  transition:
+    transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.12s ease,
+    background 0.15s ease;
+}
+
+.btn:hover,
+.gn-glass-btn:hover {
+  transform: translate(-2px, -2px) rotate(-1deg) scale(1.03);
+  box-shadow: 6px 6px 0px 0px var(--at-ink);
+}
+
+.btn:active,
+.gn-glass-btn:active {
+  transform: translate(2px, 2px) rotate(0.5deg);
+  box-shadow: 0px 0px 0px 0px var(--at-ink);
+}
+
+.btn--primary,
+.gn-glass-btn:not(.gn-glass-btn--ghost) {
+  background: var(--at-primary-hi) !important;
+  color: var(--at-ink) !important;
+}
+
+.btn--secondary,
+.gn-glass-btn--ghost {
+  background: var(--at-tertiary-hi) !important;
+  color: var(--at-ink) !important;
+}
+
+.btn--danger {
+  background: var(--at-danger) !important;
+  color: #ffffff !important;
+}
+
+.btn--success {
+  background: var(--at-secondary-hi) !important;
+  color: var(--at-ink) !important;
+}
+
+.btn--ghost {
+  background: var(--at-surface) !important;
+  color: var(--at-ink) !important;
+}
+
+
+/* ─────────────────────────────────────
+   5 · Inputs cartoon
+   ───────────────────────────────────── */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="url"],
+input[type="tel"],
+textarea,
+select,
+.form-input,
+.gn-glass-input,
+.gn-comp__chat-input {
+  font-family: var(--at-font-body);
+  font-size: 16px;
+  padding: 12px 18px;
+  min-height: 48px;
+  background: var(--at-surface) !important;
+  border: var(--at-border-w-sm) solid var(--at-ink) !important;
+  border-radius: var(--at-r-md) !important;
+  color: var(--at-ink) !important;
+  box-shadow: none;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+.form-input:focus,
+.gn-glass-input:focus,
+.gn-comp__chat-input:focus {
+  outline: none !important;
+  box-shadow: var(--at-shadow-sm) !important;
+  transform: translate(-2px, -2px);
+}
+
+
+/* ─────────────────────────────────────
+   6 · Toggle switch (cartoon)
+   ───────────────────────────────────── */
+.gn-toggle__track {
+  border: var(--at-border-w-sm) solid var(--at-ink) !important;
+  background: var(--at-bg-dim) !important;
+  border-radius: var(--at-r-full) !important;
+}
+
+.gn-toggle__dot {
+  background: var(--at-surface) !important;
+  border: var(--at-border-w-sm) solid var(--at-ink) !important;
+  box-shadow: var(--at-shadow-sm) !important;
+}
+
+.gn-toggle input:checked ~ .gn-toggle__track {
+  background: var(--at-secondary-hi) !important;
+}
+
+
+/* ─────────────────────────────────────
+   7 · Config tabs cartoon
+   ───────────────────────────────────── */
+.config-tab {
+  font-family: var(--at-font-label) !important;
+  font-weight: 700 !important;
+  border: var(--at-border-w-sm) solid var(--at-ink) !important;
+  border-radius: var(--at-r-full) !important;
+  background: var(--at-surface) !important;
+  color: var(--at-ink) !important;
+  padding: 10px 20px !important;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: var(--at-shadow-sm);
+}
+
+.config-tab:hover {
+  transform: translate(-2px, -2px) rotate(-1deg);
+  box-shadow: 6px 6px 0 0 var(--at-ink);
+}
+
+.config-tab.is-active {
+  background: var(--at-primary-hi) !important;
+  color: var(--at-ink) !important;
+  transform: translate(-2px, -2px);
+}
+
+
+/* ─────────────────────────────────────
+   8 · Env cards (New Project) — cartoon
+   ───────────────────────────────────── */
+.env-card {
+  background: var(--at-surface) !important;
+  border: var(--at-border-w) solid var(--at-ink) !important;
+  border-radius: var(--at-r-md) !important;
+  box-shadow: var(--at-shadow-md) !important;
+  color: var(--at-ink) !important;
+  padding: 20px !important;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.env-card * { color: inherit !important; }
+
+.env-card--empresarial { background: var(--at-tertiary-hi) !important; }
+.env-card--artistico   { background: var(--at-primary-hi) !important; }
+.env-card--podcast     { background: var(--at-warn) !important; }
+.env-card--zen         { background: var(--at-secondary-hi) !important; }
+
+.env-card:hover {
+  transform: translate(-3px, -3px) rotate(-1.5deg);
+  box-shadow: 10px 10px 0 0 var(--at-ink);
+}
+
+.env-card.selected {
+  transform: translate(-4px, -4px) rotate(-2deg) !important;
+  box-shadow: 12px 12px 0 0 var(--at-ink) !important;
+  outline: 4px dashed var(--at-ink);
+  outline-offset: 4px;
+}
+
+
+/* ─────────────────────────────────────
+   9 · Widget Companion cartoon
+   ───────────────────────────────────── */
+.gn-comp__bubble {
+  border: var(--at-border-w) solid var(--at-ink) !important;
+  background: var(--at-primary-hi) !important;
+  box-shadow: var(--at-shadow-md) !important;
+  animation: at-wiggle 5s ease-in-out infinite;
+}
+
+@keyframes at-wiggle {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25%      { transform: translateY(-4px) rotate(-2deg); }
+  75%      { transform: translateY(-4px) rotate(2deg); }
+}
+
+.gn-comp__bubble:hover {
+  transform: translate(-3px, -3px) scale(1.08);
+  box-shadow: 10px 10px 0 0 var(--at-ink) !important;
+  animation-play-state: paused;
+}
+
+.gn-comp__bubble:active {
+  transform: translate(2px, 2px) scale(0.95);
+  box-shadow: 0 0 0 0 var(--at-ink) !important;
+}
+
+.gn-comp__chat {
+  border: var(--at-border-w) solid var(--at-ink) !important;
+  border-radius: var(--at-r-lg) !important;
+  box-shadow: var(--at-shadow-lg) !important;
+  background: var(--at-surface) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.gn-comp__chat-header {
+  background: var(--at-primary-lo) !important;
+  border-bottom: var(--at-border-w-sm) solid var(--at-ink);
+  color: var(--at-ink);
+}
+.gn-comp__chat-header * { color: inherit; }
+
+.gn-comp__chat-avatar {
+  background: var(--at-surface) !important;
+  border: var(--at-border-w-sm) solid var(--at-ink) !important;
+  box-shadow: var(--at-shadow-sm);
+}
+
+.gn-comp__msg--user {
+  background: var(--at-primary-hi) !important;
+  color: var(--at-ink) !important;
+  border: var(--at-border-w-sm) solid var(--at-ink);
+  border-radius: 18px 18px 4px 18px !important;
+  box-shadow: 3px 3px 0 0 var(--at-ink);
+}
+
+.gn-comp__msg--assistant {
+  background: var(--at-secondary-hi) !important;
+  color: var(--at-ink) !important;
+  border: var(--at-border-w-sm) solid var(--at-ink);
+  border-radius: 18px 18px 18px 4px !important;
+  box-shadow: 3px 3px 0 0 var(--at-ink);
+}
+
+.gn-comp__chat-log {
+  background: var(--at-surface-alt) !important;
+}
+
+.gn-comp__quick button {
+  background: var(--at-tertiary-hi) !important;
+  border: var(--at-border-w-sm) solid var(--at-ink) !important;
+  color: var(--at-ink) !important;
+  border-radius: var(--at-r-full) !important;
+  font-family: var(--at-font-label);
+  font-weight: 700;
+  box-shadow: 3px 3px 0 0 var(--at-ink);
+}
+
+.gn-comp__quick button:hover {
+  transform: translate(-2px, -2px) rotate(-1deg);
+  box-shadow: 5px 5px 0 0 var(--at-ink);
+}
+
+.gn-comp__chat-form {
+  background: var(--at-surface) !important;
+  border-top: var(--at-border-w-sm) solid var(--at-ink) !important;
+}
+
+.gn-comp__chat-send {
+  background: var(--at-primary-hi) !important;
+  border: var(--at-border-w-sm) solid var(--at-ink) !important;
+  color: var(--at-ink) !important;
+  box-shadow: 3px 3px 0 0 var(--at-ink);
+}
+
+
+/* ─────────────────────────────────────
+   10 · Badges cartoon
+   ───────────────────────────────────── */
+.gn-badge, .status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border: var(--at-border-w-sm) solid var(--at-ink);
+  border-radius: var(--at-r-full);
+  font-family: var(--at-font-label);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--at-ink);
+  box-shadow: 2px 2px 0 0 var(--at-ink);
+}
+
+.gn-badge--success, .status-badge--success { background: var(--at-secondary-hi); }
+.gn-badge--warn,    .status-badge--warning { background: var(--at-warn); }
+.gn-badge--info                            { background: var(--at-tertiary-hi); }
+.gn-badge--danger,  .status-badge--danger  { background: var(--at-danger); color: #fff; }
+.gn-badge--fun                             { background: var(--at-primary-lo); }
+.gn-badge--magic                           { background: var(--at-purple-light); color: #fff; }
+
+
+/* ─────────────────────────────────────
+   11 · Onboarding overlay cartoon
+   ───────────────────────────────────── */
+.gn-onboarding__card {
+  background: var(--at-surface) !important;
+  border: var(--at-border-w) solid var(--at-ink) !important;
+  border-radius: var(--at-r-lg) !important;
+  box-shadow: var(--at-shadow-lg) !important;
+  backdrop-filter: none !important;
+  color: var(--at-ink) !important;
+}
+.gn-onboarding__card * { color: inherit; }
+
+.gn-onboarding__body {
+  color: var(--at-ink-soft) !important;
+}
+
+.gn-onboarding__dot.is-active {
+  background: var(--at-primary-hi) !important;
+  box-shadow: 2px 2px 0 0 var(--at-ink);
+}
+
+
+/* ─────────────────────────────────────
+   12 · Loader cartoon (BMO)
+   ───────────────────────────────────── */
+.gn-loader-cartoon,
+.audio-processing-spinner {
+  width: 48px !important;
+  height: 48px !important;
+  border: 4px solid var(--at-ink) !important;
+  border-top-color: var(--at-tertiary-hi) !important;
+  border-right-color: var(--at-primary-hi) !important;
+  border-radius: 50%;
+  animation: at-spin 1s linear infinite;
+  box-shadow: 3px 3px 0 0 var(--at-ink);
+}
+
+@keyframes at-spin { to { transform: rotate(360deg); } }
+
+
+/* ─────────────────────────────────────
+   13 · Empty states amigables
+   ───────────────────────────────────── */
+.gn-empty {
+  text-align: center;
+  padding: 48px 24px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.gn-empty__mascot {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 24px;
+  animation: at-bounce 2.4s ease-in-out infinite;
+}
+
+@keyframes at-bounce {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  40%      { transform: translateY(-14px) rotate(-6deg); }
+  60%      { transform: translateY(-6px) rotate(4deg); }
+}
+
+.gn-empty__title {
+  font-family: var(--at-font-display);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.gn-empty__text {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+
+/* ─────────────────────────────────────
+   14 · Bubble tooltip del companion cartoon
+   ───────────────────────────────────── */
+.gn-comp__tooltip {
+  background: var(--at-warn) !important;
+  border: var(--at-border-w-sm) solid var(--at-ink) !important;
+  color: var(--at-ink) !important;
+  box-shadow: var(--at-shadow-sm) !important;
+  border-radius: var(--at-r-md) !important;
+  font-family: var(--at-font-label);
+  font-weight: 600;
+}
+
+.gn-comp__tooltip::after {
+  background: var(--at-warn) !important;
+  border-color: var(--at-ink) !important;
+  border-right-width: var(--at-border-w-sm) !important;
+  border-bottom-width: var(--at-border-w-sm) !important;
+}
+
+
+/* ─────────────────────────────────────
+   15 · Chips como pills cartoon
+   ───────────────────────────────────── */
+.gn-chip {
+  border: var(--at-border-w-sm) solid var(--at-ink) !important;
+  background: var(--at-surface) !important;
+  color: var(--at-ink) !important;
+  font-family: var(--at-font-label);
+  font-weight: 700;
+  box-shadow: 2px 2px 0 0 var(--at-ink);
+}
+
+.gn-chip--active {
+  background: var(--at-primary-hi) !important;
+  color: var(--at-ink) !important;
+}
+
+
+/* ─────────────────────────────────────
+   16 · Reduce motion
+   ───────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .btn:hover, .gn-glass-btn:hover, .config-tab:hover,
+  .env-card:hover, .at-card:hover, .gn-glass:hover,
+  .gn-comp__bubble, .gn-empty__mascot {
+    transform: none !important;
+    animation: none !important;
+  }
+}
+
+
+/* ─────────────────────────────────────
+   17 · Mobile ajustes
+   ───────────────────────────────────── */
+@media (max-width: 640px) {
+  .btn, .gn-glass-btn {
+    padding: 12px 20px;
+    font-size: 13px;
+  }
+  .gn-comp__bubble {
+    box-shadow: 4px 4px 0 0 var(--at-ink) !important;
+  }
+  .env-card {
+    border-width: var(--at-border-w-sm) !important;
+  }
+}

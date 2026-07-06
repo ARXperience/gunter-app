@@ -94,14 +94,18 @@ async function safeLLM({ system, prompt, jsonMode = false, maxTokens = 500, temp
     }
 }
 
-/** Cache LRU básico con TTL — para no recalcular planes idénticos. */
+/** Cache LRU básico con TTL — para no recalcular planes idénticos.
+ *  Multi-tenant: las claves llevan el usuario del contexto como prefijo
+ *  para que jamás se sirva el plan cacheado de otro usuario. */
+const userCtx = require('../user-context');
 function makeTtlCache(ttlMs = 30 * 60 * 1000, maxEntries = 64) {
     const map = new Map();
+    const scoped = (key) => userCtx.currentUserId() + '::' + key;
     return {
         get(key) {
-            const it = map.get(key);
+            const it = map.get(scoped(key));
             if (!it) return null;
-            if (Date.now() - it.at > ttlMs) { map.delete(key); return null; }
+            if (Date.now() - it.at > ttlMs) { map.delete(scoped(key)); return null; }
             return it.value;
         },
         set(key, value) {
@@ -109,7 +113,7 @@ function makeTtlCache(ttlMs = 30 * 60 * 1000, maxEntries = 64) {
                 const firstKey = map.keys().next().value;
                 map.delete(firstKey);
             }
-            map.set(key, { value, at: Date.now() });
+            map.set(scoped(key), { value, at: Date.now() });
         },
         clear() { map.clear(); },
         size: () => map.size

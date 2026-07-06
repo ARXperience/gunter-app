@@ -127,7 +127,12 @@ Estructura recomendada:
 4. BULLETS: 3-5 por diapositiva, cada uno máx. 14 palabras. Nunca empieces con "Los", "El", "La" genéricos — arranca con un verbo en infinitivo o un sustantivo potente.
 5. QUOTE: si incluyes una, que sea una frase extraída o parafraseada de la transcripción real. Máx. 25 palabras.
 6. METRIC: usa solo si aparece una cifra/dato concreto. Formato { label: "Presupuesto", value: "$12k" }.
-7. IMAGE_PROMPT (en INGLÉS, 30-60 palabras): describe una ILUSTRACIÓN CONCEPTUAL relacionada semánticamente con esa diapositiva concreta. Sin texto/letras/números dentro de la imagen. Cinematográfica, editorial, 16:9, deja espacio vacío a la derecha o abajo para superponer el texto.
+7. IMAGE_PROMPT (en INGLÉS, 40-80 palabras): describe una IMAGEN CONCEPTUAL directamente ligada al CONTENIDO específico de esa slide (no genérica).
+   - Debe reflejar la METÁFORA VISUAL del título y bullets. Ejemplo: si el título habla de "expansión a 3 mercados", la imagen puede mostrar tres senderos convergentes; si habla de "riesgo financiero", una estructura arquitectónica frágil.
+   - Referencia el DOMINIO real: si es finanzas, mostrar objetos/materiales financieros; si es tecnología, mostrar interfaces/dispositivos; si es narrativa, mostrar escenografía cinematográfica.
+   - Especifica LUZ, ÁNGULO, MATERIAL. Ejemplo: "close-up of brushed brass structural beams, low key lighting, single warm rim light from left, shallow depth of field".
+   - NUNCA texto/letras/números/logos dentro de la imagen (esos van encima como overlay). NUNCA gente de stock genérica (equipo alrededor del laptop, apretones de mano, gráficos subiendo).
+   - El sistema añadirá reglas de composición y aesthetic del theme al prompt final — TU prompt solo debe cubrir el CONCEPTO específico de la slide.
 
 === FORMATO DE RESPUESTA ===
 Devuelve EXCLUSIVAMENTE un JSON con este esquema (sin markdown, sin \`\`\`):
@@ -216,10 +221,114 @@ La primera diapositiva DEBE ser type:"cover". La última DEBE ser type:"closing"
         }
     }
 
-    async function generateImage(prompt, styleDef) {
+    // Aesthetic per theme — cada uno dirige un lenguaje visual coherente
+    // y profesional. Cartoon solo donde encaja (creative_studio zen, quizás lo-fi).
+    const THEME_AESTHETIC = {
+        corporate_sleek: {
+            direction: 'editorial business photography meets minimal 3D abstract, high-key studio lighting, deep depth of field, brushed metal and glass materials, subtle gradient sky, Bloomberg / Financial Times cover quality',
+            mood: 'confident, precise, restrained',
+            palette: 'deep navy #0a0f1c, brushed steel, cool cyan #00d4ff accent as a single glow',
+            negative: 'no cartoon, no illustration, no clip art, no stock photo cliches, no handshakes, no rising graphs cliché, no diverse-team-around-laptop stock, no lens flare cheese'
+        },
+        editorial_avantgarde: {
+            direction: 'editorial fashion magazine cover art, mixed media collage, bold cutout photography with paper grain, oversized typography-space composition, high contrast, Wallpaper* magazine aesthetic',
+            mood: 'audacious, cultured, contemporary',
+            palette: 'deep aubergine #140a1f base, electric magenta #ff006e as focal accent, warm cream highlights',
+            negative: 'no low-res, no watermark, no clip art, no cheesy gradients, no Instagram filter looks, no random abstract blobs'
+        },
+        studio_lofi: {
+            direction: 'lofi podcast cover illustration meets warm ambient photography, analog film grain, vinyl and cassette textures, silhouettes with soft neon rim light, 80s studio memory, Wong Kar-wai warmth',
+            mood: 'intimate, warm, contemplative',
+            palette: 'deep espresso #1a0f05 base, warm amber #ffaa00 glow, muted violet shadows',
+            negative: 'no photorealism sharp, no bright daylight, no clean corporate look, no clip-art headphones, no basic stock studio setup'
+        },
+        serene_sage: {
+            direction: 'Japanese sumi-e ink painting on aged rice paper, single elegant brushstroke motif, wabi-sabi negative space, warm gold leaf accent, MoMA-grade minimalism',
+            mood: 'quiet, contemplative, reverent',
+            palette: 'aged rice paper cream #f3f0e4, soft charcoal ink, warm gold #e8c87a as a single restrained highlight',
+            negative: 'no photorealism, no bright modern illustration, no clip art, no busy composition, no cartoon, no Western minimalism cliché'
+        },
+        investor_pitch: {
+            direction: 'Silicon Valley pitch deck cover art, data visualization aesthetic, geometric abstract shapes on deep black, neon accent glow, SaaS product hero, Behance / Dribbble top-tier quality',
+            mood: 'bold, ambitious, precise',
+            palette: 'true black #000, emerald #10b981 as single high-energy accent, cool platinum highlights',
+            negative: 'no illustration cartoon, no handshake cliché, no random gears, no stock businessman, no rocket cliché, no arrow-going-up cliché'
+        },
+        creative_studio: {
+            direction: 'creative agency moodboard, cinematic photography meets hand-drawn accents, layered textures, painterly light, Vogue meets IDEO aesthetic',
+            mood: 'expressive, elevated, artful',
+            palette: 'off-black #0f0f0f base, warm pink #f472b6 as focal accent, warm neutrals',
+            negative: 'no stock photo, no clip art, no cartoon childish, no basic vector, no chaotic composition, no random neon'
+        }
+    };
+
+    /**
+     * Genera una imagen conceptual coherente con:
+     *  1. El contenido específico de la slide (anchor semántico)
+     *  2. La estética del theme elegido (no todos son cartoon)
+     *  3. Reglas de composición para integración profesional con el texto
+     */
+    async function generateImage(prompt, styleDef, slideContext = {}) {
         const cfg = window.GUNTER_CONFIG || {};
         const url = cfg.PROXY_GEMINI_IMAGE_URL || '/api/gemini-image';
-        const composedPrompt = `${prompt}. Style: ${styleDef.imageStyle}. No text, no words, no letters inside the image. 16:9 aspect ratio composition with generous negative space for overlay text on the right or bottom.`;
+
+        const aesthetic = THEME_AESTHETIC[styleDef.id] || THEME_AESTHETIC.corporate_sleek;
+
+        // Anchor: qué representa esta slide realmente
+        const anchor = [
+            slideContext.title    ? `Slide title: "${slideContext.title}"` : '',
+            slideContext.subtitle ? `Slide subtitle: "${slideContext.subtitle}"` : '',
+            (slideContext.bullets && slideContext.bullets.length)
+                ? `Key points: ${slideContext.bullets.slice(0, 3).join(' | ')}`
+                : ''
+        ].filter(Boolean).join('. ');
+
+        // Reglas de composición según el tipo de layout
+        const layoutType = slideContext.layout || 'editorial-right';
+        const compositionByLayout = {
+            'hero-full':      'full-bleed hero composition, subject centered with generous breathing room, cinematic 16:9, safe-zone in the lower third for text overlay',
+            'editorial-left': 'subject and detail on the LEFT 45% of the frame, RIGHT 55% must be a flat solid or gradient background of the palette color for clean text overlay, no important detail on the right half',
+            'editorial-right':'subject and detail on the RIGHT 45% of the frame, LEFT 55% must be a flat solid or gradient background of the palette color for clean text overlay, no important detail on the left half',
+            'pull-quote':     'sparse editorial composition, subject in the upper 50% only, ample negative space in the lower half for a large pull quote',
+            'kpi-hero':       'abstract data-driven composition (waves, mesh, geometric flows), no literal chart, subject in the RIGHT 40% with soft focal glow, LEFT 60% clean for a giant number'
+        };
+        const composition = compositionByLayout[layoutType] || compositionByLayout['editorial-right'];
+
+        // Quality boosters + integración profesional
+        const quality = [
+            'editorial magazine quality',
+            'coherent color grading',
+            'controlled highlights and shadows',
+            'physically plausible lighting',
+            'no compression artifacts',
+            'high dynamic range',
+            '16:9 aspect ratio'
+        ].join(', ');
+
+        // Negative prompt combinado
+        const negative = [
+            'NO text of any kind (no letters, no numbers, no logos, no watermarks, no labels)',
+            'NO speech bubbles, NO captions, NO UI elements',
+            'NO low-quality artifacts, NO jpeg compression, NO blurry areas',
+            aesthetic.negative
+        ].join('. ');
+
+        const composedPrompt = [
+            // 1. Topic anchor
+            `Conceptual visual for a strategic presentation slide.`,
+            anchor ? `${anchor}. Concept described: ${prompt}` : `Concept: ${prompt}`,
+            // 2. Aesthetic
+            `Art direction: ${aesthetic.direction}. Mood: ${aesthetic.mood}. Palette: ${aesthetic.palette}.`,
+            // 3. Extra style override del theme (imageStyle)
+            styleDef.imageStyle ? `Additional style: ${styleDef.imageStyle}` : '',
+            // 4. Composition
+            `Composition: ${composition}.`,
+            // 5. Quality
+            `Technical: ${quality}.`,
+            // 6. Negative
+            `STRICT: ${negative}.`
+        ].filter(Boolean).join(' ');
+
         const resp = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -252,13 +361,32 @@ La primera diapositiva DEBE ser type:"cover". La última DEBE ser type:"closing"
         // Generate images (if Gemini available and requested)
         const geminiOk = includeImages ? await checkGeminiAvailable() : false;
 
+        // Predefinir layout por slide (afecta composición de imagen).
+        // El renderer también lo usa via pickLayout — mantener paridad.
+        function pickLayoutForImage(type, index) {
+            if (type === 'cover')   return 'hero-full';
+            if (type === 'closing') return 'hero-full';
+            if (type === 'kpi')     return 'kpi-hero';
+            if (type === 'quote')   return 'pull-quote';
+            // bullets/section alternan editorial
+            return index % 2 === 0 ? 'editorial-right' : 'editorial-left';
+        }
+
         for (let i = 0; i < slides.length; i++) {
             const s = slides[i];
             const percent = 10 + Math.floor((i / slides.length) * 85);
             if (geminiOk && s.image_prompt) {
                 onProgress({ step: i + 1, total: slides.length, percent, message: `Ilustrando diapositiva ${i + 1} de ${slides.length}…` });
                 try {
-                    s.imageUrl = await generateImage(s.image_prompt, styleDef);
+                    const slideContext = {
+                        title: s.title,
+                        subtitle: s.subtitle,
+                        bullets: s.bullets,
+                        layout: pickLayoutForImage(s.type, i),
+                        type: s.type
+                    };
+                    s.imageUrl = await generateImage(s.image_prompt, styleDef, slideContext);
+                    s.layoutHint = slideContext.layout;
                 } catch (err) {
                     console.warn('Image gen failed for slide', i, err);
                     s.imageUrl = null;
