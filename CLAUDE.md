@@ -26,8 +26,8 @@ Stack: Vanilla JS multi-page, sin bundler. Backend Node.js http (sin Express). P
 
 ```
 server.js                    Proxy HTTP único — endpoints /api/*
-server/openai-client.js      Wrapper OpenAI (chat, whisper, tts, embeddings)
-server/gemini-client.js      Wrapper Gemini (text + vision + image)
+server/openai-client.js      Facade LLM: OpenAI si hay key; si no, DELEGA a Gemini (v42)
+server/gemini-client.js      Motor Gemini: chat (messages OpenAI), transcripción de audio, embeddings 1536d, visión — fallback 2.5-flash→flash-lite
 server/whatsapp/             Baileys — handler conversacional con memoria
   ├ index.js                 sendMessage, QR, lifecycle
   ├ handler.js               Pipeline NLU + intent premium intercept
@@ -56,10 +56,10 @@ server/premium-intel/        Premium Intelligence (Sprint B-F)
 ### Endpoints HTTP
 
 ```
-POST  /api/transcribe         Whisper
-POST  /api/chat               OpenAI chat (primary LLM)
-POST  /api/tts                OpenAI TTS-1-HD humanizado
-POST  /api/embeddings         text-embedding-3-small
+POST  /api/transcribe         Whisper (OpenAI) o Gemini audio (v42, multipart parser propio)
+POST  /api/chat               LLM principal — OpenAI o Gemini (shape OpenAI siempre)
+POST  /api/tts                OpenAI TTS (sin key → 503 fallback:browser, cliente usa speechSynthesis)
+POST  /api/embeddings         text-embedding-3-small o gemini-embedding-001 @1536d (shape OpenAI)
 POST  /api/gemini-text        Gemini text
 POST  /api/gemini-image       Gemini Nano Banana
 POST  /api/document-extract   Recibos/facturas (Gemini Vision)
@@ -487,10 +487,17 @@ node server.js                     # http://localhost:3001
 
 Variables de entorno (`.env`):
 ```
-OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=AIza...
+GEMINI_API_KEY=...           # motor principal (v42): chat, transcripción, embeddings, visión
+# OPENAI_API_KEY=sk-...      # opcional — si existe, OpenAI toma chat/whisper/tts
 GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
 PORT=3001
 ```
+
+**v42 — Gemini como único motor**: sin OPENAI_API_KEY todo corre en Gemini free tier.
+Modelos texto: `gemini-2.5-flash` → fallback `gemini-2.5-flash-lite` en 429 (los 2.0/1.5 quedaron
+sin cuota free — NO usarlos). Embeddings: `gemini-embedding-001` @1536d (compatible en dims con
+los vectores viejos de OpenAI; si la búsqueda semántica se ve rara, limpiar IDB `gunter_embeddings`
++ `gunter_semantic_index`). TTS: sin OpenAI → 503 y el cliente cae solo a speechSynthesis del
+navegador. Transcripción: audio inline máx 14 MB por chunk (los chunks del recorder son ~500 KB).
 
 WhatsApp: scan QR desde `config.html → Premium → WhatsApp Assistant → Conectar`.

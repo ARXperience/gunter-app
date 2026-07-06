@@ -72,7 +72,8 @@ async function testEndpointsRegistered() {
     for (const ep of posts) {
         try {
             const { status } = await jpost(ep, {});
-            (status === 400 || status === 200)
+            // 503 válido para /api/tts sin OpenAI (cliente cae a voz del navegador)
+            (status === 400 || status === 200 || (ep === '/api/tts' && status === 503))
                 ? ok(`POST ${ep} (${status})`)
                 : ko(`POST ${ep}`, `status=${status}`);
         } catch (e) { ko(`POST ${ep}`, e.message); }

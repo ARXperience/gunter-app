@@ -10,10 +10,19 @@ const KEY = process.env.OPENAI_API_KEY || '';
 const CHAT_MODEL = process.env.CHAT_MODEL || 'gpt-4o-mini';
 const WHISPER_MODEL = process.env.WHISPER_MODEL || 'whisper-1';
 
-function hasKey() { return !!KEY; }
+// v42 — Facade multi-proveedor: si no hay key de OpenAI, chat y
+// transcripción delegan a Gemini (server/gemini-client.js). Los módulos
+// consumidores (premium-intel, WhatsApp) no necesitan saberlo.
+const gemini = require('./gemini-client');
+
+function hasOpenAI() { return !!KEY; }
+function hasKey() { return !!KEY || gemini.hasKey(); }
 
 function chatComplete({ messages, temperature = 0.4, maxTokens = 500, jsonMode = false, model }) {
-    if (!hasKey()) return Promise.reject(new Error('OPENAI_API_KEY missing'));
+    if (!hasOpenAI()) {
+        if (gemini.hasKey()) return gemini.generateText({ messages, temperature, maxTokens, jsonMode });
+        return Promise.reject(new Error('Sin proveedor LLM: configura OPENAI_API_KEY o GEMINI_API_KEY'));
+    }
     const body = {
         model: model || CHAT_MODEL,
         messages,
@@ -50,7 +59,10 @@ function chatComplete({ messages, temperature = 0.4, maxTokens = 500, jsonMode =
 }
 
 function transcribeAudio(buffer, mimeType = 'audio/ogg', filename = 'audio.ogg') {
-    if (!hasKey()) return Promise.reject(new Error('OPENAI_API_KEY missing'));
+    if (!hasOpenAI()) {
+        if (gemini.hasKey()) return gemini.transcribeAudio(buffer, mimeType);
+        return Promise.reject(new Error('Sin proveedor de transcripción: configura OPENAI_API_KEY o GEMINI_API_KEY'));
+    }
     return new Promise((resolve, reject) => {
         const boundary = '----gunter' + Date.now().toString(36);
         const parts = [];
@@ -97,7 +109,7 @@ function transcribeAudio(buffer, mimeType = 'audio/ogg', filename = 'audio.ogg')
  * Model: 'tts-1' (fast) or 'tts-1-hd' (higher quality, slower)
  */
 function synthesizeSpeech({ text, voice = 'alloy', speed = 1.0, model = 'tts-1-hd', format = 'mp3' }) {
-    if (!hasKey()) return Promise.reject(new Error('OPENAI_API_KEY missing'));
+    if (!hasOpenAI()) return Promise.reject(new Error('TTS no disponible sin OPENAI_API_KEY (el cliente usa voz del navegador)'));
     const body = { model, input: String(text).slice(0, 4000), voice, response_format: format, speed };
     const data = JSON.stringify(body);
     const opts = {
@@ -127,4 +139,4 @@ function synthesizeSpeech({ text, voice = 'alloy', speed = 1.0, model = 'tts-1-h
     });
 }
 
-module.exports = { chatComplete, transcribeAudio, synthesizeSpeech, hasKey };
+module.exports = { chatComplete, transcribeAudio, synthesizeSpeech, hasKey, hasOpenAI };

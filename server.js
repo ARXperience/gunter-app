@@ -22,6 +22,10 @@ const auth = require('./server/auth');
 // a todos los módulos (cada usuario tiene su carpeta en data/users/)
 const userContext = require('./server/user-context');
 
+// v42 — Gemini como motor LLM principal (chat, transcripción, embeddings)
+// cuando no hay OPENAI_API_KEY. Ver server/gemini-client.js.
+const geminiClient = require('./server/gemini-client');
+
 // WhatsApp integration (lazy required so the app runs even if deps missing)
 let wa = null, waStore = null, waMemory = null, waPersonality = null, waMirror = null;
 try {
@@ -249,6 +253,36 @@ const handleRequest = async (req, res) => {
 
                 body = Buffer.concat(body);
 
+                // v42 — Sin OpenAI: transcripción via Gemini (mismo shape {text} de Whisper)
+                if (!OPENAI_API_KEY) {
+                    if (!geminiClient.hasKey()) {
+                        res.writeHead(503, { 'Content-Type': 'application/json' });
+                        return res.end(JSON.stringify({ error: 'Sin proveedor de transcripción configurado' }));
+                    }
+                    const parsed = extractMultipartFile(body, req.headers['content-type']);
+                    if (!parsed || !parsed.file || !parsed.file.data.length) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        return res.end(JSON.stringify({ error: 'No se encontró archivo de audio en el form-data' }));
+                    }
+                    // Gemini inline: máx ~14 MB de audio crudo por request
+                    if (parsed.file.data.length > 14 * 1024 * 1024) {
+                        res.writeHead(413, { 'Content-Type': 'application/json' });
+                        return res.end(JSON.stringify({ error: 'Chunk de audio muy grande para Gemini (máx 14 MB). Graba en fragmentos más cortos.' }));
+                    }
+                    console.log(`🎙️ Transcribiendo con Gemini (${(parsed.file.data.length / 1024).toFixed(0)} KB, ${parsed.file.mime})…`);
+                    geminiClient.transcribeAudio(parsed.file.data, parsed.file.mime, parsed.language)
+                        .then(text => {
+                            res.writeHead(200, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ text }));
+                        })
+                        .catch(e => {
+                            console.error('❌ Gemini transcribe:', e.message);
+                            res.writeHead(502, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: e.message }));
+                        });
+                    return;
+                }
+
                 // Forward to OpenAI
                 const options = {
                     hostname: 'api.openai.com',
@@ -332,7 +366,9 @@ const handleRequest = async (req, res) => {
                 res.end(JSON.stringify({ error: 'Invalid JSON body' }));
                 return;
             }
-            const model = payload.model || 'gemini-2.0-flash-exp';
+            // v42: los modelos 2.0 quedaron sin cuota free — default 2.5-flash
+            const model = payload.model && !/gemini-(1\.5|2\.0)/.test(payload.model)
+                ? payload.model : 'gemini-2.5-flash';
             const apiBody = {
                 contents: [{ role: 'user', parts: [{ text: payload.prompt || '' }] }],
                 generationConfig: {
@@ -379,6 +415,12 @@ const handleRequest = async (req, res) => {
             try { payload = JSON.parse(body); } catch {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+                return;
+            }
+            // Validar ANTES de llamar a Google — un prompt vacío quemaba cuota
+            if (!payload.prompt || !String(payload.prompt).trim()) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'prompt requerido' }));
                 return;
             }
             const model = payload.model || 'gemini-2.5-flash-image';
@@ -439,8 +481,10 @@ const handleRequest = async (req, res) => {
     // ========== TTS (humanized voices via OpenAI) ==========
     if (parsedUrl.pathname === '/api/tts' && req.method === 'POST') {
         if (!OPENAI_API_KEY) {
+            // v42: sin OpenAI no hay TTS server-side — el cliente cae a la
+            // voz del navegador (speechSynthesis). Flag para que lo sepa.
             res.writeHead(503, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'OPENAI_API_KEY missing' }));
+            res.end(JSON.stringify({ error: 'tts_unavailable', fallback: 'browser' }));
             return;
         }
         let body = '';
@@ -1130,6 +1174,30 @@ const handleRequest = async (req, res) => {
                 return res.end(JSON.stringify({ error: 'Missing input (string or array of strings)' }));
             }
 
+            // v42 — Sin OpenAI: embeddings via Gemini (1536 dims, shape OpenAI)
+            if (!OPENAI_API_KEY) {
+                if (!geminiClient.hasKey()) {
+                    res.writeHead(503, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ error: 'Sin proveedor de embeddings configurado' }));
+                }
+                geminiClient.embedTexts(input)
+                    .then(vectors => {
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({
+                            object: 'list',
+                            model: geminiClient.EMBED_MODEL,
+                            data: vectors.map((embedding, index) => ({ object: 'embedding', index, embedding })),
+                            usage: {}
+                        }));
+                    })
+                    .catch(e => {
+                        console.error('❌ Gemini embeddings:', e.message);
+                        res.writeHead(502, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: e.message }));
+                    });
+                return;
+            }
+
             const upstream = JSON.stringify({
                 model: payload.model || 'text-embedding-3-small',
                 input,
@@ -1172,7 +1240,43 @@ const handleRequest = async (req, res) => {
             body += chunk.toString();
         });
 
-        req.on('end', () => {
+        req.on('end', async () => {
+            // v42 — Sin OpenAI: el chat corre sobre Gemini devolviendo el
+            // mismo shape de OpenAI (choices[0].message.content) para que
+            // ningún cliente cambie.
+            if (!OPENAI_API_KEY) {
+                try {
+                    const payload = JSON.parse(body || '{}');
+                    if (!Array.isArray(payload.messages) || !payload.messages.length) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        return res.end(JSON.stringify({ error: { message: 'messages[] requerido' } }));
+                    }
+                    if (!geminiClient.hasKey()) {
+                        res.writeHead(503, { 'Content-Type': 'application/json' });
+                        return res.end(JSON.stringify({ error: { message: 'Sin proveedor LLM configurado' } }));
+                    }
+                    const jsonMode = payload.response_format?.type === 'json_object';
+                    const content = await geminiClient.generateText({
+                        messages: payload.messages,
+                        temperature: payload.temperature ?? 0.4,
+                        maxTokens: payload.max_tokens ?? 900,
+                        jsonMode
+                    });
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({
+                        id: 'gmn-' + Date.now().toString(36),
+                        object: 'chat.completion',
+                        model: 'gemini',
+                        choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],
+                        usage: {}
+                    }));
+                } catch (e) {
+                    const code = /HTTP 4/.test(e.message) ? 400 : 500;
+                    res.writeHead(code, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ error: { message: e.message } }));
+                }
+            }
+
             const options = {
                 hostname: 'api.openai.com',
                 path: '/v1/chat/completions',
@@ -1328,6 +1432,40 @@ server.headersTimeout = 620000; // Slightly longer than keepAliveTimeout
 console.log('⏱️  Server timeouts configured for large file uploads (10 min)');
 
 // ---------- Helpers ----------
+
+// Parser multipart mínimo (v42): extrae el primer archivo + campo 'language'
+// del form-data que el cliente manda a /api/transcribe. Sin dependencias.
+function extractMultipartFile(buffer, contentType) {
+    const m = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType || '');
+    if (!m) return null;
+    const bBuf = Buffer.from('--' + (m[1] || m[2]).trim());
+    const parts = [];
+    let idx = buffer.indexOf(bBuf);
+    while (idx !== -1) {
+        const next = buffer.indexOf(bBuf, idx + bBuf.length);
+        if (next === -1) break;
+        parts.push(buffer.slice(idx + bBuf.length, next));
+        idx = next;
+    }
+    let language = '';
+    let file = null;
+    for (const part of parts) {
+        const headerEnd = part.indexOf('\r\n\r\n');
+        if (headerEnd === -1) continue;
+        const head = part.slice(0, headerEnd).toString('utf8');
+        const data = part.slice(headerEnd + 4, part.length - 2);   // sin el \r\n final
+        const nameM = /name="([^"]+)"/i.exec(head);
+        const fileM = /filename="([^"]*)"/i.exec(head);
+        const ctM = /Content-Type:\s*([^\r\n]+)/i.exec(head);
+        if (fileM) {
+            file = { data, mime: ctM ? ctM[1].trim() : 'audio/webm', filename: fileM[1] || 'audio' };
+        } else if (nameM && nameM[1] === 'language') {
+            language = data.toString('utf8').trim();
+        }
+    }
+    return file ? { file, language } : null;
+}
+
 function buildDocExtractPrompt(hint, locale) {
     const hintDesc = {
         receipt:  'Es un recibo de servicio (luz, gas, internet, agua, teléfono…)',
