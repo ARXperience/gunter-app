@@ -153,6 +153,56 @@ async function embedTexts(texts) {
     return (parsed.embeddings || []).map(e => e.values || []);
 }
 
+// ---------- TTS (voces neuronales — reemplaza OpenAI TTS) ----------
+const TTS_MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
+
+// Nombres de voz OpenAI (los que ya usa el cliente) → voces Gemini
+const TTS_VOICE_MAP = {
+    alloy: 'Kore',        // neutra, firme
+    echo: 'Charon',       // informativa
+    fable: 'Puck',        // juguetona — la más Gunter
+    onyx: 'Alnilam',      // grave, firme
+    nova: 'Sulafat',      // cálida
+    shimmer: 'Zephyr'     // brillante
+};
+
+// PCM crudo (L16 mono) → WAV reproducible en el navegador
+function _pcmToWav(pcm, sampleRate = 24000) {
+    const header = Buffer.alloc(44);
+    header.write('RIFF', 0); header.writeUInt32LE(36 + pcm.length, 4);
+    header.write('WAVEfmt ', 8); header.writeUInt32LE(16, 16);
+    header.writeUInt16LE(1, 20); header.writeUInt16LE(1, 22);
+    header.writeUInt32LE(sampleRate, 24); header.writeUInt32LE(sampleRate * 2, 28);
+    header.writeUInt16LE(2, 32); header.writeUInt16LE(16, 34);
+    header.write('data', 36); header.writeUInt32LE(pcm.length, 40);
+    return Buffer.concat([header, pcm]);
+}
+
+// Devuelve { buffer (WAV), mime: 'audio/wav' }
+async function synthesizeSpeech({ text, voice = 'fable', style = '' }) {
+    if (!hasKey()) throw new Error('GEMINI_API_KEY missing');
+    const voiceName = TTS_VOICE_MAP[voice] || voice || 'Puck';
+    // El modelo TTS acepta dirección de estilo en lenguaje natural
+    const spoken = style
+        ? `${style}: ${text}`
+        : `Di esto de forma natural y conversacional, en español latino: ${text}`;
+
+    const body = {
+        contents: [{ parts: [{ text: String(spoken).slice(0, 4000) }] }],
+        generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
+        }
+    };
+    const parsed = await _post(`/v1beta/models/${TTS_MODEL}:generateContent`, body);
+    const part = (parsed?.candidates?.[0]?.content?.parts || []).find(p => p.inlineData || p.inline_data);
+    if (!part) throw new Error('Gemini TTS: sin audio en la respuesta');
+    const inline = part.inlineData || part.inline_data;
+    const rate = parseInt(/rate=(\d+)/.exec(inline.mimeType || inline.mime_type || '')?.[1] || '24000', 10);
+    const pcm = Buffer.from(inline.data, 'base64');
+    return { buffer: _pcmToWav(pcm, rate), mime: 'audio/wav' };
+}
+
 // ---------- Visión (WhatsApp imágenes / recibos) ----------
 function describeImage(buffer, mimeType = 'image/jpeg', extraHint = '') {
     if (!hasKey()) return Promise.reject(new Error('GEMINI_API_KEY missing'));
@@ -182,6 +232,6 @@ Responde texto plano, sin markdown.`;
 }
 
 module.exports = {
-    hasKey, generateText, transcribeAudio, embedTexts, describeImage,
-    TEXT_MODELS, EMBED_MODEL, EMBED_DIMS
+    hasKey, generateText, transcribeAudio, embedTexts, describeImage, synthesizeSpeech,
+    TEXT_MODELS, EMBED_MODEL, EMBED_DIMS, TTS_MODEL
 };

@@ -478,13 +478,39 @@ const handleRequest = async (req, res) => {
         return;
     }
 
-    // ========== TTS (humanized voices via OpenAI) ==========
+    // ========== TTS (voces humanas: OpenAI o Gemini TTS) ==========
     if (parsedUrl.pathname === '/api/tts' && req.method === 'POST') {
+        // v43: sin OpenAI, la voz corre en Gemini TTS (voces neuronales free
+        // tier) con cache en disco. Si Gemini falla (cuota del día agotada),
+        // 503 → el cliente cae solo a la voz del navegador.
         if (!OPENAI_API_KEY) {
-            // v42: sin OpenAI no hay TTS server-side — el cliente cae a la
-            // voz del navegador (speechSynthesis). Flag para que lo sepa.
-            res.writeHead(503, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'tts_unavailable', fallback: 'browser' }));
+            if (!geminiClient.hasKey()) {
+                res.writeHead(503, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'tts_unavailable', fallback: 'browser' }));
+                return;
+            }
+            let body = '';
+            req.on('data', c => { body += c.toString(); });
+            req.on('end', async () => {
+                try {
+                    const { text, voice } = JSON.parse(body || '{}');
+                    if (!text) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        return res.end(JSON.stringify({ error: 'text requerido' }));
+                    }
+                    const buf = await ttsCachedSynthesize(String(text), String(voice || 'fable'));
+                    res.writeHead(200, {
+                        'Content-Type': 'audio/wav',
+                        'Content-Length': buf.length,
+                        'Cache-Control': 'no-store'
+                    });
+                    res.end(buf);
+                } catch (e) {
+                    console.warn('⚠️ Gemini TTS falló (cliente usará voz del navegador):', e.message.slice(0, 150));
+                    res.writeHead(503, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'tts_unavailable', fallback: 'browser', detail: e.message.slice(0, 120) }));
+                }
+            });
             return;
         }
         let body = '';
@@ -1432,6 +1458,32 @@ server.headersTimeout = 620000; // Slightly longer than keepAliveTimeout
 console.log('⏱️  Server timeouts configured for large file uploads (10 min)');
 
 // ---------- Helpers ----------
+
+// Cache de TTS en disco (v43): Gunter repite muchas frases ("Listo.",
+// "Quedó agendado.") — cachear el WAV ahorra la cuota free de Gemini TTS.
+// Clave = sha1(voz+texto). Tope ~400 archivos (se purgan los más viejos).
+const TTS_CACHE_DIR = path.join(__dirname, 'data', 'tts-cache');
+async function ttsCachedSynthesize(text, voice) {
+    const crypto = require('crypto');
+    const key = crypto.createHash('sha1').update(voice + '|' + text).digest('hex');
+    const file = path.join(TTS_CACHE_DIR, key + '.wav');
+    try { if (fs.existsSync(file)) return fs.readFileSync(file); } catch { }
+
+    const { buffer } = await geminiClient.synthesizeSpeech({ text, voice });
+    try {
+        if (!fs.existsSync(TTS_CACHE_DIR)) fs.mkdirSync(TTS_CACHE_DIR, { recursive: true });
+        fs.writeFileSync(file, buffer);
+        // Higiene: máx ~400 wavs en cache
+        const files = fs.readdirSync(TTS_CACHE_DIR);
+        if (files.length > 400) {
+            files.map(f => ({ f, t: fs.statSync(path.join(TTS_CACHE_DIR, f)).mtimeMs }))
+                .sort((a, b) => a.t - b.t)
+                .slice(0, 80)
+                .forEach(x => { try { fs.unlinkSync(path.join(TTS_CACHE_DIR, x.f)); } catch { } });
+        }
+    } catch (e) { console.warn('[tts-cache] no se pudo guardar:', e.message); }
+    return buffer;
+}
 
 // Parser multipart mínimo (v42): extrae el primer archivo + campo 'language'
 // del form-data que el cliente manda a /api/transcribe. Sin dependencias.

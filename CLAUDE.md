@@ -58,7 +58,7 @@ server/premium-intel/        Premium Intelligence (Sprint B-F)
 ```
 POST  /api/transcribe         Whisper (OpenAI) o Gemini audio (v42, multipart parser propio)
 POST  /api/chat               LLM principal — OpenAI o Gemini (shape OpenAI siempre)
-POST  /api/tts                OpenAI TTS (sin key → 503 fallback:browser, cliente usa speechSynthesis)
+POST  /api/tts                Voz: OpenAI TTS → Gemini TTS neuronal (v43, cache data/tts-cache) → 503 fallback:browser
 POST  /api/embeddings         text-embedding-3-small o gemini-embedding-001 @1536d (shape OpenAI)
 POST  /api/gemini-text        Gemini text
 POST  /api/gemini-image       Gemini Nano Banana
@@ -497,7 +497,13 @@ PORT=3001
 Modelos texto: `gemini-2.5-flash` → fallback `gemini-2.5-flash-lite` en 429 (los 2.0/1.5 quedaron
 sin cuota free — NO usarlos). Embeddings: `gemini-embedding-001` @1536d (compatible en dims con
 los vectores viejos de OpenAI; si la búsqueda semántica se ve rara, limpiar IDB `gunter_embeddings`
-+ `gunter_semantic_index`). TTS: sin OpenAI → 503 y el cliente cae solo a speechSynthesis del
-navegador. Transcripción: audio inline máx 14 MB por chunk (los chunks del recorder son ~500 KB).
++ `gunter_semantic_index`). Transcripción: audio inline máx 14 MB por chunk (los chunks del recorder son ~500 KB).
+
+**v43 — Voz humana con Gemini TTS**: `gemini-2.5-flash-preview-tts` (voces neuronales free tier).
+Cadena: OpenAI TTS (si hay key) → Gemini TTS → speechSynthesis del navegador (el cliente cae solo
+ante cualquier 503). Mapeo de voces OpenAI→Gemini en `gemini-client.js` (fable→Puck, nova→Sulafat…).
+Salida PCM 24kHz envuelta en WAV. Cache en disco `data/tts-cache/` (sha1 de voz+texto, máx 400
+archivos) — las frases repetidas de Gunter no consumen cuota. Si la cuota TTS del día se agota,
+la voz degrada al navegador automáticamente sin romper nada.
 
 WhatsApp: scan QR desde `config.html → Premium → WhatsApp Assistant → Conectar`.
