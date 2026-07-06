@@ -10,6 +10,9 @@ data/
 # Claude Code — worktrees temporales
 .claude/worktrees/
 
+# Backups automáticos (disco local, v47)
+backups/
+
 # WhatsApp — session credentials + message log (contain private data)
 whatsapp-session/
 whatsapp-data/

@@ -1478,6 +1478,23 @@ server.listen(PORT, () => {
     console.log('');
 });
 
+// ===== v47 — Arranque resiliente =====
+// WhatsApp: si hay sesión guardada en disco, reconectar solo (sin QR).
+// Antes, cada restart del server dejaba el puente muerto hasta que
+// alguien pulsara "Conectar" en config.
+if (wa) {
+    try {
+        if (fs.existsSync(path.join(__dirname, 'whatsapp-session', 'creds.json'))) {
+            console.log('📱 [wa] Sesión guardada encontrada — reconectando WhatsApp…');
+            wa.start().catch(e => console.warn('[wa] auto-reconexión falló:', e.message));
+        }
+    } catch { }
+}
+
+// Backups automáticos de data/ + whatsapp-data/ (cada 12 h, retención 14)
+try { require('./server/backup').schedule(); }
+catch (e) { console.warn('⚠️  Backup module no disponible:', e.message); }
+
 // Increase timeouts for large file uploads (10 minutes)
 server.timeout = 600000; // 10 minutes
 server.keepAliveTimeout = 610000; // Slightly longer than timeout

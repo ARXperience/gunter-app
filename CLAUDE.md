@@ -479,6 +479,12 @@ Cubre: health, auth (guard 401 + roundtrip registro→aprobación→eliminación
 **⚠️ Cache-busting**: los HTML usan `?vNN-nombre-<ts>`; bump con regex `v\d+[a-z]?-[a-z-]+-\d{10,}` en los 7 HTML + service-worker.js + sw-updater.js.
 **⚠️ PowerShell 5.1**: NUNCA usar Get-Content/Set-Content en archivos con emojis/tildes (mojibake). Usar Node fs.
 
+## Arranque resiliente (v47)
+
+- **WhatsApp auto-reconecta** al boot si existe `whatsapp-session/creds.json` (sin QR de nuevo).
+- **Backups automáticos** (`server/backup.js`): data/ + whatsapp-data/ + whatsapp-session/ →
+  `backups/<fecha>/` al arrancar (+3 min) y cada 12 h, retención 14, excluye tts-cache. Gitignored.
+
 ## Para ejecutar
 
 ```bash

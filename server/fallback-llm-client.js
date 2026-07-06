@@ -147,7 +147,12 @@ function transcribeAudio(buffer, mimeType = 'audio/ogg', language = 'es') {
         field('model', 'whisper-large-v3');
         field('language', language || 'es');
         field('response_format', 'json');
-        parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="audio"\r\nContent-Type: ${mimeType}\r\n\r\n`));
+        // Groq valida por la EXTENSIÓN del filename — derivarla del mime
+        const ext = ({ 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/webm': 'webm',
+                       'audio/ogg': 'ogg', 'audio/opus': 'opus', 'audio/mpeg': 'mp3',
+                       'audio/mp3': 'mp3', 'audio/mp4': 'mp4', 'audio/m4a': 'm4a',
+                       'audio/flac': 'flac' })[String(mimeType).split(';')[0].trim()] || 'webm';
+        parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="audio.${ext}"\r\nContent-Type: ${mimeType}\r\n\r\n`));
         parts.push(buffer);
         parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
         const payload = Buffer.concat(parts);
