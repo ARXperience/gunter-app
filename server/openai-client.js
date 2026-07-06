@@ -13,15 +13,24 @@ const WHISPER_MODEL = process.env.WHISPER_MODEL || 'whisper-1';
 // v42 — Facade multi-proveedor: si no hay key de OpenAI, chat y
 // transcripción delegan a Gemini (server/gemini-client.js). Los módulos
 // consumidores (premium-intel, WhatsApp) no necesitan saberlo.
+// v46 — Si Gemini agota su cuota diaria, cae a la cadena de respaldo
+// gratuita (Groq/OpenRouter/Mistral/Pollinations — fallback-llm-client.js).
 const gemini = require('./gemini-client');
+const fallback = require('./fallback-llm-client');
 
 function hasOpenAI() { return !!KEY; }
-function hasKey() { return !!KEY || gemini.hasKey(); }
+function hasKey() { return !!KEY || gemini.hasKey() || fallback.activeProviders().length > 0; }
 
 function chatComplete({ messages, temperature = 0.4, maxTokens = 500, jsonMode = false, model }) {
     if (!hasOpenAI()) {
-        if (gemini.hasKey()) return gemini.generateText({ messages, temperature, maxTokens, jsonMode });
-        return Promise.reject(new Error('Sin proveedor LLM: configura OPENAI_API_KEY o GEMINI_API_KEY'));
+        if (gemini.hasKey()) {
+            return gemini.generateText({ messages, temperature, maxTokens, jsonMode })
+                .catch(e => {
+                    console.warn('[llm] Gemini agotado — usando respaldo gratuito:', e.message.slice(0, 100));
+                    return fallback.chatComplete({ messages, temperature, maxTokens, jsonMode });
+                });
+        }
+        return fallback.chatComplete({ messages, temperature, maxTokens, jsonMode });
     }
     const body = {
         model: model || CHAT_MODEL,
@@ -60,8 +69,14 @@ function chatComplete({ messages, temperature = 0.4, maxTokens = 500, jsonMode =
 
 function transcribeAudio(buffer, mimeType = 'audio/ogg', filename = 'audio.ogg') {
     if (!hasOpenAI()) {
-        if (gemini.hasKey()) return gemini.transcribeAudio(buffer, mimeType);
-        return Promise.reject(new Error('Sin proveedor de transcripción: configura OPENAI_API_KEY o GEMINI_API_KEY'));
+        if (gemini.hasKey()) {
+            return gemini.transcribeAudio(buffer, mimeType)
+                .catch(e => {
+                    console.warn('[llm] Gemini transcripción falló — respaldo Groq Whisper:', e.message.slice(0, 100));
+                    return fallback.transcribeAudio(buffer, mimeType);
+                });
+        }
+        return fallback.transcribeAudio(buffer, mimeType);
     }
     return new Promise((resolve, reject) => {
         const boundary = '----gunter' + Date.now().toString(36);

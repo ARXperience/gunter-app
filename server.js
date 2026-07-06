@@ -26,6 +26,10 @@ const userContext = require('./server/user-context');
 // cuando no hay OPENAI_API_KEY. Ver server/gemini-client.js.
 const geminiClient = require('./server/gemini-client');
 
+// v46 — Respaldo gratuito cuando Gemini agota su cuota diaria:
+// Groq / OpenRouter / Mistral (con key gratis) + Pollinations (sin key).
+const fallbackLLM = require('./server/fallback-llm-client');
+
 // WhatsApp integration (lazy required so the app runs even if deps missing)
 let wa = null, waStore = null, waMemory = null, waPersonality = null, waMirror = null;
 try {
@@ -176,8 +180,10 @@ const handleRequest = async (req, res) => {
                 commitments:   !!commitments,
                 proactive:     !!proactive,
                 style_mirror:  !!styleMirror,
-                forecast:      !!forecast
+                forecast:      !!forecast,
+                fallback_llm:  fallbackLLM.activeProviders().length > 0
             },
+            fallbackProviders: fallbackLLM.activeProviders(),
             cors: {
                 allowedOrigins: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : ['*'],
                 requestOrigin: reqOrigin
@@ -271,12 +277,17 @@ const handleRequest = async (req, res) => {
                     }
                     console.log(`🎙️ Transcribiendo con Gemini (${(parsed.file.data.length / 1024).toFixed(0)} KB, ${parsed.file.mime})…`);
                     geminiClient.transcribeAudio(parsed.file.data, parsed.file.mime, parsed.language)
+                        .catch(e => {
+                            // v46 — respaldo: Groq Whisper (gratis con GROQ_API_KEY)
+                            console.warn('[transcribe] Gemini falló — respaldo Groq:', e.message.slice(0, 100));
+                            return fallbackLLM.transcribeAudio(parsed.file.data, parsed.file.mime, parsed.language);
+                        })
                         .then(text => {
                             res.writeHead(200, { 'Content-Type': 'application/json' });
                             res.end(JSON.stringify({ text }));
                         })
                         .catch(e => {
-                            console.error('❌ Gemini transcribe:', e.message);
+                            console.error('❌ Transcripción sin proveedores:', e.message);
                             res.writeHead(502, { 'Content-Type': 'application/json' });
                             res.end(JSON.stringify({ error: e.message }));
                         });
@@ -1290,17 +1301,26 @@ const handleRequest = async (req, res) => {
                         return res.end(JSON.stringify({ error: { message: 'Sin proveedor LLM configurado' } }));
                     }
                     const jsonMode = payload.response_format?.type === 'json_object';
-                    const content = await geminiClient.generateText({
+                    const llmOpts = {
                         messages: payload.messages,
                         temperature: payload.temperature ?? 0.4,
                         maxTokens: payload.max_tokens ?? 900,
                         jsonMode
-                    });
+                    };
+                    let content, servedBy = 'gemini';
+                    try {
+                        content = await geminiClient.generateText(llmOpts);
+                    } catch (e) {
+                        // v46 — cuota de Gemini agotada → cadena de respaldo gratuita
+                        console.warn('[chat] Gemini falló — respaldo gratuito:', e.message.slice(0, 100));
+                        content = await fallbackLLM.chatComplete(llmOpts);
+                        servedBy = 'fallback';
+                    }
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     return res.end(JSON.stringify({
                         id: 'gmn-' + Date.now().toString(36),
                         object: 'chat.completion',
-                        model: 'gemini',
+                        model: servedBy,
                         choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],
                         usage: {}
                     }));

@@ -488,10 +488,20 @@ node server.js                     # http://localhost:3001
 Variables de entorno (`.env`):
 ```
 GEMINI_API_KEY=...           # motor principal (v42): chat, transcripción, embeddings, visión
+# GROQ_API_KEY=gsk_...       # respaldo #1 recomendado (gratis: console.groq.com — llama-70b + whisper)
+# OPENROUTER_API_KEY=sk-...  # respaldo #2 (gratis: openrouter.ai)
+# MISTRAL_API_KEY=...        # respaldo #3 (gratis: console.mistral.ai)
 # OPENAI_API_KEY=sk-...      # opcional — si existe, OpenAI toma chat/whisper/tts
 GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
 PORT=3001
 ```
+
+**v46 — Respaldo LLM gratuito** (`server/fallback-llm-client.js`): si Gemini agota su cuota
+diaria, chat/extractores caen automáticamente a: Groq (`GROQ_API_KEY`, llama-3.3-70b, ~14k
+req/día + Whisper de transcripción) → OpenRouter (`OPENROUTER_API_KEY`, modelos :free) →
+Mistral (`MISTRAL_API_KEY`) → Pollinations (SIN key, comunitario, 2 intentos por 5xx). Solo
+participan los proveedores con key; health expone `fallbackProviders`. La cadena vive en el
+facade `openai-client.chatComplete/transcribeAudio` + endpoints /api/chat y /api/transcribe.
 
 **v42 — Gemini como único motor**: sin OPENAI_API_KEY todo corre en Gemini free tier.
 Modelos texto: `gemini-2.5-flash` → fallback `gemini-2.5-flash-lite` en 429 (los 2.0/1.5 quedaron
