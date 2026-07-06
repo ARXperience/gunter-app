@@ -8,7 +8,7 @@
 (function () {
     if (!('serviceWorker' in navigator)) return;
 
-    const CURRENT_APP_VERSION = "v41-waphone-1783320000000";
+    const CURRENT_APP_VERSION = "v48-portal-1783380000000";
 
     // Al cargar la página, verifica si hay update del SW
     navigator.serviceWorker.getRegistration()
