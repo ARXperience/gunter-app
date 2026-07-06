@@ -366,14 +366,22 @@ const handleRequest = async (req, res) => {
                 res.end(JSON.stringify({ error: 'Invalid JSON body' }));
                 return;
             }
+            // Validar ANTES de llamar a Google — un prompt vacío quema cuota
+            if (!payload.prompt || !String(payload.prompt).trim()) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'prompt requerido' }));
+                return;
+            }
             // v42: los modelos 2.0 quedaron sin cuota free — default 2.5-flash
             const model = payload.model && !/gemini-(1\.5|2\.0)/.test(payload.model)
                 ? payload.model : 'gemini-2.5-flash';
             const apiBody = {
-                contents: [{ role: 'user', parts: [{ text: payload.prompt || '' }] }],
+                contents: [{ role: 'user', parts: [{ text: payload.prompt }] }],
                 generationConfig: {
                     temperature: payload.temperature ?? 0.4,
                     maxOutputTokens: payload.maxTokens ?? 2400,
+                    // sin thinking: la respuesta completa va al output
+                    thinkingConfig: { thinkingBudget: 0 },
                     responseMimeType: payload.responseMimeType || 'application/json'
                 }
             };
