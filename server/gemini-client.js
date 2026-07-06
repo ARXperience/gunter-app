@@ -52,19 +52,33 @@ function _post(pathName, bodyObj) {
     });
 }
 
-// Reintenta por la cadena de modelos cuando hay 429 (cuota) o 5xx
+// Reintenta por la cadena de modelos cuando hay 429 (cuota) o 5xx.
+// Si TODOS los modelos están en 429 (límite por minuto del free tier),
+// espera el retryDelay que indica Google (máx 20s) y reintenta una vez —
+// así las ráfagas de llamadas no dejan funciones sin LLM.
 async function _withModelFallback(fn) {
     let lastErr = null;
-    for (const model of TEXT_MODELS) {
-        try { return await fn(model); }
-        catch (e) {
-            lastErr = e;
-            if (e.statusCode === 429 || (e.statusCode >= 500 && e.statusCode < 600)) {
-                console.warn(`[gemini] ${model} → ${e.statusCode}; probando siguiente modelo…`);
-                continue;
+    for (let attempt = 0; attempt < 2; attempt++) {
+        for (const model of TEXT_MODELS) {
+            try { return await fn(model); }
+            catch (e) {
+                lastErr = e;
+                if (e.statusCode === 429 || (e.statusCode >= 500 && e.statusCode < 600)) {
+                    console.warn(`[gemini] ${model} → ${e.statusCode}; probando siguiente modelo…`);
+                    continue;
+                }
+                throw e;
             }
-            throw e;
         }
+        // Si lo agotado es la cuota DIARIA no sirve esperar — corta ya
+        // (los módulos caen a sus heurísticas locales sin LLM).
+        const isDaily = /PerDay/i.test(lastErr?.message || '');
+        if (attempt === 0 && !isDaily && lastErr && (lastErr.statusCode === 429 || lastErr.statusCode >= 500)) {
+            const m = /retryDelay[^0-9]*(\d+)/.exec(lastErr.message || '');
+            const waitMs = Math.min(20000, (m ? parseInt(m[1], 10) : 10) * 1000);
+            console.warn(`[gemini] cadena agotada (rate limit) — esperando ${waitMs / 1000}s y reintentando…`);
+            await new Promise(r => setTimeout(r, waitMs));
+        } else break;
     }
     throw lastErr || new Error('Gemini: sin modelos disponibles');
 }
@@ -101,6 +115,10 @@ function generateText({ messages, prompt, temperature = 0.4, maxTokens = 900, js
         generationConfig: {
             temperature,
             maxOutputTokens: maxTokens,
+            // gemini-2.5-flash piensa por defecto y el thinking CONSUME
+            // maxOutputTokens — con prompts largos la respuesta salía vacía.
+            // Para el uso de Gunter (respuestas cortas + JSON) se apaga.
+            thinkingConfig: { thinkingBudget: 0 },
             ...(jsonMode ? { responseMimeType: 'application/json' } : {})
         }
     };
