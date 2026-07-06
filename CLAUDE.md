@@ -58,7 +58,7 @@ server/premium-intel/        Premium Intelligence (Sprint B-F)
 ```
 POST  /api/transcribe         Whisper (OpenAI) o Gemini audio (v42, multipart parser propio)
 POST  /api/chat               LLM principal — OpenAI o Gemini (shape OpenAI siempre)
-POST  /api/tts                Voz: OpenAI TTS → Gemini TTS neuronal (v43, cache data/tts-cache) → 503 fallback:browser
+POST  /api/tts                Voz: OpenAI → Edge TTS neuronal (v44, gratis sin cuota) → Gemini TTS → 503 fallback:browser · cache data/tts-cache
 POST  /api/embeddings         text-embedding-3-small o gemini-embedding-001 @1536d (shape OpenAI)
 POST  /api/gemini-text        Gemini text
 POST  /api/gemini-image       Gemini Nano Banana
@@ -499,11 +499,15 @@ sin cuota free — NO usarlos). Embeddings: `gemini-embedding-001` @1536d (compa
 los vectores viejos de OpenAI; si la búsqueda semántica se ve rara, limpiar IDB `gunter_embeddings`
 + `gunter_semantic_index`). Transcripción: audio inline máx 14 MB por chunk (los chunks del recorder son ~500 KB).
 
-**v43 — Voz humana con Gemini TTS**: `gemini-2.5-flash-preview-tts` (voces neuronales free tier).
-Cadena: OpenAI TTS (si hay key) → Gemini TTS → speechSynthesis del navegador (el cliente cae solo
-ante cualquier 503). Mapeo de voces OpenAI→Gemini en `gemini-client.js` (fable→Puck, nova→Sulafat…).
-Salida PCM 24kHz envuelta en WAV. Cache en disco `data/tts-cache/` (sha1 de voz+texto, máx 400
-archivos) — las frases repetidas de Gunter no consumen cuota. Si la cuota TTS del día se agota,
-la voz degrada al navegador automáticamente sin romper nada.
+**v43/v44 — Voz humana gratis**: cadena `OpenAI TTS (si hay key) → Edge TTS → Gemini TTS →
+speechSynthesis del navegador` (el cliente cae solo ante cualquier 503).
+- **Edge TTS** (`server/edge-tts-client.js`, npm `msedge-tts`): voces neuronales Microsoft para
+  es-419, SIN key y SIN cuota (~1s por frase, mp3). Mapeo: fable→es-MX-Dalia, nova→es-CO-Salome,
+  shimmer→es-US-Paloma, alloy→es-MX-Jorge, echo→es-US-Alonso, onyx→es-CO-Gonzalo. Servicio no
+  oficial: si Microsoft lo cambia, la cadena degrada sola.
+- **Gemini TTS** (`gemini-2.5-flash-preview-tts`, free tier): respaldo. Voces Puck/Sulafat/Zephyr…
+  PCM 24kHz → WAV (~4s por frase).
+- Cache en disco `data/tts-cache/` (sha1 de voz+texto, .mp3=Edge .wav=Gemini, máx 400 archivos) —
+  las frases repetidas salen en ~5ms sin tocar la red.
 
 WhatsApp: scan QR desde `config.html → Premium → WhatsApp Assistant → Conectar`.

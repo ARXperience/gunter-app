@@ -498,9 +498,9 @@ const handleRequest = async (req, res) => {
                         res.writeHead(400, { 'Content-Type': 'application/json' });
                         return res.end(JSON.stringify({ error: 'text requerido' }));
                     }
-                    const buf = await ttsCachedSynthesize(String(text), String(voice || 'fable'));
+                    const { buffer: buf, mime } = await ttsCachedSynthesize(String(text), String(voice || 'fable'));
                     res.writeHead(200, {
-                        'Content-Type': 'audio/wav',
+                        'Content-Type': mime,
                         'Content-Length': buf.length,
                         'Cache-Control': 'no-store'
                     });
@@ -1460,20 +1460,35 @@ console.log('⏱️  Server timeouts configured for large file uploads (10 min)'
 // ---------- Helpers ----------
 
 // Cache de TTS en disco (v43): Gunter repite muchas frases ("Listo.",
-// "Quedó agendado.") — cachear el WAV ahorra la cuota free de Gemini TTS.
+// "Quedó agendado.") — cachear el audio ahorra red y cuota.
 // Clave = sha1(voz+texto). Tope ~400 archivos (se purgan los más viejos).
+// v44 — Cadena de proveedores: Edge TTS (neuronal, sin cuota) → Gemini TTS.
 const TTS_CACHE_DIR = path.join(__dirname, 'data', 'tts-cache');
+let edgeTts = null;
+try { edgeTts = require('./server/edge-tts-client'); }
+catch (e) { console.warn('⚠️  Edge TTS no disponible:', e.message); }
+
 async function ttsCachedSynthesize(text, voice) {
     const crypto = require('crypto');
     const key = crypto.createHash('sha1').update(voice + '|' + text).digest('hex');
-    const file = path.join(TTS_CACHE_DIR, key + '.wav');
-    try { if (fs.existsSync(file)) return fs.readFileSync(file); } catch { }
+    // Cache hit (mp3 = Edge, wav = Gemini)
+    for (const [ext, mime] of [['mp3', 'audio/mpeg'], ['wav', 'audio/wav']]) {
+        const f = path.join(TTS_CACHE_DIR, key + '.' + ext);
+        try { if (fs.existsSync(f)) return { buffer: fs.readFileSync(f), mime }; } catch { }
+    }
 
-    const { buffer } = await geminiClient.synthesizeSpeech({ text, voice });
+    let result = null;
+    if (edgeTts && edgeTts.available()) {
+        try { result = await edgeTts.synthesizeSpeech({ text, voice }); }
+        catch (e) { console.warn('[tts] Edge falló, probando Gemini:', e.message.slice(0, 100)); }
+    }
+    if (!result) result = await geminiClient.synthesizeSpeech({ text, voice });
+
     try {
         if (!fs.existsSync(TTS_CACHE_DIR)) fs.mkdirSync(TTS_CACHE_DIR, { recursive: true });
-        fs.writeFileSync(file, buffer);
-        // Higiene: máx ~400 wavs en cache
+        const ext = result.mime === 'audio/mpeg' ? 'mp3' : 'wav';
+        fs.writeFileSync(path.join(TTS_CACHE_DIR, key + '.' + ext), result.buffer);
+        // Higiene: máx ~400 audios en cache
         const files = fs.readdirSync(TTS_CACHE_DIR);
         if (files.length > 400) {
             files.map(f => ({ f, t: fs.statSync(path.join(TTS_CACHE_DIR, f)).mtimeMs }))
@@ -1482,7 +1497,7 @@ async function ttsCachedSynthesize(text, voice) {
                 .forEach(x => { try { fs.unlinkSync(path.join(TTS_CACHE_DIR, x.f)); } catch { } });
         }
     } catch (e) { console.warn('[tts-cache] no se pudo guardar:', e.message); }
-    return buffer;
+    return result;
 }
 
 // Parser multipart mínimo (v42): extrae el primer archivo + campo 'language'
