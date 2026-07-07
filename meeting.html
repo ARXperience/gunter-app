@@ -2,8 +2,8 @@
 <html lang="es">
 
 <head>
-    <script src="js/services/log-buffer.js?v48-portal-1783380000000"></script>
-    <script src="js/services/auth-service.js?v48-portal-1783380000000"></script>
+    <script src="js/services/log-buffer.js?v49-lighttheme-1783390000000"></script>
+    <script src="js/services/auth-service.js?v49-lighttheme-1783390000000"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Gunter App - Sala de Guerra - Grabación y análisis de reuniones">
@@ -39,12 +39,12 @@
     <link rel="apple-touch-icon" href="assets/gunter/gunter_transparent_default_1769134184933.png">
 
     <!-- Medieval Futuristic Theme -->
-    <link rel="stylesheet" href="styles/gunter-mascot.css?v48-portal-1783380000000">
-    <link rel="stylesheet" href="styles/gunter-companion.css?v48-portal-1783380000000">
+    <link rel="stylesheet" href="styles/gunter-mascot.css?v49-lighttheme-1783390000000">
+    <link rel="stylesheet" href="styles/gunter-companion.css?v49-lighttheme-1783390000000">
         <link rel="preload" as="style" href="styles/gunter-design-system.css">
     <link rel="preload" as="style" href="styles/gunter-legacy-overrides.css">
-<link rel="stylesheet" href="styles/gunter-design-system.css?v48-portal-1783380000000">
-    <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v48-portal-1783380000000">
+<link rel="stylesheet" href="styles/gunter-design-system.css?v49-lighttheme-1783390000000">
+    <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v49-lighttheme-1783390000000">
 </head>
 
 <body class="at-light">
@@ -298,7 +298,7 @@
 
     <!-- Scripts -->
     <script src="js/config.js"></script>
-    <script src="js/premium-features-service.js?v48-portal-1783380000000" defer></script>
+    <script src="js/premium-features-service.js?v49-lighttheme-1783390000000" defer></script>
     <script src="js/theme-manager.js" defer></script>
     <script src="js/theme-backgrounds.js" defer></script>
     <!-- Hooks premium (no ejecutan nada salvo que el flag esté activo):
@@ -319,9 +319,9 @@
     <script src="js/ai-analysis.js" defer></script>
     <script src="js/transcription-service.js" defer></script>
     <script src="js/audio-chunker.js" defer></script>
-    <script src="js/services/status-bus.js?v48-portal-1783380000000" defer></script>
-    <script src="js/services/connectivity-monitor.js?v48-portal-1783380000000" defer></script>
-    <script src="js/services/error-mapper.js?v48-portal-1783380000000" defer></script>
+    <script src="js/services/status-bus.js?v49-lighttheme-1783390000000" defer></script>
+    <script src="js/services/connectivity-monitor.js?v49-lighttheme-1783390000000" defer></script>
+    <script src="js/services/error-mapper.js?v49-lighttheme-1783390000000" defer></script>
 
     <!-- ============== Fase A.A1 — Voz / Wake word / Premium Intel en reuniones ==============
          Cargados en orden de dependencia. Cada servicio respeta sus flags premium:
@@ -332,8 +332,8 @@
          No se inicializan agresivamente; respetan configuración premium del usuario. -->
 
     <!-- Servicios base requeridos por el pipeline (transcript-store ya cargado arriba en B4) -->
-    <script src="js/services/notifications-service.js?v48-portal-1783380000000" defer></script>
-    <script src="js/services/nlp-llm-service.js?v48-portal-1783380000000" defer></script>
+    <script src="js/services/notifications-service.js?v49-lighttheme-1783390000000" defer></script>
+    <script src="js/services/nlp-llm-service.js?v49-lighttheme-1783390000000" defer></script>
     <script src="js/services/tasks-service.js" defer></script>
     <script src="js/services/events-service.js" defer></script>
 
@@ -342,12 +342,12 @@
     <script src="js/services/wake-word-service.js" defer></script>
 
     <!-- v2 — Memoria conversacional cross-sesión (F1) — necesaria para que
-         climate-service.refineWithLLM no inyecte memoria pesada (skipMemory:true) -->    <script src="js/services/embedding-service.js?v48-portal-1783380000000" defer></script>
+         climate-service.refineWithLLM no inyecte memoria pesada (skipMemory:true) -->    <script src="js/services/embedding-service.js?v49-lighttheme-1783390000000" defer></script>
 
-    <script src="js/services/conversation-memory-service.js?v48-portal-1783380000000" defer></script>
+    <script src="js/services/conversation-memory-service.js?v49-lighttheme-1783390000000" defer></script>
 
     <!-- v2 — Detector de Compromisos (F2) — auto-detect post-análisis -->
-    <script src="js/services/commitments-service.js?v48-portal-1783380000000" defer></script>
+    <script src="js/services/commitments-service.js?v49-lighttheme-1783390000000" defer></script>
 
     <!-- v2 — Clima de Reunión (F4) — auto-arranca al evento gunter-recording-started -->
     <script src="js/services/meeting-climate-service.js" defer></script>
@@ -1139,18 +1139,18 @@ TRANSCRIPCIÓN ACTUAL:
     </script>
 
     <!-- Medieval Futuristic Theme -->
-    <script src="js/services/sw-updater.js?v48-portal-1783380000000" defer></script>
-    <script src="js/services/theme-toggle.js?v48-portal-1783380000000" defer></script>    <script src="js/services/actions-service.js?v48-portal-1783380000000" defer></script>    <script src="js/services/proactive-service.js?v48-portal-1783380000000" defer></script>    <script src="js/services/style-mirror-service.js?v48-portal-1783380000000" defer></script>    <script src="js/services/forecast-service.js?v48-portal-1783380000000" defer></script>    <script src="js/services/tutor-service.js?v48-portal-1783380000000" defer></script>
-    <script src="js/services/gunter-rules-service.js?v48-portal-1783380000000" defer></script>
-    <script src="js/services/gunter-mood-service.js?v48-portal-1783380000000" defer></script>
+    <script src="js/services/sw-updater.js?v49-lighttheme-1783390000000" defer></script>
+    <script src="js/services/theme-toggle.js?v49-lighttheme-1783390000000" defer></script>    <script src="js/services/actions-service.js?v49-lighttheme-1783390000000" defer></script>    <script src="js/services/proactive-service.js?v49-lighttheme-1783390000000" defer></script>    <script src="js/services/style-mirror-service.js?v49-lighttheme-1783390000000" defer></script>    <script src="js/services/forecast-service.js?v49-lighttheme-1783390000000" defer></script>    <script src="js/services/tutor-service.js?v49-lighttheme-1783390000000" defer></script>
+    <script src="js/services/gunter-rules-service.js?v49-lighttheme-1783390000000" defer></script>
+    <script src="js/services/gunter-mood-service.js?v49-lighttheme-1783390000000" defer></script>
 
 
 
 
 
-    <script src="js/services/gunter-companion.js?v48-portal-1783380000000" defer></script>
-    <script src="js/services/smooth-scroll.js?v48-portal-1783380000000" defer></script>
-    <script src="js/services/gunter-onboarding.js?v48-portal-1783380000000" defer></script>
+    <script src="js/services/gunter-companion.js?v49-lighttheme-1783390000000" defer></script>
+    <script src="js/services/smooth-scroll.js?v49-lighttheme-1783390000000" defer></script>
+    <script src="js/services/gunter-onboarding.js?v49-lighttheme-1783390000000" defer></script>
 </body>
 
 </html>

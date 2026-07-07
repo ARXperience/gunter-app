@@ -792,7 +792,8 @@
             return `<div class="gps-warning">⚠️ Requiere conexión con Google. Conecta tu cuenta abajo para activar la sincronización real.</div>`;
         }
         if (status === 'requires_connection' && id.startsWith('whatsapp')) {
-            return `<div class="gps-warning">⚠️ Requiere WhatsApp Business API conectada a un backend. La UI está lista; la integración real llegará próximamente.</div>`;
+            // v48: la integración es REAL (Baileys) — solo falta escanear el QR
+            return `<div class="gps-warning">📱 Para activarlo, conecta el WhatsApp del sistema con el botón "Conectar con QR" (solo el administrador). Después cada usuario vincula su número desde su menú de usuario.</div>`;
         }
         if (id === 'documentSync') {
             return `<div class="gps-warning">⚠️ Notion y Google Drive requieren autenticación OAuth con sus APIs. Próximamente.</div>`;

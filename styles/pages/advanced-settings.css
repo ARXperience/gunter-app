@@ -30,6 +30,20 @@
 }
 @keyframes gpsIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
 
+/* ---------- Tema claro (body.at-light) ----------
+   La paleta base asume fondo oscuro (texto casi blanco hardcodeado) —
+   en claro los labels de las sub-funciones quedaban invisibles. */
+body.at-light .gps {
+    --gps-bg:         color-mix(in srgb, #ffffff 88%, transparent);
+    --gps-surface:    color-mix(in srgb, #f2f4fa 88%, transparent);
+    --gps-border:     rgba(30, 40, 70, 0.14);
+    --gps-border-hi:  rgba(30, 40, 70, 0.30);
+    --gps-text:       #1f2637;
+    --gps-text-dim:   rgba(31, 38, 55, 0.80);
+    --gps-text-mute:  rgba(31, 38, 55, 0.56);
+    --gps-accent-2:   color-mix(in srgb, var(--accent-primary, #0087b8) 65%, black);
+}
+
 .gps__intro {
     padding: 18px 22px;
     background: linear-gradient(135deg,
