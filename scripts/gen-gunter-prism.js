@@ -39,7 +39,7 @@ async function gen(prompt, outFile) {
 
     // 1. Versión SIN FONDO (la que usan login + hero del dashboard)
     await gen(
-        'A sleek matte-black robotic penguin with glowing cyan circuit-board lines tracing across its body like neural pathways. Isolated character on a fully TRANSPARENT background (PNG with alpha channel), no scenery, no floor, no shadows on ground — just the penguin, full body, standing pose, photorealistic 3D render, cold cinematic rim lighting, high detail.',
+        'Gunter the penguin from Adventure Time cartoon: small cute penguin, black body, white oval face and belly, tiny black eyes, small yellow-orange beak, flat cartoon style faithful to the show. He wears ONLY one accessory: a sleek futuristic collar necklace with a glowing cyan EYE-shaped amulet pendant (like a cybernetic eye). Nothing else — no suit, no clothes, no armor. Full body, standing, facing forward. Isolated on a fully TRANSPARENT background (PNG alpha channel), no scenery, no checkerboard pattern, no floor.',
         path.join(dir, 'gunter-prism-nobg.png')
     );
 

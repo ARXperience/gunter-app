@@ -191,6 +191,37 @@ body.at-light .project-card::after {
     background: linear-gradient(to bottom, transparent, rgba(8, 145, 178, 0.45), transparent);
 }
 
+/* ---------- Stat cards del dashboard (v55) ----------
+   Antes verdes/naranjas sólidas — fuera de estilo. Ahora vidrio
+   prisma con el ícono como única nota de color (chip cian suave). */
+body.at-dark .stat-card:nth-child(n),
+body.at-light .stat-card:nth-child(n) {
+    background: var(--prism-surface) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-top-color: var(--prism-edge) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 0 40px rgba(0, 255, 255, 0.04);
+}
+body.at-light .stat-card:nth-child(n) {
+    background: rgba(255, 255, 255, 0.66) !important;
+    border: 1px solid rgba(30, 41, 70, 0.08) !important;
+    border-top-color: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 8px 30px rgba(30, 41, 70, 0.08);
+}
+body.at-dark .stat-card:nth-child(n) .stat-card__icon,
+body.at-light .stat-card:nth-child(n) .stat-card__icon {
+    background: rgba(34, 211, 238, 0.12) !important;
+    color: var(--prism-cyan) !important;
+    border: 1px solid rgba(34, 211, 238, 0.25) !important;
+}
+body.at-light .stat-card:nth-child(n) .stat-card__icon {
+    background: rgba(8, 145, 178, 0.10) !important;
+    color: #0891b2 !important;
+    border-color: rgba(8, 145, 178, 0.25) !important;
+}
+
 /* ---------- Utilidades prisma (ambos temas) ---------- */
 .prism-diffraction {
     height: 1px;

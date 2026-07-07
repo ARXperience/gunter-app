@@ -8,7 +8,7 @@
 (function () {
     if (!('serviceWorker' in navigator)) return;
 
-    const CURRENT_APP_VERSION = "v54-prismday-1783440000000";
+    const CURRENT_APP_VERSION = "v55-mascota-1783450000000";
 
     // Al cargar la página, verifica si hay update del SW
     navigator.serviceWorker.getRegistration()
