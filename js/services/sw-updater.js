@@ -8,7 +8,7 @@
 (function () {
     if (!('serviceWorker' in navigator)) return;
 
-    const CURRENT_APP_VERSION = "v60-cyber-1783500000000";
+    const CURRENT_APP_VERSION = "v61-luzprimaria-1783510000000";
 
     // Al cargar la página, verifica si hay update del SW
     navigator.serviceWorker.getRegistration()

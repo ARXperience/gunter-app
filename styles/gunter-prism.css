@@ -681,3 +681,64 @@ body :is(input, textarea, select):focus {
 @media (prefers-reduced-motion: reduce) {
     body * { animation: none !important; transition: none !important; }
 }
+
+/* =============================================
+   LUZ PRIMARIA (v61) — adiós morado: blanco brillante
+   tirando a azul hielo tecnológico
+   ============================================= */
+body.at-dark {
+    --gd-primary:           #e8f4ff;
+    --gd-primary-hi:        #bfe3ff;
+    --gd-primary-lo:        rgba(191, 227, 255, 0.10);
+    --gd-primary-container: rgba(191, 227, 255, 0.14);
+    --accent-primary:       #9fd8ff;
+}
+body.at-light {
+    --gd-primary:           #0369a1;
+    --gd-primary-hi:        #0284c7;
+    --gd-primary-lo:        #eff8ff;
+    --gd-primary-container: #e0f2fe;
+    --accent-primary:       #0284c7;
+}
+
+/* Títulos con gradiente → luz de hielo con halo tenue */
+body.at-dark .text-gradient {
+    color: #e8f4ff !important;
+    text-shadow: 0 0 26px rgba(191, 227, 255, 0.30);
+}
+body.at-light .text-gradient {
+    color: #075985 !important;
+    text-shadow: none;
+}
+
+/* Botón primario: luz blanca-azul con tinta oscura (estilo AURA) */
+body.at-dark .btn--primary, body.at-dark button[type="submit"].btn--primary {
+    background: linear-gradient(135deg, #ffffff 0%, #dcefff 100%) !important;
+    color: #0b1220 !important;
+    box-shadow: 0 0 22px rgba(191, 227, 255, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+body.at-dark .btn--primary svg { stroke: #0b1220 !important; }
+body.at-dark .btn--primary:hover {
+    box-shadow: 0 0 34px rgba(191, 227, 255, 0.45), inset 0 1px 0 #ffffff !important;
+}
+body.at-light .btn--primary {
+    background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+    color: #ffffff !important;
+}
+
+/* Tarjeta de encabezado (Proyectos y análisis): márgenes y bordes correctos */
+body:is(.at-dark,.at-light) .dashboard-header,
+body:is(.at-dark,.at-light) .config-header,
+body:is(.at-dark,.at-light) .results-header {
+    padding: clamp(20px, 2.6vw, 30px) !important;
+    margin: 0 0 20px !important;
+    border-radius: 14px !important;
+}
+.dashboard-header > div { min-width: 0; }
+.dashboard-header__title { margin: 4px 0 6px !important; }
+.dashboard-header__subtitle { margin: 0 !important; }
+
+/* Halo de hielo directo en los títulos de página (v61b) */
+body.at-dark :is(.dashboard-header__title, .config-header__title, .gday__title, .results-header__title, .prism-hero__text h2) {
+    text-shadow: 0 0 26px rgba(191, 227, 255, 0.28);
+}
