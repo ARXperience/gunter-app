@@ -33,6 +33,9 @@ body.at-dark {
 
 /* ---------- Paneles de vidrio (contenedores conocidos del sistema) ---------- */
 body.at-dark .gday__panel,
+body.at-dark .gday__card,
+body.at-dark .gday__quickbar,
+body.at-dark .gday__sidebar,
 body.at-dark .gps-card,
 body.at-dark .gps__intro,
 body.at-dark .env-card,
@@ -41,12 +44,18 @@ body.at-dark .gadm__stat,
 body.at-dark .project-card,
 body.at-dark .config-form__section,
 body.at-dark .dashboard-header,
+body.at-dark .sidebar,
 body.at-dark .audio-upload-section,
+body.at-dark .meeting-panel,
+body.at-dark .results-header,
+body.at-dark .results-content > section,
+body.at-dark .step-indicator,
+body.at-dark .trimmer-container,
 body.at-dark .card,
 body.at-dark .glass-card {
     background: var(--prism-surface) !important;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
     border: 1px solid rgba(255, 255, 255, 0.05) !important;
     border-top-color: var(--prism-edge) !important;
     border-left-color: var(--prism-edge) !important;

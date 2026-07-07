@@ -16,7 +16,7 @@
         } catch {}
         // Sistema
         if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) return 'dark';
-        return 'light';
+        return 'dark';   // v53: Obsidian Prism es el default
     }
 
     function apply(mode) {
