@@ -1,55 +1,71 @@
 /* =============================================
-   Genera las imágenes prism de Gunter con Gemini (v54)
+   Genera el Gunter REALISTA con collar-ojo (v58)
    ---------------------------------------------
    Uso:  node scripts/gen-gunter-prism.js
-   Requiere el server corriendo (lee el service token) y cuota
-   free de imágenes disponible (se renueva a medianoche Pacífico).
+   Requiere server corriendo + cuota free de imágenes
+   (se renueva a medianoche Pacífico ≈ 2 AM Colombia).
 
-   Crea:
-     assets/gunter/gunter-prism-nobg.png  (pingüino aislado, fondo transparente)
-     assets/gunter/gunter-prism.png       (escena completa — solo si no existe)
+   Pipeline: genera pingüino FOTORREALISTA sobre fondo blanco
+   → flood-fill elimina el blanco desde los bordes → guarda
+   assets/gunter/gunter-prism-nobg.png (transparente real).
+   El dashboard/login lo prefieren sobre el SVG automáticamente.
    ============================================= */
 
 const fs = require('fs');
 const path = require('path');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 
 const ROOT = path.join(__dirname, '..');
-const svc = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/service-token.json'), 'utf8')).token;
 const BASE = process.env.GUNTER_URL || 'http://localhost:3001';
 
-async function gen(prompt, outFile) {
-    const r = await fetch(BASE + '/api/gemini-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + svc },
-        body: JSON.stringify({ prompt })
-    });
-    if (r.status !== 200) {
-        const err = (await r.text()).slice(0, 160);
-        console.log(`✗ ${path.basename(outFile)}: HTTP ${r.status} — ${err}`);
-        return false;
+const PROMPT = 'Photorealistic penguin, ultra realistic: a real black and white penguin with natural glossy feathers, white belly, subtle orange beak. It wears ONLY one accessory: a sleek futuristic high-tech collar band around its neck with a glowing cyan EYE-shaped lens amulet at the center, faint cyan light reflecting on its chest feathers. No clothes, no suit — a real penguin with one futuristic collar. Full body, standing, facing slightly forward. Isolated on a plain pure WHITE studio background, professional photography lighting, 8k detail.';
+
+async function removeWhiteBg(buf) {
+    const img = await loadImage(buf);
+    const W = img.width, H = img.height;
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const imgData = ctx.getImageData(0, 0, W, H);
+    const d = imgData.data;
+    // blanco/casi-blanco conectado al borde → transparente
+    const ok = (r, g, b) => r >= 232 && g >= 232 && b >= 232;
+    const visited = new Uint8Array(W * H); const queue = [];
+    const push = (x, y) => {
+        if (x < 0 || y < 0 || x >= W || y >= H) return;
+        const p = y * W + x; if (visited[p]) return;
+        const i = p * 4; if (!ok(d[i], d[i + 1], d[i + 2])) return;
+        visited[p] = 1; queue.push(p);
+    };
+    for (let x = 0; x < W; x++) { push(x, 0); push(x, H - 1); }
+    for (let y = 0; y < H; y++) { push(0, y); push(W - 1, y); }
+    let n = 0;
+    while (queue.length) {
+        const p = queue.pop(); const i = p * 4;
+        d[i + 3] = 0; n++;
+        const x = p % W, y = (p / W) | 0;
+        push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
     }
-    const d = await r.json();
-    fs.writeFileSync(outFile, Buffer.from(d.data, 'base64'));
-    console.log(`✅ ${path.basename(outFile)} (${(fs.statSync(outFile).size / 1024).toFixed(0)} KB)`);
-    return true;
+    ctx.putImageData(imgData, 0, 0);
+    console.log(`   fondo blanco eliminado: ${(n / (W * H) * 100).toFixed(1)}%`);
+    return canvas.toBuffer('image/png');
 }
 
 (async () => {
-    const dir = path.join(ROOT, 'assets', 'gunter');
-
-    // 1. Versión SIN FONDO (la que usan login + hero del dashboard)
-    await gen(
-        'Gunter the penguin from Adventure Time cartoon: small cute penguin, black body, white oval face and belly, tiny black eyes, small yellow-orange beak, flat cartoon style faithful to the show. He wears ONLY one accessory: a sleek futuristic collar necklace with a glowing cyan EYE-shaped amulet pendant (like a cybernetic eye). Nothing else — no suit, no clothes, no armor. Full body, standing, facing forward. Isolated on a fully TRANSPARENT background (PNG alpha channel), no scenery, no checkerboard pattern, no floor.',
-        path.join(dir, 'gunter-prism-nobg.png')
-    );
-
-    // 2. Escena completa (solo si el usuario no guardó la suya)
-    if (!fs.existsSync(path.join(dir, 'gunter-prism.png'))) {
-        await gen(
-            'A sleek matte-black robotic penguin standing in a futuristic concrete room with a circular window showing glaciers. Glowing cyan circuit-board lines trace across its body. Cold cinematic lighting, obsidian and teal tones, holographic dashboard panel floating beside it, photorealistic 3D render.',
-            path.join(dir, 'gunter-prism.png')
-        );
-    } else {
-        console.log('· gunter-prism.png ya existe — no se toca');
+    const svc = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/service-token.json'), 'utf8')).token;
+    const r = await fetch(BASE + '/api/gemini-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + svc },
+        body: JSON.stringify({ prompt: PROMPT })
+    });
+    if (r.status !== 200) {
+        console.log(`✗ HTTP ${r.status} — ${(await r.text()).slice(0, 140)}`);
+        process.exit(1);
     }
+    const d = await r.json();
+    const raw = Buffer.from(d.data, 'base64');
+    console.log(`✅ imagen generada (${(raw.length / 1024).toFixed(0)} KB) — limpiando fondo…`);
+    const clean = await removeWhiteBg(raw);
+    fs.writeFileSync(path.join(ROOT, 'assets/gunter/gunter-prism-nobg.png'), clean);
+    console.log('✅ assets/gunter/gunter-prism-nobg.png listo (transparente real)');
 })();

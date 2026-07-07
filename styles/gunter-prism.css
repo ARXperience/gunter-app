@@ -348,6 +348,63 @@ body.at-dark input[type="search"], body.at-dark textarea, body.at-dark select {
     border-color: rgba(255, 255, 255, 0.09);
 }
 
+/* =============================================
+   NORMALIZACIÓN UNIVERSAL (v58) — sin excepciones:
+   todos los botones, todas las esquinas, todos los espacios
+   ============================================= */
+
+/* TODOS los botones — borde tenue + radio consistente */
+body.at-dark button:not([class*="switch"]):not(.password-toggle):not(.gauth-chip__item),
+body.at-dark a.btn, body.at-dark .abtn, body.at-dark .gps-inline-btn,
+body.at-dark input[type="submit"], body.at-dark input[type="button"] {
+    border-radius: 12px !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    transition: box-shadow .25s ease, border-color .25s ease, filter .2s ease;
+}
+body.at-light button:not([class*="switch"]):not(.password-toggle):not(.gauth-chip__item),
+body.at-light a.btn, body.at-light .abtn, body.at-light .gps-inline-btn,
+body.at-light input[type="submit"], body.at-light input[type="button"] {
+    border-radius: 12px !important;
+    border: 1px solid rgba(30, 41, 70, 0.07) !important;
+    transition: box-shadow .25s ease, border-color .25s ease, filter .2s ease;
+}
+
+/* HOVER universal: LUZ BLANCA, nunca color */
+body:is(.at-dark,.at-light) :is(button, .btn, .abtn, a.btn, .gps-inline-btn):hover,
+body:is(.at-dark,.at-light) :is(button, .btn, .abtn, a.btn, .gps-inline-btn):focus-visible {
+    box-shadow: 0 0 18px rgba(255, 255, 255, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    filter: brightness(1.04);
+}
+/* Neutros: velo blanco translúcido reemplaza hovers de color legacy.
+   Semánticos (primary/ok/warn/danger) conservan su base y solo ganan luz. */
+body.at-dark :is(button, .btn):not([class*="--primary"]):not([class*="--ok"]):not([class*="--warn"]):not([class*="--danger"]):not([class*="switch"]):not(.password-toggle):not(.gauth-chip__item):hover {
+    background-color: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(255, 255, 255, 0.18) !important;
+}
+body.at-light :is(button, .btn):not([class*="--primary"]):not([class*="--ok"]):not([class*="--warn"]):not([class*="--danger"]):not([class*="switch"]):not(.password-toggle):not(.gauth-chip__item):hover {
+    background-color: rgba(255, 255, 255, 0.88) !important;
+    border-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* ESQUINAS universales */
+body :is([class*="card"], [class*="panel"], [class*="-box"], [class*="modal"], .toast, [class*="dropzone"], [class*="preview"]) {
+    border-radius: 14px;
+}
+body :is([class*="chip"], .pill, [class*="badge"]) {
+    border-radius: 999px;
+}
+body :is(input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="search"], textarea, select) {
+    border-radius: 10px !important;
+}
+
+/* ESPACIOS: respiración mínima consistente */
+body :is(.projects-grid, .stats-grid, .env-cards, .gadm__grid) {
+    gap: 16px !important;
+}
+body :is(.gday__panel, .gday__tab-panel, .gps-card, .gadm__card, .meeting-panel, .project-card, .env-card, .stat-card) {
+    padding: clamp(16px, 2.2vw, 24px);
+}
+
 /* ---------- Utilidades prisma (ambos temas) ---------- */
 .prism-diffraction {
     height: 1px;
