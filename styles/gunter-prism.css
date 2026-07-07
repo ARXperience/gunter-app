@@ -600,3 +600,84 @@ body.at-light :is(.sidebar__nav-item.active, .sidebar__nav-item.is-active,
     border-color: rgba(255, 255, 255, 0.95) !important;
     box-shadow: 0 0 16px rgba(255, 255, 255, 0.7), 0 4px 12px rgba(30, 41, 70, 0.08) !important;
 }
+
+/* =============================================
+   ANIMACIONES CYBER (v60) — futuristas y sutiles
+   ============================================= */
+
+/* Entrada de tarjetas: materialización (desenfoque → nítido + ascenso) */
+@keyframes prismEnter {
+    0%   { opacity: 0; transform: translateY(12px); filter: blur(6px); }
+    60%  { filter: blur(1px); }
+    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+body:is(.at-dark,.at-light) :is(.gday__panel, .gday__card, .gps-card, .env-card,
+    .gadm__card, .gadm__stat, .project-card, .meeting-panel, .stat-card,
+    .config-form__section, .prism-hero__glass) {
+    animation: prismEnter 460ms cubic-bezier(.22,.61,.36,1) backwards;
+}
+/* Escalonado: cada tarjeta llega 60ms después de la anterior */
+body :is(.gday__panel, .gps-card, .env-card, .gadm__card, .gadm__stat,
+    .project-card, .stat-card):nth-child(2) { animation-delay: 60ms; }
+body :is(.gday__panel, .gps-card, .env-card, .gadm__card, .gadm__stat,
+    .project-card, .stat-card):nth-child(3) { animation-delay: 120ms; }
+body :is(.gday__panel, .gps-card, .env-card, .gadm__card, .gadm__stat,
+    .project-card, .stat-card):nth-child(4) { animation-delay: 180ms; }
+body :is(.gps-card, .gadm__stat, .project-card, .stat-card):nth-child(5) { animation-delay: 240ms; }
+body :is(.gps-card, .gadm__stat, .project-card, .stat-card):nth-child(6) { animation-delay: 300ms; }
+
+/* Barrido de luz en el borde superior al hover (scan cyber) */
+@keyframes prismSweep {
+    0%   { transform: translateX(-110%); opacity: 0; }
+    15%  { opacity: 1; }
+    100% { transform: translateX(110%); opacity: 0; }
+}
+body :is(.gday__panel, .gps-card, .project-card, .env-card, .gadm__card,
+    .meeting-panel, .stat-card) { overflow: hidden; }
+body :is(.gday__panel, .gps-card, .project-card, .env-card, .gadm__card,
+    .meeting-panel, .stat-card)::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 60%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent);
+    transform: translateX(-110%);
+    opacity: 0;
+    pointer-events: none;
+}
+body :is(.gday__panel, .gps-card, .project-card, .env-card, .gadm__card,
+    .meeting-panel, .stat-card):hover::before {
+    animation: prismSweep 900ms ease-out;
+}
+
+/* Botones: tacto cyber (compresión al presionar) */
+body :is(button, .btn, .abtn, a.btn):active {
+    transform: scale(0.97);
+}
+
+/* Punto de estado y valores: pulso de vida */
+@keyframes prismLive {
+    0%, 100% { text-shadow: 0 0 0 rgba(255,255,255,0); }
+    50%      { text-shadow: 0 0 14px rgba(255,255,255,.25); }
+}
+.stat-card__value, .gadm__stat .n { animation: prismLive 4s ease-in-out infinite; }
+
+/* Títulos: encendido único al cargar */
+@keyframes prismIgnite {
+    0%   { opacity: 0; letter-spacing: .08em; filter: blur(4px); }
+    100% { opacity: 1; letter-spacing: -0.02em; filter: blur(0); }
+}
+h1, .dashboard-header__title, .config-header__title, .gday__title,
+.prism-hero__text h2 {
+    animation: prismIgnite 620ms cubic-bezier(.22,.61,.36,1) backwards;
+}
+
+/* Inputs: línea de foco que se enciende */
+body :is(input, textarea, select):focus {
+    transition: border-color .2s ease, box-shadow .3s ease;
+}
+
+/* Accesibilidad: sin movimiento si el usuario lo pide */
+@media (prefers-reduced-motion: reduce) {
+    body * { animation: none !important; transition: none !important; }
+}
