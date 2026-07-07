@@ -78,7 +78,7 @@
   border-color: var(--glass-border-hi);
   box-shadow:
     var(--shadow-xl),
-    0 0 0 1px rgba(139, 92, 246, 0.15);
+    0 0 0 1px rgba(56, 189, 248, 0.15);
 }
 
 .gn-glass--interactive:active {
@@ -144,7 +144,7 @@
 }
 
 .gn-glass-btn:focus-visible {
-  outline: 3px solid rgba(139, 92, 246, 0.55);
+  outline: 3px solid rgba(56, 189, 248, 0.55);
   outline-offset: 3px;
 }
 
@@ -227,7 +227,7 @@
   border-color: var(--accent-purple);
   background: rgba(0, 0, 0, 0.35);
   box-shadow:
-    0 0 0 3px rgba(139, 92, 246, 0.20),
+    0 0 0 3px rgba(56, 189, 248, 0.20),
     var(--shadow-glow-purple);
 }
 
@@ -297,7 +297,7 @@ textarea.gn-glass-input {
 }
 
 .gn-toggle input:focus-visible ~ .gn-toggle__track {
-  outline: 2px solid rgba(139, 92, 246, 0.55);
+  outline: 2px solid rgba(56, 189, 248, 0.55);
   outline-offset: 3px;
 }
 

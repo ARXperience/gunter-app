@@ -32,7 +32,7 @@
      sin orbes visibles que dominen la composición. */
   background:
     radial-gradient(ellipse at top left,
-      rgba(139, 92, 246, 0.06) 0%,
+      rgba(56, 189, 248, 0.06) 0%,
       transparent 40%),
     radial-gradient(ellipse at bottom right,
       rgba(236, 72, 153, 0.04) 0%,
@@ -63,9 +63,9 @@ body.with-orbs .gn-orb {
   top: -120px;
   left: -80px;
   background: radial-gradient(circle at 35% 35%,
-    #A78BFA 0%,
-    #8B5CF6 40%,
-    #6D28D9 100%);
+    #7dd3fc 0%,
+    #38bdf8 40%,
+    #0369a1 100%);
   animation: gn-orb-float-1 28s var(--ease-in-out) infinite;
 }
 
@@ -104,9 +104,9 @@ body.with-orbs .gn-orb {
   top: 8%;
   right: 25%;
   background: radial-gradient(circle at 40% 40%,
-    #A5B4FC 0%,
-    #6366F1 50%,
-    #4338CA 100%);
+    #9fd8ff 0%,
+    #38bdf8 50%,
+    #0369a1 100%);
   animation: gn-orb-float-4 36s var(--ease-in-out) infinite;
   animation-delay: -18s;
   opacity: 0.45;

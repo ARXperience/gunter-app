@@ -61,7 +61,7 @@ body:is(.at-dark,.at-light) .stat-card__label, body:is(.at-dark,.at-light) .pill
 body.at-dark {
     background:
         radial-gradient(1100px 700px at 85% -10%, rgba(34, 211, 238, 0.06), transparent 60%),
-        radial-gradient(900px 600px at -10% 110%, rgba(99, 102, 241, 0.05), transparent 55%),
+        radial-gradient(900px 600px at -10% 110%, rgba(56, 189, 248, 0.05), transparent 55%),
         var(--prism-bg) !important;
     color: var(--prism-text);
 }
@@ -151,7 +151,7 @@ body.at-dark textarea.form-input:focus {
 body.at-dark ::-webkit-scrollbar { width: 9px; height: 9px; }
 body.at-dark ::-webkit-scrollbar-track { background: rgba(7, 13, 31, 0.5); }
 body.at-dark ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, rgba(34, 211, 238, 0.35), rgba(99, 102, 241, 0.35));
+    background: linear-gradient(180deg, rgba(34, 211, 238, 0.35), rgba(56, 189, 248, 0.35));
     border-radius: 999px;
     border: 2px solid rgba(7, 13, 31, 0.6);
 }
@@ -164,7 +164,7 @@ body.at-dark ::-webkit-scrollbar-thumb:hover { background: rgba(34, 211, 238, 0.
 body.at-light {
     background:
         radial-gradient(1100px 700px at 85% -10%, rgba(34, 211, 238, 0.08), transparent 60%),
-        radial-gradient(900px 600px at -10% 110%, rgba(99, 102, 241, 0.06), transparent 55%),
+        radial-gradient(900px 600px at -10% 110%, rgba(56, 189, 248, 0.06), transparent 55%),
         #eef2f7 !important;
 }
 
@@ -209,7 +209,7 @@ body.at-light .btn--primary {
 body.at-light ::-webkit-scrollbar { width: 9px; height: 9px; }
 body.at-light ::-webkit-scrollbar-track { background: rgba(30, 41, 70, 0.05); }
 body.at-light ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, rgba(8, 145, 178, 0.35), rgba(99, 102, 241, 0.3));
+    background: linear-gradient(180deg, rgba(8, 145, 178, 0.35), rgba(56, 189, 248, 0.3));
     border-radius: 999px;
 }
 
@@ -422,7 +422,7 @@ body.at-light .prism-diffraction {
 /* Barras espectrales (visualización decorativa) */
 .prism-spectral {
     width: 2px;
-    background: linear-gradient(to bottom, #0ea5e9, #6366f1, #d946ef);
+    background: linear-gradient(to bottom, #0ea5e9, #38bdf8, #22d3ee);
     opacity: 0.5;
     border-radius: 999px;
 }

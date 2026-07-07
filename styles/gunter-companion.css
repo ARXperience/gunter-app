@@ -350,8 +350,8 @@
 .gn-comp__quick button {
   padding: 6px 12px;
   border-radius: var(--radius-full);
-  background: rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.30);
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.30);
   color: var(--text-primary);
   font-size: var(--text-xs);
   cursor: pointer;
@@ -362,8 +362,8 @@
 }
 
 .gn-comp__quick button:hover {
-  background: rgba(139, 92, 246, 0.28);
-  border-color: rgba(139, 92, 246, 0.55);
+  background: rgba(56, 189, 248, 0.28);
+  border-color: rgba(56, 189, 248, 0.55);
   transform: translateY(-1px);
 }
 

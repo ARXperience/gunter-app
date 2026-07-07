@@ -595,9 +595,9 @@
 
 /* --- Flash suave (highlight momentáneo tras cambio) --- */
 @keyframes gn-flash {
-  0%   { background: rgba(139, 92, 246, 0); }
-  30%  { background: rgba(139, 92, 246, 0.15); }
-  100% { background: rgba(139, 92, 246, 0); }
+  0%   { background: rgba(56, 189, 248, 0); }
+  30%  { background: rgba(56, 189, 248, 0.15); }
+  100% { background: rgba(56, 189, 248, 0); }
 }
 
 .gn-flash {
@@ -662,13 +662,13 @@
 @keyframes gn-spotlight {
   0%, 100% {
     box-shadow:
-      0 0 0 4px rgba(139, 92, 246, 0.4),
-      0 0 0 12px rgba(139, 92, 246, 0.15);
+      0 0 0 4px rgba(56, 189, 248, 0.4),
+      0 0 0 12px rgba(56, 189, 248, 0.15);
   }
   50% {
     box-shadow:
-      0 0 0 6px rgba(139, 92, 246, 0.6),
-      0 0 0 20px rgba(139, 92, 246, 0.20);
+      0 0 0 6px rgba(56, 189, 248, 0.6),
+      0 0 0 20px rgba(56, 189, 248, 0.20);
   }
 }
 

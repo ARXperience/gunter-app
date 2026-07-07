@@ -596,8 +596,8 @@
     background: #fbbf24;
     animation: gnVwPulse 0.8s ease-in-out infinite;
 }
-.gn-vw-indicator[data-state="responding"]        { color: #c4b5fd; border-color: rgba(196,181,253,0.35); }
-.gn-vw-indicator[data-state="responding"] .gn-vw-dot { background: #c4b5fd; box-shadow: 0 0 8px #c4b5fd; }
+.gn-vw-indicator[data-state="responding"]        { color: #bae6fd; border-color: rgba(196,181,253,0.35); }
+.gn-vw-indicator[data-state="responding"] .gn-vw-dot { background: #bae6fd; box-shadow: 0 0 8px #bae6fd; }
 .gn-vw-indicator[data-state="error"]             { color: #fca5a5; border-color: rgba(248,113,113,0.4); }
 .gn-vw-indicator[data-state="error"] .gn-vw-dot  { background: #f87171; }
 .gn-vw-indicator[data-state="muted-meeting"]     { color: #fbbf24; border-color: rgba(251,191,36,0.35); }

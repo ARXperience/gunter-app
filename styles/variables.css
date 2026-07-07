@@ -26,28 +26,28 @@
   /* ============================================
      COLOR — Orbes 3D (fondo animado)
      ============================================ */
-  --orb-purple: #8B5CF6;
+  --orb-purple: #38bdf8;
   --orb-pink:   #EC4899;
   --orb-orange: #F97316;
   --orb-red:    #EF4444;
-  --orb-indigo: #6366F1;
+  --orb-indigo: #38bdf8;
   --orb-cyan:   #06B6D4;
 
   /* ============================================
      COLOR — Gradientes vibrantes (acentos)
      ============================================ */
   --grad-primary: linear-gradient(135deg,
-    #8B5CF6 0%,
+    #38bdf8 0%,
     #EC4899 50%,
     #F97316 100%);
   --grad-secondary: linear-gradient(135deg,
     #06B6D4 0%,
-    #8B5CF6 100%);
+    #38bdf8 100%);
   --grad-warm: linear-gradient(135deg,
     #EF4444 0%,
     #F97316 100%);
   --grad-cool: linear-gradient(135deg,
-    #6366F1 0%,
+    #38bdf8 0%,
     #06B6D4 100%);
   --grad-success: linear-gradient(135deg,
     #10B981 0%,
@@ -55,7 +55,7 @@
 
   /* Gradientes SUAVES para fondos de cards */
   --grad-glass-soft: linear-gradient(135deg,
-    rgba(139, 92, 246, 0.10) 0%,
+    rgba(56, 189, 248, 0.10) 0%,
     rgba(236, 72, 153, 0.06) 50%,
     rgba(249, 115, 22, 0.04) 100%);
 
@@ -77,11 +77,11 @@
   /* ============================================
      COLOR — Acentos utilitarios
      ============================================ */
-  --accent-purple:  #8B5CF6;
+  --accent-purple:  #38bdf8;
   --accent-pink:    #EC4899;
   --accent-orange:  #F97316;
   --accent-cyan:    #06B6D4;
-  --accent-indigo:  #6366F1;
+  --accent-indigo:  #38bdf8;
 
   --success: #10B981;
   --warning: #F59E0B;
@@ -189,7 +189,7 @@
   --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.50);
 
   /* Sombras con brillo (para elementos activos) */
-  --shadow-glow-purple: 0 0 24px rgba(139, 92, 246, 0.45), 0 0 48px rgba(139, 92, 246, 0.20);
+  --shadow-glow-purple: 0 0 24px rgba(56, 189, 248, 0.45), 0 0 48px rgba(56, 189, 248, 0.20);
   --shadow-glow-pink:   0 0 24px rgba(236, 72, 153, 0.45), 0 0 48px rgba(236, 72, 153, 0.20);
   --shadow-glow-orange: 0 0 24px rgba(249, 115, 22, 0.45), 0 0 48px rgba(249, 115, 22, 0.20);
   --shadow-glow-cyan:   0 0 24px rgba(6, 182, 212, 0.45), 0 0 48px rgba(6, 182, 212, 0.20);
@@ -348,7 +348,7 @@ a:hover {
 
 /* Selección de texto — con brillo del gradiente */
 ::selection {
-  background: rgba(139, 92, 246, 0.35);
+  background: rgba(56, 189, 248, 0.35);
   color: #FFFFFF;
 }
 
@@ -363,7 +363,7 @@ a:hover {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.35);
+  background: rgba(56, 189, 248, 0.35);
   border-radius: var(--radius-full);
   border: 2px solid transparent;
   background-clip: padding-box;

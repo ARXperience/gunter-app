@@ -1953,7 +1953,7 @@ body.at-light {
     background-color: var(--gd-bg) !important;
     background-image:
         radial-gradient(1200px 800px at 100% -10%,
-            rgba(124,58,237,0.10),
+            rgba(2, 132, 199,0.10),
             transparent 60%),
         radial-gradient(1000px 700px at -10% 110%,
             rgba(14,116,144,0.08),
@@ -1971,7 +1971,7 @@ body.at-dark {
     background-color: var(--gd-bg) !important;
     background-image:
         radial-gradient(1200px 800px at 100% -10%,
-            rgba(167,139,250,0.12),
+            rgba(125, 211, 252,0.12),
             transparent 60%),
         radial-gradient(1000px 700px at -10% 110%,
             rgba(34,211,238,0.08),
@@ -1990,7 +1990,7 @@ body.at-dark {
     body.at-light, body.at-dark {
         background-image:
             radial-gradient(600px 400px at 100% 0%,
-                rgba(124,58,237,0.08),
+                rgba(2, 132, 199,0.08),
                 transparent 60%),
             radial-gradient(500px 350px at 0% 100%,
                 rgba(14,116,144,0.06),
@@ -2001,7 +2001,7 @@ body.at-dark {
     body.at-dark {
         background-image:
             radial-gradient(600px 400px at 100% 0%,
-                rgba(167,139,250,0.10),
+                rgba(125, 211, 252,0.10),
                 transparent 60%),
             radial-gradient(500px 350px at 0% 100%,
                 rgba(34,211,238,0.08),
@@ -3267,7 +3267,7 @@ body.at-light mark.gtutor__hl, body.at-dark mark.gtutor__hl {
     border-radius: 2px !important;
 }
 body.at-dark mark.gtutor__hl {
-    background: linear-gradient(180deg, transparent 55%, rgba(167,139,250,0.22) 55%) !important;
+    background: linear-gradient(180deg, transparent 55%, rgba(125, 211, 252,0.22) 55%) !important;
     color: var(--gd-primary-hi) !important;
 }
 
@@ -3357,7 +3357,7 @@ body.at-dark  .gtutor__heat-cell[data-intensity="3"] {
 body.at-light .gtutor__heat-cell[data-intensity="4"],
 body.at-dark  .gtutor__heat-cell[data-intensity="4"] {
     background: var(--gd-primary-grad) !important;
-    box-shadow: 0 0 8px rgba(124,58,237,0.5) !important;
+    box-shadow: 0 0 8px rgba(2, 132, 199,0.5) !important;
     border-color: transparent !important;
 }
 body.at-light .gtutor__heat-legend, body.at-dark .gtutor__heat-legend {
@@ -3729,7 +3729,7 @@ body.at-light .gtutor__synth-bar-fill, body.at-dark .gtutor__synth-bar-fill {
     height: 100% !important;
     background: var(--gd-primary-grad) !important;
     border-radius: 999px !important;
-    box-shadow: 0 0 12px rgba(124,58,237,0.5) !important;
+    box-shadow: 0 0 12px rgba(2, 132, 199,0.5) !important;
     transition: width var(--gd-dur-normal) var(--gd-ease) !important;
 }
 body.at-light .gtutor__synth-passages, body.at-dark .gtutor__synth-passages {
@@ -3804,7 +3804,7 @@ body.at-light .gtutor__study-fill, body.at-dark .gtutor__study-fill {
     background: var(--gd-primary-grad) !important;
     border-radius: 999px !important;
     transition: width var(--gd-dur-normal) var(--gd-ease) !important;
-    box-shadow: 0 0 12px rgba(124,58,237,0.4) !important;
+    box-shadow: 0 0 12px rgba(2, 132, 199,0.4) !important;
 }
 body.at-light .gtutor__study-count, body.at-dark .gtutor__study-count {
     font-family: var(--gd-font-label) !important;
@@ -4145,13 +4145,13 @@ body.at-light .gtutor__map-canvas, body.at-dark .gtutor__map-canvas {
 .gtutor-map__svg {
     width: 100%; height: 100%;
     background: radial-gradient(ellipse at center,
-        rgba(124, 58, 237, 0.06) 0%,
+        rgba(2, 132, 199, 0.06) 0%,
         transparent 70%);
     cursor: default;
 }
 body.at-dark .gtutor-map__svg {
     background: radial-gradient(ellipse at center,
-        rgba(167, 139, 250, 0.10) 0%,
+        rgba(125, 211, 252, 0.10) 0%,
         transparent 70%);
 }
 

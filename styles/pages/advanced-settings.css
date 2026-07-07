@@ -16,7 +16,7 @@
 
     --gps-ok:       #22c55e;
     --gps-pending:  #f59e0b;
-    --gps-soon:     #a78bfa;
+    --gps-soon:     #7dd3fc;
     --gps-error:    #ef4444;
     --gps-off:      #6b7280;
 
@@ -302,9 +302,9 @@ body.at-light .gps {
     border-color: rgba(251, 191, 36, 0.36);
 }
 .gps-sub__badge--prep {
-    background: rgba(167, 139, 250, 0.14);
-    color: #c4b5fd;
-    border-color: rgba(167, 139, 250, 0.36);
+    background: rgba(125, 211, 252, 0.14);
+    color: #bae6fd;
+    border-color: rgba(125, 211, 252, 0.36);
 }
 
 .gps-switch--readonly {
