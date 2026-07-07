@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Gunter Prism (v56) — pingüino clásico B/N con collar-ojo futurista.
+       Vector puro: transparencia real, nítido en cualquier tamaño. -->
+  <defs>
+    <radialGradient id="iris" cx="50%" cy="42%" r="65%">
+      <stop offset="0%" stop-color="#e0fbff"/>
+      <stop offset="35%" stop-color="#67e8f9"/>
+      <stop offset="75%" stop-color="#22d3ee"/>
+      <stop offset="100%" stop-color="#0891b2"/>
+    </radialGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0b1220"/>
+    </linearGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/><feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softglow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/><feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- patas -->
+  <ellipse cx="206" cy="452" rx="46" ry="17" fill="#f59e0b" transform="rotate(-6 206 452)"/>
+  <ellipse cx="306" cy="452" rx="46" ry="17" fill="#f59e0b" transform="rotate(6 306 452)"/>
+
+  <!-- alas -->
+  <ellipse cx="118" cy="300" rx="30" ry="104" fill="#0b0f14" transform="rotate(14 118 300)"/>
+  <ellipse cx="394" cy="300" rx="30" ry="104" fill="#0b0f14" transform="rotate(-14 394 300)"/>
+
+  <!-- cuerpo -->
+  <path d="M256 62
+           C 348 62 400 148 400 268
+           C 400 382 342 452 256 452
+           C 170 452 112 382 112 268
+           C 112 148 164 62 256 62 Z" fill="#0b0f14"/>
+
+  <!-- panza -->
+  <ellipse cx="256" cy="322" rx="96" ry="118" fill="#f7fafc"/>
+
+  <!-- cara -->
+  <ellipse cx="256" cy="158" rx="86" ry="66" fill="#f7fafc"/>
+
+  <!-- ojos -->
+  <circle cx="224" cy="148" r="13" fill="#0b0f14"/>
+  <circle cx="288" cy="148" r="13" fill="#0b0f14"/>
+  <circle cx="228" cy="143" r="4" fill="#ffffff"/>
+  <circle cx="292" cy="143" r="4" fill="#ffffff"/>
+
+  <!-- pico -->
+  <path d="M238 176 L274 176 Q276 178 274 182 L260 200 Q256 204 252 200 L238 182 Q236 178 238 176 Z" fill="#f59e0b"/>
+
+  <!-- ══ COLLAR FUTURISTA ══ -->
+  <!-- banda -->
+  <rect x="168" y="212" width="176" height="24" rx="12" fill="url(#band)" stroke="rgba(34,211,238,0.55)" stroke-width="1.6"/>
+  <!-- micro-nodos de la banda -->
+  <circle cx="192" cy="224" r="2.4" fill="#22d3ee" opacity="0.75" filter="url(#softglow)"/>
+  <circle cx="320" cy="224" r="2.4" fill="#22d3ee" opacity="0.75" filter="url(#softglow)"/>
+
+  <!-- amuleto: ojo -->
+  <g filter="url(#softglow)">
+    <path d="M212 226 Q256 196 300 226 Q256 256 212 226 Z"
+          fill="#06121f" stroke="#22d3ee" stroke-width="2.4"/>
+  </g>
+  <circle cx="256" cy="226" r="14" fill="url(#iris)" filter="url(#glow)"/>
+  <circle cx="256" cy="226" r="5.5" fill="#041018"/>
+  <circle cx="251" cy="221" r="2.6" fill="#ffffff" opacity="0.9"/>
+</svg>
