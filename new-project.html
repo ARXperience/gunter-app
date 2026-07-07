@@ -2,8 +2,8 @@
 <html lang="es">
 
 <head>
-    <script src="js/services/log-buffer.js?v50-tutorgate-1783400000000"></script>
-    <script src="js/services/auth-service.js?v50-tutorgate-1783400000000"></script>
+    <script src="js/services/log-buffer.js?v51-audiofix-1783410000000"></script>
+    <script src="js/services/auth-service.js?v51-audiofix-1783410000000"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Gunter — Iniciar nueva reunión: selecciona el entorno, sube audio o graba en vivo.">
@@ -25,6 +25,13 @@
     <link rel="stylesheet" href="styles/pages/config-polish.css">
     <link rel="stylesheet" href="styles/pages/config-settings.css">
     <link rel="stylesheet" href="styles/components/audio-trimmer.css">
+    <style>
+        /* v51 — el procesamiento de audio es un overlay a pantalla completa */
+        .audio-processing { position: fixed !important; inset: 0; z-index: 9200; background: rgba(10,14,24,.88); backdrop-filter: blur(6px); flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+        .audio-processing .audio-processing-text { color: #eef1f8 !important; font-size: 16.5px; font-weight: 700; max-width: 500px; text-align: center; line-height: 1.5; }
+        .audio-processing .audio-processing-spinner { width: 46px; height: 46px; border: 4px solid rgba(255,255,255,.18); border-top-color: #7d9aff; border-radius: 999px; animation: gspin .9s linear infinite; }
+        @keyframes gspin { to { transform: rotate(360deg); } }
+    </style>
 
     <!-- Phase 2 Design Enhancements -->
     <link rel="stylesheet" href="styles/animations-enhanced.css">
@@ -41,12 +48,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="assets/gunter/gunter_transparent_default_1769134184933.png">
-    <link rel="stylesheet" href="styles/gunter-mascot.css?v50-tutorgate-1783400000000">
-    <link rel="stylesheet" href="styles/gunter-companion.css?v50-tutorgate-1783400000000">
+    <link rel="stylesheet" href="styles/gunter-mascot.css?v51-audiofix-1783410000000">
+    <link rel="stylesheet" href="styles/gunter-companion.css?v51-audiofix-1783410000000">
         <link rel="preload" as="style" href="styles/gunter-design-system.css">
     <link rel="preload" as="style" href="styles/gunter-legacy-overrides.css">
-<link rel="stylesheet" href="styles/gunter-design-system.css?v50-tutorgate-1783400000000">
-    <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v50-tutorgate-1783400000000">
+<link rel="stylesheet" href="styles/gunter-design-system.css?v51-audiofix-1783410000000">
+    <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v51-audiofix-1783410000000">
 </head>
 
 <body class="at-light">
@@ -318,16 +325,16 @@
     <script src="js/data-service.js" defer></script>
 
     <!-- Servicios base -->
-    <script src="js/services/status-bus.js?v50-tutorgate-1783400000000" defer></script>
-    <script src="js/services/connectivity-monitor.js?v50-tutorgate-1783400000000" defer></script>
-    <script src="js/services/notifications-service.js?v50-tutorgate-1783400000000" defer></script>
+    <script src="js/services/status-bus.js?v51-audiofix-1783410000000" defer></script>
+    <script src="js/services/connectivity-monitor.js?v51-audiofix-1783410000000" defer></script>
+    <script src="js/services/notifications-service.js?v51-audiofix-1783410000000" defer></script>
     <script src="js/services/transcript-store.js" defer></script>
 
     <!-- Audio pipeline -->
     <script src="js/ai-analysis.js" defer></script>
     <script src="js/cache-service.js" defer></script>
-    <script src="js/audio-chunker.js" defer></script>
-    <script src="js/audio-trimmer.js" defer></script>
+    <script src="js/audio-chunker.js?v51-audiofix-1783410000000" defer></script>
+    <script src="js/audio-trimmer.js?v51-audiofix-1783410000000" defer></script>
 
     <!-- App helpers -->
     <script src="js/app.js" defer></script>
@@ -435,13 +442,29 @@
         }
 
         let audioTrimmer;
-        document.addEventListener('DOMContentLoaded', () => {
+        // v51 — BUG raíz: esto estaba en un DOMContentLoaded ANIDADO (ya
+        // disparado) → nunca corría → audioTrimmer quedaba undefined y el
+        // botón "Ajustar y Analizar" moría en silencio. Instanciar directo:
+        // este código ya corre dentro del DOMContentLoaded externo, con los
+        // scripts defer (audio-trimmer.js) cargados.
+        try {
             audioTrimmer = new GunterAudioTrimmer();
-        });
+        } catch (e) {
+            console.warn('[audio] Trimmer no disponible:', e);
+        }
 
-        function openTrimmer() {
-            if (uploadedAudioFile) {
-                audioTrimmer.loadAudio(uploadedAudioFile);
+        async function openTrimmer() {
+            if (!uploadedAudioFile) return;
+            // v51 — Si el recortador falla (formato raro, memoria), NO bloquear:
+            // ofrecer transcribir el audio completo directamente.
+            try {
+                if (!audioTrimmer) throw new Error('recortador no disponible');
+                await audioTrimmer.loadAudio(uploadedAudioFile);
+            } catch (err) {
+                console.warn('[audio] Trimmer falló, fallback a audio completo:', err);
+                if (confirm('No se pudo abrir el recortador de audio.\n¿Quieres transcribir y analizar el audio COMPLETO?')) {
+                    processTrimmedAudio();
+                }
             }
         }
 
@@ -465,7 +488,11 @@
 
             try {
                 processingText.textContent = '⚡ Optimizando segmento de audio...';
-                const sliceBlob = await audioTrimmer.getSelectedSlice();
+                // v51 — con recorte usa la selección; sin trimmer (fallback)
+                // procesa el archivo completo (transcribeAudio hace el chunking)
+                const sliceBlob = (audioTrimmer && audioTrimmer.audioBuffer)
+                    ? await audioTrimmer.getSelectedSlice()
+                    : uploadedAudioFile;
 
                 processingText.textContent = '🎧 Transcribiendo con IA de alta velocidad...';
                 const transcription = await transcribeAudio(sliceBlob);
@@ -539,14 +566,15 @@
             console.log('🔄 Cache MISS - Transcribing...');
 
             // Direct transcription if file is small enough
-            if (fileSizeMB <= 20) {
+            // v51: umbral 12 MB — el transcriptor (Gemini) acepta máx 14 MB
+            if (fileSizeMB <= 12) {
                 const transcription = await transcribeSingleFile(file);
                 cacheService.setCachedTranscription(fileHash, transcription, file.size);
                 return transcription;
             }
 
             // Large file: chunk strategy
-            console.log('🔪 File exceeds 20 MB, using chunking strategy...');
+            console.log('🔪 File exceeds 12 MB, using chunking strategy...');
 
             try {
                 const chunker = new GunterAudioChunker();
@@ -557,7 +585,7 @@
                 console.log(`⏱️ Audio duration: ${durationMinutes} minutes`);
 
                 processingText.textContent = `🔪 Dividiendo audio de ${durationMinutes} min en segmentos...`;
-                const chunks = await chunker.splitAudioByDuration(file, 8);
+                const chunks = await chunker.splitAudioByDuration(file, 6);
 
                 console.log(`✂️ Created ${chunks.length} chunks`);
 
@@ -650,14 +678,23 @@
             saveProjectData();
             window.location.href = url;
         }
-    
+
+        // v51 — Los onclick inline del HTML buscan funciones GLOBALES, pero al
+        // envolver este script en DOMContentLoaded quedaron atrapadas en el
+        // closure y los botones morían en silencio. Exponerlas explícitamente:
+        window.openTrimmer = openTrimmer;
+        window.processTrimmedAudio = processTrimmedAudio;
+        window.removeAudioFile = removeAudioFile;
+        window.saveProjectAndRedirect = saveProjectAndRedirect;
+        window.audioTrimmer = audioTrimmer;   // usado por onclick="audioTrimmer.hide()"
+
         });
         </script>
-    <script src="js/services/sw-updater.js?v50-tutorgate-1783400000000" defer></script>
-    <script src="js/services/theme-toggle.js?v50-tutorgate-1783400000000" defer></script>    <script src="js/services/actions-service.js?v50-tutorgate-1783400000000" defer></script>    <script src="js/services/nlp-llm-service.js?v50-tutorgate-1783400000000" defer></script>    <script src="js/premium-features-service.js?v50-tutorgate-1783400000000" defer></script>    <script src="js/services/error-mapper.js?v50-tutorgate-1783400000000" defer></script>    <script src="js/services/embedding-service.js?v50-tutorgate-1783400000000" defer></script>
-    <script src="js/services/conversation-memory-service.js?v50-tutorgate-1783400000000" defer></script>    <script src="js/services/commitments-service.js?v50-tutorgate-1783400000000" defer></script>    <script src="js/services/proactive-service.js?v50-tutorgate-1783400000000" defer></script>    <script src="js/services/style-mirror-service.js?v50-tutorgate-1783400000000" defer></script>    <script src="js/services/forecast-service.js?v50-tutorgate-1783400000000" defer></script>    <script src="js/services/voice-service.js?v50-tutorgate-1783400000000" defer></script>    <script src="js/services/wake-word-service.js?v50-tutorgate-1783400000000" defer></script>    <script src="js/services/tutor-service.js?v50-tutorgate-1783400000000" defer></script>
-    <script src="js/services/gunter-rules-service.js?v50-tutorgate-1783400000000" defer></script>
-    <script src="js/services/gunter-mood-service.js?v50-tutorgate-1783400000000" defer></script>
+    <script src="js/services/sw-updater.js?v51-audiofix-1783410000000" defer></script>
+    <script src="js/services/theme-toggle.js?v51-audiofix-1783410000000" defer></script>    <script src="js/services/actions-service.js?v51-audiofix-1783410000000" defer></script>    <script src="js/services/nlp-llm-service.js?v51-audiofix-1783410000000" defer></script>    <script src="js/premium-features-service.js?v51-audiofix-1783410000000" defer></script>    <script src="js/services/error-mapper.js?v51-audiofix-1783410000000" defer></script>    <script src="js/services/embedding-service.js?v51-audiofix-1783410000000" defer></script>
+    <script src="js/services/conversation-memory-service.js?v51-audiofix-1783410000000" defer></script>    <script src="js/services/commitments-service.js?v51-audiofix-1783410000000" defer></script>    <script src="js/services/proactive-service.js?v51-audiofix-1783410000000" defer></script>    <script src="js/services/style-mirror-service.js?v51-audiofix-1783410000000" defer></script>    <script src="js/services/forecast-service.js?v51-audiofix-1783410000000" defer></script>    <script src="js/services/voice-service.js?v51-audiofix-1783410000000" defer></script>    <script src="js/services/wake-word-service.js?v51-audiofix-1783410000000" defer></script>    <script src="js/services/tutor-service.js?v51-audiofix-1783410000000" defer></script>
+    <script src="js/services/gunter-rules-service.js?v51-audiofix-1783410000000" defer></script>
+    <script src="js/services/gunter-mood-service.js?v51-audiofix-1783410000000" defer></script>
 
 
 
@@ -670,9 +707,9 @@
 
 
 
-    <script src="js/services/gunter-companion.js?v50-tutorgate-1783400000000" defer></script>
-    <script src="js/services/smooth-scroll.js?v50-tutorgate-1783400000000" defer></script>
-    <script src="js/services/gunter-onboarding.js?v50-tutorgate-1783400000000" defer></script>
+    <script src="js/services/gunter-companion.js?v51-audiofix-1783410000000" defer></script>
+    <script src="js/services/smooth-scroll.js?v51-audiofix-1783410000000" defer></script>
+    <script src="js/services/gunter-onboarding.js?v51-audiofix-1783410000000" defer></script>
 </body>
 
 </html>

@@ -27,15 +27,27 @@ class GunterAudioTrimmer {
     }
 
     async loadAudio(file) {
-        const arrayBuffer = await file.arrayBuffer();
-        this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-        this.duration = this.audioBuffer.duration;
-        this.startTime = 0;
-        this.endTime = this.duration;
-
-        this.renderWaveform();
-        this.updateHandles();
+        // v51 — Mostrar el overlay DE INMEDIATO: decodificar un WAV de 50+ MB
+        // tarda varios segundos y antes parecía que el botón no hacía nada.
         this.show();
+        const sub = this.overlay.querySelector('.trimmer-subtitle');
+        const prevSub = sub ? sub.textContent : '';
+        if (sub) sub.textContent = '⏳ Decodificando audio… los archivos grandes tardan unos segundos';
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+            this.duration = this.audioBuffer.duration;
+            this.startTime = 0;
+            this.endTime = this.duration;
+
+            this.renderWaveform();
+            this.updateHandles();
+            if (sub) sub.textContent = prevSub;
+        } catch (e) {
+            this.hide();
+            if (sub) sub.textContent = prevSub;
+            throw new Error('No se pudo decodificar el audio: ' + (e?.message || 'formato no soportado'));
+        }
     }
 
     renderWaveform() {
@@ -116,19 +128,18 @@ class GunterAudioTrimmer {
     hide() { this.overlay.classList.remove('active'); }
 
     async getSelectedSlice() {
-        const sampleRate = this.audioBuffer.sampleRate;
-        const startFrame = Math.floor(this.startTime * sampleRate);
-        const endFrame = Math.floor(this.endTime * sampleRate);
-        const frameCount = endFrame - startFrame;
+        // v51 — Remuestrea a 16 kHz MONO (estándar de voz para ASR):
+        // un recorte de 5 min pasa de ~28 MB a ~9.6 MB y entra en el límite
+        // del transcriptor (14 MB). Calidad de transcripción idéntica.
+        const TARGET_RATE = 16000;
+        const duration = Math.max(0.1, this.endTime - this.startTime);
+        const frameCount = Math.ceil(duration * TARGET_RATE);
 
-        const offlineCtx = new OfflineAudioContext(1, frameCount, sampleRate);
-        const sliceBuffer = offlineCtx.createBuffer(1, frameCount, sampleRate);
-        sliceBuffer.copyToChannel(this.audioBuffer.getChannelData(0).subarray(startFrame, endFrame), 0);
-
+        const offlineCtx = new OfflineAudioContext(1, frameCount, TARGET_RATE);
         const source = offlineCtx.createBufferSource();
-        source.buffer = sliceBuffer;
+        source.buffer = this.audioBuffer;          // estéreo se mezcla a mono solo
         source.connect(offlineCtx.destination);
-        source.start();
+        source.start(0, this.startTime, duration);
 
         const renderedBuffer = await offlineCtx.startRendering();
         return this.bufferToWavBlob(renderedBuffer);

@@ -61,30 +61,22 @@ class GunterAudioChunker {
 
             const chunks = [];
 
+            // v51 — Cada chunk se remuestrea a 16 kHz MONO (voz): 6 min ≈ 11.5 MB,
+            // bajo el límite de 14 MB del transcriptor. Antes salían al sample
+            // rate original (44.1k estéreo) y reventaban el límite.
+            const TARGET_RATE = 16000;
+
             for (let i = 0; i < numChunks; i++) {
                 const startTime = i * chunkDurationSeconds;
                 const endTime = Math.min((i + 1) * chunkDurationSeconds, totalDuration);
                 const chunkDuration = endTime - startTime;
 
-                // Create a new buffer for this chunk
-                const chunkBuffer = audioContext.createBuffer(
-                    audioBuffer.numberOfChannels,
-                    Math.ceil(chunkDuration * audioBuffer.sampleRate),
-                    audioBuffer.sampleRate
-                );
-
-                // Copy audio data for this time range
-                for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
-                    const sourceData = audioBuffer.getChannelData(channel);
-                    const chunkData = chunkBuffer.getChannelData(channel);
-
-                    const startSample = Math.floor(startTime * audioBuffer.sampleRate);
-                    const endSample = Math.floor(endTime * audioBuffer.sampleRate);
-
-                    for (let j = 0; j < chunkData.length; j++) {
-                        chunkData[j] = sourceData[startSample + j] || 0;
-                    }
-                }
+                const offlineCtx = new OfflineAudioContext(1, Math.ceil(chunkDuration * TARGET_RATE), TARGET_RATE);
+                const source = offlineCtx.createBufferSource();
+                source.buffer = audioBuffer;        // multicanal → mono automático
+                source.connect(offlineCtx.destination);
+                source.start(0, startTime, chunkDuration);
+                const chunkBuffer = await offlineCtx.startRendering();
 
                 // Convert buffer to WAV blob
                 const chunkBlob = await this.audioBufferToWav(chunkBuffer);
