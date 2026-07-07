@@ -1136,6 +1136,15 @@ const handleRequest = async (req, res) => {
     // TUTOR — biblioteca curada + sesiones
     // ============================================
     if (parsedUrl.pathname === '/api/tutor' && req.method === 'POST' && tutor) {
+        // v50 — El Tutor 📚 es privilegio del admin; a otros usuarios se les
+        // concede desde el panel (tutor-access). Service token pasa siempre.
+        if (req.gunterUser && req.gunterUser.role !== 'admin' && !req.gunterUser.tutorAccess) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({
+                success: false, error: 'tutor_not_granted',
+                message: 'El modo Tutor no está habilitado para tu cuenta. Pídele acceso al administrador.'
+            }));
+        }
         let body = '';
         req.on('data', c => { body += c.toString(); });
         req.on('end', async () => {

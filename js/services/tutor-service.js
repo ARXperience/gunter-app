@@ -134,6 +134,8 @@
     function getChapterFocus() { return _chapterFocus; }
 
     function isEnabled() {
+        // v50: además del flag, requiere permiso concedido por el admin
+        if (window.GunterAuth && !window.GunterAuth.canTutor()) return false;
         return !!(window.PremiumFeaturesService?.isEnabled?.('tutorMode'));
     }
 

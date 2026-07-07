@@ -198,6 +198,17 @@ function setPhone(id, phone) {
     return { ok: true, user };
 }
 
+// ---------- Tutor 📚: permiso concedido por admin ----------
+// El sistema Tutor/Sabio (biblioteca Grinberg) solo es visible para
+// admins; a los demás usuarios se les concede explícitamente.
+function setTutorAccess(id, allow) {
+    const user = findById(id);
+    if (!user) return { ok: false, error: 'Usuario no encontrado.' };
+    user.tutorAccess = !!allow;
+    _save();
+    return { ok: true, user };
+}
+
 function changePassword(id, newPassword) {
     if (!validPassword(newPassword)) return { ok: false, error: 'La contraseña debe tener entre 8 y 128 caracteres.' };
     const user = findById(id);
@@ -230,7 +241,8 @@ function publicUser(u) {
         id: u.id, username: u.username, displayName: u.displayName, email: u.email,
         role: u.role, status: u.status, createdAt: u.createdAt,
         approvedAt: u.approvedAt, lastLoginAt: u.lastLoginAt, loginCount: u.loginCount || 0,
-        waPhone: u.waPhone || null
+        waPhone: u.waPhone || null,
+        tutorAccess: u.role === 'admin' || !!u.tutorAccess
     };
 }
 
@@ -243,5 +255,5 @@ module.exports = {
     count, findByUsername, findById, createUser, checkCredentials,
     recordLogin, setStatus, setRole, changePassword, removeUser,
     publicUser, listUsers,
-    setPhone, findByPhone, normalizePhone
+    setPhone, findByPhone, normalizePhone, setTutorAccess
 };

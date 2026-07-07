@@ -37,6 +37,8 @@
     let activeTab = 'today';
 
     function flag(key) {
+        // Tutor 📚 (v50): además del flag, requiere permiso concedido por admin
+        if (key === 'tutorMode' && window.GunterAuth && !window.GunterAuth.canTutor()) return false;
         return !!(window.PremiumFeaturesService?.isEnabled?.(key));
     }
 

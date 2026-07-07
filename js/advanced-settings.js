@@ -347,7 +347,11 @@
 
         // Primer feature de cada sección recibe un divider previo.
         let lastSection = null;
-        const cards = FEATURE_MAP.map(f => {
+        const cards = FEATURE_MAP.filter(f => {
+            // Tutor 📚 (v50): solo visible para admin o usuarios con permiso concedido
+            if (f.id === 'tutorMode' && window.GunterAuth && !window.GunterAuth.canTutor()) return false;
+            return true;
+        }).map(f => {
             const sec = f.section || 'core';
             let prefix = '';
             if (sec !== lastSection) {

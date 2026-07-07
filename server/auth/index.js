@@ -258,6 +258,12 @@ function handle(sub, method, body, req) {
             const r = store.setRole(body.userId, body.role);
             return { status: r.ok ? 200 : 400, body: { success: r.ok, error: r.error, user: r.ok ? store.publicUser(r.user) : undefined } };
         }
+        // Conceder / quitar acceso al Tutor 📚 (biblioteca del Sabio)
+        if (op === 'tutor-access' && method === 'POST') {
+            const r = store.setTutorAccess(body.userId, body.allow);
+            if (r.ok) console.log(`📚 [auth] Tutor ${body.allow ? 'concedido a' : 'retirado de'}: ${r.user.username}`);
+            return { status: r.ok ? 200 : 400, body: { success: r.ok, error: r.error, user: r.ok ? store.publicUser(r.user) : undefined } };
+        }
         if (op === 'reset-password' && method === 'POST') {
             const r = store.changePassword(body.userId, body.next);
             if (r.ok) sessions.destroyAllForUser(body.userId);

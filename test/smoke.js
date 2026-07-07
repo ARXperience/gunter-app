@@ -242,6 +242,12 @@ async function testAuth() {
             ? ok(`set-phone → +${me2.json.user.waPhone}`)
             : ko('set-phone', JSON.stringify(sp.json).slice(0, 100));
 
+        // ── Tutor 📚 (v50): bloqueado por defecto, se concede desde admin ──
+        const tGate = await jpost('/api/tutor', { op: 'catalog' }, userToken);
+        tGate.status === 403 ? ok('tutor bloqueado sin permiso (403)') : ko('tutor gate', `status=${tGate.status}`);
+        const tGrant = await jpost('/api/auth/admin/tutor-access', { userId: user.id, allow: true });
+        tGrant.json?.success ? ok('admin concede tutor') : ko('tutor-access', JSON.stringify(tGrant.json).slice(0, 80));
+
         // ── Aislamiento multi-tenant: lo que guarda el usuario NO lo ve el dueño ──
         const secret = 'aislamiento' + Date.now().toString(36);
         const tAdd = await jpost('/api/tutor', { op: 'teach-add', title: 'privado', text: `Dato privado del usuario: ${secret}.` }, userToken);

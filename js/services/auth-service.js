@@ -185,6 +185,12 @@
         st.id = 'gauth-chip-styles';
         st.textContent = `
             #gauth-chip { position: fixed; top: 14px; right: 14px; z-index: 9500; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+            .gauth-chip__pending { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px;
+                padding: 0 4px; border-radius: 999px; background: #e5484d; color: #fff; font-size: 11px; font-weight: 800;
+                display: grid; place-items: center; border: 2px solid var(--surface-1, #141a28);
+                animation: gauthPulse 2s ease infinite; }
+            @keyframes gauthPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+            .gauth-chip__btn { position: relative; }
             .gauth-chip__btn { width: 40px; height: 40px; border-radius: 999px; border: 1px solid var(--border-strong, rgba(140,150,180,.35));
                 background: var(--surface-2, #1c2333); color: var(--text-1, #eef1f8); font-weight: 800; font-size: 16px;
                 cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.25); transition: transform .15s ease, box-shadow .15s ease; }
@@ -208,15 +214,54 @@
         document.head.appendChild(st);
     }
 
+    // ---------- Badge de solicitudes pendientes (solo admins) ----------
+    // El admin ve un punto rojo con el número en su chip, en TODAS las
+    // páginas — sin tener que abrir admin.html para enterarse.
+    let _pendingTimer = null;
+    async function _checkPending() {
+        if (_user?.role !== 'admin') return;
+        try {
+            const r = await fetch('/api/auth/admin/stats', { cache: 'no-store' });
+            if (!r.ok) return;
+            const st = await r.json();
+            const n = st?.users?.pending || 0;
+            const chip = document.getElementById('gauth-chip');
+            if (!chip) return;
+            let dot = chip.querySelector('.gauth-chip__pending');
+            if (n > 0) {
+                if (!dot) {
+                    dot = document.createElement('span');
+                    dot.className = 'gauth-chip__pending';
+                    chip.querySelector('.gauth-chip__btn')?.appendChild(dot);
+                }
+                dot.textContent = n > 9 ? '9+' : String(n);
+                dot.title = n + ' solicitud(es) esperando aprobación';
+                const adminItem = chip.querySelector('a[href="admin.html"]');
+                if (adminItem) adminItem.innerHTML = '🛡️ Panel de administración <b style="color:#ffc46b">(' + n + ' pendiente' + (n > 1 ? 's' : '') + ')</b>';
+            } else if (dot) {
+                dot.remove();
+                const adminItem = chip.querySelector('a[href="admin.html"]');
+                if (adminItem) adminItem.textContent = '🛡️ Panel de administración';
+            }
+        } catch { }
+    }
+    function _startPendingWatch() {
+        if (_pendingTimer || _user?.role !== 'admin') return;
+        _checkPending();
+        _pendingTimer = setInterval(_checkPending, 60000);
+    }
+
     // ---------- API pública ----------
     window.GunterAuth = {
         getUser: () => _user,
         isAdmin: () => _user?.role === 'admin',
+        // Tutor 📚: privilegio del admin o concedido explícitamente por él
+        canTutor: () => !!(_user && (_user.role === 'admin' || _user.tutorAccess)),
         isLogged: () => !!_user,
         onReady: (cb) => { _user ? cb(_user) : _readyCallbacks.push(cb); },
         logout,
         refresh: _verify
     };
 
-    if (!isPublic) _verify();
+    if (!isPublic) _verify().then(() => _startPendingWatch());
 })();
