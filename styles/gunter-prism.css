@@ -1,0 +1,211 @@
+/* =============================================
+   GUNTER — Obsidian Prism (v52)
+   ---------------------------------------------
+   Skin de tema OSCURO para todo el sistema, inspirado en la
+   estética "prisma de obsidiana": fondos azul-noche profundos,
+   paneles de vidrio con blur, bordes de luz superiores, líneas
+   de difracción y acentos cian con glow.
+
+   Se aplica sobre body.at-dark (el toggle 🌙 existente).
+   El hero .prism-hero y el login son prisma en ambos temas.
+   ============================================= */
+
+:root {
+    --prism-bg:        #020617;
+    --prism-surface:   rgba(15, 23, 42, 0.60);
+    --prism-surface-2: rgba(21, 27, 45, 0.72);
+    --prism-edge:      rgba(255, 255, 255, 0.10);
+    --prism-edge-hi:   rgba(255, 255, 255, 0.22);
+    --prism-cyan:      #22d3ee;
+    --prism-cyan-soft: rgba(34, 211, 238, 0.35);
+    --prism-text:      #dce1fb;
+    --prism-text-dim:  rgba(220, 225, 251, 0.65);
+}
+
+/* ---------- Fondo del sistema (dark) ---------- */
+body.at-dark {
+    background:
+        radial-gradient(1100px 700px at 85% -10%, rgba(34, 211, 238, 0.06), transparent 60%),
+        radial-gradient(900px 600px at -10% 110%, rgba(99, 102, 241, 0.05), transparent 55%),
+        var(--prism-bg) !important;
+    color: var(--prism-text);
+}
+
+/* ---------- Paneles de vidrio (contenedores conocidos del sistema) ---------- */
+body.at-dark .gday__panel,
+body.at-dark .gps-card,
+body.at-dark .gps__intro,
+body.at-dark .env-card,
+body.at-dark .gadm__card,
+body.at-dark .gadm__stat,
+body.at-dark .project-card,
+body.at-dark .config-form__section,
+body.at-dark .dashboard-header,
+body.at-dark .audio-upload-section,
+body.at-dark .card,
+body.at-dark .glass-card {
+    background: var(--prism-surface) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-top-color: var(--prism-edge) !important;
+    border-left-color: var(--prism-edge) !important;
+    box-shadow: 0 0 40px rgba(0, 255, 255, 0.04);
+}
+
+body.at-dark .gday__panel:hover,
+body.at-dark .gps-card:hover,
+body.at-dark .project-card:hover,
+body.at-dark .env-card:hover {
+    border-top-color: var(--prism-edge-hi) !important;
+    box-shadow: 0 0 52px rgba(34, 211, 238, 0.08);
+}
+
+/* ---------- Botones primarios con glow prisma ---------- */
+body.at-dark .btn--primary,
+body.at-dark button[type="submit"].btn--primary {
+    box-shadow: 0 0 22px var(--prism-cyan-soft);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+body.at-dark .btn--primary:hover {
+    box-shadow: 0 0 34px rgba(34, 211, 238, 0.5);
+}
+
+/* ---------- Inputs de vidrio ---------- */
+body.at-dark input.form-input,
+body.at-dark textarea.form-input,
+body.at-dark select.form-input {
+    background: rgba(7, 13, 31, 0.7) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: var(--prism-text) !important;
+}
+body.at-dark input.form-input:focus,
+body.at-dark textarea.form-input:focus {
+    border-color: var(--prism-cyan) !important;
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15) !important;
+}
+
+/* ---------- Scrollbar prisma ---------- */
+body.at-dark ::-webkit-scrollbar { width: 9px; height: 9px; }
+body.at-dark ::-webkit-scrollbar-track { background: rgba(7, 13, 31, 0.5); }
+body.at-dark ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(34, 211, 238, 0.35), rgba(99, 102, 241, 0.35));
+    border-radius: 999px;
+    border: 2px solid rgba(7, 13, 31, 0.6);
+}
+body.at-dark ::-webkit-scrollbar-thumb:hover { background: rgba(34, 211, 238, 0.55); }
+
+/* ---------- Utilidades prisma ---------- */
+.prism-diffraction {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #ffffff, transparent);
+    opacity: 0.12;
+    border: 0;
+}
+
+@keyframes prismShimmer {
+    0%   { transform: translate(-30%, -30%); }
+    100% { transform: translate(30%, 30%); }
+}
+@keyframes prismPulse {
+    0%, 100% { opacity: .55; }
+    50%      { opacity: 1; }
+}
+
+/* =============================================
+   HERO "MONOLITH" — dashboard (ambos temas)
+   ============================================= */
+.prism-hero {
+    perspective: 1000px;
+    margin: 0 0 26px;
+}
+.prism-hero__glass {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 26px 34px;
+    border-radius: 20px;
+    background:
+        linear-gradient(120deg, rgba(34, 211, 238, 0.05), transparent 40%),
+        rgba(10, 16, 32, 0.92);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-top-color: rgba(255, 255, 255, 0.16);
+    border-left-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 0 80px rgba(0, 255, 255, 0.05), 0 18px 50px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+    transform: rotateY(-4deg) rotateX(2deg);
+    transition: transform .5s ease-out;
+    will-change: transform;
+}
+.prism-hero__glass::after {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: linear-gradient(45deg, transparent 0%, rgba(255,255,255,.03) 45%, rgba(255,255,255,.06) 50%, rgba(255,255,255,.03) 55%, transparent 100%);
+    animation: prismShimmer 8s infinite linear;
+    pointer-events: none;
+}
+.prism-hero__img-wrap {
+    flex: 0 0 auto;
+    width: 132px; height: 132px;
+    display: grid; place-items: center;
+    position: relative;
+}
+.prism-hero__img-wrap::before {
+    content: '';
+    position: absolute; inset: -12px;
+    background: radial-gradient(circle, rgba(34, 211, 238, 0.18), transparent 65%);
+    filter: blur(8px);
+    animation: prismPulse 4s ease-in-out infinite;
+}
+.prism-hero__img-wrap img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 16px;
+    position: relative;
+    filter: drop-shadow(0 0 15px rgba(34, 211, 238, 0.35));
+}
+.prism-hero__img-wrap img.is-fallback {
+    object-fit: contain;
+    border-radius: 0;
+}
+.prism-hero__text h2 {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: #ffffff;
+    margin: 0 0 2px;
+    text-shadow: 0 0 24px rgba(34, 211, 238, 0.35);
+}
+.prism-hero__text .prism-hero__tag {
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(220, 225, 251, 0.55);
+    margin: 0 0 12px;
+}
+.prism-hero__line {
+    height: 1px; max-width: 320px;
+    background: linear-gradient(90deg, transparent, #fff, transparent);
+    opacity: .14;
+    margin: 10px 0;
+}
+.prism-hero__hint {
+    font-size: 13px;
+    color: rgba(220, 225, 251, 0.7);
+    display: flex; align-items: center; gap: 8px;
+}
+.prism-hero__dot {
+    width: 8px; height: 8px; border-radius: 999px;
+    background: var(--prism-cyan);
+    box-shadow: 0 0 12px var(--prism-cyan);
+    animation: prismPulse 2.4s ease-in-out infinite;
+}
+@media (max-width: 640px) {
+    .prism-hero__glass { flex-direction: column; text-align: center; gap: 14px; padding: 22px 18px; transform: none; }
+    .prism-hero__line { margin: 10px auto; }
+    .prism-hero__hint { justify-content: center; }
+}

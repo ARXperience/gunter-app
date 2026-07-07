@@ -8,7 +8,7 @@
 (function () {
     if (!('serviceWorker' in navigator)) return;
 
-    const CURRENT_APP_VERSION = "v51-audiofix-1783410000000";
+    const CURRENT_APP_VERSION = "v52-prism-1783420000000";
 
     // Al cargar la página, verifica si hay update del SW
     navigator.serviceWorker.getRegistration()
