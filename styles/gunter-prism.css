@@ -33,6 +33,7 @@ body.at-dark {
 
 /* ---------- Paneles de vidrio (contenedores conocidos del sistema) ---------- */
 body.at-dark .gday__panel,
+body.at-dark .gday__tab-panel,
 body.at-dark .gday__card,
 body.at-dark .gday__quickbar,
 body.at-dark .gday__sidebar,
@@ -104,12 +105,117 @@ body.at-dark ::-webkit-scrollbar-thumb {
 }
 body.at-dark ::-webkit-scrollbar-thumb:hover { background: rgba(34, 211, 238, 0.55); }
 
-/* ---------- Utilidades prisma ---------- */
+/* =============================================
+   MODO DÍA (v54) — Prism claro: mismo lenguaje,
+   vidrio blanco con bordes de luz y acentos cian
+   ============================================= */
+body.at-light {
+    background:
+        radial-gradient(1100px 700px at 85% -10%, rgba(34, 211, 238, 0.08), transparent 60%),
+        radial-gradient(900px 600px at -10% 110%, rgba(99, 102, 241, 0.06), transparent 55%),
+        #eef2f7 !important;
+}
+
+body.at-light .gday__panel,
+body.at-light .gday__tab-panel,
+body.at-light .gday__card,
+body.at-light .gday__quickbar,
+body.at-light .gday__sidebar,
+body.at-light .gps-card,
+body.at-light .gps__intro,
+body.at-light .env-card,
+body.at-light .gadm__card,
+body.at-light .gadm__stat,
+body.at-light .project-card,
+body.at-light .config-form__section,
+body.at-light .dashboard-header,
+body.at-light .sidebar,
+body.at-light .audio-upload-section,
+body.at-light .meeting-panel,
+body.at-light .results-header,
+body.at-light .results-content > section,
+body.at-light .step-indicator,
+body.at-light .trimmer-container,
+body.at-light .card,
+body.at-light .glass-card {
+    background: rgba(255, 255, 255, 0.66) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(30, 41, 70, 0.08) !important;
+    border-top-color: rgba(255, 255, 255, 0.95) !important;
+    border-left-color: rgba(255, 255, 255, 0.75) !important;
+    box-shadow: 0 8px 30px rgba(30, 41, 70, 0.08);
+}
+body.at-light .gday__panel:hover,
+body.at-light .gps-card:hover,
+body.at-light .project-card:hover,
+body.at-light .env-card:hover {
+    box-shadow: 0 12px 40px rgba(8, 145, 178, 0.14);
+    border-top-color: #ffffff !important;
+}
+body.at-light .btn--primary {
+    box-shadow: 0 6px 20px rgba(8, 145, 178, 0.25);
+}
+body.at-light ::-webkit-scrollbar { width: 9px; height: 9px; }
+body.at-light ::-webkit-scrollbar-track { background: rgba(30, 41, 70, 0.05); }
+body.at-light ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(8, 145, 178, 0.35), rgba(99, 102, 241, 0.3));
+    border-radius: 999px;
+}
+
+/* =============================================
+   ANATOMÍA DE TARJETA (v54) — ambos temas:
+   radio generoso + línea de acento espectral lateral
+   ============================================= */
+.gday__panel, .gday__tab-panel, .gps-card, .gadm__card, .meeting-panel,
+.project-card, .config-form__section, .env-card {
+    position: relative;
+    border-radius: 14px !important;
+}
+.gday__panel::after, .gday__tab-panel::after, .gps-card::after, .gadm__card::after,
+.meeting-panel::after, .project-card::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 12%; bottom: 12%;
+    width: 2px;
+    background: linear-gradient(to bottom, transparent, rgba(34, 211, 238, 0.45), transparent);
+    pointer-events: none;
+    opacity: .7;
+}
+body.at-light .gday__panel::after,
+body.at-light .gday__tab-panel::after,
+body.at-light .gps-card::after,
+body.at-light .gadm__card::after,
+body.at-light .meeting-panel::after,
+body.at-light .project-card::after {
+    background: linear-gradient(to bottom, transparent, rgba(8, 145, 178, 0.45), transparent);
+}
+
+/* ---------- Utilidades prisma (ambos temas) ---------- */
 .prism-diffraction {
     height: 1px;
     background: linear-gradient(90deg, transparent, #ffffff, transparent);
     opacity: 0.12;
     border: 0;
+}
+body.at-light .prism-diffraction {
+    background: linear-gradient(90deg, transparent, rgba(30, 41, 70, 0.6), transparent);
+    opacity: 0.18;
+}
+
+/* Filas que se revelan al hover (patrón del ejemplo) */
+.prism-reveal {
+    opacity: 0.55;
+    transition: opacity .35s ease-out, transform .35s ease-out;
+}
+.prism-reveal:hover { opacity: 1; transform: translateY(-2px); }
+
+/* Barras espectrales (visualización decorativa) */
+.prism-spectral {
+    width: 2px;
+    background: linear-gradient(to bottom, #0ea5e9, #6366f1, #d946ef);
+    opacity: 0.5;
+    border-radius: 999px;
 }
 
 @keyframes prismShimmer {
@@ -159,27 +265,25 @@ body.at-dark ::-webkit-scrollbar-thumb:hover { background: rgba(34, 211, 238, 0.
 }
 .prism-hero__img-wrap {
     flex: 0 0 auto;
-    width: 132px; height: 132px;
+    width: 160px; height: 160px;
     display: grid; place-items: center;
     position: relative;
 }
 .prism-hero__img-wrap::before {
     content: '';
-    position: absolute; inset: -12px;
-    background: radial-gradient(circle, rgba(34, 211, 238, 0.18), transparent 65%);
-    filter: blur(8px);
+    position: absolute; inset: -16px;
+    background: radial-gradient(circle, rgba(34, 211, 238, 0.20), transparent 65%);
+    filter: blur(10px);
     animation: prismPulse 4s ease-in-out infinite;
 }
+/* v54 — La imagen FLOTA sin recorte ni marco (como el ejemplo):
+   object-contain + drop-shadow. Ideal con PNG transparente. */
 .prism-hero__img-wrap img {
     width: 100%; height: 100%;
-    object-fit: cover;
-    border-radius: 16px;
-    position: relative;
-    filter: drop-shadow(0 0 15px rgba(34, 211, 238, 0.35));
-}
-.prism-hero__img-wrap img.is-fallback {
     object-fit: contain;
     border-radius: 0;
+    position: relative;
+    filter: drop-shadow(0 0 15px rgba(34, 211, 238, 0.35));
 }
 .prism-hero__text h2 {
     font-size: 30px;

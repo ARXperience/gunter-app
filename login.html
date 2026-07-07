@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles/variables.css">
-    <link rel="stylesheet" href="styles/gunter-design-system.css?v53-prismall-1783430000000">
-    <link rel="stylesheet" href="styles/gunter-prism.css?v53-prismall-1783430000000">
+    <link rel="stylesheet" href="styles/gunter-design-system.css?v54-prismday-1783440000000">
+    <link rel="stylesheet" href="styles/gunter-prism.css?v54-prismday-1783440000000">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { height: 100%; }
@@ -46,7 +46,7 @@
         }
         .glogin__mascot img {
             width: 100%; height: 100%;
-            object-fit: cover;
+            object-fit: contain;
             filter: drop-shadow(0 0 14px rgba(34,211,238,.4));
         }
         .glogin__mascot::after {
@@ -110,8 +110,7 @@
 </head>
 <body>
     <main class="glogin" role="main">
-        <div class="glogin__mascot" aria-hidden="true"><img src="assets/gunter/gunter-prism.png" alt=""
-            onerror="const p=this.parentElement; this.remove(); p.textContent='🐧';"></div>
+        <div class="glogin__mascot" aria-hidden="true"><img src="assets/gunter/gunter-prism-nobg.png" alt="" onerror="if(!this.dataset.f){this.dataset.f=1;this.src='assets/gunter/gunter-prism.png';}else{const p=this.parentElement;this.remove();p.textContent='🐧';}"></div>
         <h1 id="glogin-title">Gunter</h1>
         <p class="glogin__sub" id="glogin-sub">Tu asistente personal. Inicia sesión para continuar.</p>
 
