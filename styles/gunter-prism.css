@@ -742,3 +742,42 @@ body:is(.at-dark,.at-light) .results-header {
 body.at-dark :is(.dashboard-header__title, .config-header__title, .gday__title, .results-header__title, .prism-hero__text h2) {
     text-shadow: 0 0 26px rgba(191, 227, 255, 0.28);
 }
+
+/* =============================================
+   REFLEJO EN PRINCIPALES (v63) — el shimmer del hero de
+   Gunter, solo en las tarjetas cabecera de cada apartado
+   ============================================= */
+/* config-header como vidrio (faltaba en las listas) */
+body.at-dark .config-header {
+    background: var(--prism-surface) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-top-color: var(--prism-edge) !important;
+    box-shadow: 0 0 32px rgba(0, 255, 255, 0.035), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+body.at-light .config-header {
+    background: rgba(255, 255, 255, 0.66) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(30, 41, 70, 0.08) !important;
+    border-top-color: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 6px 24px rgba(30, 41, 70, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Shimmer diagonal permanente — SOLO cabeceras principales */
+body:is(.at-dark,.at-light) :is(.dashboard-header, .config-header, .results-header, .gps__intro, .glogin) {
+    position: relative;
+    overflow: hidden;
+}
+body:is(.at-dark,.at-light) :is(.dashboard-header, .config-header, .results-header, .gps__intro, .glogin)::after {
+    content: '';
+    position: absolute; top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: linear-gradient(45deg, transparent 0%, rgba(255,255,255,.025) 45%, rgba(255,255,255,.05) 50%, rgba(255,255,255,.025) 55%, transparent 100%);
+    animation: prismShimmer 9s infinite linear;
+    pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    body :is(.dashboard-header, .config-header, .results-header, .gps__intro, .glogin)::after { animation: none !important; }
+}
