@@ -68,7 +68,6 @@ body.at-dark {
 
 /* ---------- Paneles de vidrio (contenedores conocidos del sistema) ---------- */
 body.at-dark .gday__panel,
-body.at-dark .gday__tab-panel,
 body.at-dark .gday__card,
 body.at-dark .gday__quickbar,
 body.at-dark .gday__sidebar,
@@ -84,7 +83,6 @@ body.at-dark .sidebar,
 body.at-dark .audio-upload-section,
 body.at-dark .meeting-panel,
 body.at-dark .results-header,
-body.at-dark .results-content > section,
 body.at-dark .step-indicator,
 body.at-dark .trimmer-container,
 body.at-dark .card,
@@ -171,7 +169,6 @@ body.at-light {
 }
 
 body.at-light .gday__panel,
-body.at-light .gday__tab-panel,
 body.at-light .gday__card,
 body.at-light .gday__quickbar,
 body.at-light .gday__sidebar,
@@ -187,7 +184,6 @@ body.at-light .sidebar,
 body.at-light .audio-upload-section,
 body.at-light .meeting-panel,
 body.at-light .results-header,
-body.at-light .results-content > section,
 body.at-light .step-indicator,
 body.at-light .trimmer-container,
 body.at-light .card,
@@ -221,12 +217,12 @@ body.at-light ::-webkit-scrollbar-thumb {
    ANATOMÍA DE TARJETA (v54) — ambos temas:
    radio generoso + línea de acento espectral lateral
    ============================================= */
-.gday__panel, .gday__tab-panel, .gps-card, .gadm__card, .meeting-panel,
+.gday__panel, .gps-card, .gadm__card, .meeting-panel,
 .project-card, .config-form__section, .env-card {
     position: relative;
     border-radius: 14px !important;
 }
-.gday__panel::after, .gday__tab-panel::after, .gps-card::after, .gadm__card::after,
+.gday__panel::after::after, .gps-card::after, .gadm__card::after,
 .meeting-panel::after, .project-card::after {
     content: '';
     position: absolute;
@@ -237,7 +233,6 @@ body.at-light ::-webkit-scrollbar-thumb {
     opacity: .7;
 }
 body.at-light .gday__panel::after,
-body.at-light .gday__tab-panel::after,
 body.at-light .gps-card::after,
 body.at-light .gadm__card::after,
 body.at-light .meeting-panel::after,
@@ -282,13 +277,13 @@ body.at-light .stat-card:nth-child(n) .stat-card__icon {
    ============================================= */
 
 /* Luz interior superior en todo el vidrio (el detalle prisma) */
-body.at-dark .gday__panel, body.at-dark .gday__tab-panel, body.at-dark .gday__card,
+body.at-dark .gday__panel, body.at-dark body.at-dark .gday__card,
 body.at-dark .gps-card, body.at-dark .env-card, body.at-dark .gadm__card,
 body.at-dark .project-card, body.at-dark .meeting-panel, body.at-dark .stat-card:nth-child(n),
 body.at-dark .config-form__section, body.at-dark .dashboard-header {
     box-shadow: 0 0 32px rgba(0, 255, 255, 0.035), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
-body.at-light .gday__panel, body.at-light .gday__tab-panel, body.at-light .gday__card,
+body.at-light .gday__panel, body.at-light body.at-light .gday__card,
 body.at-light .gps-card, body.at-light .env-card, body.at-light .gadm__card,
 body.at-light .project-card, body.at-light .meeting-panel, body.at-light .stat-card:nth-child(n),
 body.at-light .config-form__section, body.at-light .dashboard-header {
@@ -401,7 +396,7 @@ body :is(input[type="text"], input[type="email"], input[type="password"], input[
 body :is(.projects-grid, .stats-grid, .env-cards, .gadm__grid) {
     gap: 16px !important;
 }
-body :is(.gday__panel, .gday__tab-panel, .gps-card, .gadm__card, .meeting-panel, .project-card, .env-card, .stat-card) {
+body :is(.gday__panel, .gps-card, .gadm__card, .meeting-panel, .project-card, .env-card, .stat-card) {
     padding: clamp(16px, 2.2vw, 24px);
 }
 
@@ -545,4 +540,63 @@ body.at-dark .env-card.selected {
 body.at-light .env-card.selected {
     border-color: rgba(255, 255, 255, 0.95) !important;
     box-shadow: 0 0 22px rgba(255, 255, 255, 0.85), 0 8px 24px rgba(30, 41, 70, 0.12) !important;
+}
+
+/* =============================================
+   FONDO LIMPIO (v59) — los contenedores de página NO son tarjetas:
+   el fondo obsidiana/claro se ve directo detrás de las tarjetas reales
+   ============================================= */
+body.at-dark .gday__tab-panel, body.at-light .gday__tab-panel,
+body.at-dark .config-tab-panel, body.at-light .config-tab-panel,
+body.at-dark .results-content > section, body.at-light .results-content > section,
+body.at-dark .gday__main, body.at-light .gday__main,
+body.at-dark .dashboard-main, body.at-light .dashboard-main {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+.gday__tab-panel::after, .config-tab-panel::after { content: none !important; }
+
+/* MÁRGENES de tarjetas: ritmo vertical entre hermanos apilados
+   + aire lateral para que nada toque los bordes del viewport */
+.gday__tab-panel > * + *, .config-tab-panel > * + *,
+.results-content > section > * + * {
+    margin-top: 18px;
+}
+.gday__main, .dashboard-main, .config-page, .results-content {
+    padding-left: clamp(14px, 2.5vw, 28px);
+    padding-right: clamp(14px, 2.5vw, 28px);
+}
+
+/* BOTONES DEL PANEL IZQUIERDO (sidebar) — estilo AURA:
+   ítems aireados, radio suave, hover velo blanco, activo con luz */
+body:is(.at-dark,.at-light) :is(.sidebar__nav-item, .gday__nav-item) {
+    margin: 3px 10px !important;
+    padding: 10px 14px !important;
+    border-radius: 12px !important;
+    border: 1px solid transparent !important;
+    background: transparent !important;
+    transition: background .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+body.at-dark :is(.sidebar__nav-item, .gday__nav-item):hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(255, 255, 255, 0.10) !important;
+}
+body.at-dark :is(.sidebar__nav-item.active, .sidebar__nav-item.is-active,
+    .gday__nav-item.active, .gday__nav-item.is-active) {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.16) !important;
+    box-shadow: 0 0 14px rgba(255, 255, 255, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+body.at-light :is(.sidebar__nav-item, .gday__nav-item):hover {
+    background: rgba(255, 255, 255, 0.75) !important;
+    border-color: rgba(30, 41, 70, 0.08) !important;
+}
+body.at-light :is(.sidebar__nav-item.active, .sidebar__nav-item.is-active,
+    .gday__nav-item.active, .gday__nav-item.is-active) {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border-color: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 0 16px rgba(255, 255, 255, 0.7), 0 4px 12px rgba(30, 41, 70, 0.08) !important;
 }

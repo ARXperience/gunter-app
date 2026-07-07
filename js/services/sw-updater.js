@@ -8,7 +8,7 @@
 (function () {
     if (!('serviceWorker' in navigator)) return;
 
-    const CURRENT_APP_VERSION = "v58-universal-1783480000000";
+    const CURRENT_APP_VERSION = "v59-fondolimpio-1783490000000";
 
     // Al cargar la página, verifica si hay update del SW
     navigator.serviceWorker.getRegistration()
