@@ -15,7 +15,7 @@
    Autor: Gunter Design Team
    ============================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ═════════════════════════════════════════════
    LIGHT MODE — Refined Cartoon (Notion+Linear+AT)
@@ -207,9 +207,9 @@ body.at-dark {
    TOKENS SHARED
    ═════════════════════════════════════════════ */
 :root {
-  --gd-font-display: 'Bricolage Grotesque', system-ui, sans-serif;
-  --gd-font-body:    'Plus Jakarta Sans', system-ui, sans-serif;
-  --gd-font-label:   'Space Grotesk', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --gd-font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --gd-font-body:    'Inter', system-ui, sans-serif;
+  --gd-font-label:   'JetBrains Mono', 'Space Grotesk', monospace;
 
   --gd-t-2xs: 11px; --gd-t-xs: 12px;  --gd-t-sm: 14px;
   --gd-t-base:16px; --gd-t-lg: 18px;  --gd-t-xl: 22px;
