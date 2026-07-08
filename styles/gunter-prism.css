@@ -16,12 +16,12 @@
      Inter          → cuerpo (elegante, neutra)
      JetBrains Mono → datos, etiquetas, valores (técnica)
    ============================================= */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* Cuerpo: Inter en todo (mata Outfit/Playfair/Montserrat/Jakarta/Bricolage) */
 body, p, span, div, a, li, td, th, label, small,
 button, input, textarea, select {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif !important;
 }
 
 /* Títulos: Space Grotesk */
@@ -30,7 +30,7 @@ h1, h2, h3, h4,
 .dashboard-header__title, .config-header__title, .gday__title,
 .login-logo__title, .prism-hero__text h2, .glogin h1, .gadm__head h1,
 .trimmer-title, .sidebar__logo-text, .results-header__title {
-    font-family: 'Space Grotesk', 'Inter', sans-serif !important;
+    font-family: 'Inter Tight', 'IBM Plex Sans', sans-serif !important;
     letter-spacing: -0.02em;
 }
 
@@ -877,3 +877,75 @@ body.at-light .gday__tabs {
     max-width: 100%;
 }
 body:is(.at-dark,.at-light) .gday__tab { border-radius: 999px !important; }
+
+/* =============================================
+   REFINAMIENTO PREMIUM (v65) — web-design-guidelines
+   + premium-web-design: foco, scroll, selección, grano
+   ============================================= */
+
+/* ---------- ::selection de marca (micro-detalle premium) ---------- */
+body.at-dark ::selection { background: rgba(159, 216, 255, 0.28); color: #ffffff; }
+body.at-light ::selection { background: rgba(2, 132, 199, 0.20); color: #0b1220; }
+
+/* ---------- FOCO VISIBLE en TODO lo interactivo (guideline) ----------
+   Anillo de luz — teclado sí, mouse no (:focus-visible) */
+body:is(.at-dark,.at-light) :is(a, button, .btn, .abtn, input, textarea, select,
+    [role='button'], [role='tab'], [tabindex]):focus-visible {
+    outline: 2px solid rgba(159, 216, 255, 0.7) !important;
+    outline-offset: 2px !important;
+    border-radius: 8px;
+}
+body.at-light :is(a, button, .btn, input, textarea, select, [role='tab']):focus-visible {
+    outline-color: rgba(2, 132, 199, 0.8) !important;
+}
+
+/* ---------- Áreas táctiles mínimas (guideline: ≥40px) ---------- */
+body :is(.sidebar__nav-item, .gday__nav-item, .gday__tab, .abtn) { min-height: 40px; }
+body :is(button, .btn):not(.password-toggle) { min-height: 38px; }
+
+/* ---------- Barra de progreso de scroll (CSS puro, animation-timeline) ----------
+   Línea de luz superior que se llena al descender — sofisticado, sin JS */
+@keyframes prismScrollFill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    height: 2px; width: 100%;
+    transform-origin: left;
+    transform: scaleX(0);
+    background: linear-gradient(90deg, rgba(159,216,255,.9), rgba(56,189,248,.7));
+    z-index: 10000;
+    pointer-events: none;
+    animation: prismScrollFill auto linear;
+    animation-timeline: scroll(root block);
+}
+body.at-light::before {
+    background: linear-gradient(90deg, rgba(2,132,199,.9), rgba(3,105,161,.7));
+}
+
+/* ---------- Grano sutil (profundidad, calidez premium) ---------- */
+body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.025;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- Scroll suave direccional (guideline) ---------- */
+html { scroll-behavior: smooth; }
+
+/* ---------- Disabled: no depende solo del color (guideline) ---------- */
+body :is(button, .btn, input, .gps-switch)[disabled],
+body :is(button, .btn)[aria-disabled='true'] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: saturate(0.6);
+}
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    body::before { animation: none; }
+}
