@@ -36,3 +36,6 @@ tutor-library/pdfs/
 tutor-library/index/
 tutor-library/_incoming/
 tutor-library/text/
+
+# Proyecto ajeno a Gunter (vive en la misma carpeta por accidente)
+solidworks-mcp/

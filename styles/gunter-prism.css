@@ -781,3 +781,99 @@ body:is(.at-dark,.at-light) :is(.dashboard-header, .config-header, .results-head
 @media (prefers-reduced-motion: reduce) {
     body :is(.dashboard-header, .config-header, .results-header, .gps__intro, .glogin)::after { animation: none !important; }
 }
+
+/* =============================================
+   COMPOSICIÓN ARMÓNICA (v64) — ritmo, simetría y
+   firma creativa por sección. Modo claro pulido.
+   ============================================= */
+
+/* Columna de contenido armónica — se centran los HIJOS (no el contenedor,
+   que debe respetar el sidebar fijo y su comportamiento responsive) */
+.dashboard-main, .gday__main {
+    padding-inline: clamp(18px, 3vw, 40px) !important;
+}
+.dashboard-main > *, .gday__main > * {
+    max-width: 1080px;
+    margin-inline: auto;
+}
+.config-page, .results-page {
+    max-width: 1180px;
+    margin-inline: auto !important;
+}
+
+/* Ritmo vertical unificado (base 8): secciones 24, tarjetas 16 */
+.dashboard-main > section + section,
+.dashboard-main > section + header,
+.dashboard-main > header + section { margin-top: 24px; }
+
+/* ---------- MODO CLARO: tinta correcta en el panel lateral ---------- */
+body.at-light :is(.sidebar, .gday__sidebar) { color: #1f2637; }
+body.at-light :is(.sidebar__nav-item, .gday__nav-item) { color: rgba(31, 38, 55, 0.72) !important; }
+body.at-light :is(.sidebar__nav-item.active, .gday__nav-item.is-active,
+    .sidebar__nav-item:hover, .gday__nav-item:hover) { color: #0c4a6e !important; }
+body.at-light .sidebar__logo-text { color: #0c4a6e !important; }
+body.at-light .sidebar__user-name { color: #1f2637 !important; }
+body.at-light .sidebar__user-role { color: rgba(31, 38, 55, 0.6) !important; }
+body.at-light .sidebar__user-avatar {
+    background: rgba(2, 132, 199, 0.12) !important;
+    color: #075985 !important;
+    border: 1px solid rgba(2, 132, 199, 0.25) !important;
+}
+/* Estilos inline blancos heredados del tema oscuro → tinta */
+body.at-light [style*='color:rgba(255,255,255'] { color: #3a465f !important; }
+body.at-light [style*='color: rgba(255,255,255'] { color: #3a465f !important; }
+
+/* ---------- FIRMA CREATIVA por sección (ambos temas) ----------
+   Glifo prisma en la esquina + línea de difracción bajo el título */
+:is(.dashboard-header, .config-header, .results-header, .gps__intro)::before {
+    content: '◈';
+    position: absolute;
+    top: 14px; right: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: rgba(159, 216, 255, 0.55);
+    animation: prismPulse 4s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+body.at-light :is(.dashboard-header, .config-header, .results-header, .gps__intro)::before {
+    color: rgba(2, 132, 199, 0.5);
+}
+:is(.dashboard-header__title, .config-header__title, .results-header__title)::after {
+    content: '';
+    display: block;
+    height: 1px;
+    max-width: 260px;
+    margin-top: 12px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.55), transparent);
+    opacity: 0.3;
+}
+body.at-light :is(.dashboard-header__title, .config-header__title, .results-header__title)::after {
+    background: linear-gradient(90deg, rgba(12, 74, 110, 0.6), transparent);
+    opacity: 0.4;
+}
+
+/* ---------- Barra de tabs de Día: píldora de vidrio flotante ---------- */
+body.at-dark .gday__tabs {
+    background: rgba(15, 23, 42, 0.55) !important;
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.07) !important;
+    border-top-color: rgba(255, 255, 255, 0.14) !important;
+    border-radius: 999px !important;
+    padding: 6px !important;
+    gap: 4px;
+    width: fit-content;
+    max-width: 100%;
+}
+body.at-light .gday__tabs {
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(30, 41, 70, 0.08) !important;
+    border-top-color: rgba(255, 255, 255, 0.95) !important;
+    border-radius: 999px !important;
+    padding: 6px !important;
+    gap: 4px;
+    width: fit-content;
+    max-width: 100%;
+}
+body:is(.at-dark,.at-light) .gday__tab { border-radius: 999px !important; }
