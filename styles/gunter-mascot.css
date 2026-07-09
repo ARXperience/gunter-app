@@ -470,3 +470,65 @@
         animation: none !important;
     }
 }
+
+/* =============================================
+   v66 — REACCIONES VIVAS (actitudes que se sienten)
+   Clases efímeras que dispara gunter-companion.js:
+   is-react-hop (éxito) · is-react-shake (error/berrinche)
+   is-react-wave (saludo) · is-react-look (curiosidad)
+   is-react-peck (picotea, gesto idle)
+   ============================================= */
+.gn-mascot [class*='gn-mascot__'] { transform-box: fill-box; }
+
+@keyframes gnReactHop {
+    0%, 100% { transform: translateY(0); }
+    22%      { transform: translateY(-13%) scale(1.05); }
+    45%      { transform: translateY(0); }
+    65%      { transform: translateY(-7%); }
+    82%      { transform: translateY(0); }
+}
+.gn-mascot.is-react-hop { animation: gnReactHop 1s cubic-bezier(.33,1,.68,1) 2; }
+
+@keyframes gnReactShake {
+    0%, 100% { transform: translateX(0) rotate(0); }
+    20% { transform: translateX(-5%) rotate(-4deg); }
+    40% { transform: translateX(5%)  rotate(4deg); }
+    60% { transform: translateX(-3%) rotate(-2deg); }
+    80% { transform: translateX(3%)  rotate(2deg); }
+}
+.gn-mascot.is-react-shake { animation: gnReactShake .55s ease-in-out 3; }
+.gn-mascot.is-react-shake .gn-mascot__brow { opacity: 1 !important; transform: translateY(0) !important; }
+
+@keyframes gnReactWave {
+    0%, 100% { transform: rotate(0); }
+    25% { transform: rotate(-40deg) translateY(-3px); }
+    50% { transform: rotate(-18deg); }
+    75% { transform: rotate(-44deg) translateY(-3px); }
+}
+.gn-mascot.is-react-wave .gn-mascot__wing--right {
+    transform-origin: center top;
+    animation: gnReactWave 1.3s ease-in-out;
+}
+
+@keyframes gnReactLook {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2.4px); }
+    60% { transform: translateX(2.4px); }
+    85% { transform: translateX(0); }
+}
+.gn-mascot.is-react-look .gn-mascot__pupil { animation: gnReactLook 1.5s ease-in-out; }
+
+@keyframes gnReactPeck {
+    0%, 100% { transform: translateY(0); }
+    28% { transform: translateY(2.6px) rotate(2deg); }
+    46% { transform: translateY(0); }
+    66% { transform: translateY(2.6px) rotate(-2deg); }
+}
+.gn-mascot.is-react-peck .gn-mascot__beak { animation: gnReactPeck .95s ease-in-out; }
+
+@media (prefers-reduced-motion: reduce) {
+    .gn-mascot[class*='is-react-'],
+    .gn-mascot[class*='is-react-'] .gn-mascot__wing--right,
+    .gn-mascot[class*='is-react-'] .gn-mascot__pupil,
+    .gn-mascot[class*='is-react-'] .gn-mascot__beak { animation: none !important; }
+}

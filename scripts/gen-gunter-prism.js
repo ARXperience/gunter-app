@@ -18,7 +18,7 @@ const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const ROOT = path.join(__dirname, '..');
 const BASE = process.env.GUNTER_URL || 'http://localhost:3001';
 
-const PROMPT = 'Photorealistic penguin, ultra realistic: a real black and white penguin with natural glossy feathers, white belly, subtle orange beak. It wears ONLY one accessory: a sleek futuristic high-tech collar band around its neck with a glowing cyan EYE-shaped lens amulet at the center, faint cyan light reflecting on its chest feathers. No clothes, no suit — a real penguin with one futuristic collar. Full body, standing, facing slightly forward. Isolated on a plain pure WHITE studio background, professional photography lighting, 8k detail.';
+const PROMPT = '3D stylized character render of a penguin, realistic-cartoonish style (Pixar / DreamWorks quality): expressive big eyes, soft detailed feather texture, classic black and white penguin with white belly and small orange beak, cute but with cinematic realistic lighting and subsurface scattering. It wears ONLY one accessory: a sleek futuristic high-tech collar band around its neck with a glowing cyan EYE-shaped lens amulet at the center, faint cyan rim light on its chest. No clothes, no suit. Full body, standing, facing slightly forward with a confident smirk. Isolated on a plain pure WHITE studio background, octane render, 8k.';
 
 async function removeWhiteBg(buf) {
     const img = await loadImage(buf);

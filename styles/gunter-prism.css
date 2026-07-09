@@ -443,47 +443,83 @@ body.at-light .prism-diffraction {
     perspective: 1000px;
     margin: 0 0 26px;
 }
+/* v66 — SIN caja cuadrada detrás de Gunter: el hero flota sobre el fondo.
+   El portal es el cubo de Metatrón (ver .metatron abajo). */
 .prism-hero__glass {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 28px;
+    gap: 34px;
     padding: 26px 34px;
     border-radius: 20px;
-    background:
-        linear-gradient(120deg, rgba(34, 211, 238, 0.05), transparent 40%),
-        rgba(10, 16, 32, 0.92);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-top-color: rgba(255, 255, 255, 0.16);
-    border-left-color: rgba(255, 255, 255, 0.12);
-    box-shadow: 0 0 80px rgba(0, 255, 255, 0.05), 0 18px 50px rgba(0, 0, 0, 0.45);
-    overflow: hidden;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible;
     transform: rotateY(-4deg) rotateX(2deg);
     transition: transform .5s ease-out;
     will-change: transform;
 }
-.prism-hero__glass::after {
-    content: '';
-    position: absolute;
-    top: -50%; left: -50%;
-    width: 200%; height: 200%;
-    background: linear-gradient(45deg, transparent 0%, rgba(255,255,255,.03) 45%, rgba(255,255,255,.06) 50%, rgba(255,255,255,.03) 55%, transparent 100%);
-    animation: prismShimmer 8s infinite linear;
-    pointer-events: none;
-}
 .prism-hero__img-wrap {
     flex: 0 0 auto;
-    width: 160px; height: 160px;
+    width: 170px; height: 170px;
     display: grid; place-items: center;
     position: relative;
 }
+/* núcleo del portal: resplandor pulsante detrás del cubo */
 .prism-hero__img-wrap::before {
     content: '';
-    position: absolute; inset: -16px;
-    background: radial-gradient(circle, rgba(34, 211, 238, 0.20), transparent 65%);
-    filter: blur(10px);
+    position: absolute; inset: -22px;
+    background: radial-gradient(circle, rgba(34, 211, 238, 0.22), rgba(159, 216, 255, 0.08) 45%, transparent 68%);
+    filter: blur(12px);
     animation: prismPulse 4s ease-in-out infinite;
+}
+
+/* =============================================
+   CUBO DE METATRÓN (v66) — portal detrás de Gunter
+   13 círculos + 78 líneas · doble capa contra-rotante
+   ============================================= */
+.metatron {
+    position: absolute;
+    inset: -30px;
+    width: calc(100% + 60px);
+    height: calc(100% + 60px);
+    fill: none;
+    z-index: 0;
+    pointer-events: none;
+    animation: metatronSpin 80s linear infinite;
+}
+.metatron__lines path {
+    stroke: rgba(159, 216, 255, 0.28);
+    stroke-width: 0.45;
+}
+.metatron__circles circle {
+    stroke: rgba(232, 244, 255, 0.42);
+    stroke-width: 0.7;
+}
+/* capa eco: gira al revés, más grande y difusa → profundidad de portal */
+.metatron--echo {
+    animation: metatronSpinRev 130s linear infinite;
+    filter: blur(2.5px);
+    opacity: 0.55;
+}
+.metatron--echo .metatron__lines path { stroke: rgba(34, 211, 238, 0.30); }
+.metatron--echo .metatron__circles circle { stroke: rgba(34, 211, 238, 0.25); }
+@keyframes metatronSpin    { from { transform: rotate(0deg) scale(1); }    to { transform: rotate(360deg) scale(1); } }
+@keyframes metatronSpinRev { from { transform: rotate(0deg) scale(1.16); } to { transform: rotate(-360deg) scale(1.16); } }
+
+/* modo claro: trazos azul tech sobre fondo claro */
+body.at-light .metatron__lines path { stroke: rgba(3, 105, 161, 0.28); }
+body.at-light .metatron__circles circle { stroke: rgba(2, 132, 199, 0.40); }
+body.at-light .metatron--echo .metatron__lines path { stroke: rgba(2, 132, 199, 0.22); }
+body.at-light .metatron--echo .metatron__circles circle { stroke: rgba(2, 132, 199, 0.18); }
+body.at-light .prism-hero__img-wrap::before {
+    background: radial-gradient(circle, rgba(2, 132, 199, 0.16), rgba(2, 132, 199, 0.05) 45%, transparent 68%);
+}
+@media (prefers-reduced-motion: reduce) {
+    .metatron, .metatron--echo { animation: none; }
 }
 /* v54 — La imagen FLOTA sin recorte ni marco (como el ejemplo):
    object-contain + drop-shadow. Ideal con PNG transparente. */

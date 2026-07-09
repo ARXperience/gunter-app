@@ -1243,10 +1243,68 @@ Gunter:`;
     }
 
     // ─────────────────────────────────────
+    // v66 · ACTITUDES VIVAS — reacciones + humor dinámico
+    // La mascota reacciona a lo que pasa en el sistema y
+    // re-evalúa su humor sin recargar la página.
+    // ─────────────────────────────────────
+    const LIVE = { lastReact: 0, idleTimer: null };
+
+    function react(type, ms = 2000) {
+        const now = Date.now();
+        if (now - LIVE.lastReact < 4000) return;   // anti-spam
+        LIVE.lastReact = now;
+        document.querySelectorAll('.gn-mascot').forEach(m => {
+            ['hop', 'shake', 'wave', 'look', 'peck'].forEach(t => m.classList.remove('is-react-' + t));
+            void m.getBoundingClientRect();        // reflow: reinicia la animación
+            m.classList.add('is-react-' + type);
+            setTimeout(() => m.classList.remove('is-react-' + type), ms);
+        });
+    }
+
+    // Operaciones del sistema → alegría o berrinche
+    window.addEventListener('gunter-status-change', (e) => {
+        const st = e.detail?.state;
+        if (st === 'success') react('hop');
+        else if (st === 'error') react('shake');
+    });
+
+    // Humor dinámico: re-evaluar cada 5 min y al volver a la pestaña
+    function refreshMood(withReaction) {
+        try {
+            if (!window.GunterMood?.compute) return;
+            const m = window.GunterMood.compute();
+            const cls = m && m.mood && m.mood !== 'neutral' ? 'is-mood-' + m.mood.replace(/_/g, '-') : '';
+            document.querySelectorAll('.gn-mascot').forEach(el => {
+                [...el.classList].filter(c => c.startsWith('is-mood-')).forEach(c => el.classList.remove(c));
+                if (cls) el.classList.add(cls);
+            });
+            const status = document.getElementById('gn-comp-status');
+            if (status && window.GunterMood.statusLabel) status.textContent = window.GunterMood.statusLabel();
+            if (withReaction && cls) react(['excited', 'proud'].includes(m.mood) ? 'hop' : 'look');
+        } catch { /* mood opcional */ }
+    }
+    setInterval(() => refreshMood(false), 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshMood(true); });
+
+    // Vida en reposo: micro-gestos aleatorios (parece que respira y curiosea)
+    function scheduleIdleLife() {
+        clearTimeout(LIVE.idleTimer);
+        LIVE.idleTimer = setTimeout(() => {
+            if (!document.hidden && STATE.mounted) {
+                const pool = ['look', 'peck', 'look', 'wave'];  // look pesa doble: gesto más natural
+                react(pool[Math.floor(Math.random() * pool.length)], 1600);
+            }
+            scheduleIdleLife();
+        }, 22000 + Math.random() * 26000);
+    }
+    scheduleIdleLife();
+
+    // ─────────────────────────────────────
     // Public API
     // ─────────────────────────────────────
     window.GunterCompanion = {
         mount, expand, minimize, hide, show, toggle,
+        react,                                        // v66: otros módulos pueden dispararle gestos
         say: (text) => addMessage('assistant', text),
         showBubble,
         // Entry point cuando el wake word transcribió una orden hablada.
