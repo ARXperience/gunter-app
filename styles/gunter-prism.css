@@ -985,3 +985,23 @@ body :is(button, .btn)[aria-disabled='true'] {
     html { scroll-behavior: auto; }
     body::before { animation: none; }
 }
+
+/* =============================================
+   FIX TABLET (v66) — el design-system convierte el sidebar en
+   barra superior a ≤768px, pero .dashboard-page seguía en flex
+   row → sidebar y main quedaban lado a lado aplastados.
+   ============================================= */
+@media (max-width: 768px) {
+    body:is(.at-dark, .at-light) .dashboard-page {
+        flex-direction: column !important;
+    }
+    body:is(.at-dark, .at-light) .dashboard-main {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+    body:is(.at-dark, .at-light) .prism-hero__glass {
+        flex-direction: column;
+        text-align: center;
+        transform: none;
+    }
+}

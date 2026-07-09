@@ -51,21 +51,56 @@ async function removeWhiteBg(buf) {
     return canvas.toBuffer('image/png');
 }
 
-(async () => {
+// Respaldo gratuito sin key: Pollinations (Flux) — mismo espíritu que el
+// fallback de texto del server. Gemini image perdió cuota free (429 permanente).
+async function genPollinations() {
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(PROMPT)
+        + '?width=1024&height=1024&nologo=true&enhance=true&model=flux&seed=7';
+    console.log('→ Pollinations (Flux, gratis sin key)…');
+    const r = await fetch(url, { signal: AbortSignal.timeout(120000) });
+    if (!r.ok) throw new Error('Pollinations HTTP ' + r.status);
+    return Buffer.from(await r.arrayBuffer());
+}
+
+async function genGemini() {
     const svc = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/service-token.json'), 'utf8')).token;
     const r = await fetch(BASE + '/api/gemini-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + svc },
         body: JSON.stringify({ prompt: PROMPT })
     });
-    if (r.status !== 200) {
-        console.log(`✗ HTTP ${r.status} — ${(await r.text()).slice(0, 140)}`);
-        process.exit(1);
-    }
+    if (r.status !== 200) throw new Error(`Gemini HTTP ${r.status} — ${(await r.text()).slice(0, 100)}`);
     const d = await r.json();
-    const raw = Buffer.from(d.data, 'base64');
+    return Buffer.from(d.data, 'base64');
+}
+
+// Remoción de fondo: segmentación neuronal local (U2Net via @imgly, gratis,
+// maneja sombras y fondos grises que el flood-fill no puede) → fallback flood-fill
+async function removeBg(raw) {
+    try {
+        const { removeBackground } = require('@imgly/background-removal-node');
+        const out = await removeBackground(new Blob([raw], { type: 'image/png' }), { model: 'medium' });
+        console.log('✓ fondo removido con segmentación neuronal');
+        return Buffer.from(await out.arrayBuffer());
+    } catch (e) {
+        console.log('imgly no disponible (' + e.message.slice(0, 60) + ') → flood-fill blanco');
+        return removeWhiteBg(raw);
+    }
+}
+
+(async () => {
+    let raw;
+    try {
+        raw = await genGemini();
+        console.log('✓ motor: Gemini');
+    } catch (e) {
+        console.log('✗ ' + e.message);
+        raw = await genPollinations();
+        console.log('✓ motor: Pollinations');
+    }
     console.log(`✅ imagen generada (${(raw.length / 1024).toFixed(0)} KB) — limpiando fondo…`);
-    const clean = await removeWhiteBg(raw);
+    fs.writeFileSync(path.join(ROOT, 'assets/gunter/gunter-prism-raw.png'), raw);
+    const clean = await removeBg(raw);
     fs.writeFileSync(path.join(ROOT, 'assets/gunter/gunter-prism-nobg.png'), clean);
     console.log('✅ assets/gunter/gunter-prism-nobg.png listo (transparente real)');
 })();
