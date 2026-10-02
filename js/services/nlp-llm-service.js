@@ -159,6 +159,16 @@ ${p.focusCoach ? '- Actúa también como coach de enfoque.' : ''}`);
             temperature: opts.temperature ?? 0.2,
             max_tokens: opts.maxTokens ?? 400
         };
+        try {
+            const local = window.GunterContextProvider?.build?.() || {};
+            body.gunter_context = {
+                sessionId: sessionStorage.getItem('gunter_context_session_id') || 'chat_proxy',
+                channel: opts.channel || 'llm',
+                timezone: local.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Bogota',
+                locale: navigator.language || 'es-CO',
+                current: { project: local.currentProject?.name || undefined, route: location.pathname.split('/').pop() || 'index.html' }
+            };
+        } catch { /* el servidor todavía genera un envelope seguro */ }
         if (opts.jsonMode) body.response_format = { type: 'json_object' };
 
         // Fase 1 (blindaje): solo proxy. NO añadimos Authorization aquí —

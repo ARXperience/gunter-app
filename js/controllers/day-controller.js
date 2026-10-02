@@ -326,8 +326,9 @@
         if (!btn) return;
         updateNotifBtn(btn);
         btn.addEventListener('click', async () => {
+            btn.disabled = true;
             const res = await window.GunterNotificationsService.requestPermission();
-            updateNotifBtn(btn);
+            await updateNotifBtn(btn);
             if (res === 'granted') {
                 window.GunterNotificationsService.showToast('✅ Notificaciones activadas.', { priority: 'normal' });
             } else if (res === 'denied') {
@@ -335,13 +336,14 @@
             }
         });
     }
-    function updateNotifBtn(btn) {
+    async function updateNotifBtn(btn) {
         if (!('Notification' in window)) {
             btn.textContent = '🔔 No soportado'; btn.disabled = true; return;
         }
         if (Notification.permission === 'granted') {
-            btn.textContent = '🔔 Notificaciones activas';
-            btn.disabled = true;
+            const push = await window.GunterNotificationsService?.pushStatus?.().catch(() => null);
+            btn.textContent = push?.subscribed ? '🔔 Alertas en segundo plano activas' : '🔔 Completar activación';
+            btn.disabled = Boolean(push?.subscribed);
         } else if (Notification.permission === 'denied') {
             btn.textContent = '🔕 Bloqueadas en el navegador';
             btn.disabled = true;

@@ -10,7 +10,7 @@
    ============================================= */
 
 (function () {
-    const TIME_WORDS = /\b(hoy|mañana|manana|pasado\s+mañana|pasado\s+manana|ayer|ahora|más tarde|mas tarde|esta\s+(mañana|manana|tarde|noche)|próxim[oa]\s+(semana|mes|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)|este\s+(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)|el\s+(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)|en\s+\d+\s+(minutos?|horas?|d[ií]as?|semanas?|meses?)|a\s+las?\s+\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm|de\s+la\s+(mañana|manana|tarde|noche))?|\d{1,2}[:.]\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm)|\d{1,2}h\b|\d{1,2}\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)(?:\s+de\s+\d{4})?|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|todos los (lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)s?|cada (lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo))\b/gi;
+    const TIME_WORDS = /\b(pasado\s+mañana|pasado\s+manana|esta\s+(mañana|manana|tarde|noche)|más tarde|mas tarde|hoy|mañana|manana|ayer|ahora|ahorita|mediod[ií]a|medianoche|próxim[oa]\s+(semana|mes|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)|este\s+(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)|el\s+(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)|en\s+\d+\s+(minutos?|horas?|d[ií]as?|semanas?|meses?)|a\s+las?\s+(?:\d{1,2}|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|diecis[eé]is|diecisiete|dieciocho|diecinueve|veinte|veintiun[oa]|veintid[oó]s|veintitr[eé]s)(?:[:.]\d{2}|\s+y\s+(?:media|cuarto))?\s*(?:am|pm|de\s+la\s+(mañana|manana|tarde|noche))?|\d{1,2}[:.]\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm)|\d{1,2}h\b|\d{1,2}\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)(?:\s+de\s+\d{4})?|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|todos los (lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)s?|cada (lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo))\b/gi;
 
     const PRIORITY_HIGH     = /\b(urgente|urgentísim[oa]|asap|inmediat[oa]|ya|ahora mismo|sin falta|cr[ií]tic[oa]|importantísim[oa]|prioridad alta)\b/i;
     const PRIORITY_NORMAL_H = /\b(importante|prioridad)\b/i;
@@ -31,15 +31,29 @@
     }
 
     function extractDatetimeExpressions(text) {
-        const expressions = [];
+        const found = [];
         let m;
         TIME_WORDS.lastIndex = 0;
         while ((m = TIME_WORDS.exec(text)) !== null) {
-            expressions.push({
+            found.push({
                 raw: m[0].trim(),
                 span: [m.index, m.index + m[0].length],
                 kind: /todos los|cada/.test(m[0]) ? 'recurring' : 'relative'
             });
+        }
+        // "mañana a las diez" es una sola expresión temporal. Separarla hacía
+        // que el plan tomara mañana 09:00 e ignorara la hora pronunciada.
+        const expressions = [];
+        for (const item of found) {
+            const previous = expressions[expressions.length - 1];
+            const gap = previous ? text.slice(previous.span[1], item.span[0]) : '';
+            if (previous && item.span[0] - previous.span[1] <= 8 && /^[\s,\-a]+$/i.test(gap)) {
+                previous.span[1] = item.span[1];
+                previous.raw = text.slice(previous.span[0], previous.span[1]).trim();
+                previous.kind = previous.kind === 'recurring' || item.kind === 'recurring' ? 'recurring' : 'relative';
+            } else {
+                expressions.push({ ...item, span: [...item.span] });
+            }
         }
         return expressions;
     }
@@ -122,7 +136,7 @@
             if (s.span) cleaned = cleaned.slice(0, s.span[0]) + cleaned.slice(s.span[1]);
         }
         cleaned = cleaned
-            .replace(/^(recu[eé]rdame|avisame|av[ií]same|agenda|crea una tarea de|hay que|tengo que|por favor)/i, '')
+            .replace(/^(?:por favor\s+)?(?:recu[eé]rdame|avisame|av[ií]same|agenda|(?:crea(?:r)?|agrega|a[nñ]ade|anota|apunta|registra)\s+(?:una?\s+)?(?:nueva\s+)?tarea(?:\s+(?:de|para|que))?|hay que|tengo que)\s*/i, '')
             .replace(/\b(el|la|los|las)\b\s*$/i, '')
             .replace(/\s{2,}/g, ' ')
             .replace(/[,.\s]+$/g, '')

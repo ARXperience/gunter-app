@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
+const DATA_DIR = path.resolve(process.env.GUNTER_AUTH_DATA_DIR || process.env.GUNTER_DATA_DIR || path.join(__dirname, '..', '..', 'data'));
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 const SERVICE_TOKEN_FILE = path.join(DATA_DIR, 'service-token.json');
 
@@ -44,7 +44,7 @@ function _save() {
     clearTimeout(_saveTimer);
     _saveTimer = setTimeout(() => {
         try {
-            fs.writeFileSync(SESSIONS_FILE, JSON.stringify({ sessions: _sessions, savedAt: new Date().toISOString() }, null, 2), 'utf8');
+            fs.writeFileSync(SESSIONS_FILE, JSON.stringify({ sessions: _sessions, savedAt: new Date().toISOString() }, null, 2), { encoding: 'utf8', mode: 0o600 });
         } catch (e) {
             console.error('❌ [auth] No se pudo guardar sessions.json:', e.message);
         }
@@ -74,7 +74,7 @@ function getServiceToken() {
                 token: _serviceToken,
                 note: 'Token de servicio para herramientas locales (smoke tests). NO compartir ni commitear.',
                 createdAt: new Date().toISOString()
-            }, null, 2), 'utf8');
+            }, null, 2), { encoding: 'utf8', mode: 0o600 });
             console.log('🔑 [auth] Service token generado en data/service-token.json');
         }
     } catch (e) {
@@ -84,7 +84,29 @@ function getServiceToken() {
 }
 
 function isServiceToken(token) {
-    return !!token && token === getServiceToken();
+    if (!token) return false;
+    const expected = getServiceToken();
+    if (!expected) return false;
+    const a = Buffer.from(String(token));
+    const b = Buffer.from(String(expected));
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function rotateServiceToken() {
+    try {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        _serviceToken = 'svc_' + crypto.randomBytes(32).toString('hex');
+        fs.writeFileSync(SERVICE_TOKEN_FILE, JSON.stringify({
+            token: _serviceToken,
+            note: 'Token de servicio para herramientas locales (smoke tests). NO compartir ni commitear.',
+            createdAt: new Date().toISOString(),
+            rotatedAt: new Date().toISOString()
+        }, null, 2), { encoding: 'utf8', mode: 0o600 });
+        return true;
+    } catch (e) {
+        console.error('❌ [auth] No se pudo rotar el service token:', e.message);
+        return false;
+    }
 }
 
 // ---------- Sesiones de usuario ----------
@@ -139,6 +161,25 @@ function destroyAllForUser(userId) {
     return n;
 }
 
+function destroyAll() {
+    const sessions = _load();
+    const count = Object.keys(sessions).length;
+    _sessions = {};
+    clearTimeout(_saveTimer);
+    try {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        fs.writeFileSync(SESSIONS_FILE, JSON.stringify({
+            sessions: {},
+            savedAt: new Date().toISOString(),
+            invalidatedAt: new Date().toISOString()
+        }, null, 2), { encoding: 'utf8', mode: 0o600 });
+    } catch (e) {
+        console.error('❌ [auth] No se pudieron invalidar las sesiones:', e.message);
+        return -1;
+    }
+    return count;
+}
+
 function activeCount() {
     _load();
     _purgeExpired();
@@ -153,4 +194,4 @@ function listActive() {
     }));
 }
 
-module.exports = { create, get, destroy, destroyAllForUser, activeCount, listActive, getServiceToken, isServiceToken };
+module.exports = { create, get, destroy, destroyAll, destroyAllForUser, activeCount, listActive, getServiceToken, rotateServiceToken, isServiceToken };

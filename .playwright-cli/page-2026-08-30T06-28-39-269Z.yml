@@ -1,0 +1,18 @@
+- generic [active] [ref=f10e1]:
+  - generic: GUNTER
+  - main [ref=f10e2]:
+    - heading "Gunter" [level=1] [ref=f10e4]
+    - paragraph [ref=f10e5]: Tu asistente personal. Inicia sesión para continuar.
+    - generic [ref=f10e6]:
+      - generic [ref=f10e7]:
+        - generic [ref=f10e8]: Usuario o email
+        - textbox "Usuario o email" [ref=f10e9]:
+          - /placeholder: tu-usuario o tu@correo.com
+      - generic [ref=f10e10]:
+        - generic [ref=f10e11]: Contraseña
+        - textbox "Contraseña" [ref=f10e12]:
+          - /placeholder: ••••••••
+      - button "Entrar" [ref=f10e13] [cursor=pointer]
+      - paragraph [ref=f10e14]:
+        - text: ¿No tienes cuenta?
+        - button "Regístrate" [ref=f10e15] [cursor=pointer]

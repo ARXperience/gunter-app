@@ -1,0 +1,112 @@
+- generic [active] [ref=f4e1]:
+  - generic [aria-hidden]:
+    - generic: GUNTER
+  - link "Saltar al contenido principal" [ref=f4e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=f4e5]:
+    - navigation "Navegación principal de Gunter" [ref=f4e6]:
+      - link "Gunter, centro de comando" [ref=f4e7] [cursor=pointer]:
+        - /url: day.html
+      - link "＋" [ref=f4e8] [cursor=pointer]:
+        - /url: new-project.html
+      - link "Configuración" [ref=f4e9] [cursor=pointer]:
+        - /url: config.html#preferences
+        - text: ⚙
+      - group [ref=f4e10]:
+        - generic "Abrir navegación" [ref=f4e11] [cursor=pointer]:
+          - text: ☰
+          - generic [ref=f4e12]: Menú
+    - navigation "Ubicación actual" [ref=f4e13]:
+      - list [ref=f4e14]:
+        - listitem [ref=f4e15]:
+          - generic [ref=f4e16]: Hoy
+    - generic [ref=f4e17]:
+      - generic [ref=f4e18]:
+        - generic [ref=f4e19]: Buenas tardes
+        - heading "domingo, 27 de septiembre" [level=1] [ref=f4e20]
+        - paragraph [ref=f4e21]: Un día despejado. Usa la barra de captura para agregar algo.
+      - generic [ref=f4e22]:
+        - generic [ref=f4e23]:
+          - generic [ref=f4e24]: 📋
+          - strong [ref=f4e25]: "0"
+          - text: tareas
+        - generic [ref=f4e26]:
+          - generic [ref=f4e27]: 📅
+          - strong [ref=f4e28]: "0"
+          - text: eventos
+        - generic [ref=f4e29]:
+          - generic [ref=f4e30]: ⏰
+          - strong [ref=f4e31]: "0"
+          - text: vencidas
+    - generic [ref=f4e32]:
+      - text: "01"
+      - generic [ref=f4e33]: Comando rápido
+      - generic [ref=f4e34]:
+        - button "Adjuntar recibo o factura" [ref=f4e35] [cursor=pointer]: 📎
+        - textbox "Escribe una tarea, evento, recordatorio o consulta para Gunter" [ref=f4e36]:
+          - /placeholder: "Dile a Gunter qué necesitas: “organiza mi día”, “recuérdame llamar a Ana”…"
+        - button "➤ Enviar" [ref=f4e37] [cursor=pointer]
+      - paragraph [ref=f4e38]: Lenguaje natural en español · Tareas, eventos, recordatorios, facturas
+    - tablist [ref=f4e39]:
+      - generic [ref=f4e40]:
+        - generic [ref=f4e41]: Enfoque
+        - generic [ref=f4e42]:
+          - tab "Ahora" [ref=f4e43] [cursor=pointer]:
+            - generic [aria-hidden] [ref=f4e44]: ◉
+          - tab "Actividad" [ref=f4e46] [cursor=pointer]:
+            - generic [aria-hidden] [ref=f4e47]: ↻
+          - tab "Conversaciones" [selected] [ref=f4e49] [cursor=pointer]:
+            - generic [aria-hidden] [ref=f4e50]: ◫
+    - tabpanel "Conversaciones" [ref=f4e52]:
+      - region "Conversaciones conectadas" [ref=f4e54]:
+        - generic [ref=f4e55]:
+          - generic [ref=f4e56]:
+            - text: CENTRO DE COMUNICACIONES
+            - heading "Conversaciones" [level=2] [ref=f4e57]
+            - paragraph [ref=f4e58]: Lee, entiende y prepara respuestas. Gunter nunca envía sin tu orden.
+          - generic [ref=f4e59]:
+            - generic [ref=f4e60]: 0 por revisar
+            - button "Actualizar" [ref=f4e61] [cursor=pointer]
+            - link "Conexiones" [ref=f4e62] [cursor=pointer]:
+              - /url: config.html#data
+        - generic [ref=f4e63]:
+          - generic [ref=f4e64]:
+            - text: WhatsApp
+            - generic [ref=f4e66]: Desactivado
+          - generic [ref=f4e67]:
+            - text: Instagram
+            - generic [ref=f4e69]: Desactivado
+          - generic [ref=f4e70]:
+            - text: Messenger
+            - generic [ref=f4e72]: Desactivado
+        - generic [ref=f4e73]:
+          - complementary "Lista de conversaciones" [ref=f4e74]:
+            - generic [ref=f4e75]:
+              - text: Buscar
+              - searchbox "Buscar" [ref=f4e76]
+            - generic [ref=f4e78]:
+              - strong [ref=f4e79]: Aún no hay mensajes
+              - generic [ref=f4e80]: Activa un canal en Configuración y las conversaciones aparecerán aquí.
+          - main [ref=f4e81]:
+            - generic [ref=f4e82]:
+              - generic [ref=f4e83]: ⌁
+              - strong [ref=f4e84]: Tu bandeja unificada empieza aquí
+              - paragraph [ref=f4e85]: Conecta WhatsApp o vincula tus cuentas personales de Instagram y Messenger. Gunter te explicará los requisitos antes de pedir acceso.
+              - link "Configurar canales" [ref=f4e86] [cursor=pointer]:
+                - /url: config.html#data
+  - generic "Asistente Gunter" [ref=f4e87]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué tengo hoy?"
+        - button "Activa el planificador"
+        - button "Ponte más divertido"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f4e88] [cursor=pointer]
+  - button "Menú de usuario" [ref=f4e90] [cursor=pointer]: P

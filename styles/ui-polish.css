@@ -11,6 +11,22 @@
      - reduced-motion respetado
    ============================================= */
 
+/* ---------- Skip navigation + visible focus ---------- */
+.skip-link {
+    position: fixed;
+    z-index: 10000;
+    top: max(0.75rem, env(safe-area-inset-top));
+    left: max(0.75rem, env(safe-area-inset-left));
+    padding: 0.7rem 1rem;
+    border-radius: 0.75rem;
+    color: #07121f;
+    background: #a5e8ff;
+    font-weight: 700;
+    transform: translateY(calc(-100% - 1.5rem));
+    transition: transform 160ms ease;
+}
+.skip-link:focus-visible { transform: translateY(0); }
+
 /* ---------- G7: Focus visible global (accesibilidad teclado) ---------- */
 :focus-visible {
     outline: 2px solid var(--accent-primary, #00d4ff);

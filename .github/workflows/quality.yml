@@ -1,0 +1,52 @@
+name: Quality gates
+
+on:
+  push:
+    paths:
+      - "server/**"
+      - "js/**"
+      - "test/**"
+      - "scripts/**"
+      - "styles/**"
+      - "*.html"
+      - "service-worker.js"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/quality.yml"
+  pull_request:
+    paths:
+      - "server/**"
+      - "js/**"
+      - "test/**"
+      - "scripts/**"
+      - "styles/**"
+      - "*.html"
+      - "service-worker.js"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/quality.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Isolated tests and dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: npm audit --omit=dev

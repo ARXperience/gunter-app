@@ -1,0 +1,102 @@
+- generic [active] [ref=f27e1]:
+  - generic: GUNTER
+  - generic [ref=f27e2]:
+    - navigation "Navegación principal de Gunter" [ref=f27e3]:
+      - generic [ref=f27e4]:
+        - link "Día" [ref=f27e5] [cursor=pointer]:
+          - /url: day.html
+        - link "Reuniones" [ref=f27e6] [cursor=pointer]:
+          - /url: dashboard.html
+        - link "Nueva" [ref=f27e7] [cursor=pointer]:
+          - /url: new-project.html
+        - link "Config" [ref=f27e8] [cursor=pointer]:
+          - /url: config.html#premium
+    - generic "Flujo actual" [ref=f27e9]:
+      - generic [ref=f27e10]:
+        - generic [ref=f27e11]: "01"
+        - text: Contexto
+      - generic [ref=f27e13]:
+        - generic [ref=f27e14]: "02"
+        - text: Captura
+      - generic [ref=f27e16]:
+        - generic [ref=f27e17]: "03"
+        - text: Intervención
+    - banner [ref=f27e18]:
+      - generic [ref=f27e19]:
+        - link "Volver al wizard" [ref=f27e20] [cursor=pointer]:
+          - /url: new-project.html
+        - generic [ref=f27e23]:
+          - heading "Nuevo Proyecto" [level=1] [ref=f27e24]
+          - generic [ref=f27e25]:
+            - generic [ref=f27e26]:
+              - generic [ref=f27e27]: 🏢
+              - generic [ref=f27e28]: Empresarial
+            - generic [ref=f27e29]: •
+            - generic [ref=f27e30]: Tecnología
+      - generic [ref=f27e31]:
+        - generic [ref=f27e32]: 00:00:00
+        - button "Finalizar Reunión" [ref=f27e35] [cursor=pointer]
+    - tablist "Paneles de reunión" [ref=f27e36]:
+      - tab "Transcripción" [selected] [ref=f27e37] [cursor=pointer]
+      - tab "Gunter AI" [ref=f27e38] [cursor=pointer]
+    - generic [ref=f27e39]:
+      - generic [ref=f27e40]:
+        - generic [ref=f27e41]:
+          - heading "Audio" [level=2] [ref=f27e42]
+          - generic [ref=f27e46]: LISTO
+        - generic [ref=f27e48]:
+          - generic [ref=f27e62]:
+            - button "Silenciar" [ref=f27e63] [cursor=pointer]
+            - button "Iniciar Grabación" [ref=f27e64] [cursor=pointer]
+            - button "Pausar" [disabled] [ref=f27e65]
+          - paragraph [ref=f27e66]: Haz clic en el botón rojo para iniciar la grabación
+      - generic [ref=f27e67]:
+        - generic [ref=f27e68]:
+          - heading "Transcripción en Tiempo Real" [level=2] [ref=f27e69]
+          - generic [ref=f27e73]: ESPERANDO...
+        - generic [ref=f27e75]:
+          - generic [ref=f27e76]:
+            - generic "Transcripción rápida (navegador)" [ref=f27e77]: Web Speech
+            - generic "Respaldo autoritativo (Whisper)" [ref=f27e80]:
+              - generic [ref=f27e82]: Whisper
+              - generic [ref=f27e83]: "0"
+            - generic [ref=f27e84]: Doble respaldo activo
+          - generic [ref=f27e86]:
+            - generic [ref=f27e87]:
+              - generic [ref=f27e88]: 🐧 Gunter
+              - generic [ref=f27e89]: 00:00:00
+            - paragraph [ref=f27e90]: ¡Bienvenido! Presiona el botón de grabación para comenzar. Transcribiré automáticamente todo lo que digas y te daré insights estratégicos en tiempo real.
+      - generic [ref=f27e91]:
+        - generic [ref=f27e92]:
+          - heading "Gunter AI" [level=2] [ref=f27e93]
+          - generic [ref=f27e97]: —
+        - generic [ref=f27e100]: LISTO
+        - generic [ref=f27e130]:
+          - generic [ref=f27e131]:
+            - generic [ref=f27e132]: 👋 ¡Hola! Soy Gunter, tu consultor estratégico con IA. Estoy listo para analizar tu reunión.
+            - generic [ref=f27e133]:
+              - text: 💡
+              - strong [ref=f27e134]: "Tip:"
+              - text: Habla claramente y mencionaré automáticamente cuando detecte información importante como presupuestos, plazos o riesgos.
+          - generic [ref=f27e136]:
+            - textbox "Pregunta a Gunter..." [ref=f27e137]
+            - button [ref=f27e138] [cursor=pointer]
+    - contentinfo [ref=f27e139]:
+      - generic [ref=f27e140]:
+        - generic [ref=f27e141]: LISTO PARA GRABAR
+        - generic [ref=f27e144]: Transcripción en vivo (Web Speech) + respaldo autoritativo (Whisper) + diarización local
+      - generic [ref=f27e145]:
+        - button "Descargar Audio" [disabled] [ref=f27e146]
+        - button "Ver Análisis" [ref=f27e147] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f27e148]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f27e149] [cursor=pointer]
+  - button "Menú de usuario" [ref=f27e151] [cursor=pointer]: C

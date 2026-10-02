@@ -21,10 +21,24 @@
         'julio': 6, 'agosto': 7, 'septiembre': 8, 'setiembre': 8, 'octubre': 9,
         'noviembre': 10, 'diciembre': 11
     };
+    const HOUR_WORDS = {
+        una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6,
+        siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12,
+        trece: 13, catorce: 14, quince: 15, dieciseis: 16, dieciséis: 16,
+        diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20,
+        veintiuna: 21, veintiuno: 21, veintidos: 22, veintidós: 22,
+        veintitres: 23, veintitrés: 23
+    };
 
     // ---------- Core helpers ----------
-    function nowInTz(tz) {
-        return new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+    function nowInTz(tz, instant = new Date()) {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+        }).formatToParts(new Date(instant));
+        const get = type => Number(parts.find(p => p.type === type)?.value || 0);
+        // Date contenedor de campos de pared; no representa todavía un instante.
+        return new Date(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
     }
 
     function toIsoWithTz(date, tz) {
@@ -42,6 +56,31 @@
 
     function tzOffsetString(date, tz) {
         try {
+            const wallGuess = Date.UTC(
+                date.getFullYear(), date.getMonth(), date.getDate(),
+                date.getHours(), date.getMinutes(), date.getSeconds()
+            );
+            let offsetMinutes = offsetAt(new Date(wallGuess), tz);
+            const instant = new Date(wallGuess - offsetMinutes * 60_000);
+            offsetMinutes = offsetAt(instant, tz); // corrige cambios DST cercanos
+            const sign = offsetMinutes < 0 ? '-' : '+';
+            const absolute = Math.abs(offsetMinutes);
+            return `${sign}${String(Math.floor(absolute / 60)).padStart(2, '0')}:${String(absolute % 60).padStart(2, '0')}`;
+        } catch { return 'Z'; }
+    }
+
+    function offsetAt(instant, tz) {
+        try {
+            const parts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+            }).formatToParts(instant);
+            const get = type => Number(parts.find(p => p.type === type)?.value || 0);
+            const representedAsUtc = Date.UTC(
+                get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second')
+            );
+            return Math.round((representedAsUtc - instant.getTime()) / 60_000);
+        } catch {
             const formatter = new Intl.DateTimeFormat('en-US', {
                 timeZone: tz, timeZoneName: 'shortOffset'
             });
@@ -52,8 +91,8 @@
             const sign = m[1].startsWith('-') ? '-' : '+';
             const h = Math.abs(parseInt(m[1], 10)).toString().padStart(2, '0');
             const min = (m[2] || '00').padStart(2, '0');
-            return `${sign}${h}:${min}`;
-        } catch { return 'Z'; }
+            return (sign === '-' ? -1 : 1) * (Number(h) * 60 + Number(min));
+        }
     }
 
     function addDays(date, days) {
@@ -78,19 +117,27 @@
     // ---------- Time-of-day extraction ----------
     // Matches: "a las 3", "a las 15:30", "a las 3 pm", "3:45 pm", "3h", "9 de la mañana"
     function extractTimeOfDay(text) {
+        const normalized = String(text).replace(
+            /\b(a las?|hacia las?|sobre las?)\s+(una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|diecis[eé]is|diecisiete|dieciocho|diecinueve|veinte|veintiun[oa]|veintid[oó]s|veintitr[eé]s)\b/gi,
+            (_, prefix, word) => `${prefix} ${HOUR_WORDS[word.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')]}`
+        );
+        if (/\bmediod[ií]a\b/i.test(normalized)) return { hour: 12, minute: 0, ambiguous: false, consumed: 'mediodía' };
+        if (/\bmedianoche\b/i.test(normalized)) return { hour: 0, minute: 0, ambiguous: false, consumed: 'medianoche' };
         const patterns = [
             /\b(?:a las |a la |hacia las |sobre las )?(\d{1,2})[:.](\d{2})\s*(am|pm|a\.?m\.?|p\.?m\.?)?\b/i,
             /\b(?:a las |a la )?(\d{1,2})\s*(am|pm|a\.?m\.?|p\.?m\.?)\b/i,
-            /\b(?:a las |a la )(\d{1,2})\s*(?:de la (mañana|manana|tarde|noche|madrugada))?\b/i,
+            /\b(?:a las |a la )(\d{1,2})(?:\s+y\s+(media|cuarto))?\s*(?:de la (mañana|manana|tarde|noche|madrugada))?\b/i,
             /\b(\d{1,2})\s*h(?:oras?)?\b/i
         ];
         for (const re of patterns) {
-            const m = text.match(re);
+            const m = normalized.match(re);
             if (m) {
                 let hour = parseInt(m[1], 10);
-                const minute = /[:.]\d{2}/.test(m[0]) ? parseInt(m[2], 10) : 0;
-                const ampm = (m[3] || '').toLowerCase();
-                const pod = (m[2] || m[3] || '').toLowerCase();
+                let minute = /[:.]\d{2}/.test(m[0]) ? parseInt(m[2], 10) : 0;
+                if (/\by media\b/i.test(m[0])) minute = 30;
+                if (/\by cuarto\b/i.test(m[0])) minute = 15;
+                const ampm = (m.find?.(x => /^(am|pm|a\.?m\.?|p\.?m\.?)$/i.test(x || '')) || '').toLowerCase();
+                const pod = (m.find?.(x => /^(mañana|manana|tarde|noche|madrugada)$/i.test(x || '')) || '').toLowerCase();
                 if (ampm.startsWith('p') && hour < 12) hour += 12;
                 if (ampm.startsWith('a') && hour === 12) hour = 0;
                 if (/tarde|noche/.test(pod) && hour < 12) hour += 12;
@@ -106,8 +153,25 @@
     // ---------- Regex-based parser ----------
     function parseWithRegex(raw, referenceDate, tz) {
         const text = raw.toLowerCase().trim();
-        const today = new Date(referenceDate);
+        const today = nowInTz(tz, referenceDate);
         const tod = extractTimeOfDay(text);
+
+        if (/\b(ahora|ahorita|en este momento)\b/.test(text)) {
+            return result(raw, toIsoWithTz(today, tz), 'instant', tz, { confidence: 1 });
+        }
+
+        if (/\besta\s+(mañana|manana|tarde|noche)\b/.test(text) && !tod) {
+            const hour = /tarde/.test(text) ? 15 : /noche/.test(text) ? 20 : 9;
+            return result(raw, toIsoWithTz(setTime(today, hour, 0), tz), 'instant', tz, { confidence: 0.8 });
+        }
+
+        if (/\b(mas tarde|más tarde)\b/.test(text) && !tod) {
+            const d = new Date(today); d.setHours(d.getHours() + 2);
+            return result(raw, toIsoWithTz(d, tz), 'instant', tz, {
+                confidence: 0.55,
+                ambiguity: { options: [toIsoWithTz(d, tz)], reason: '“Más tarde” no indica una hora exacta; propongo dentro de 2 horas.' }
+            });
+        }
 
         // "hoy"
         if (/\b(hoy|today)\b/.test(text)) {

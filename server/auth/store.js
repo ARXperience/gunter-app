@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
+const DATA_DIR = path.resolve(process.env.GUNTER_AUTH_DATA_DIR || process.env.GUNTER_DATA_DIR || path.join(__dirname, '..', '..', 'data'));
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 const SCRYPT_KEYLEN = 64;
@@ -45,7 +45,7 @@ function _save() {
     clearTimeout(_saveTimer);
     _saveTimer = setTimeout(() => {
         try {
-            fs.writeFileSync(USERS_FILE, JSON.stringify({ users: _users, savedAt: new Date().toISOString() }, null, 2), 'utf8');
+            fs.writeFileSync(USERS_FILE, JSON.stringify({ users: _users, savedAt: new Date().toISOString() }, null, 2), { encoding: 'utf8', mode: 0o600 });
         } catch (e) {
             console.error('❌ [auth] No se pudo guardar users.json:', e.message);
         }
@@ -79,6 +79,15 @@ function count() { return _load().length; }
 
 function findByUsername(username) {
     return _load().find(u => u.username === String(username || '').toLowerCase().trim()) || null;
+}
+
+function findByLogin(login) {
+    const normalized = String(login || '').toLowerCase().trim();
+    if (!normalized) return null;
+    return _load().find(u =>
+        u.username === normalized ||
+        String(u.email || '').toLowerCase().trim() === normalized
+    ) || null;
 }
 
 function findById(id) {
@@ -122,7 +131,7 @@ function createUser({ username, password, displayName, email }) {
 }
 
 function checkCredentials(username, password) {
-    const user = findByUsername(username);
+    const user = findByLogin(username);
     if (!user) return { ok: false, error: 'Usuario o contraseña incorrectos.' };
     if (!verifyPassword(password, user.passSalt, user.passHash)) {
         return { ok: false, error: 'Usuario o contraseña incorrectos.' };
@@ -252,7 +261,7 @@ function listUsers() {
 }
 
 module.exports = {
-    count, findByUsername, findById, createUser, checkCredentials,
+    count, findByUsername, findByLogin, findById, createUser, checkCredentials,
     recordLogin, setStatus, setRole, changePassword, removeUser,
     publicUser, listUsers,
     setPhone, findByPhone, normalizePhone, setTutorAccess

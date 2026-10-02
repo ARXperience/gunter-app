@@ -8,8 +8,8 @@
 //    forzada y los helpers que devolvían URLs directas a OpenAI ya no
 //    existen (lanzan error si alguien los llama).
 // 3. PROXY_BASE_URL se resuelve dinámicamente:
-//      - localhost:3001 si abres la app desde localhost (dev)
-//      - el origin actual (https://...) si la app vive en cloud / TWA
+//      - el mismo origin cuando la app se sirve por HTTP(S) (dev y producción)
+//      - localhost:3001 solo cuando se abre directamente desde file://
 //      - puede sobreescribirse con window.__GUNTER_API_BASE__ antes de
 //        cargar este script (útil para overrides en build/APK).
 // =============================================
@@ -20,16 +20,13 @@
     let apiBase;
     if (typeof window.__GUNTER_API_BASE__ === 'string' && window.__GUNTER_API_BASE__) {
         apiBase = window.__GUNTER_API_BASE__.replace(/\/+$/, '');
+    } else if (window.location.protocol === 'file:') {
+        // El fallback del modo file:// se usa solo para desarrollo local.
+        apiBase = 'http://localhost:3001';
     } else {
-        const isLocalhost = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
-        if (isLocalhost) {
-            // En dev local, el server vive en :3001 aunque la página la sirva otro proceso.
-            apiBase = `${window.location.protocol}//${window.location.hostname}:3001`;
-        } else {
-            // En producción (PWA, TWA, dominio custom): mismo origin que el HTML.
-            // El backend debe responder /api/* en el mismo dominio (vía proxy del hosting).
-            apiBase = window.location.origin;
-        }
+        // El servidor de Gunter sirve la UI y el API bajo el mismo origin.
+        // Si un hosting separa ambos, el build debe definir __GUNTER_API_BASE__ explícitamente.
+        apiBase = window.location.origin;
     }
 
     window.GUNTER_CONFIG = Object.freeze({

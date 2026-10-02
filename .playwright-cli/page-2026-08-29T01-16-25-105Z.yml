@@ -1,0 +1,99 @@
+- generic [active] [ref=f12e1]:
+  - generic: GUNTER
+  - main [ref=f12e2]:
+    - navigation "Navegación principal de Gunter" [ref=f12e3]:
+      - link "Gunter, centro de comando" [ref=f12e4] [cursor=pointer]:
+        - /url: day.html
+        - generic [ref=f12e6]: GUNTER
+        - generic [ref=f12e7]: COMMAND OS
+      - generic [ref=f12e8]:
+        - link "01 Día" [ref=f12e9] [cursor=pointer]:
+          - /url: day.html
+          - generic [ref=f12e10]: "01"
+          - text: Día
+        - link "02 Reuniones" [ref=f12e11] [cursor=pointer]:
+          - /url: dashboard.html
+          - generic [ref=f12e12]: "02"
+          - text: Reuniones
+        - link "03 Nueva" [ref=f12e13] [cursor=pointer]:
+          - /url: new-project.html
+          - generic [ref=f12e14]: "03"
+          - text: Nueva
+        - link "04 Config" [ref=f12e15] [cursor=pointer]:
+          - /url: config.html#premium
+          - generic [ref=f12e16]: "04"
+          - text: Config
+      - generic [ref=f12e17]: En línea
+    - generic "Flujo actual" [ref=f12e19]:
+      - generic [ref=f12e20]:
+        - generic [ref=f12e21]: "01"
+        - text: Asistente IA
+      - generic [ref=f12e23]:
+        - generic [ref=f12e24]: "02"
+        - text: Preferencias
+      - generic [ref=f12e26]:
+        - generic [ref=f12e27]: "03"
+        - text: Datos
+    - generic [ref=f12e28]:
+      - text: ◈
+      - link "Volver al Dashboard" [ref=f12e29] [cursor=pointer]:
+        - /url: dashboard.html
+      - heading "Preferencias" [level=1] [ref=f12e32]
+      - paragraph [ref=f12e33]: Personaliza apariencia, idioma y accesibilidad.
+    - tablist "Secciones de configuración" [ref=f12e34]:
+      - tab "◉ Asistente IA" [ref=f12e35] [cursor=pointer]
+      - tab "◇ Preferencias" [ref=f12e36] [cursor=pointer]
+      - tab "⌁ Datos y conexiones" [ref=f12e37] [cursor=pointer]
+      - tab "× Papelera" [ref=f12e38] [cursor=pointer]
+    - generic [ref=f12e39]:
+      - generic [ref=f12e40]:
+        - heading "Apariencia" [level=3] [ref=f12e41]
+        - paragraph [ref=f12e42]: Cambia la paleta, tipografía y personalidad de Gunter en toda la app.
+        - generic [ref=f12e43]:
+          - generic [ref=f12e44]: Tema actual
+          - generic [ref=f12e45]:
+            - button "🏢 Empresarial" [ref=f12e46] [cursor=pointer]
+            - button "🎨 Artístico" [ref=f12e47] [cursor=pointer]
+            - button "🎙️ Podcast" [ref=f12e48] [cursor=pointer]
+            - button "☯️ Zen" [ref=f12e49] [cursor=pointer]
+        - generic [ref=f12e50]:
+          - generic [ref=f12e51]: Modo oscuro
+          - checkbox "Modo oscuro" [ref=f12e52] [cursor=pointer]
+        - paragraph [ref=f12e53]: Si no eliges un modo, Gunter sigue la preferencia de tu sistema.
+      - generic [ref=f12e54]:
+        - heading "Idioma de transcripción" [level=3] [ref=f12e55]
+        - paragraph [ref=f12e56]: Idioma que recibe Whisper y Web Speech durante la reunión.
+        - generic [ref=f12e57]:
+          - generic [ref=f12e58]: Idioma
+          - combobox "Idioma" [ref=f12e59]:
+            - option "Español"
+            - option "English"
+            - option "Português"
+            - option "Français"
+      - generic [ref=f12e60]:
+        - heading "Accesibilidad" [level=3] [ref=f12e61]
+        - paragraph [ref=f12e62]: Controla las animaciones y efectos si te molestan.
+        - generic [ref=f12e63]:
+          - generic [ref=f12e64]: Reducir animaciones
+          - checkbox "Reducir animaciones" [ref=f12e65] [cursor=pointer]
+        - generic [ref=f12e66]:
+          - generic [ref=f12e67]: Efectos de click
+          - checkbox "Efectos de click" [checked] [ref=f12e68] [cursor=pointer]
+  - button "Cambiar tema claro/oscuro" [ref=f12e69] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f12e73]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué es la memoria?"
+        - button "¿Qué es el forecast?"
+        - button "Activa el pulso proactivo"
+        - button "Ponte más suave"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f12e74] [cursor=pointer]
+  - button "Menú de usuario" [ref=f12e99] [cursor=pointer]: C

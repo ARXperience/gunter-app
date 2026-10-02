@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0d1220">
+    <meta name="theme-color" content="#0A141A">
     <title>Gunter — Administración</title>
     <script src="js/services/log-buffer.js?v66b-gunter-pixar-1783590000000"></script>
     <script src="js/services/auth-service.js?v66b-gunter-pixar-1783590000000"></script>
@@ -90,6 +90,14 @@
             .gadm__tbl td { display: block; border: 0; padding: 4px 2px; }
         }
     </style>
+<link rel="stylesheet" href="styles/gunter-cinematic.css?v83-static-polar">
+    <script src="js/services/gunter-cinematic-shell.js?v81-static-polar" defer></script>
+    <script src="js/services/theme-toggle.js?v80-polar" defer></script>
+<link rel="stylesheet" href="styles/gunter-command-center.css?v115-mobile-no-header">
+    <link rel="stylesheet" href="styles/pages/control-plane.css?v95-device-access">
+    <script src="js/services/gunter-particles.js?v3-stitch-3d" defer></script>
+    <script src="js/services/gunter-command-center.js?v107-stitch-console" defer></script>
+    <script src="js/services/gunter-icon-system.js?v3-unified-icons" defer></script>
 </head>
 <body class="at-dark">
     <div class="gadm">
@@ -100,38 +108,87 @@
 
         <div class="gadm__grid" id="adm-stats"></div>
 
+        <section class="gadm__card" id="adm-ops-card">
+            <h2>◉ Centro de Operaciones <button class="abtn" id="adm-control-refresh" style="margin-left:auto">↻ Actualizar</button></h2>
+            <div id="adm-ops-overview"><p class="gadm__empty">Cargando salud operativa…</p></div>
+        </section>
+
         <section class="gadm__card" id="adm-pending-card">
             <h2>⏳ Solicitudes pendientes <span class="badge" id="adm-pending-count" hidden>0</span></h2>
             <div id="adm-pending"></div>
         </section>
 
-        <section class="gadm__card">
+        <section class="gadm__card" id="adm-users-card">
             <h2>👥 Usuarios</h2>
             <div id="adm-users"></div>
         </section>
 
-        <section class="gadm__card">
+        <section class="gadm__card" id="adm-memberships-card">
+            <h2>◇ Membresías y entitlements</h2>
+            <details class="gadm__disclosure">
+                <summary>Crear o editar un plan</summary>
+                <form class="cp-plan-form" id="cp-plan-form">
+                    <label>ID del plan<input name="planId" required pattern="[a-z0-9._-]+" placeholder="pro"></label>
+                    <label>Nombre<input name="planName" required placeholder="Plan Pro"></label>
+                    <label>Precio mensual<input name="monthlyPrice" type="number" min="0" step="0.01" placeholder="0"></label>
+                    <label>Moneda<input name="currency" maxlength="3" placeholder="COP"></label>
+                    <label>Límite de nodos<input name="nodes" type="number" min="1" max="50" value="1"></label>
+                    <button class="abtn abtn--ok" type="submit">Guardar plan</button>
+                    <details id="cp-plan-features"><summary>Cargando capacidades…</summary></details>
+                </form>
+            </details>
+            <div id="adm-control-plans"></div>
+            <h2 style="margin-top:24px">Asignación por cuenta</h2>
+            <div id="adm-control-subscriptions"></div>
+        </section>
+
+        <section class="gadm__card" id="adm-nodes-card">
+            <h2>⌁ Dispositivos y nodos</h2>
+            <div id="adm-control-nodes"><p class="gadm__empty">Cargando nodos…</p></div>
+        </section>
+
+        <section class="gadm__card" id="adm-incidents-card">
+            <h2>△ Errores e incidentes</h2>
+            <div id="adm-control-incidents"><p class="gadm__empty">Cargando incidentes…</p></div>
+        </section>
+
+        <section class="gadm__card" id="adm-system-card">
             <h2>🖥️ Sistema</h2>
             <div class="gadm__sys" id="adm-sys"></div>
             <div style="margin-top:12px" id="adm-services"></div>
         </section>
 
-        <section class="gadm__card">
+        <section class="gadm__card" id="adm-logs-card">
             <h2>📜 Logs del servidor</h2>
-            <div class="gadm__logctl">
-                <select id="adm-log-level">
-                    <option value="all">Todos</option>
-                    <option value="warn">Warnings + errores</option>
-                    <option value="error">Solo errores</option>
-                </select>
-                <input id="adm-log-search" placeholder="Filtrar texto…">
-                <button class="abtn" id="adm-log-refresh">↻ Actualizar</button>
-            </div>
-            <div class="gadm__logs" id="adm-logs">Cargando…</div>
+            <details class="gadm__disclosure">
+                <summary>Inspeccionar registros técnicos</summary>
+                <div class="gadm__logctl">
+                    <select id="adm-log-level">
+                        <option value="all">Todos</option>
+                        <option value="warn">Warnings + errores</option>
+                        <option value="error">Solo errores</option>
+                    </select>
+                    <input id="adm-log-search" placeholder="Filtrar texto…">
+                    <button class="abtn" id="adm-log-refresh">↻ Actualizar</button>
+                </div>
+                <div class="gadm__logs" id="adm-logs">Cargando…</div>
+            </details>
+        </section>
+
+        <section class="gadm__card" id="adm-flags-card">
+            <h2>⚑ Despliegue gradual</h2>
+            <details class="gadm__disclosure">
+                <summary>Administrar banderas de capacidad</summary>
+                <p class="gadm__empty">Cada capacidad nueva permanece apagada, limitada a admin o en canary antes de activarse globalmente.</p>
+                <div id="adm-control-flags"></div>
+            </details>
         </section>
     </div>
     <div class="toastbox" id="toastbox"></div>
 
+    <script src="js/services/control-plane-service.js?v95-device-access"></script>
+    <script src="js/services/web-node-runtime.js?v84-control"></script>
+    <script src="js/controllers/control-plane-admin.js?v86-functional"></script>
     <script>
         (function () {
             'use strict';
@@ -293,6 +350,7 @@
                 if (user.role !== 'admin') { location.replace('index.html'); return; }
                 refresh();
                 loadLogs();
+                window.GunterControlPlaneAdmin?.mount?.();
                 setInterval(refresh, 30000);   // auto-refresh cada 30s (aparecen solicitudes nuevas solas)
             });
         })();

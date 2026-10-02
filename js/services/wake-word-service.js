@@ -49,6 +49,7 @@
     let lastHeard = '';
     let restartTimer = null;
     let userWantsRunning = false;   // persistente: si el user lo apagó, no reiniciamos
+    let lastInvocation = null;
 
     function buildIndicator() {
         if (indicator) return indicator;
@@ -124,7 +125,10 @@
      * El resto de la frase se toma como comando. Así "hi gunter", "hey gunter",
      * "oye gunter", "hola gunter", e incluso solo "gunter" activan.
      */
-    function extractAfterWake(raw) {
+    function detectInvocation(raw) {
+        if (window.GunterWakeInvocation?.detect) {
+            return window.GunterWakeInvocation.detect(raw);
+        }
         if (!raw) return null;
         const norm = raw.toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -143,7 +147,14 @@
             const m = norm.match(re);
             if (m) {
                 const afterIdx = m.index + m[0].length;
-                return norm.slice(afterIdx).trim(); // puede ser "" si solo dijo "Hi Gunter"
+                return {
+                    matched: true,
+                    type: 'solo_gunter',
+                    phrase: m[0],
+                    command: norm.slice(afterIdx).trim(),
+                    normalized: norm,
+                    confidence: 0.8
+                };
             }
         }
         return null;
@@ -201,6 +212,11 @@
         userWantsRunning = true;
         lastError = null;
 
+        // VAD local: mantiene un umbral adaptativo de silencio/voz. El audio
+        // nunca sale del dispositivo y SpeechRecognition sigue siendo quien
+        // confirma el texto para evitar falsos barge-in por eco.
+        try { window.GunterVoiceActivity?.start?.().catch(() => {}); } catch {}
+
         try {
             recognition = new SR();
             recognition.lang = 'es-MX';
@@ -218,27 +234,58 @@
 
             recognition.onresult = (event) => {
                 const last = event.results[event.results.length - 1];
-                // Iterar todas las alternativas para aumentar la captura
+                // Iterar todas las alternativas: la más larga no siempre es la
+                // que SpeechRecognition transcribió correctamente como "Gunter".
                 let bestText = '';
+                let invocation = null;
                 for (let i = 0; i < last.length; i++) {
                     const t = last[i].transcript || '';
                     if (t.length > bestText.length) bestText = t;
+                    const candidate = detectInvocation(t);
+                    if (candidate && (!invocation || candidate.confidence > invocation.confidence)) {
+                        invocation = candidate;
+                    }
                 }
                 if (!bestText) return;
                 lastHeard = bestText;
                 notifyState();
+
+                // Barge-in: si Gunter está hablando y entra voz humana que no
+                // coincide con su propio TTS, detenemos la respuesta y damos
+                // prioridad inmediata al usuario.
+                if (last.isFinal && window.GunterVoice?.isSpeaking?.()) {
+                    if (window.GunterVoice.isLikelyEcho?.(bestText)) return;
+                    window.GunterVoice.cancel?.('barge-in');
+                    try {
+                        window.dispatchEvent(new CustomEvent('gunter-barge-in', {
+                            detail: { transcript: bestText, invocation }
+                        }));
+                    } catch {}
+                    const interruptedCommand = invocation?.command || bestText;
+                    mode = 'query';
+                    setIndicator('query', '🎤 Interrupción detectada…');
+                    notifyState();
+                    if (interruptedCommand) handleQuery(interruptedCommand);
+                    else enterQueryMode(invocation);
+                    return;
+                }
 
                 if (window.__GUNTER_DEBUG_WAKE__) {
                     console.log('[wake-word]', mode, last.isFinal ? 'FINAL' : 'interim', ':', bestText);
                 }
 
                 if (mode === 'wake') {
-                    // Intentar detectar en interim Y final
-                    const after = extractAfterWake(bestText);
-                    if (after !== null) {
-                        enterQueryMode(after);
+                    // Esperar el resultado final evita ejecutar dos veces la misma
+                    // orden cuando el navegador emite interim + final.
+                    if (invocation && last.isFinal) {
+                        enterQueryMode(invocation);
                     }
                 } else if (mode === 'query' && last.isFinal) {
+                    const repeatedCall = invocation || detectInvocation(bestText);
+                    if (repeatedCall) {
+                        if (repeatedCall.command) handleQuery(repeatedCall.command);
+                        return;
+                    }
                     handleQuery(bestText);
                 }
             };
@@ -294,6 +341,7 @@
         if (queryTimeout) { clearTimeout(queryTimeout); queryTimeout = null; }
         if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
         try { recognition?.abort(); } catch {}
+        try { window.GunterVoiceActivity?.stop?.('wake-stopped'); } catch {}
         recognition = null;
         running = false;
         mode = 'off';
@@ -301,8 +349,17 @@
         notifyState();
     }
 
-    // Feedback variado por estilo cuando Gunter despierta.
-    function pickWakeFeedback() {
+    // Feedback específico según cómo fue llamado. Dentro de cada familia rota
+    // frases para que tampoco repita siempre exactamente el mismo acuse.
+    function pickWakeFeedback(invocation) {
+        if (window.GunterWakeInvocation?.responseFor && invocation?.type) {
+            const key = `gunter_wake_response_${invocation.type}`;
+            let index = 0;
+            try { index = Number(sessionStorage.getItem(key) || 0); } catch {}
+            const response = window.GunterWakeInvocation.responseFor(invocation, { index });
+            try { sessionStorage.setItem(key, String(index + 1)); } catch {}
+            return response;
+        }
         const style = window.PremiumFeaturesService?.get?.('voiceStyle') || 'professional';
         const FEEDBACK = {
             professional:      ['¿Sí?', 'Dime.', 'Te escucho.'],
@@ -317,8 +374,9 @@
         return arr[Math.floor(Math.random() * arr.length)];
     }
 
-    function enterQueryMode(preText = '') {
+    function enterQueryMode(invocation = null) {
         mode = 'query';
+        lastInvocation = invocation;
         const cfg = getConfig();
         setIndicator('query', '🎤 Te escucho…');
         notifyState();
@@ -331,7 +389,7 @@
             if (meetingActive) {
                 // Solo visual; no hablar feedback durante grabación
             } else {
-                const feedback = pickWakeFeedback();
+                const feedback = pickWakeFeedback(invocation);
                 if (window.GunterVoice?.speak) {
                     // 'wake-word-feedback' tiene límite ultra-corto (80 chars)
                     window.GunterVoice.speak(feedback, { context: 'wake-word-feedback', force: true, volume: 0.85 });
@@ -351,7 +409,8 @@
         }, (cfg.autoStopSeconds || 20) * 1000);
 
         // Si la wake word vino con texto después ("gunter crea una tarea"), procesar ya
-        if (preText && preText.length > 3) {
+        const preText = invocation?.command || '';
+        if (preText && preText.length > 1) {
             // Pequeño delay para no pisar el beep
             setTimeout(() => handleQuery(preText), 300);
         }
@@ -378,6 +437,53 @@
         const text = (transcript || '').trim();
         if (!text) return;
         console.log('[wake-word] 💬 Procesando:', text);
+        window.GunterConversationState?.transition?.('thinking', { reason: 'voice-query', transcript: text });
+
+        // Herramientas locales allowlist: agenda, tareas y eventos. Esta ruta
+        // conserva confirmaciones entre turnos y verifica la persistencia real.
+        if (window.GunterAssistantTools?.dispatch) {
+            try {
+                const toolResult = await window.GunterAssistantTools.dispatch(text);
+                if (toolResult?.handled) {
+                    const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
+                    const speechContext = meetingActive ? 'meeting' : 'wake-word-response';
+                    ensureAssistantOpen();
+                    if (window.GunterCompanion?.say) {
+                        window.GunterCompanion.expand?.();
+                        window.GunterCompanion.say(toolResult.reply, {
+                            voiceContext: speechContext,
+                            forceVoice: !meetingActive
+                        });
+                    } else if (window.GunterVoice?.speak) {
+                        window.GunterVoice.speak(toolResult.reply, { context: speechContext, force: !meetingActive });
+                    }
+                    return;
+                }
+            } catch (error) {
+                console.error('[wake-word] assistant tool error:', error);
+            }
+        }
+
+        // Fecha/hora nunca se delegan al LLM: salen del reloj y timezone reales.
+        const temporal = window.GunterTemporalContext?.answer?.(text, {
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            locale: navigator.language || 'es-CO'
+        });
+        if (temporal) {
+            const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
+            const speechContext = meetingActive ? 'meeting' : 'wake-word-response';
+            ensureAssistantOpen();
+            if (window.GunterCompanion?.say) {
+                window.GunterCompanion.expand?.();
+                window.GunterCompanion.say(temporal.reply, {
+                    voiceContext: speechContext,
+                    forceVoice: !meetingActive
+                });
+            } else if (window.GunterVoice?.speak) {
+                window.GunterVoice.speak(temporal.reply, { context: speechContext, force: !meetingActive });
+            }
+            return;
+        }
 
         // v2 (F1) — registrar lo dicho al wake en LTM (canal 'wake')
         if (window.GunterConversationMemory?.remember) {
@@ -406,7 +512,6 @@
                     window.GunterVoice.speak(reply, { context: speechContext, force });
                 }
                 ensureAssistantOpen();
-                await window.GunterAssistantController?.send?.(text);
                 return;
             } catch (e) {
                 console.error('[wake-word] pipeline error:', e);
@@ -451,7 +556,8 @@
             supported: true,
             permission: permissionGranted ? 'granted' : 'unknown',
             error: lastError,
-            lastHeard
+            lastHeard,
+            lastInvocation
         };
     }
     function isActive() { return running; }
@@ -474,6 +580,12 @@
 
     window.addEventListener('gunterPremiumFeaturesChange', (e) => {
         if (e.detail?.key === 'wakeWordEnabled' || e.detail?.key === null) refresh();
+    });
+
+    window.addEventListener('gunter-vad-state', event => {
+        if (mode !== 'query') return;
+        if (event.detail?.activity === 'speech') setIndicator('query', '🎤 Te oigo…');
+        else if (event.detail?.reason === 'speech-ended') setIndicator('query', '🎤 Procesando voz…');
     });
 
     if (document.readyState === 'loading') {

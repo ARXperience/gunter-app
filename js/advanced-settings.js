@@ -341,6 +341,7 @@
             Array.from(rootEl.querySelectorAll('[data-toggle-cfg][aria-expanded="true"]'))
                  .map(b => b.dataset.toggleCfg)
         );
+        const catalogOpen = rootEl.querySelector('.gps__catalog')?.open === true;
         // También preservamos la posición de scroll del grid para que el usuario
         // no pierda el lugar al cambiar un toggle.
         const scrollY = window.scrollY;
@@ -401,9 +402,12 @@
             <!-- Fase F.F6 — Resumen funciones premium activas -->
             ${renderActiveSummary()}
 
-            <div class="gps__grid" id="gps-grid">
-                ${cards}
-            </div>
+            <details class="gps__catalog" ${catalogOpen ? 'open' : ''}>
+                <summary><span>Catálogo de funciones</span><small>${FEATURE_MAP.length} módulos · abre para activar o configurar</small></summary>
+                <div class="gps__grid" id="gps-grid">
+                    ${cards}
+                </div>
+            </details>
         `;
         wireMaster();
         wireStatusBoard();
@@ -512,7 +516,7 @@
             { icon: '💬',  label: 'WhatsApp',           value: waState },
             { icon: '📅',  label: 'Google Calendar',    value: calState },
             { icon: '🧠',  label: 'Memoria proyectos',  value: memState },
-            { icon: '✨',  label: 'Premium activas',    value: { label: activeCount + ' función' + (activeCount === 1 ? '' : 'es'), cls: activeCount > 0 ? 'on' : 'off' } },
+            { icon: '✨',  label: 'Premium activas',    value: { label: activeCount + (activeCount === 1 ? ' función' : ' funciones'), cls: activeCount > 0 ? 'on' : 'off' } },
             { icon: '📦',  label: 'Almacenamiento',     value: storageState },
             { icon: '🎭',  label: 'Personalidad',       value: { label: personalityLabel, cls: personality.enabled ? 'on' : 'off' } },
             { icon: '🔊',  label: 'Modo de voz',        value: { label: voiceModeLabel, cls: voiceCfg.enabled ? 'on' : 'off' } }
@@ -599,7 +603,10 @@
                     `).join('')}
                 </div>
 
-                ${sectionsHtml}
+                <details class="gn-status-detail">
+                    <summary>Estado por módulo <span>${FEATURE_MAP.length}</span></summary>
+                    ${sectionsHtml}
+                </details>
             </div>
         `;
     }
@@ -639,7 +646,7 @@
         return `
             <div class="gn-active-summary" id="gn-active-summary">
                 <div class="gn-active-summary__head">
-                    <h4>Tienes ${activeIds.length} función${activeIds.length === 1 ? '' : 'es'} premium activa${activeIds.length === 1 ? '' : 's'}</h4>
+                    <h4>Tienes ${activeIds.length} ${activeIds.length === 1 ? 'función premium activa' : 'funciones premium activas'}</h4>
                     ${activeIds.length > 0 ? `
                         <button type="button" class="gps-inline-btn" id="gn-active-disable-all">Desactivar todas</button>
                     ` : ''}
@@ -1078,7 +1085,7 @@
             const activeIds = parentFlags.filter(k => all[k] === true);
             if (activeIds.length === 0) return;
             const ok = confirm(
-                `Vas a desactivar ${activeIds.length} función${activeIds.length === 1 ? '' : 'es'} premium.\n\n` +
+                `Vas a desactivar ${activeIds.length} ${activeIds.length === 1 ? 'función premium' : 'funciones premium'}.\n\n` +
                 `Esto NO borra tus proyectos, tareas, configuración personal ni datos. Sólo desactiva las funciones (puedes reactivarlas después).\n\n` +
                 `¿Confirmas?`
             );

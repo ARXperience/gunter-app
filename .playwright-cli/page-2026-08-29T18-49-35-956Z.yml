@@ -1,0 +1,709 @@
+- generic [active] [ref=f8e1]:
+  - generic: GUNTER
+  - generic [ref=f8e2]:
+    - navigation "Navegación principal de Gunter" [ref=f8e3]:
+      - link "Gunter, centro de comando" [ref=f8e4] [cursor=pointer]:
+        - /url: day.html
+        - generic [ref=f8e6]: GUNTER
+        - generic [ref=f8e7]: COMMAND OS
+      - generic [ref=f8e8]:
+        - link "01 Día" [ref=f8e9] [cursor=pointer]:
+          - /url: day.html
+          - generic [ref=f8e10]: "01"
+          - text: Día
+        - link "02 Reuniones" [ref=f8e11] [cursor=pointer]:
+          - /url: dashboard.html
+          - generic [ref=f8e12]: "02"
+          - text: Reuniones
+        - link "03 Nueva" [ref=f8e13] [cursor=pointer]:
+          - /url: new-project.html
+          - generic [ref=f8e14]: "03"
+          - text: Nueva
+        - link "04 Config" [ref=f8e15] [cursor=pointer]:
+          - /url: config.html#premium
+          - generic [ref=f8e16]: "04"
+          - text: Config
+      - generic [ref=f8e17]: En línea
+    - generic "Flujo actual" [ref=f8e19]:
+      - generic [ref=f8e20]:
+        - generic [ref=f8e21]: "01"
+        - text: Usuarios
+      - generic [ref=f8e23]:
+        - generic [ref=f8e24]: "02"
+        - text: Sistema
+      - generic [ref=f8e26]:
+        - generic [ref=f8e27]: "03"
+        - text: Registros
+    - generic [ref=f8e28]:
+      - heading "🛡️ Administración" [level=1] [ref=f8e29]
+      - link "← Volver a Gunter" [ref=f8e30] [cursor=pointer]:
+        - /url: index.html
+    - generic [ref=f8e31]:
+      - generic [ref=f8e32]:
+        - generic [ref=f8e33]: "3"
+        - generic [ref=f8e34]: Usuarios
+      - generic [ref=f8e35]:
+        - generic [ref=f8e36]: "0"
+        - generic [ref=f8e37]: Pendientes
+      - generic [ref=f8e38]:
+        - generic [ref=f8e39]: "3"
+        - generic [ref=f8e40]: Aprobados
+      - generic [ref=f8e41]:
+        - generic [ref=f8e42]: "0"
+        - generic [ref=f8e43]: Bloqueados
+      - generic [ref=f8e44]:
+        - generic [ref=f8e45]: "2"
+        - generic [ref=f8e46]: Sesiones activas
+    - generic [ref=f8e47]:
+      - heading [level=2] [ref=f8e48]:
+        - text: ◉ Centro de Operaciones
+        - button "↻ Actualizar" [ref=f8e49] [cursor=pointer]
+      - generic [ref=f8e51]:
+        - generic [ref=f8e52]:
+          - generic [ref=f8e53]: Estado
+          - strong [ref=f8e54]: ok
+        - generic [ref=f8e55]:
+          - generic [ref=f8e56]: Nodos online
+          - strong [ref=f8e57]: "1"
+        - generic [ref=f8e58]:
+          - generic [ref=f8e59]: Comandos verificados
+          - strong [ref=f8e60]: "0"
+        - generic [ref=f8e61]:
+          - generic [ref=f8e62]: Incidentes activos
+          - strong [ref=f8e63]: "0"
+        - generic [ref=f8e64]:
+          - generic [ref=f8e65]: Trazas
+          - strong [ref=f8e66]: "123"
+        - generic [ref=f8e67]:
+          - generic [ref=f8e68]: Skills
+          - strong [ref=f8e69]: "15"
+    - generic [ref=f8e70]:
+      - heading "⏳ Solicitudes pendientes" [level=2] [ref=f8e71]
+      - paragraph [ref=f8e73]: No hay solicitudes esperando. Todo tranquilo por ahora.
+    - generic [ref=f8e74]:
+      - heading "👥 Usuarios" [level=2] [ref=f8e75]
+      - table [ref=f8e77]:
+        - rowgroup [ref=f8e78]:
+          - row [ref=f8e79]:
+            - columnheader "Quién" [ref=f8e80]
+            - columnheader "Rol" [ref=f8e81]
+            - columnheader "Estado" [ref=f8e82]
+            - columnheader "Último acceso" [ref=f8e83]
+            - columnheader "Acciones" [ref=f8e84]
+        - rowgroup [ref=f8e85]:
+          - row [ref=f8e86]:
+            - cell [ref=f8e87]:
+              - strong [ref=f8e88]: Codex QA
+              - text: "@codexqa1788028892931"
+            - cell "admin" [ref=f8e89]
+            - cell "aprobado" [ref=f8e91]
+            - cell "29 ago, 13:43 2 logins" [ref=f8e93]: 29 ago, 13:432 logins
+            - cell [ref=f8e94]:
+              - button "🚫 Bloquear" [ref=f8e95] [cursor=pointer]
+              - button "Quitar admin" [ref=f8e96] [cursor=pointer]
+              - button "🗑️" [ref=f8e97] [cursor=pointer]
+          - row [ref=f8e98]:
+            - cell [ref=f8e99]:
+              - strong [ref=f8e100]: fgh
+              - text: "@dfghj · centrodigitaldediseno@gmail.com"
+            - cell "usuario" [ref=f8e101]
+            - cell "aprobado" [ref=f8e102]
+            - cell "29 jul, 00:49 1 logins" [ref=f8e104]: 29 jul, 00:491 logins
+            - cell [ref=f8e105]:
+              - button "🚫 Bloquear" [ref=f8e106] [cursor=pointer]
+              - button "👑 Hacer admin" [ref=f8e107] [cursor=pointer]
+              - button "📚 Dar tutor" [ref=f8e108] [cursor=pointer]
+              - button "🗑️" [ref=f8e109] [cursor=pointer]
+          - row [ref=f8e110]:
+            - cell [ref=f8e111]:
+              - strong [ref=f8e112]: Gunter HX
+              - text: "@gunterhx · gunterhx@gmail.com"
+            - cell "admin" [ref=f8e113]
+            - cell "aprobado" [ref=f8e115]
+            - cell "29 jul, 01:55 10 logins" [ref=f8e117]: 29 jul, 01:5510 logins
+            - cell [ref=f8e118]:
+              - button "🚫 Bloquear" [ref=f8e119] [cursor=pointer]
+              - button "Quitar admin" [ref=f8e120] [cursor=pointer]
+              - button "🗑️" [ref=f8e121] [cursor=pointer]
+    - generic [ref=f8e122]:
+      - heading "◇ Membresías y entitlements" [level=2] [ref=f8e123]
+      - generic [ref=f8e124]:
+        - generic [ref=f8e125]:
+          - text: ID del plan
+          - textbox "ID del plan" [ref=f8e126]:
+            - /placeholder: pro
+        - generic [ref=f8e127]:
+          - text: Nombre
+          - textbox "Nombre" [ref=f8e128]:
+            - /placeholder: Plan Pro
+        - generic [ref=f8e129]:
+          - text: Precio mensual
+          - spinbutton "Precio mensual" [ref=f8e130]
+        - generic [ref=f8e131]:
+          - text: Moneda
+          - textbox "Moneda" [ref=f8e132]:
+            - /placeholder: COP
+        - generic [ref=f8e133]:
+          - text: Límite de nodos
+          - spinbutton "Límite de nodos" [ref=f8e134]: "1"
+        - button "Guardar plan" [ref=f8e135] [cursor=pointer]
+        - group [ref=f8e136]:
+          - generic "Seleccionar capacidades" [ref=f8e137]
+      - article [ref=f8e140]:
+        - generic [ref=f8e141]:
+          - strong [ref=f8e142]: Compatibilidad actual
+          - generic [ref=f8e143]: legacy_compat · sistema
+        - generic [ref=f8e144]: Sin precio
+        - generic [ref=f8e145]: 12 capacidades
+      - heading "Asignación por cuenta" [level=2] [ref=f8e146]
+      - generic [ref=f8e148]:
+        - article [ref=f8e149]:
+          - generic [ref=f8e150]:
+            - strong [ref=f8e151]: Codex QA
+            - generic [ref=f8e152]: "@codexqa1788028892931"
+          - combobox [ref=f8e153]:
+            - option "Compatibilidad actual" [selected]
+          - combobox [ref=f8e154]:
+            - option "TRIAL"
+            - option "ACTIVE" [selected]
+            - option "PAST_DUE"
+            - option "GRACE"
+            - option "SUSPENDED"
+            - option "CANCELED"
+          - button "Aplicar" [ref=f8e155] [cursor=pointer]
+        - article [ref=f8e156]:
+          - generic [ref=f8e157]:
+            - strong [ref=f8e158]: fgh
+            - generic [ref=f8e159]: "@dfghj"
+          - combobox [ref=f8e160]:
+            - option "Compatibilidad actual" [selected]
+          - combobox [ref=f8e161]:
+            - option "TRIAL"
+            - option "ACTIVE" [selected]
+            - option "PAST_DUE"
+            - option "GRACE"
+            - option "SUSPENDED"
+            - option "CANCELED"
+          - button "Aplicar" [ref=f8e162] [cursor=pointer]
+        - article [ref=f8e163]:
+          - generic [ref=f8e164]:
+            - strong [ref=f8e165]: Gunter HX
+            - generic [ref=f8e166]: "@gunterhx"
+          - combobox [ref=f8e167]:
+            - option "Compatibilidad actual" [selected]
+          - combobox [ref=f8e168]:
+            - option "TRIAL"
+            - option "ACTIVE" [selected]
+            - option "PAST_DUE"
+            - option "GRACE"
+            - option "SUSPENDED"
+            - option "CANCELED"
+          - button "Aplicar" [ref=f8e169] [cursor=pointer]
+    - generic [ref=f8e170]:
+      - heading "⌁ Dispositivos y nodos" [level=2] [ref=f8e171]
+      - article [ref=f8e174]:
+        - generic [ref=f8e176]:
+          - strong [ref=f8e177]: Chrome · Web
+          - generic [ref=f8e178]: WEB · Win32 Mozilla/5.0 (Windows NT 10.0; Win64; x64
+        - generic [ref=f8e179]:
+          - generic [ref=f8e180]: Estado
+          - text: ONLINE
+        - generic [ref=f8e181]:
+          - generic [ref=f8e182]: Último heartbeat
+          - text: 29/8/2026, 1:49:30 p. m.
+        - button "Revocar" [ref=f8e183] [cursor=pointer]
+    - generic [ref=f8e184]:
+      - heading "△ Errores e incidentes" [level=2] [ref=f8e185]
+      - paragraph [ref=f8e187]: No hay incidentes. El sistema está tranquilo.
+    - generic [ref=f8e188]:
+      - heading "🖥️ Sistema" [level=2] [ref=f8e189]
+      - generic [ref=f8e190]:
+        - generic [ref=f8e191]:
+          - generic [ref=f8e192]: Uptime
+          - text: 0h 8m
+        - generic [ref=f8e193]:
+          - generic [ref=f8e194]: Memoria
+          - text: 60 MB
+        - generic [ref=f8e195]:
+          - generic [ref=f8e196]: Node
+          - text: v24.15.0 · win32
+        - generic [ref=f8e197]:
+          - generic [ref=f8e198]: Logs en buffer
+          - text: 351 (1 err · 1 warn)
+      - generic [ref=f8e199]:
+        - text: Servicios
+        - generic [ref=f8e200]: ●openai
+        - generic [ref=f8e201]: ●gemini
+        - generic [ref=f8e202]: ●google_oauth
+        - generic [ref=f8e203]: ●whatsapp
+        - generic [ref=f8e204]: ●knowledge
+        - generic [ref=f8e205]: ●premium_intel
+        - generic [ref=f8e206]: ●commitments
+        - generic [ref=f8e207]: ●proactive
+        - generic [ref=f8e208]: ●durable_jobs
+        - generic [ref=f8e209]: ●control_plane
+        - generic [ref=f8e210]: ●style_mirror
+        - generic [ref=f8e211]: ●forecast
+        - generic [ref=f8e212]: ●fallback_llm
+    - generic [ref=f8e213]:
+      - heading "📜 Logs del servidor" [level=2] [ref=f8e214]
+      - generic [ref=f8e215]:
+        - combobox [ref=f8e216]:
+          - option "Todos" [selected]
+          - option "Warnings + errores"
+          - option "Solo errores"
+        - textbox "Filtrar texto…" [ref=f8e217]
+        - button "↻ Actualizar" [ref=f8e218] [cursor=pointer]
+      - generic [ref=f8e219]:
+        - generic [ref=f8e220]: 18:44:51 🌐 [2026-08-29T18:44:51.453Z] GET /js/services/tasks-service.js
+        - generic [ref=f8e221]: 18:44:51 🌐 [2026-08-29T18:44:51.454Z] GET /js/services/events-service.js
+        - generic [ref=f8e222]: 18:44:51 🌐 [2026-08-29T18:44:51.470Z] GET /js/services/embedding-service.js
+        - generic [ref=f8e223]: 18:44:51 🌐 [2026-08-29T18:44:51.668Z] GET /api/control/nodes
+        - generic [ref=f8e224]: 18:44:51 🌐 [2026-08-29T18:44:51.746Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e225]: 18:44:51 🌐 [2026-08-29T18:44:51.852Z] GET /service-worker.js
+        - generic [ref=f8e226]: 18:44:51 🌐 [2026-08-29T18:44:51.853Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e227]: 18:44:53 🌐 [2026-08-29T18:44:53.242Z] POST /api/knowledge/sync (from http://localhost:3001)
+        - generic [ref=f8e228]: 18:44:53 🌐 [2026-08-29T18:44:53.886Z] GET /service-worker.js
+        - generic [ref=f8e229]: 18:44:54 🌐 [2026-08-29T18:44:54.753Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e230]: 18:44:54 🌐 [2026-08-29T18:44:54.771Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e231]: 18:45:06 🌐 [2026-08-29T18:45:06.754Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e232]: 18:45:21 🌐 [2026-08-29T18:45:21.754Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e233]: 18:45:21 🌐 [2026-08-29T18:45:21.759Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e234]: 18:45:21 🌐 [2026-08-29T18:45:21.887Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e235]: 18:45:36 🌐 [2026-08-29T18:45:36.747Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e236]: 18:45:51 🌐 [2026-08-29T18:45:51.356Z] GET /api/auth/admin/stats
+        - generic [ref=f8e237]: 18:45:51 🌐 [2026-08-29T18:45:51.756Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e238]: 18:45:51 🌐 [2026-08-29T18:45:51.760Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e239]: 18:45:51 🌐 [2026-08-29T18:45:51.889Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e240]: 18:45:56 🌐 [2026-08-29T18:45:56.218Z] GET /new-project.html
+        - generic [ref=f8e241]: 18:45:56 🌐 [2026-08-29T18:45:56.270Z] GET /styles/pages/config.css
+        - generic [ref=f8e242]: 18:45:56 🌐 [2026-08-29T18:45:56.272Z] GET /styles/pages/config-polish.css
+        - generic [ref=f8e243]: 18:45:56 🌐 [2026-08-29T18:45:56.278Z] GET /styles/pages/config-settings.css
+        - generic [ref=f8e244]: 18:45:56 🌐 [2026-08-29T18:45:56.280Z] GET /styles/components/audio-trimmer.css
+        - generic [ref=f8e245]: 18:45:56 🌐 [2026-08-29T18:45:56.281Z] GET /styles/animations-enhanced.css
+        - generic [ref=f8e246]: 18:45:56 🌐 [2026-08-29T18:45:56.282Z] GET /styles/glassmorphism.css
+        - generic [ref=f8e247]: 18:45:56 🌐 [2026-08-29T18:45:56.285Z] GET /styles/typography-enhanced.css
+        - generic [ref=f8e248]: 18:45:56 🌐 [2026-08-29T18:45:56.291Z] GET /styles/components/cards-enhanced.css
+        - generic [ref=f8e249]: 18:45:56 🌐 [2026-08-29T18:45:56.315Z] GET /api/auth/me
+        - generic [ref=f8e250]: 18:45:56 🌐 [2026-08-29T18:45:56.360Z] GET /api/auth/admin/stats
+        - generic [ref=f8e251]: 18:45:56 🌐 [2026-08-29T18:45:56.384Z] GET /js/ai-analysis.js
+        - generic [ref=f8e252]: 18:45:56 🌐 [2026-08-29T18:45:56.386Z] GET /js/cache-service.js
+        - generic [ref=f8e253]: 18:45:56 🌐 [2026-08-29T18:45:56.388Z] GET /js/audio-chunker.js
+        - generic [ref=f8e254]: 18:45:56 🌐 [2026-08-29T18:45:56.390Z] GET /js/audio-trimmer.js
+        - generic [ref=f8e255]: 18:45:56 🌐 [2026-08-29T18:45:56.391Z] GET /js/particle-effects.js
+        - generic [ref=f8e256]: 18:45:56 🌐 [2026-08-29T18:45:56.394Z] GET /js/card-interactions.js
+        - generic [ref=f8e257]: 18:45:56 🌐 [2026-08-29T18:45:56.610Z] GET /api/control/nodes
+        - generic [ref=f8e258]: 18:45:56 🌐 [2026-08-29T18:45:56.623Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e259]: 18:45:57 🌐 [2026-08-29T18:45:57.057Z] GET /styles/themes/_shared.css
+        - generic [ref=f8e260]: 18:45:57 🌐 [2026-08-29T18:45:57.059Z] GET /styles/themes/_unique-structures.css
+        - generic [ref=f8e261]: 18:45:57 🌐 [2026-08-29T18:45:57.061Z] GET /styles/themes/empresarial.css
+        - generic [ref=f8e262]: 18:45:57 🌐 [2026-08-29T18:45:57.085Z] GET /service-worker.js
+        - generic [ref=f8e263]: 18:45:57 🌐 [2026-08-29T18:45:57.128Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e264]: 18:45:59 🌐 [2026-08-29T18:45:59.050Z] GET /service-worker.js
+        - generic [ref=f8e265]: 18:45:59 🌐 [2026-08-29T18:45:59.624Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e266]: 18:45:59 🌐 [2026-08-29T18:45:59.641Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e267]: 18:46:11 🌐 [2026-08-29T18:46:11.624Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e268]: 18:46:26 🌐 [2026-08-29T18:46:26.626Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e269]: 18:46:26 🌐 [2026-08-29T18:46:26.630Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e270]: 18:46:27 🌐 [2026-08-29T18:46:27.157Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e271]: 18:46:41 🌐 [2026-08-29T18:46:41.627Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e272]: 18:46:56 🌐 [2026-08-29T18:46:56.344Z] GET /api/auth/admin/stats
+        - generic [ref=f8e273]: 18:46:56 🌐 [2026-08-29T18:46:56.626Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e274]: 18:46:56 🌐 [2026-08-29T18:46:56.630Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e275]: 18:46:57 🌐 [2026-08-29T18:46:57.160Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e276]: 18:47:11 🌐 [2026-08-29T18:47:11.630Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e277]: 18:47:20 🌐 [2026-08-29T18:47:20.024Z] GET /meeting.html
+        - generic [ref=f8e278]: 18:47:20 🌐 [2026-08-29T18:47:20.074Z] GET /styles/pages/meeting.css
+        - generic [ref=f8e279]: 18:47:20 🌐 [2026-08-29T18:47:20.081Z] GET /styles/pages/meeting-polish.css
+        - generic [ref=f8e280]: 18:47:20 🌐 [2026-08-29T18:47:20.114Z] GET /api/auth/me
+        - generic [ref=f8e281]: 18:47:20 🌐 [2026-08-29T18:47:20.153Z] GET /api/auth/admin/stats
+        - generic [ref=f8e282]: 18:47:20 🌐 [2026-08-29T18:47:20.189Z] GET /js/audio-recorder.js
+        - generic [ref=f8e283]: 18:47:20 🌐 [2026-08-29T18:47:20.191Z] GET /js/ai-service.js
+        - generic [ref=f8e284]: 18:47:20 🌐 [2026-08-29T18:47:20.201Z] GET /js/transcription-service.js
+        - generic [ref=f8e285]: 18:47:20 🌐 [2026-08-29T18:47:20.202Z] GET /js/audio-chunker.js
+        - generic [ref=f8e286]: 18:47:20 🌐 [2026-08-29T18:47:20.248Z] GET /js/controllers/session-recovery.js
+        - generic [ref=f8e287]: 18:47:20 🌐 [2026-08-29T18:47:20.250Z] GET /js/audio-vault.js
+        - generic [ref=f8e288]: 18:47:20 🌐 [2026-08-29T18:47:20.375Z] GET /api/control/nodes
+        - generic [ref=f8e289]: 18:47:20 🌐 [2026-08-29T18:47:20.450Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e290]: 18:47:20 🌐 [2026-08-29T18:47:20.502Z] GET /service-worker.js
+        - generic [ref=f8e291]: 18:47:20 🌐 [2026-08-29T18:47:20.547Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e292]: 18:47:21 🌐 [2026-08-29T18:47:21.835Z] POST /api/knowledge/sync (from http://localhost:3001)
+        - generic [ref=f8e293]: 18:47:22 🌐 [2026-08-29T18:47:22.305Z] GET /service-worker.js
+        - generic [ref=f8e294]: 18:47:23 🌐 [2026-08-29T18:47:23.466Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e295]: 18:47:23 🌐 [2026-08-29T18:47:23.485Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e296]: 18:47:35 🌐 [2026-08-29T18:47:35.453Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e297]: 18:47:50 🌐 [2026-08-29T18:47:50.468Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e298]: 18:47:50 🌐 [2026-08-29T18:47:50.474Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e299]: 18:47:50 🌐 [2026-08-29T18:47:50.622Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e300]: 18:47:54 🌐 [2026-08-29T18:47:54.380Z] GET /results.html
+        - generic [ref=f8e301]: 18:47:54 🌐 [2026-08-29T18:47:54.439Z] GET /styles/pages/results.css
+        - generic [ref=f8e302]: 18:47:54 🌐 [2026-08-29T18:47:54.444Z] GET /styles/pages/results-polish.css
+        - generic [ref=f8e303]: 18:47:54 🌐 [2026-08-29T18:47:54.460Z] GET /styles/components/widgets.css
+        - generic [ref=f8e304]: 18:47:54 🌐 [2026-08-29T18:47:54.462Z] GET /styles/presentation-mode.css
+        - generic [ref=f8e305]: 18:47:54 🌐 [2026-08-29T18:47:54.491Z] GET /api/auth/me
+        - generic [ref=f8e306]: 18:47:54 🌐 [2026-08-29T18:47:54.537Z] GET /api/auth/admin/stats
+        - generic [ref=f8e307]: 18:47:54 🌐 [2026-08-29T18:47:54.581Z] GET /js/controllers/meeting-followup-card.js
+        - generic [ref=f8e308]: 18:47:54 🌐 [2026-08-29T18:47:54.587Z] GET /js/analyses-engine.js
+        - generic [ref=f8e309]: 18:47:54 🌐 [2026-08-29T18:47:54.594Z] GET /js/analyses-renderer.js
+        - generic [ref=f8e310]: 18:47:54 🌐 [2026-08-29T18:47:54.601Z] GET /js/slide-generator.js
+        - generic [ref=f8e311]: 18:47:54 🌐 [2026-08-29T18:47:54.604Z] GET /js/slide-renderer.js
+        - generic [ref=f8e312]: 18:47:54 🌐 [2026-08-29T18:47:54.609Z] GET /js/services/slide-exporter.js
+        - generic [ref=f8e313]: 18:47:54 🌐 [2026-08-29T18:47:54.612Z] GET /js/audio-trimmer.js
+        - generic [ref=f8e314]: 18:47:54 🌐 [2026-08-29T18:47:54.643Z] GET /js/pdf-exporter.js
+        - generic [ref=f8e315]: 18:47:54 🌐 [2026-08-29T18:47:54.650Z] GET /js/widgets.js
+        - generic [ref=f8e316]: 18:47:54 🌐 [2026-08-29T18:47:54.652Z] GET /js/presentation-mode.js
+        - generic [ref=f8e317]: 18:47:55 🌐 [2026-08-29T18:47:55.031Z] GET /api/control/nodes
+        - generic [ref=f8e318]: 18:47:55 🌐 [2026-08-29T18:47:55.052Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e319]: 18:47:55 🌐 [2026-08-29T18:47:55.483Z] GET /service-worker.js
+        - generic [ref=f8e320]: 18:47:55 🌐 [2026-08-29T18:47:55.545Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e321]: 18:47:56 🌐 [2026-08-29T18:47:56.553Z] POST /api/knowledge/sync (from http://localhost:3001)
+        - generic [ref=f8e322]: 18:47:57 🌐 [2026-08-29T18:47:57.482Z] GET /service-worker.js
+        - generic [ref=f8e323]: 18:47:58 🌐 [2026-08-29T18:47:58.061Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e324]: 18:47:58 🌐 [2026-08-29T18:47:58.075Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e325]: 18:48:10 🌐 [2026-08-29T18:48:10.056Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e326]: 18:48:25 🌐 [2026-08-29T18:48:25.057Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e327]: 18:48:25 🌐 [2026-08-29T18:48:25.062Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e328]: 18:48:25 🌐 [2026-08-29T18:48:25.570Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e329]: 18:48:29 🌐 [2026-08-29T18:48:29.073Z] GET /config.html
+        - generic [ref=f8e330]: 18:48:29 🌐 [2026-08-29T18:48:29.149Z] GET /styles/pages/advanced-settings.css
+        - generic [ref=f8e331]: 18:48:29 🌐 [2026-08-29T18:48:29.170Z] GET /api/auth/me
+        - generic [ref=f8e332]: 18:48:29 🌐 [2026-08-29T18:48:29.177Z] GET /styles/pages/control-plane.css
+        - generic [ref=f8e333]: 18:48:29 🌐 [2026-08-29T18:48:29.207Z] GET /api/auth/admin/stats
+        - generic [ref=f8e334]: 18:48:29 🌐 [2026-08-29T18:48:29.251Z] GET /js/services/local-data-maintenance-service.js
+        - generic [ref=f8e335]: 18:48:29 🌐 [2026-08-29T18:48:29.286Z] GET /js/advanced-settings.js
+        - generic [ref=f8e336]: 18:48:29 🌐 [2026-08-29T18:48:29.294Z] GET /js/controllers/control-plane-settings.js
+        - generic [ref=f8e337]: 18:48:29 🌐 [2026-08-29T18:48:29.300Z] GET /js/controllers/conversation-memory-panel.js
+        - generic [ref=f8e338]: 18:48:29 🌐 [2026-08-29T18:48:29.302Z] GET /js/config-settings.js
+        - generic [ref=f8e339]: 18:48:29 🌐 [2026-08-29T18:48:29.431Z] GET /api/google/status
+        - generic [ref=f8e340]: 18:48:29 🌐 [2026-08-29T18:48:29.447Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e341]: 18:48:29 🌐 [2026-08-29T18:48:29.468Z] GET /api/control/nodes
+        - generic [ref=f8e342]: 18:48:29 🌐 [2026-08-29T18:48:29.511Z] GET /api/control/nodes
+        - generic [ref=f8e343]: 18:48:29 🌐 [2026-08-29T18:48:29.777Z] GET /service-worker.js
+        - generic [ref=f8e344]: 18:48:29 🌐 [2026-08-29T18:48:29.820Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e345]: 18:48:29 🌐 [2026-08-29T18:48:29.833Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e346]: 18:48:30 🌐 [2026-08-29T18:48:30.038Z] GET /api/control/health
+        - generic [ref=f8e347]: 18:48:30 🌐 [2026-08-29T18:48:30.068Z] GET /api/control/entitlements
+        - generic [ref=f8e348]: 18:48:30 🌐 [2026-08-29T18:48:30.075Z] GET /api/control/settings
+        - generic [ref=f8e349]: 18:48:30 🌐 [2026-08-29T18:48:30.088Z] GET /api/control/nodes
+        - generic [ref=f8e350]: 18:48:32 🌐 [2026-08-29T18:48:32.012Z] GET /service-worker.js
+        - generic [ref=f8e351]: 18:48:32 🌐 [2026-08-29T18:48:32.736Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e352]: 18:48:32 🌐 [2026-08-29T18:48:32.753Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e353]: 18:48:44 🌐 [2026-08-29T18:48:44.440Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e354]: 18:48:59 🌐 [2026-08-29T18:48:59.439Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e355]: 18:48:59 🌐 [2026-08-29T18:48:59.738Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e356]: 18:49:00 🌐 [2026-08-29T18:49:00.039Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e357]: 18:49:14 🌐 [2026-08-29T18:49:14.441Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e358]: 18:49:29 🌐 [2026-08-29T18:49:29.192Z] GET /api/auth/admin/stats
+        - generic [ref=f8e359]: 18:49:29 🌐 [2026-08-29T18:49:29.432Z] POST /api/jobs (from http://localhost:3001)
+        - generic [ref=f8e360]: 18:49:29 🌐 [2026-08-29T18:49:29.740Z] POST /api/actions (from http://localhost:3001)
+        - generic [ref=f8e361]: 18:49:30 🌐 [2026-08-29T18:49:30.037Z] POST /api/control/nodes/heartbeat (from http://localhost:3001)
+        - generic [ref=f8e362]: 18:49:35 🌐 [2026-08-29T18:49:35.291Z] GET /admin.html
+        - generic [ref=f8e363]: 18:49:35 🌐 [2026-08-29T18:49:35.348Z] GET /js/controllers/control-plane-admin.js
+        - generic [ref=f8e364]: 18:49:35 🌐 [2026-08-29T18:49:35.356Z] GET /api/auth/me
+        - generic [ref=f8e365]: 18:49:35 🌐 [2026-08-29T18:49:35.374Z] GET /api/auth/admin/stats
+        - generic [ref=f8e366]: 18:49:35 🌐 [2026-08-29T18:49:35.547Z] GET /api/auth/admin/stats
+        - generic [ref=f8e367]: 18:49:35 🌐 [2026-08-29T18:49:35.555Z] GET /api/auth/admin/users
+        - generic [ref=f8e368]: 18:49:35 🌐 [2026-08-29T18:49:35.560Z] GET /api/health
+        - generic [ref=f8e369]: 18:49:35 🌐 [2026-08-29T18:49:35.568Z] GET /api/auth/admin/logs
+    - generic [ref=f8e370]:
+      - heading "⚑ Despliegue gradual" [level=2] [ref=f8e371]
+      - paragraph [ref=f8e372]: Cada capacidad nueva permanece apagada, limitada a admin o en canary antes de activarse globalmente.
+      - generic [ref=f8e374]:
+        - generic [ref=f8e375]:
+          - generic [ref=f8e376]:
+            - strong [ref=f8e377]: gunter.chat
+            - generic [ref=f8e378]: Disponible para este admin
+          - combobox "gunter.chat Disponible para este admin" [ref=f8e379]:
+            - option "off"
+            - option "admin_only"
+            - option "canary"
+            - option "on" [selected]
+        - generic [ref=f8e380]:
+          - generic [ref=f8e381]:
+            - strong [ref=f8e382]: gunter.voice
+            - generic [ref=f8e383]: Disponible para este admin
+          - combobox "gunter.voice Disponible para este admin" [ref=f8e384]:
+            - option "off"
+            - option "admin_only"
+            - option "canary"
+            - option "on" [selected]
+        - generic [ref=f8e385]:
+          - generic [ref=f8e386]:
+            - strong [ref=f8e387]: gunter.tasks
+            - generic [ref=f8e388]: Disponible para este admin
+          - combobox "gunter.tasks Disponible para este admin" [ref=f8e389]:
+            - option "off"
+            - option "admin_only"
+            - option "canary"
+            - option "on" [selected]
+        - generic [ref=f8e390]:
+          - generic [ref=f8e391]:
+            - strong [ref=f8e392]: gunter.calendar
+            - generic [ref=f8e393]: Disponible para este admin
+          - combobox "gunter.calendar Disponible para este admin" [ref=f8e394]:
+            - option "off"
+            - option "admin_only"
+            - option "canary"
+            - option "on" [selected]
+        - generic [ref=f8e395]:
+          - generic [ref=f8e396]:
+            - strong [ref=f8e397]: desktop.node
+            - generic [ref=f8e398]: "off"
+          - combobox "desktop.node off" [ref=f8e399]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e400]:
+          - generic [ref=f8e401]:
+            - strong [ref=f8e402]: desktop.apps
+            - generic [ref=f8e403]: "off"
+          - combobox "desktop.apps off" [ref=f8e404]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e405]:
+          - generic [ref=f8e406]:
+            - strong [ref=f8e407]: desktop.files
+            - generic [ref=f8e408]: "off"
+          - combobox "desktop.files off" [ref=f8e409]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e410]:
+          - generic [ref=f8e411]:
+            - strong [ref=f8e412]: desktop.screen
+            - generic [ref=f8e413]: "off"
+          - combobox "desktop.screen off" [ref=f8e414]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e415]:
+          - generic [ref=f8e416]:
+            - strong [ref=f8e417]: desktop.commands
+            - generic [ref=f8e418]: "off"
+          - combobox "desktop.commands off" [ref=f8e419]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e420]:
+          - generic [ref=f8e421]:
+            - strong [ref=f8e422]: mobile.node
+            - generic [ref=f8e423]: "off"
+          - combobox "mobile.node off" [ref=f8e424]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e425]:
+          - generic [ref=f8e426]:
+            - strong [ref=f8e427]: mobile.media
+            - generic [ref=f8e428]: "off"
+          - combobox "mobile.media off" [ref=f8e429]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e430]:
+          - generic [ref=f8e431]:
+            - strong [ref=f8e432]: mobile.messaging
+            - generic [ref=f8e433]: "off"
+          - combobox "mobile.messaging off" [ref=f8e434]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e435]:
+          - generic [ref=f8e436]:
+            - strong [ref=f8e437]: mobile.location
+            - generic [ref=f8e438]: "off"
+          - combobox "mobile.location off" [ref=f8e439]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e440]:
+          - generic [ref=f8e441]:
+            - strong [ref=f8e442]: mobile.camera
+            - generic [ref=f8e443]: "off"
+          - combobox "mobile.camera off" [ref=f8e444]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e445]:
+          - generic [ref=f8e446]:
+            - strong [ref=f8e447]: mobile.local_ai
+            - generic [ref=f8e448]: "off"
+          - combobox "mobile.local_ai off" [ref=f8e449]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e450]:
+          - generic [ref=f8e451]:
+            - strong [ref=f8e452]: cortex.basic
+            - generic [ref=f8e453]: Disponible para este admin
+          - combobox "cortex.basic Disponible para este admin" [ref=f8e454]:
+            - option "off"
+            - option "admin_only"
+            - option "canary"
+            - option "on" [selected]
+        - generic [ref=f8e455]:
+          - generic [ref=f8e456]:
+            - strong [ref=f8e457]: cortex.semantic
+            - generic [ref=f8e458]: "off"
+          - combobox "cortex.semantic off" [ref=f8e459]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e460]:
+          - generic [ref=f8e461]:
+            - strong [ref=f8e462]: cortex.graph
+            - generic [ref=f8e463]: "off"
+          - combobox "cortex.graph off" [ref=f8e464]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e465]:
+          - generic [ref=f8e466]:
+            - strong [ref=f8e467]: cortex.export
+            - generic [ref=f8e468]: Disponible para este admin
+          - combobox "cortex.export Disponible para este admin" [ref=f8e469]:
+            - option "off"
+            - option "admin_only" [selected]
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e470]:
+          - generic [ref=f8e471]:
+            - strong [ref=f8e472]: automation.basic
+            - generic [ref=f8e473]: Disponible para este admin
+          - combobox "automation.basic Disponible para este admin" [ref=f8e474]:
+            - option "off"
+            - option "admin_only"
+            - option "canary"
+            - option "on" [selected]
+        - generic [ref=f8e475]:
+          - generic [ref=f8e476]:
+            - strong [ref=f8e477]: automation.procedures
+            - generic [ref=f8e478]: "off"
+          - combobox "automation.procedures off" [ref=f8e479]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e480]:
+          - generic [ref=f8e481]:
+            - strong [ref=f8e482]: automation.missions
+            - generic [ref=f8e483]: "off"
+          - combobox "automation.missions off" [ref=f8e484]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e485]:
+          - generic [ref=f8e486]:
+            - strong [ref=f8e487]: automation.proactive
+            - generic [ref=f8e488]: Disponible para este admin
+          - combobox "automation.proactive Disponible para este admin" [ref=f8e489]:
+            - option "off"
+            - option "admin_only"
+            - option "canary"
+            - option "on" [selected]
+        - generic [ref=f8e490]:
+          - generic [ref=f8e491]:
+            - strong [ref=f8e492]: ai.local
+            - generic [ref=f8e493]: "off"
+          - combobox "ai.local off" [ref=f8e494]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e495]:
+          - generic [ref=f8e496]:
+            - strong [ref=f8e497]: ai.cloud.standard
+            - generic [ref=f8e498]: Disponible para este admin
+          - combobox "ai.cloud.standard Disponible para este admin" [ref=f8e499]:
+            - option "off"
+            - option "admin_only"
+            - option "canary"
+            - option "on" [selected]
+        - generic [ref=f8e500]:
+          - generic [ref=f8e501]:
+            - strong [ref=f8e502]: ai.cloud.reasoning
+            - generic [ref=f8e503]: Disponible para este admin
+          - combobox "ai.cloud.reasoning Disponible para este admin" [ref=f8e504]:
+            - option "off"
+            - option "admin_only" [selected]
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e505]:
+          - generic [ref=f8e506]:
+            - strong [ref=f8e507]: ai.vision
+            - generic [ref=f8e508]: Disponible para este admin
+          - combobox "ai.vision Disponible para este admin" [ref=f8e509]:
+            - option "off"
+            - option "admin_only" [selected]
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e510]:
+          - generic [ref=f8e511]:
+            - strong [ref=f8e512]: admin.accounts
+            - generic [ref=f8e513]: Disponible para este admin
+          - combobox "admin.accounts Disponible para este admin" [ref=f8e514]:
+            - option "off"
+            - option "admin_only"
+            - option "canary"
+            - option "on" [selected]
+        - generic [ref=f8e515]:
+          - generic [ref=f8e516]:
+            - strong [ref=f8e517]: admin.billing
+            - generic [ref=f8e518]: Disponible para este admin
+          - combobox "admin.billing Disponible para este admin" [ref=f8e519]:
+            - option "off"
+            - option "admin_only" [selected]
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e520]:
+          - generic [ref=f8e521]:
+            - strong [ref=f8e522]: admin.devices
+            - generic [ref=f8e523]: Disponible para este admin
+          - combobox "admin.devices Disponible para este admin" [ref=f8e524]:
+            - option "off"
+            - option "admin_only" [selected]
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e525]:
+          - generic [ref=f8e526]:
+            - strong [ref=f8e527]: admin.operations
+            - generic [ref=f8e528]: Disponible para este admin
+          - combobox "admin.operations Disponible para este admin" [ref=f8e529]:
+            - option "off"
+            - option "admin_only" [selected]
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e530]:
+          - generic [ref=f8e531]:
+            - strong [ref=f8e532]: billing.recurring
+            - generic [ref=f8e533]: "off"
+          - combobox "billing.recurring off" [ref=f8e534]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+        - generic [ref=f8e535]:
+          - generic [ref=f8e536]:
+            - strong [ref=f8e537]: evolution.skill_forge
+            - generic [ref=f8e538]: "off"
+          - combobox "evolution.skill_forge off" [ref=f8e539]:
+            - option "off" [selected]
+            - option "admin_only"
+            - option "canary"
+            - option "on"
+  - button "Menú de usuario" [ref=f8e541] [cursor=pointer]: C

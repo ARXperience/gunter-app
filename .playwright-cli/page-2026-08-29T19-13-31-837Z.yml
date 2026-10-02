@@ -1,0 +1,351 @@
+- generic [active] [ref=f29e1]:
+  - generic: GUNTER
+  - generic [ref=f29e2]:
+    - navigation "Navegación principal de Gunter" [ref=f29e3]:
+      - generic [ref=f29e4]:
+        - link "Día" [ref=f29e5] [cursor=pointer]:
+          - /url: day.html
+        - link "Reuniones" [ref=f29e6] [cursor=pointer]:
+          - /url: dashboard.html
+        - link "Nueva" [ref=f29e7] [cursor=pointer]:
+          - /url: new-project.html
+        - link "Config" [ref=f29e8] [cursor=pointer]:
+          - /url: config.html#premium
+    - generic "Flujo actual" [ref=f29e9]:
+      - generic [ref=f29e10]:
+        - generic [ref=f29e11]: "01"
+        - text: Usuarios
+      - generic [ref=f29e13]:
+        - generic [ref=f29e14]: "02"
+        - text: Sistema
+      - generic [ref=f29e16]:
+        - generic [ref=f29e17]: "03"
+        - text: Registros
+    - generic [ref=f29e18]:
+      - heading "🛡️ Administración" [level=1] [ref=f29e19]
+      - link "← Volver a Gunter" [ref=f29e20] [cursor=pointer]:
+        - /url: index.html
+    - generic [ref=f29e21]:
+      - generic [ref=f29e22]:
+        - generic [ref=f29e23]: "3"
+        - generic [ref=f29e24]: Usuarios
+      - generic [ref=f29e25]:
+        - generic [ref=f29e26]: "0"
+        - generic [ref=f29e27]: Pendientes
+      - generic [ref=f29e28]:
+        - generic [ref=f29e29]: "3"
+        - generic [ref=f29e30]: Aprobados
+      - generic [ref=f29e31]:
+        - generic [ref=f29e32]: "0"
+        - generic [ref=f29e33]: Bloqueados
+      - generic [ref=f29e34]:
+        - generic [ref=f29e35]: "2"
+        - generic [ref=f29e36]: Sesiones activas
+    - generic [ref=f29e37]:
+      - heading [level=2] [ref=f29e38]:
+        - text: ◉ Centro de Operaciones
+        - button "↻ Actualizar" [ref=f29e39] [cursor=pointer]
+      - generic [ref=f29e41]:
+        - generic [ref=f29e42]:
+          - generic [ref=f29e43]: Estado
+          - strong [ref=f29e44]: ok
+        - generic [ref=f29e45]:
+          - generic [ref=f29e46]: Nodos online
+          - strong [ref=f29e47]: "1"
+        - generic [ref=f29e48]:
+          - generic [ref=f29e49]: Comandos verificados
+          - strong [ref=f29e50]: "0"
+        - generic [ref=f29e51]:
+          - generic [ref=f29e52]: Incidentes activos
+          - strong [ref=f29e53]: "0"
+        - generic [ref=f29e54]:
+          - generic [ref=f29e55]: Trazas
+          - strong [ref=f29e56]: "485"
+        - generic [ref=f29e57]:
+          - generic [ref=f29e58]: Skills
+          - strong [ref=f29e59]: "15"
+    - generic [ref=f29e60]:
+      - heading "🖥️ Sistema" [level=2] [ref=f29e61]
+      - generic [ref=f29e62]:
+        - generic [ref=f29e63]:
+          - generic [ref=f29e64]: Uptime
+          - text: 0h 32m
+        - generic [ref=f29e65]:
+          - generic [ref=f29e66]: Memoria
+          - text: 62 MB
+        - generic [ref=f29e67]:
+          - generic [ref=f29e68]: Node
+          - text: v24.15.0 · win32
+        - generic [ref=f29e69]:
+          - generic [ref=f29e70]: Logs en buffer
+          - text: 600 (0 err · 0 warn)
+      - generic [ref=f29e71]:
+        - text: Servicios
+        - generic [ref=f29e72]: ●openai
+        - generic [ref=f29e73]: ●gemini
+        - generic [ref=f29e74]: ●google_oauth
+        - generic [ref=f29e75]: ●whatsapp
+        - generic [ref=f29e76]: ●knowledge
+        - generic [ref=f29e77]: ●premium_intel
+        - generic [ref=f29e78]: ●commitments
+        - generic [ref=f29e79]: ●proactive
+        - generic [ref=f29e80]: ●durable_jobs
+        - generic [ref=f29e81]: ●control_plane
+        - generic [ref=f29e82]: ●style_mirror
+        - generic [ref=f29e83]: ●forecast
+        - generic [ref=f29e84]: ●fallback_llm
+    - generic [ref=f29e85]:
+      - heading "⏳ Solicitudes pendientes" [level=2] [ref=f29e86]
+      - paragraph [ref=f29e88]: No hay solicitudes esperando. Todo tranquilo por ahora.
+    - generic [ref=f29e89]:
+      - heading "👥 Usuarios" [level=2] [ref=f29e90]
+      - table [ref=f29e92]:
+        - rowgroup [ref=f29e93]:
+          - row [ref=f29e94]:
+            - cell [ref=f29e95]:
+              - strong [ref=f29e96]: Codex QA
+              - text: "@codexqa1788028892931"
+            - cell "admin" [ref=f29e97]
+            - cell "aprobado" [ref=f29e99]
+            - cell "29 ago, 13:43 2 logins" [ref=f29e101]: 29 ago, 13:432 logins
+            - cell [ref=f29e102]:
+              - button "🚫 Bloquear" [ref=f29e103] [cursor=pointer]
+              - button "Quitar admin" [ref=f29e104] [cursor=pointer]
+              - button "🗑️" [ref=f29e105] [cursor=pointer]
+          - row [ref=f29e106]:
+            - cell [ref=f29e107]:
+              - strong [ref=f29e108]: fgh
+              - text: "@dfghj · centrodigitaldediseno@gmail.com"
+            - cell "usuario" [ref=f29e109]
+            - cell "aprobado" [ref=f29e110]
+            - cell "29 jul, 00:49 1 logins" [ref=f29e112]: 29 jul, 00:491 logins
+            - cell [ref=f29e113]:
+              - button "🚫 Bloquear" [ref=f29e114] [cursor=pointer]
+              - button "👑 Hacer admin" [ref=f29e115] [cursor=pointer]
+              - button "📚 Dar tutor" [ref=f29e116] [cursor=pointer]
+              - button "🗑️" [ref=f29e117] [cursor=pointer]
+          - row [ref=f29e118]:
+            - cell [ref=f29e119]:
+              - strong [ref=f29e120]: Gunter HX
+              - text: "@gunterhx · gunterhx@gmail.com"
+            - cell "admin" [ref=f29e121]
+            - cell "aprobado" [ref=f29e123]
+            - cell "29 jul, 01:55 10 logins" [ref=f29e125]: 29 jul, 01:5510 logins
+            - cell [ref=f29e126]:
+              - button "🚫 Bloquear" [ref=f29e127] [cursor=pointer]
+              - button "Quitar admin" [ref=f29e128] [cursor=pointer]
+              - button "🗑️" [ref=f29e129] [cursor=pointer]
+    - generic [ref=f29e130]:
+      - heading "◇ Membresías y entitlements" [level=2] [ref=f29e131]
+      - group [ref=f29e132]:
+        - generic "Crear o editar un plan +" [ref=f29e133] [cursor=pointer]
+      - article [ref=f29e136]:
+        - generic [ref=f29e137]:
+          - strong [ref=f29e138]: Compatibilidad actual
+          - generic [ref=f29e139]: legacy_compat · sistema
+        - generic [ref=f29e140]: Sin precio
+        - generic [ref=f29e141]: 12 capacidades
+      - heading "Asignación por cuenta" [level=2] [ref=f29e142]
+      - generic [ref=f29e144]:
+        - article [ref=f29e145]:
+          - generic [ref=f29e146]:
+            - strong [ref=f29e147]: Codex QA
+            - generic [ref=f29e148]: "@codexqa1788028892931"
+          - combobox [ref=f29e149]:
+            - option "Compatibilidad actual" [selected]
+          - combobox [ref=f29e150]:
+            - option "TRIAL"
+            - option "ACTIVE" [selected]
+            - option "PAST_DUE"
+            - option "GRACE"
+            - option "SUSPENDED"
+            - option "CANCELED"
+          - button "Aplicar" [ref=f29e151] [cursor=pointer]
+        - article [ref=f29e152]:
+          - generic [ref=f29e153]:
+            - strong [ref=f29e154]: fgh
+            - generic [ref=f29e155]: "@dfghj"
+          - combobox [ref=f29e156]:
+            - option "Compatibilidad actual" [selected]
+          - combobox [ref=f29e157]:
+            - option "TRIAL"
+            - option "ACTIVE" [selected]
+            - option "PAST_DUE"
+            - option "GRACE"
+            - option "SUSPENDED"
+            - option "CANCELED"
+          - button "Aplicar" [ref=f29e158] [cursor=pointer]
+        - article [ref=f29e159]:
+          - generic [ref=f29e160]:
+            - strong [ref=f29e161]: Gunter HX
+            - generic [ref=f29e162]: "@gunterhx"
+          - combobox [ref=f29e163]:
+            - option "Compatibilidad actual" [selected]
+          - combobox [ref=f29e164]:
+            - option "TRIAL"
+            - option "ACTIVE" [selected]
+            - option "PAST_DUE"
+            - option "GRACE"
+            - option "SUSPENDED"
+            - option "CANCELED"
+          - button "Aplicar" [ref=f29e165] [cursor=pointer]
+    - generic [ref=f29e166]:
+      - heading "⌁ Dispositivos y nodos" [level=2] [ref=f29e167]
+      - article [ref=f29e170]:
+        - generic [ref=f29e172]:
+          - strong [ref=f29e173]: Chrome · Web
+          - generic [ref=f29e174]: WEB · Win32 Mozilla/5.0 (Windows NT 10.0; Win64; x64
+        - generic [ref=f29e175]:
+          - generic [ref=f29e176]: Estado
+          - text: ONLINE
+        - generic [ref=f29e177]:
+          - generic [ref=f29e178]: Último heartbeat
+          - text: 29/8/2026, 2:13:01 p. m.
+        - button "Revocar" [ref=f29e179] [cursor=pointer]
+    - generic [ref=f29e180]:
+      - heading "△ Errores e incidentes" [level=2] [ref=f29e181]
+      - paragraph [ref=f29e183]: No hay incidentes. El sistema está tranquilo.
+    - generic [ref=f29e184]:
+      - heading "📜 Logs del servidor" [level=2] [ref=f29e185]
+      - group [ref=f29e186]:
+        - generic "Inspeccionar registros técnicos +" [ref=f29e187] [cursor=pointer]
+        - option "Todos" [selected]
+        - option "Warnings + errores"
+        - option "Solo errores"
+    - generic [ref=f29e188]:
+      - heading "⚑ Despliegue gradual" [level=2] [ref=f29e189]
+      - group [ref=f29e190]:
+        - generic "Administrar banderas de capacidad +" [ref=f29e191] [cursor=pointer]
+        - option "off"
+        - option "admin_only"
+        - option "canary"
+        - option "on" [selected]
+        - option "off"
+        - option "admin_only"
+        - option "canary"
+        - option "on" [selected]
+        - option "off"
+        - option "admin_only"
+        - option "canary"
+        - option "on" [selected]
+        - option "off"
+        - option "admin_only"
+        - option "canary"
+        - option "on" [selected]
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off"
+        - option "admin_only"
+        - option "canary"
+        - option "on" [selected]
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off"
+        - option "admin_only" [selected]
+        - option "canary"
+        - option "on"
+        - option "off"
+        - option "admin_only"
+        - option "canary"
+        - option "on" [selected]
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off"
+        - option "admin_only"
+        - option "canary"
+        - option "on" [selected]
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off"
+        - option "admin_only"
+        - option "canary"
+        - option "on" [selected]
+        - option "off"
+        - option "admin_only" [selected]
+        - option "canary"
+        - option "on"
+        - option "off"
+        - option "admin_only" [selected]
+        - option "canary"
+        - option "on"
+        - option "off"
+        - option "admin_only"
+        - option "canary"
+        - option "on" [selected]
+        - option "off"
+        - option "admin_only" [selected]
+        - option "canary"
+        - option "on"
+        - option "off"
+        - option "admin_only" [selected]
+        - option "canary"
+        - option "on"
+        - option "off"
+        - option "admin_only" [selected]
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+        - option "off" [selected]
+        - option "admin_only"
+        - option "canary"
+        - option "on"
+  - button "Menú de usuario" [ref=f29e193] [cursor=pointer]: C

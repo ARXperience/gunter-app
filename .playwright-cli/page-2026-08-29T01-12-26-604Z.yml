@@ -1,0 +1,130 @@
+- generic [active] [ref=f9e1]:
+  - generic: GUNTER
+  - main [ref=f9e2]:
+    - navigation "Navegación principal de Gunter" [ref=f9e3]:
+      - link "Gunter, centro de comando" [ref=f9e4] [cursor=pointer]:
+        - /url: day.html
+        - generic [ref=f9e6]: GUNTER
+        - generic [ref=f9e7]: COMMAND OS
+      - generic [ref=f9e8]:
+        - link "01 Día" [ref=f9e9] [cursor=pointer]:
+          - /url: day.html
+          - generic [ref=f9e10]: "01"
+          - text: Día
+        - link "02 Reuniones" [ref=f9e11] [cursor=pointer]:
+          - /url: dashboard.html
+          - generic [ref=f9e12]: "02"
+          - text: Reuniones
+        - link "03 Nueva" [ref=f9e13] [cursor=pointer]:
+          - /url: new-project.html
+          - generic [ref=f9e14]: "03"
+          - text: Nueva
+        - link "04 Configurar" [ref=f9e15] [cursor=pointer]:
+          - /url: config.html#premium
+          - generic [ref=f9e16]: "04"
+          - text: Configurar
+      - generic [ref=f9e17]: En línea
+    - generic "Flujo actual" [ref=f9e19]:
+      - generic [ref=f9e20]:
+        - generic [ref=f9e21]: "01"
+        - text: Contexto
+      - generic [ref=f9e23]:
+        - generic [ref=f9e24]: "02"
+        - text: Objetivo
+      - generic [ref=f9e26]:
+        - generic [ref=f9e27]: "03"
+        - text: Captura
+    - generic [ref=f9e28]:
+      - text: ◈
+      - link "Volver al Dashboard" [ref=f9e29] [cursor=pointer]:
+        - /url: dashboard.html
+      - heading "Preparar reunión" [level=1] [ref=f9e32]
+      - paragraph [ref=f9e33]: Dale contexto a Gunter antes de iniciar la captura.
+    - generic [ref=f9e34]:
+      - generic [ref=f9e35]:
+        - generic [ref=f9e36]:
+          - generic [ref=f9e37]: "1"
+          - generic [ref=f9e38]: Contexto
+        - generic [ref=f9e40]:
+          - generic [ref=f9e41]: "2"
+          - generic [ref=f9e42]: Objetivo
+        - generic [ref=f9e44]:
+          - generic [ref=f9e45]: "3"
+          - generic [ref=f9e46]: Captura
+      - generic [ref=f9e48]:
+        - generic [ref=f9e49] [cursor=pointer]:
+          - generic [ref=f9e50]: 🏢
+          - heading "Empresarial" [level=3] [ref=f9e51]
+          - paragraph [ref=f9e52]: Para proyectos corporativos enfocados en ROI, eficiencia y escalabilidad.
+          - list [ref=f9e53]:
+            - listitem [ref=f9e54]: Análisis de viabilidad financiera
+            - listitem [ref=f9e55]: Métricas de negocio y KPIs
+            - listitem [ref=f9e56]: Roadmap ejecutivo
+            - listitem [ref=f9e57]: "Estilo visual: Corporate Sleek"
+        - generic [ref=f9e58] [cursor=pointer]:
+          - generic [ref=f9e59]: 🎨
+          - heading "Artístico" [level=3] [ref=f9e60]
+          - paragraph [ref=f9e61]: Para proyectos creativos enfocados en impacto visual y experiencias.
+          - list [ref=f9e62]:
+            - listitem [ref=f9e63]: Análisis de impacto y audiencia
+            - listitem [ref=f9e64]: Propuestas creativas
+            - listitem [ref=f9e65]: Estrategia de contenido
+            - listitem [ref=f9e66]: "Estilo visual: Digital Avant-garde"
+        - generic [ref=f9e67] [cursor=pointer]:
+          - generic [ref=f9e68]: 🎙️
+          - heading "Podcast" [level=3] [ref=f9e69]
+          - paragraph [ref=f9e70]: Para proyectos de audio enfocados en estructura y engagement.
+          - list [ref=f9e71]:
+            - listitem [ref=f9e72]: Estructura de episodios
+            - listitem [ref=f9e73]: Análisis de gancho y retención
+            - listitem [ref=f9e74]: Estrategia de crecimiento
+            - listitem [ref=f9e75]: "Estilo visual: Studio Lo-Fi"
+        - generic [ref=f9e76] [cursor=pointer]:
+          - generic [ref=f9e77]: ☯️
+          - heading "Zen" [level=3] [ref=f9e78]
+          - paragraph [ref=f9e79]: Sabio que se adapta a cualquier conversación, con datos curiosos y humor ligero.
+          - list [ref=f9e80]:
+            - text: ·
+            - listitem [ref=f9e81]: Análisis holístico y filosófico
+            - listitem [ref=f9e82]: Datos curiosos contextuales
+            - listitem [ref=f9e83]: Adaptación al tono del diálogo
+            - listitem [ref=f9e84]: "Estilo visual: Serene Sage"
+      - generic [ref=f9e85]:
+        - generic [ref=f9e86]:
+          - heading "Detalles del Proyecto" [level=3] [ref=f9e87]
+          - generic [ref=f9e91]:
+            - generic [ref=f9e92]: Nombre del Proyecto
+            - textbox "Nombre del Proyecto" [ref=f9e93]:
+              - /placeholder: "ej: App de Delivery 2.0"
+          - generic [ref=f9e94]:
+            - generic [ref=f9e95]: Describe tu mercado
+            - textbox "Describe tu mercado" [ref=f9e96]:
+              - /placeholder: "ej: Startups de tecnología enfocadas en logística y última milla en LATAM..."
+        - generic [ref=f9e97]:
+          - heading "Subir Audio (Opcional)" [level=3] [ref=f9e98]
+          - paragraph [ref=f9e102]: ¿Ya tienes una grabación? Súbela y Gunter la transcribirá y analizará automáticamente.
+          - generic [ref=f9e103] [cursor=pointer]:
+            - paragraph [ref=f9e108]: Arrastra un audio aquí o haz clic para seleccionar
+            - paragraph [ref=f9e109]: MP3, WAV, M4A, OGG, WebM (máx. 250MB)
+        - generic [ref=f9e110]:
+          - link "Cancelar" [ref=f9e111] [cursor=pointer]:
+            - /url: dashboard.html
+          - button "Ajustar y Analizar" [ref=f9e112] [cursor=pointer]
+          - button "Iniciar Reunión" [disabled] [ref=f9e116] [cursor=pointer]
+  - button "Cambiar tema claro/oscuro" [ref=f9e120] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f9e124]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué es Empresarial?"
+        - button "¿Qué es Podcast?"
+        - button "¿Qué es Zen?"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f9e125] [cursor=pointer]
+  - button "Menú de usuario" [ref=f9e150] [cursor=pointer]: C

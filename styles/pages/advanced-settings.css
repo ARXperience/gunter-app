@@ -61,6 +61,26 @@ body.at-light .gps {
 .gps__intro p { margin: 0; font-size: 13px; color: var(--gps-text-dim); line-height: 1.55; }
 .gps__intro-actions { margin-left: auto; display: flex; gap: 8px; }
 
+.gps__catalog {
+    border-block: 1px solid var(--gps-border);
+}
+.gps__catalog > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 17px 2px;
+    color: var(--gps-text);
+    cursor: pointer;
+    list-style: none;
+    font-size: 14px;
+    font-weight: 750;
+}
+.gps__catalog > summary::after { content: '+'; margin-left: auto; color: var(--gps-accent); font-size: 20px; font-weight: 500; }
+.gps__catalog[open] > summary::after { content: '−'; }
+.gps__catalog > summary small { color: var(--gps-text-mute); font-size: 11px; font-weight: 500; }
+.gps__catalog > .gps__grid { padding: 4px 0 20px; }
+
 .gps__grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -68,6 +88,7 @@ body.at-light .gps {
 }
 @media (max-width: 600px) {
     .gps__grid { grid-template-columns: 1fr; }
+    .gps__catalog > summary small { display: none; }
 }
 
 /* ---------- Section divider ---------- */
@@ -577,6 +598,7 @@ body.at-light .gps {
 .gn-status-item--err   { border-color: rgba(248,113,113,0.4); }
 .gn-status-item--err .gn-status-item__value  { color: #fca5a5; }
 .gn-status-item--off   { opacity: 0.7; }
+.gn-status-detail{margin-top:14px;border-top:1px solid var(--gps-border)}.gn-status-detail>summary{display:flex;align-items:center;padding:13px 0 2px;color:var(--gps-text-dim);font-size:12px;font-weight:700;cursor:pointer;list-style:none}.gn-status-detail>summary::after{content:'+';margin-left:auto;color:var(--gps-accent);font-size:18px}.gn-status-detail[open]>summary::after{content:'−'}.gn-status-detail>summary span{margin-left:8px;color:var(--gps-text-mute);font-size:10px;font-weight:500}
 
 /* ============== Fase F.F6 — Resumen funciones premium activas ============== */
 .gn-active-summary {

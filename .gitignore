@@ -3,6 +3,9 @@
 .env.local
 .env.*.local
 
+# Firebase app configuration is installed locally for native builds.
+gunter-mobile/android/app/google-services.json
+
 # Datos de runtime — TODO data/ es privado (usuarios, sesiones, tokens,
 # datos personales por usuario, notas, saber personal, flags)
 data/

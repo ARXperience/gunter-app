@@ -11,11 +11,19 @@
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = "v66b-gunter-pixar-1783590000000";
+const SW_VERSION = "v104-native-apns-20260925";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;
 const CACHE_RUNTIME = `${CACHE_PREFIX}runtime-${SW_VERSION}`;
+const LEGACY_PAGE_REDIRECTS = Object.freeze({
+    '/chat.html': '/day.html#chat',
+    '/tasks.html': '/day.html#tasks',
+    '/calendar.html': '/day.html#events',
+    '/meetings.html': '/dashboard.html',
+    '/documents.html': '/day.html#documents',
+    '/inbox.html': '/day.html#conversations'
+});
 
 // Shell mínimo precacheado en install � solo lo que garantiza
 // que el visualizador básico levante offline.
@@ -32,7 +40,20 @@ const PRECACHE_URLS = [
     '/styles/variables.css',
     '/styles/components.css',
     '/styles/responsive-mobile.css',
-    '/styles/animations.css'
+    '/styles/animations.css',
+    '/styles/pages/control-plane.css',
+    '/styles/pages/activity.css',
+    '/js/services/control-plane-service.js',
+    '/js/services/connection-manager.js',
+    '/js/services/web-node-runtime.js'
+    ,'/js/controllers/activity-panel.js'
+    ,'/js/core/workflow-orchestrator.js'
+    ,'/styles/pages/conversations.css'
+    ,'/styles/pages/social-settings.css'
+    ,'/styles/pages/procedure-recorder.css'
+    ,'/js/services/procedure-recorder.js'
+    ,'/js/controllers/conversations-panel.js'
+    ,'/js/controllers/social-settings-panel.js'
 ];
 
 self.addEventListener('install', (event) => {
@@ -63,6 +84,11 @@ self.addEventListener('fetch', (event) => {
 
     // Bypass cross-origin (CDN, fonts, etc.) � deja que el navegador se encargue
     if (url.origin !== self.location.origin) return;
+
+    if (LEGACY_PAGE_REDIRECTS[url.pathname]) {
+        event.respondWith(Promise.resolve(Response.redirect(new URL(LEGACY_PAGE_REDIRECTS[url.pathname], self.location.origin), 302)));
+        return;
+    }
 
     // /api/* �  network-only (jamás cache)
     if (url.pathname.startsWith('/api/')) {
@@ -137,3 +163,33 @@ self.addEventListener('message', (event) => {
         )).then(() => event.source?.postMessage?.({ type: 'CACHE_CLEARED' }));
     }
 });
+
+self.addEventListener('push', event => {
+    let payload = {};
+    try { payload = event.data?.json?.() || {}; } catch { payload = { body: event.data?.text?.() || '' }; }
+    const priority = ['high', 'urgent'].includes(payload.priority) ? payload.priority : 'normal';
+    const options = {
+        body: String(payload.body || 'Tienes una actualización pendiente.').slice(0, 500),
+        tag: String(payload.tag || 'gunter-update').slice(0, 120),
+        icon: '/assets/gunter/gunter_transparent_alert_1769134280215.png',
+        badge: '/assets/gunter/gunter_transparent_default_1769134184933.png',
+        renotify: priority !== 'normal', requireInteraction: priority === 'urgent',
+        silent: priority === 'low', data: { url: safeNotificationUrl(payload.url), ...(payload.data || {}) }
+    };
+    event.waitUntil(self.registration.showNotification(String(payload.title || 'Gunter').slice(0, 100), options));
+});
+
+self.addEventListener('notificationclick', event => {
+    event.notification.close();
+    const target = new URL(safeNotificationUrl(event.notification.data?.url), self.location.origin).href;
+    event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+        const existing = clients.find(client => new URL(client.url).origin === self.location.origin);
+        if (existing) return existing.focus().then(() => existing.navigate(target));
+        return self.clients.openWindow(target);
+    }));
+});
+
+function safeNotificationUrl(value) {
+    const raw = String(value || '/day.html#reminders');
+    return raw.startsWith('/') && !raw.startsWith('//') ? raw : '/day.html#reminders';
+}

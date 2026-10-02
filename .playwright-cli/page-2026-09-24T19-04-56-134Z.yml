@@ -1,0 +1,111 @@
+- generic [ref=f6e1]:
+  - generic [aria-hidden]:
+    - generic: GUNTER
+  - link "Saltar al contenido principal" [ref=f6e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=f6e3]:
+    - navigation "Navegación principal de Gunter" [ref=f6e4]:
+      - link "Gunter, centro de comando" [ref=f6e5] [cursor=pointer]:
+        - /url: day.html
+        - generic [ref=f6e7]: GUNTER
+        - generic [ref=f6e8]: COMMAND OS
+      - generic [ref=f6e9]:
+        - link "01 Día" [ref=f6e10] [cursor=pointer]:
+          - /url: day.html
+          - generic [ref=f6e11]: "01"
+          - text: Día
+        - link "02 Reuniones" [ref=f6e12] [cursor=pointer]:
+          - /url: dashboard.html
+          - generic [ref=f6e13]: "02"
+          - text: Reuniones
+        - link "03 Nueva" [ref=f6e14] [cursor=pointer]:
+          - /url: new-project.html
+          - generic [ref=f6e15]: "03"
+          - text: Nueva
+        - link "04 Config" [ref=f6e16] [cursor=pointer]:
+          - /url: config.html#premium
+          - generic [ref=f6e17]: "04"
+          - text: Config
+      - generic [ref=f6e18]: En línea
+    - generic "Flujo actual" [ref=f6e20]:
+      - generic [ref=f6e21]:
+        - generic [ref=f6e22]: "01"
+        - text: Asistente IA
+      - generic [ref=f6e24]:
+        - generic [ref=f6e25]: "02"
+        - text: Preferencias
+      - generic [ref=f6e27]:
+        - generic [ref=f6e28]: "03"
+        - text: Datos
+    - generic [ref=f6e29]:
+      - text: ◈
+      - link "Volver al Dashboard" [ref=f6e30] [cursor=pointer]:
+        - /url: dashboard.html
+      - heading "Preferencias" [level=1] [ref=f6e33]
+      - paragraph [ref=f6e34]: Personaliza apariencia, idioma y accesibilidad.
+    - tablist "Secciones de configuración" [ref=f6e35]:
+      - tab "◉ Asistente IA" [ref=f6e36] [cursor=pointer]
+      - tab "◇ Preferencias" [active] [selected] [ref=f6e37] [cursor=pointer]
+      - tab "⌁ Datos y conexiones" [ref=f6e38] [cursor=pointer]
+      - tab "× Papelera" [ref=f6e39] [cursor=pointer]
+    - tabpanel "◇ Preferencias" [ref=f6e40]:
+      - generic [ref=f6e41]:
+        - heading "Apariencia" [level=3] [ref=f6e42]
+        - paragraph [ref=f6e43]: Cambia la paleta, tipografía y personalidad de Gunter en toda la app.
+        - generic [ref=f6e44]:
+          - generic [ref=f6e45]: Tema actual
+          - generic [ref=f6e46]:
+            - button "🏢 Empresarial" [ref=f6e47] [cursor=pointer]
+            - button "🎨 Artístico" [ref=f6e48] [cursor=pointer]
+            - button "🎙️ Podcast" [ref=f6e49] [cursor=pointer]
+            - button "☯️ Zen" [ref=f6e50] [cursor=pointer]
+        - generic [ref=f6e51]:
+          - generic [ref=f6e52]: Modo oscuro
+          - checkbox "Modo oscuro" [ref=f6e53] [cursor=pointer]
+        - paragraph [ref=f6e54]: Si no eliges un modo, Gunter sigue la preferencia de tu sistema.
+      - generic [ref=f6e55]:
+        - heading "Idioma de transcripción" [level=3] [ref=f6e56]
+        - paragraph [ref=f6e57]: Idioma que recibe Whisper y Web Speech durante la reunión.
+        - generic [ref=f6e58]:
+          - generic [ref=f6e59]: Idioma
+          - combobox "Idioma" [ref=f6e60]:
+            - option "Español"
+            - option "English"
+            - option "Português"
+            - option "Français"
+      - generic [ref=f6e61]:
+        - heading "Accesibilidad" [level=3] [ref=f6e62]
+        - paragraph [ref=f6e63]: Controla las animaciones y efectos si te molestan.
+        - generic [ref=f6e64]:
+          - generic [ref=f6e65]: Reducir animaciones
+          - checkbox "Reducir animaciones" [ref=f6e66] [cursor=pointer]
+        - generic [ref=f6e67]:
+          - generic [ref=f6e68]: Efectos de click
+          - checkbox "Efectos de click" [checked] [ref=f6e69] [cursor=pointer]
+      - generic [ref=f6e70]:
+        - heading "Alertas en segundo plano" [level=3] [ref=f6e71]
+        - paragraph [ref=f6e72]: Recibe recordatorios aunque Gunter no esté abierto. Requiere permiso del navegador; fuera de localhost, el sitio debe usar HTTPS.
+        - generic [ref=f6e73]:
+          - generic [ref=f6e74]:
+            - strong [ref=f6e75]: Desactivadas en este dispositivo
+            - generic [ref=f6e76]: Actívalas para recibir recordatorios con la app cerrada.
+          - button "Activar" [ref=f6e77] [cursor=pointer]
+        - button "Enviar alerta de prueba" [disabled] [ref=f6e78]
+  - button "Menú de usuario" [ref=f6e80] [cursor=pointer]: Q
+  - button "Cambiar tema claro/oscuro" [ref=f6e81] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f6e85]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué es la memoria?"
+        - button "¿Qué es el forecast?"
+        - button "Activa el pulso proactivo"
+        - button "Ponte más suave"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f6e86] [cursor=pointer]

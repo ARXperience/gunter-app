@@ -1,0 +1,93 @@
+- generic [ref=f5e1]:
+  - generic [ref=f5e2]:
+    - complementary [ref=f5e3]:
+      - generic [ref=f5e4]: Gunter
+      - generic [ref=f5e33]:
+        - link "Día" [ref=f5e34] [cursor=pointer]:
+          - /url: day.html
+        - link "Reuniones" [ref=f5e35] [cursor=pointer]:
+          - /url: dashboard.html
+      - navigation [ref=f5e36]:
+        - link "Dashboard" [ref=f5e37] [cursor=pointer]:
+          - /url: dashboard.html
+        - link "Nueva Reunión" [ref=f5e44] [cursor=pointer]:
+          - /url: new-project.html
+        - link "Resultados" [ref=f5e49] [cursor=pointer]:
+          - /url: results.html
+        - link "Configuración" [ref=f5e54] [cursor=pointer]:
+          - /url: config.html#preferences
+      - generic [ref=f5e59]:
+        - generic [ref=f5e60]: G
+        - generic [ref=f5e61]:
+          - generic [ref=f5e62]: Tu cuenta
+          - generic [ref=f5e63]: Local · sin servidor
+    - main [ref=f5e64]:
+      - generic [ref=f5e65]:
+        - link "Día" [ref=f5e66] [cursor=pointer]:
+          - /url: day.html
+        - link "Reuniones" [ref=f5e67] [cursor=pointer]:
+          - /url: dashboard.html
+      - region "Gunter" [ref=f5e68]:
+        - generic [ref=f5e69]:
+          - img "Gunter" [ref=f5e71]
+          - generic [ref=f5e72]:
+            - heading "GUNTER" [level=2] [ref=f5e73]
+            - paragraph [ref=f5e74]: Fragmento cognitivo activo
+            - generic [ref=f5e76]: Sistemas en línea · listo para trabajar
+      - generic [ref=f5e79]:
+        - text: ◈
+        - generic [ref=f5e80]:
+          - generic [ref=f5e81]: Gunter Reuniones
+          - heading "Proyectos y análisis" [level=1] [ref=f5e82]
+          - paragraph [ref=f5e83]: Aquí está el estado de tus proyectos.
+        - link "Nueva Reunión" [ref=f5e85] [cursor=pointer]:
+          - /url: new-project.html
+      - generic [ref=f5e87]:
+        - generic [ref=f5e92]:
+          - generic [ref=f5e93]: "0"
+          - generic [ref=f5e94]: Proyectos Totales
+        - generic [ref=f5e99]:
+          - generic [ref=f5e100]: "0"
+          - generic [ref=f5e101]: Completados
+        - generic [ref=f5e107]:
+          - generic [ref=f5e108]: "0"
+          - generic [ref=f5e109]: En Progreso
+        - generic [ref=f5e115]:
+          - generic [ref=f5e116]: "0"
+          - generic [ref=f5e117]: Horas de Reuniones
+      - generic [ref=f5e118]:
+        - generic [ref=f5e119]:
+          - heading "Proyectos Recientes" [level=2] [ref=f5e120]
+          - button "Ver todos" [ref=f5e121] [cursor=pointer]
+        - link "+ Crear Nuevo Proyecto" [ref=f5e123] [cursor=pointer]:
+          - /url: config.html
+          - generic [ref=f5e124]: +
+          - generic [ref=f5e125]: Crear Nuevo Proyecto
+  - button "Cambiar tema claro/oscuro" [ref=f5e126] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f5e130]:
+    - dialog "Chat con Gunter" [ref=f5e131]:
+      - banner [ref=f5e132]:
+        - generic [ref=f5e157]:
+          - strong [ref=f5e158]: Gunter
+          - generic [ref=f5e159]: Hablando…
+        - button "Cerrar chat" [ref=f5e160] [cursor=pointer]
+      - generic [ref=f5e163]:
+        - generic [ref=f5e184]: "🐧 ¡Wenk! Soy Gunter, tu asistente. Puedo: • Iniciar reuniones (\"nueva reunión\") • Explicarte funciones (\"qué es el forecast\") • Activar funciones (\"activa la memoria\") 💡 Recomiendo activar la Memoria conversacional y el Pulso proactivo para empezar."
+        - generic [ref=f5e185]: Crea una tarea para revisar el prototipo mañana a las diez
+        - generic [ref=f5e186]: "Tarea creada y verificada: “revisar el prototipo” para sábado, 29 de agosto, 10:00 a. m.."
+        - generic [ref=f5e187]: Agenda una reunión de diseño mañana a las once
+        - generic [ref=f5e188]: ¿Confirmas que agende “diseño” para sábado, 29 de agosto, 11:00 a. m?
+        - generic [ref=f5e189]: sí
+        - generic [ref=f5e190]: "Evento creado y verificado: “diseño”, sábado, 29 de agosto, 11:00 a. m."
+        - generic [ref=f5e191]: Agenda una cita de prueba mañana a las doce
+        - generic [ref=f5e192]: ¿Confirmas que agende “prueba” para sábado, 29 de agosto, 12:00 p. m?
+      - generic [ref=f5e171]:
+        - button "¿Qué puedes hacer?" [ref=f5e172] [cursor=pointer]
+        - button "Iniciar reunión" [ref=f5e173] [cursor=pointer]
+        - button "Activa la memoria" [ref=f5e174] [cursor=pointer]
+        - button "Activa el pulso" [ref=f5e175] [cursor=pointer]
+      - generic [ref=f5e176]:
+        - textbox "Escribe o pregúntame algo…" [ref=f5e177]
+        - button "Enviar" [active] [ref=f5e178] [cursor=pointer]
+    - button "Abrir Gunter"
+  - button "Menú de usuario" [ref=f5e181] [cursor=pointer]: J

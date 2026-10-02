@@ -30,21 +30,31 @@
 
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#00d4ff">
+    <meta name="theme-color" content="#0A141A">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="assets/gunter/gunter_transparent_default_1769134184933.png">
     <link rel="stylesheet" href="styles/gunter-mascot.css?v66b-gunter-pixar-1783590000000">
-    <link rel="stylesheet" href="styles/gunter-companion.css?v66b-gunter-pixar-1783590000000">
-        <link rel="preload" as="style" href="styles/gunter-design-system.css">
-    <link rel="preload" as="style" href="styles/gunter-legacy-overrides.css">
+    <link rel="stylesheet" href="styles/gunter-companion.css?v70-particles">
 <link rel="stylesheet" href="styles/gunter-design-system.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-prism.css?v66b-gunter-pixar-1783590000000">
+<link rel="stylesheet" href="styles/gunter-cinematic.css?v83-static-polar">
+    <script src="js/services/gunter-cinematic-shell.js?v81-static-polar" defer></script>
+<link rel="stylesheet" href="styles/gunter-command-center.css?v115-mobile-no-header">
+    <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
+    <script src="js/services/gunter-particles.js?v3-stitch-3d" defer></script>
+    <script src="js/services/gunter-command-center.js?v107-stitch-console" defer></script>
+    <script src="js/services/gunter-icon-system.js?v3-unified-icons" defer></script>
+    <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
+    <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
+    <script src="js/services/connection-manager.js?v87-context-sync" defer></script>
+    <script src="js/services/web-node-runtime.js?v84-control" defer></script>
 </head>
 
 <body class="at-dark">
+    <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
     <!-- Neural Mesh Background -->
     <div class="neural-mesh-bg"></div>
 
@@ -61,7 +71,7 @@
     </div>
 
     <!-- Main Portal Page -->
-    <main class="portal-page">
+    <main class="portal-page" id="main-content" tabindex="-1">
         <div class="login-container">
 
             <!-- Logo Section -->
@@ -84,10 +94,10 @@
 
     <!-- Scripts -->
     <script src="js/premium-features-service.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/theme-manager.js" defer></script>
+    <script src="js/theme-manager.js?v67-security-20260828" defer></script>
     <script src="js/theme-backgrounds.js" defer></script>
     <script src="js/gunter-avatar.js" defer></script>
-    <script src="js/app.js" defer></script>
+    <script src="js/app.js?v67-security-20260828" defer></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             try { new GunterAvatar('gunter-portal', { size: 140 }); } catch { }
@@ -95,19 +105,28 @@
         // Portal v48: auth-service verifica la sesión — sin sesión redirige a
         // login.html por su cuenta; con sesión aprobada pasamos al hub.
         (function go() {
-            if (window.GunterAuth) window.GunterAuth.onReady(() => location.replace('dashboard.html'));
+            if (window.GunterAuth) window.GunterAuth.onReady(() => location.replace('day.html'));
             else setTimeout(go, 50);
         })();
     </script>
 
     <!-- Phase 2 Design Enhancements -->
-    <script src="js/particle-effects.js" defer></script>
 
     <!-- PWA registration (Fase 8) -->
     <script src="js/services/pwa-register.js" defer></script>
     <script src="js/services/sw-updater.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/theme-toggle.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/actions-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/nlp-llm-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/status-bus.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/error-mapper.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/notifications-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/connectivity-monitor.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/embedding-service.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/conversation-memory-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/commitments-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/voice-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/wake-word-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/core/temporal-context.js?v70-assistant" defer></script>
+    <script src="js/core/wake-invocation.js?v68-assistant" defer></script>
+    <script src="js/core/conversation-state.js?v73-assistant" defer></script>
+    <script src="js/core/time-parser.js?v71-assistant" defer></script>
+    <script src="js/services/tasks-service.js?v71-assistant" defer></script>
+    <script src="js/services/events-service.js?v71-assistant" defer></script>
+    <script src="js/services/jobs-service.js?v73-assistant" defer></script>
+    <script src="js/services/voice-activity-service.js?v73-assistant" defer></script>
+    <script src="js/core/assistant-tools.js?v103-device-runtime" defer></script>
+    <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
+    <script src="js/services/theme-toggle.js?v80-polar" defer></script>    <script src="js/services/actions-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/nlp-llm-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/status-bus.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/error-mapper.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/notifications-service.js?v102-background-push" defer></script>    <script src="js/services/connectivity-monitor.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/embedding-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/conversation-memory-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/commitments-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/voice-service.js?v71-assistant" defer></script>    <script src="js/services/wake-word-service.js?v73-assistant" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-rules-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-mood-service.js?v66b-gunter-pixar-1783590000000" defer></script>
 
@@ -124,9 +143,9 @@
 
 
 
-    <script src="js/services/gunter-companion.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/gunter-companion.js?v71-assistant" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/gunter-onboarding.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/gunter-onboarding.js?v67-security-20260828" defer></script>
 </body>
 
 </html>

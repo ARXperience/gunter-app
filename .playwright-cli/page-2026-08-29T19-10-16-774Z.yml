@@ -1,0 +1,133 @@
+- generic [active] [ref=f23e1]:
+  - generic: GUNTER
+  - main [ref=f23e2]:
+    - navigation "Navegación principal de Gunter" [ref=f23e3]:
+      - generic [ref=f23e4]:
+        - link "Día" [ref=f23e5] [cursor=pointer]:
+          - /url: day.html
+        - link "Reuniones" [ref=f23e6] [cursor=pointer]:
+          - /url: dashboard.html
+        - link "Nueva" [ref=f23e7] [cursor=pointer]:
+          - /url: new-project.html
+        - link "Config" [ref=f23e8] [cursor=pointer]:
+          - /url: config.html#premium
+    - generic "Flujo actual" [ref=f23e9]:
+      - generic [ref=f23e10]:
+        - generic [ref=f23e11]: "01"
+        - text: Resumen
+      - generic [ref=f23e13]:
+        - generic [ref=f23e14]: "02"
+        - text: Decisiones
+      - generic [ref=f23e16]:
+        - generic [ref=f23e17]: "03"
+        - text: Evidencia
+    - generic [ref=f23e18]:
+      - generic [ref=f23e19]:
+        - link "Volver al Dashboard" [ref=f23e20] [cursor=pointer]:
+          - /url: dashboard.html
+        - heading "Proyecto" [level=1] [ref=f23e23]
+        - generic [ref=f23e24]:
+          - generic [ref=f23e25]: 🏢 Empresarial
+          - generic [ref=f23e26]: •
+          - generic [ref=f23e27]: Tecnología
+          - generic [ref=f23e28]: •
+          - generic [ref=f23e29]: "Analizado: 29/8/2026"
+      - generic [ref=f23e30]:
+        - button "Exportar PDF" [ref=f23e31] [cursor=pointer]
+        - button "Imprimir" [ref=f23e32] [cursor=pointer]
+        - button "Presentación" [ref=f23e33] [cursor=pointer]
+        - link "Nueva Reunión" [ref=f23e34] [cursor=pointer]:
+          - /url: new-project.html
+    - generic [ref=f23e35]:
+      - generic [ref=f23e65]:
+        - heading "Brief ejecutivo de Gunter" [level=3] [ref=f23e66]
+        - generic [ref=f23e67]:
+          - paragraph [ref=f23e68]:
+            - strong [ref=f23e69]: No hay transcripción disponible
+          - paragraph [ref=f23e70]:
+            - text: Ve a
+            - link "Nueva Reunión" [ref=f23e71] [cursor=pointer]:
+              - /url: new-project.html
+            - text: ", configura el proyecto, graba (mínimo 1-2 minutos) y vuelve aquí para generar análisis."
+      - generic [ref=f23e72]:
+        - generic [ref=f23e73]:
+          - heading "◆ ◇ Decisiones y análisis" [level=2] [ref=f23e74]:
+            - text: ◆
+            - generic [ref=f23e75]: ◇
+            - text: Decisiones y análisis
+          - paragraph [ref=f23e76]: Elige el tipo de análisis. Cada uno aplica una metodología profesional sobre la transcripción.
+        - generic [ref=f23e77]:
+          - button "📋 Análisis Proyectual Carta de proyecto (PMBOK 8) + WBS + stakeholders. PMBOK 8 — Project Charter, Work Breakdown Structure, Stakeholder Matrix" [ref=f23e78] [cursor=pointer]:
+            - generic [ref=f23e79]:
+              - generic [ref=f23e80]: 📋
+              - strong [ref=f23e81]: Análisis Proyectual
+            - paragraph [ref=f23e82]: Carta de proyecto (PMBOK 8) + WBS + stakeholders.
+            - generic [ref=f23e83]: PMBOK 8 — Project Charter, Work Breakdown Structure, Stakeholder Matrix
+          - button "♟️ Análisis Estratégico SWOT, PESTEL y las 5 Fuerzas de Porter. Kenneth Andrews (SWOT) · Aguilar (PESTEL) · Porter (5 Forces)" [ref=f23e84] [cursor=pointer]:
+            - generic [ref=f23e85]:
+              - generic [ref=f23e86]: ♟️
+              - strong [ref=f23e87]: Análisis Estratégico
+            - paragraph [ref=f23e88]: SWOT, PESTEL y las 5 Fuerzas de Porter.
+            - generic [ref=f23e89]: Kenneth Andrews (SWOT) · Aguilar (PESTEL) · Porter (5 Forces)
+          - button "⚠️ Registro de Riesgos Riesgos identificados con Probabilidad × Impacto y mitigación. ISO 31000 · FMEA · Risk Register (P×I)" [ref=f23e90] [cursor=pointer]:
+            - generic [ref=f23e91]:
+              - generic [ref=f23e92]: ⚠️
+              - strong [ref=f23e93]: Registro de Riesgos
+            - paragraph [ref=f23e94]: Riesgos identificados con Probabilidad × Impacto y mitigación.
+            - generic [ref=f23e95]: ISO 31000 · FMEA · Risk Register (P×I)
+          - button "🎯 Plan de Acción Objetivos SMART + OKRs + matriz RACI. Doran (SMART) · Doerr/Grove (OKRs) · RACI" [ref=f23e96] [cursor=pointer]:
+            - generic [ref=f23e97]:
+              - generic [ref=f23e98]: 🎯
+              - strong [ref=f23e99]: Plan de Acción
+            - paragraph [ref=f23e100]: Objetivos SMART + OKRs + matriz RACI.
+            - generic [ref=f23e101]: Doran (SMART) · Doerr/Grove (OKRs) · RACI
+          - button "💡 Ideas Rescatadas Insights y oportunidades mencionadas + Jobs-To-Be-Done. Idea Mining + JTBD (Clayton Christensen)" [ref=f23e102] [cursor=pointer]:
+            - generic [ref=f23e103]:
+              - generic [ref=f23e104]: 💡
+              - strong [ref=f23e105]: Ideas Rescatadas
+            - paragraph [ref=f23e106]: Insights y oportunidades mencionadas + Jobs-To-Be-Done.
+            - generic [ref=f23e107]: Idea Mining + JTBD (Clayton Christensen)
+          - 'button "🛠️ Guía Técnica de Desarrollo Para proyectos de software: arquitectura, stack, backlog paso a paso. SDLC + Arquitectura en capas + Agile backlog" [ref=f23e108] [cursor=pointer]':
+            - generic [ref=f23e109]:
+              - generic [ref=f23e110]: 🛠️
+              - strong [ref=f23e111]: Guía Técnica de Desarrollo
+            - paragraph [ref=f23e112]: "Para proyectos de software: arquitectura, stack, backlog paso a paso."
+            - generic [ref=f23e113]: SDLC + Arquitectura en capas + Agile backlog
+          - button "🎬 Análisis Narrativo Arco narrativo, gancho, ritmo y curva de retención. Three-Act Structure · Freytag Pyramid · Attention Economy" [ref=f23e114] [cursor=pointer]:
+            - generic [ref=f23e115]:
+              - generic [ref=f23e116]: 🎬
+              - strong [ref=f23e117]: Análisis Narrativo
+            - paragraph [ref=f23e118]: Arco narrativo, gancho, ritmo y curva de retención.
+            - generic [ref=f23e119]: Three-Act Structure · Freytag Pyramid · Attention Economy
+        - paragraph [ref=f23e121]: Aquí se acumularán los análisis que generes.
+      - generic [ref=f23e122]:
+        - generic [ref=f23e123]:
+          - heading "◆ ▤ Evidencia y transcripción" [level=2] [ref=f23e124]:
+            - text: ◆
+            - generic [ref=f23e125]: ▤
+            - text: Evidencia y transcripción
+          - generic [ref=f23e126]:
+            - button "Ocultar" [ref=f23e127] [cursor=pointer]
+            - button "Editar" [ref=f23e128] [cursor=pointer]
+            - button "Rectificar transcripción" [ref=f23e129] [cursor=pointer]
+        - generic [ref=f23e131]:
+          - paragraph [ref=f23e133]: No hay transcripción disponible para este proyecto.
+          - button "Subir nuevo audio para transcribir" [ref=f23e135] [cursor=pointer]
+      - text: ◆
+  - button "Hablar con Gunter" [ref=f23e138] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f23e141]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - button "Resume la reunión"
+        - button "Genera slides"
+        - button "Detecta compromisos"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f23e142] [cursor=pointer]
+  - button "Menú de usuario" [ref=f23e144] [cursor=pointer]: C

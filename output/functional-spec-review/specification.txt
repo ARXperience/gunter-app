@@ -1,0 +1,1555 @@
+SOURCE: D:\MIS DOCUMENTOS USER\Downloads\Gunter_Especificacion_Funcional_Detallada_v1.0.docx
+PARAGRAPHS: 1293
+TABLES: 52
+
+P0001 [Normal] GUNTER
+P0002 [Subtitle2] Especificación Funcional Detallada — Qué debe hacer cada capacidad y cómo debe funcionar
+T01 BEGIN
+T01R01 |  | 
+T01 END
+
+P0005 [SmallNote] Versión 1.0 • 29 de agosto de 2026
+P0006 [SmallNote] Documento funcional complementario al Plan Maestro Integrado v2.0
+T02 BEGIN
+T02R01 | PROPÓSITO DEL DOCUMENTO Convertir la visión de Gunter en requisitos funcionales verificables. Cada capacidad se describe desde la experiencia del usuario hasta su ejecución, permisos, operación offline, trazabilidad, comportamiento ante fallos y criterios de aceptación. Este documento no presupone que las capacidades nuevas ya estén desarrolladas.
+T02 END
+
+P0010 [Heading 2] Principios de producto
+P0011 [List Bullet] Un solo Gunter: Web, Desktop y Mobile comparten identidad, memoria, permisos, tareas, misiones y configuración.
+P0012 [List Bullet] Brain integrado: Brain Core, Cortex, Model Router, Skill Registry y Verification son infraestructura interna; no son un apartado adicional visible.
+P0013 [List Bullet] Local-first: Siempre que hardware, sistema operativo y membresía lo permitan, las funciones locales continúan sin Internet.
+P0014 [List Bullet] Connected-boost: Al conectarse, Gunter amplía capacidades con cloud AI, web, correo, WhatsApp, Calendar, sincronización y otros servicios.
+P0015 [List Bullet] Acción verificable: Gunter no responde “listo” hasta comprobar el resultado o declarar que el canal no permite verificación completa.
+P0016 [List Bullet] Autonomía gobernada: Cada acción tiene permiso, riesgo, entitlement, nivel de autonomía y política de confirmación.
+P0017 [List Bullet] Evolución segura: Gunter puede aprender rutinas y proponer nuevas skills, pero no puede modificar silenciosamente seguridad, billing, permisos o producción.
+P0019 [Heading 1] Mapa funcional
+P0020 [Normal] A. Experiencia del usuario — Inicio/Now, chat, voz, tareas, calendario, notificaciones, reuniones, documentos, inbox, configuración.
+P0021 [Normal] B. Inteligencia incorporada — Context Gateway, Brain Core, Skill Registry, permisos, Verification, Model Router, Cortex, Knowledge Graph, Missions, Procedures, Attention, aprendizaje y evolución.
+P0022 [Normal] C. Ejecución local y multicanal — Desktop, percepción de pantalla, control de PC, navegador, Mobile, media, mensajería, sensores, offline y sincronización.
+P0023 [Normal] D. Plataforma comercial y administrativa — Membresías, cobro recurrente, entitlements, dispositivos, Admin, logs, incidentes y releases.
+P0024 [Normal] E. Integraciones, seguridad y calidad — Integraciones externas, privacidad, autenticación, QA, Definition of Done y métricas.
+P0025 [Heading 2] Convención de estados operativos
+T03 BEGIN
+T03R01 | ONLINE | Local y cloud disponibles; se usa la mejor ruta según privacidad, costo y latencia.
+T03R02 | DEGRADED | Uno o más proveedores o nodos fallan; Gunter continúa con fallback si existe.
+T03R03 | OFFLINE | Solo capacidades locales permitidas por hardware, permisos y licencia vigente.
+T03R04 | SYNCING | Se recuperó conexión; se reconcilian memoria, jobs, outbox, eventos y entitlements.
+T03 END
+
+T04 BEGIN
+T04R01 | REGLA TRANSVERSAL DE EJECUCIÓN Toda acción relevante debe seguir REQUESTED → AUTHORIZED → STARTED → RESULT_RECEIVED → VERIFYING → VERIFIED/FAILED y generar un trace_id que permita reconstruirla de punta a punta.
+T04 END
+
+P0031 [Heading 1] A. Experiencia del usuario
+P0032 [Normal] Estas funciones son las superficies que el usuario percibe. Deben consumir el mismo core interno y la misma memoria, sin duplicar lógica de decisión en cada pantalla.
+P0033 [Heading 2] A1. Gunter Now / Centro de mando
+T05 BEGIN
+T05R01 | Objetivo | Presentar en una sola vista qué requiere atención ahora y cuál es la siguiente mejor acción.
+T05R02 | Experiencia | Al abrir Gunter, el usuario ve próximos eventos, bloqueos, compromisos, alertas relevantes, estado de dispositivos y recomendaciones priorizadas, sin navegar por múltiples módulos.
+T05R03 | Feature key | gunter.now, automation.proactive
+T05 END
+
+P0036 [Heading 3] Cómo debe funcionar
+P0037 [Normal] 1. Consultar eventos del día, tareas, misiones, compromisos, incidentes, mensajes pendientes y salud de integraciones.
+P0038 [Normal] 2. Pasar cada elemento por Attention Engine para calcular prioridad y evitar saturación.
+P0039 [Normal] 3. Agrupar información por “Crítico”, “Requiere decisión”, “Seguimiento” y “Próximo”.
+P0040 [Normal] 4. Ofrecer acciones directas: preparar reunión, resolver pendiente, abrir proyecto, preguntar a Gunter o posponer.
+P0041 [Normal] 5. Actualizar en tiempo real al recibir eventos importantes; no recargar toda la página si solo cambia un bloque.
+P0042 [Heading 3] Permisos, membresía y seguridad
+P0043 [List Bullet] Respetar visibilidad por usuario/rol.
+P0044 [List Bullet] No mostrar contenido sensible de otros usuarios.
+P0045 [List Bullet] Acciones desde la vista siguen Policy Engine y confirmación.
+P0046 [Heading 3] Online / offline
+P0047 [List Bullet] Online: agrega correo, WhatsApp, calendario cloud y eventos remotos.
+P0048 [List Bullet] Offline Desktop/Mobile: muestra cache local, tareas locales y estado “datos no sincronizados” cuando corresponda.
+P0049 [Heading 3] Verificación del resultado
+P0050 [List Bullet] Cada card debe enlazar al dato fuente o evidencia.
+P0051 [List Bullet] Al ejecutar una recomendación, confirmar cambio de estado real.
+P0052 [Heading 3] Errores, fallback y logs
+P0053 [List Bullet] Si una fuente falla, marcar solo ese bloque como degradado.
+P0054 [List Bullet] Registrar source_unavailable sin convertir toda la pantalla en error.
+P0055 [Heading 3] Configuración del usuario
+P0056 [List Bullet] Permitir ocultar categorías, definir prioridades, quiet hours y orden.
+P0057 [Heading 3] Visibilidad en Admin
+P0058 [List Bullet] Admin ve métricas agregadas de carga/latencia; no necesita ver contenido privado.
+P0059 [Heading 3] Criterios de aceptación
+P0060 [Normal] ✓ La vista carga aun con una integración caída.
+P0061 [Normal] ✓ Un elemento crítico puede abrir su evidencia en máximo dos acciones.
+P0062 [Normal] ✓ No se duplican cards por el mismo evento.
+P0063 [Heading 2] A2. Chat contextual
+T06 BEGIN
+T06R01 | Objetivo | Ser la interfaz conversacional universal para consultar, razonar y ordenar acciones a Gunter.
+T06R02 | Experiencia | El usuario puede escribir de forma natural, referirse a personas/proyectos previamente conocidos y continuar conversaciones sin repetir contexto innecesario.
+T06R03 | Feature key | gunter.chat, ai.local, ai.cloud.standard
+T06 END
+
+P0066 [Heading 3] Cómo debe funcionar
+P0067 [Normal] 1. Recibir mensaje y contexto de sesión.
+P0068 [Normal] 2. Resolver referencias con Context Gateway y Cortex.
+P0069 [Normal] 3. Clasificar si la petición es respuesta informativa, acción, misión, procedimiento o solicitud de confirmación.
+P0070 [Normal] 4. Si requiere acción, generar plan, policy check y ejecución por skill.
+P0071 [Normal] 5. Responder con resultado, evidencia y estado; mantener continuidad conversacional.
+P0072 [Heading 3] Permisos, membresía y seguridad
+P0073 [List Bullet] Aplicar scopes según datos consultados y acciones solicitadas.
+P0074 [List Bullet] No ejecutar side effects desde texto generado sin pasar por Skill Registry.
+P0075 [Heading 3] Online / offline
+P0076 [List Bullet] Offline: usar modelo local si existe; comandos deterministas pueden resolverse sin LLM.
+P0077 [List Bullet] Online: Model Router puede escalar a proveedor cloud.
+P0078 [Heading 3] Verificación del resultado
+P0079 [List Bullet] Las respuestas sobre acciones deben citar evidencia interna del task_run.
+P0080 [List Bullet] Las respuestas sobre memoria deben conservar procedencia/confianza cuando sea relevante.
+P0081 [Heading 3] Errores, fallback y logs
+P0082 [List Bullet] Si el modelo falla, probar fallback y comunicar modo degradado solo si afecta al usuario.
+P0083 [List Bullet] Guardar trace de clasificación, plan, modelo y skills sin registrar secretos.
+P0084 [Heading 3] Configuración del usuario
+P0085 [List Bullet] Modelo preferido, privacidad cloud, tono, historial, retención, confirmaciones.
+P0086 [Heading 3] Visibilidad en Admin
+P0087 [List Bullet] Trazas, latencia, costo estimado, errores de proveedor y tasa de resolución.
+P0088 [Heading 3] Criterios de aceptación
+P0089 [Normal] ✓ Una orden simple no necesita llamada cloud si existe ruta local segura.
+P0090 [Normal] ✓ Una acción externa siempre produce task_run.
+P0091 [Normal] ✓ El usuario puede cancelar una ejecución en curso cuando sea técnicamente posible.
+P0092 [Heading 2] A3. Voz continua y conversación natural
+T07 BEGIN
+T07R01 | Objetivo | Permitir interacción hablada de baja latencia con wake word, VAD y barge-in.
+T07R02 | Experiencia | El usuario dice “Gunter”, habla sin pulsar botones si lo permite la plataforma, puede interrumpir al asistente y continuar la conversación de forma natural.
+T07R03 | Feature key | gunter.voice, ai.local
+T07 END
+
+P0095 [Heading 3] Cómo debe funcionar
+P0096 [Normal] 1. Detectar activación o push-to-talk.
+P0097 [Normal] 2. Capturar audio y usar VAD para identificar inicio/fin de turno.
+P0098 [Normal] 3. Transcribir local o cloud según Model Router.
+P0099 [Normal] 4. Pasar la intención al mismo Brain Core del chat.
+P0100 [Normal] 5. Iniciar TTS; si el usuario vuelve a hablar, cortar TTS inmediatamente y procesar nueva entrada.
+P0101 [Normal] 6. Mantener estado visible: idle, listening, thinking, acting, speaking.
+P0102 [Heading 3] Permisos, membresía y seguridad
+P0103 [List Bullet] Micrófono requiere consentimiento y un indicador visible.
+P0104 [List Bullet] Wake word permanente es configurable y depende del sistema operativo/batería.
+P0105 [List Bullet] No almacenar audio crudo por defecto.
+P0106 [Heading 3] Online / offline
+P0107 [List Bullet] Offline: wake word/STT/TTS/modelo local cuando estén instalados.
+P0108 [List Bullet] Online: streaming cloud opcional para mayor calidad/latencia.
+P0109 [Heading 3] Verificación del resultado
+P0110 [List Bullet] Confirmar acciones sensibles por voz y/o UI según riesgo.
+P0111 [List Bullet] Registrar que la orden fue entendida y qué texto se ejecutó.
+P0112 [Heading 3] Errores, fallback y logs
+P0113 [List Bullet] Fallback a push-to-talk si VAD/wake word falla.
+P0114 [List Bullet] Registrar cortes, latencia STT/TTS, barge-in y proveedor.
+P0115 [Heading 3] Configuración del usuario
+P0116 [List Bullet] Wake word, micrófono, voz, idioma, VAD, sensibilidad, barge-in, privacidad, preferencia local/cloud.
+P0117 [Heading 3] Visibilidad en Admin
+P0118 [List Bullet] Health de audio, dispositivo, latencia, errores STT/TTS y consumo.
+P0119 [Heading 3] Criterios de aceptación
+P0120 [Normal] ✓ Interrumpir TTS en <500 ms cuando la plataforma lo permita.
+P0121 [Normal] ✓ No duplicar una orden por eventos de voz repetidos.
+P0122 [Normal] ✓ Seguir operando con fallback si el proveedor cloud cae.
+P0123 [Heading 2] A4. Tareas y recordatorios
+T08 BEGIN
+T08R01 | Objetivo | Crear, consultar, priorizar, reprogramar y completar tareas desde cualquier superficie.
+T08R02 | Experiencia | El usuario puede decir “recuérdame mañana”, “qué tengo pendiente” o convertir una decisión/reunión en tarea sin entrar a formularios largos.
+T08R03 | Feature key | gunter.tasks, automation.basic
+T08 END
+
+P0126 [Heading 3] Cómo debe funcionar
+P0127 [Normal] 1. Interpretar fecha, hora, responsable, prioridad y proyecto.
+P0128 [Normal] 2. Validar ambigüedades temporales críticas antes de guardar.
+P0129 [Normal] 3. Crear tarea con source, due_at, owner, project y reminders.
+P0130 [Normal] 4. Sincronizar a nodos y scheduler correspondiente.
+P0131 [Normal] 5. Cuando vence, Attention Engine decide briefing/notificación/interrupción.
+P0132 [Normal] 6. Al completarse, registrar evidencia y actualizar misión/compromiso relacionado.
+P0133 [Heading 3] Permisos, membresía y seguridad
+P0134 [List Bullet] Crear tareas propias puede ser L4; asignar a terceros puede requerir confirmación/integración.
+P0135 [List Bullet] Aplicar entitlement de cuotas/automatizaciones si existe.
+P0136 [Heading 3] Online / offline
+P0137 [List Bullet] Offline: tareas locales y reminders funcionan en el node; sincronizan al volver la red.
+P0138 [List Bullet] Conflictos de edición deben resolverse explícitamente.
+P0139 [Heading 3] Verificación del resultado
+P0140 [List Bullet] Reconsultar task_id después de crear/editar.
+P0141 [List Bullet] Registrar delivery de recordatorio cuando el sistema lo exponga.
+P0142 [Heading 3] Errores, fallback y logs
+P0143 [List Bullet] Si scheduler cloud falla, el node local puede tomar reminders locales elegibles.
+P0144 [List Bullet] DLQ para jobs agotados.
+P0145 [Heading 3] Configuración del usuario
+P0146 [List Bullet] Canales, anticipación de reminders, prioridades, quiet hours, defaults de proyecto.
+P0147 [Heading 3] Visibilidad en Admin
+P0148 [List Bullet] Tareas creadas por Gunter, jobs pendientes, fallos de scheduler, atrasos.
+P0149 [Heading 3] Criterios de aceptación
+P0150 [Normal] ✓ Crear y recuperar tarea por ID.
+P0151 [Normal] ✓ No enviar recordatorios duplicados.
+P0152 [Normal] ✓ Una edición offline no destruye cambios remotos sin reconciliación.
+P0153 [Heading 2] A5. Calendario y agenda
+T09 BEGIN
+T09R01 | Objetivo | Consultar, crear, modificar y preparar eventos con verificación real.
+T09R02 | Experiencia | El usuario puede preguntar “qué tengo hoy”, “agenda una reunión mañana a las 3” o “prepárame para la reunión con X”.
+T09R03 | Feature key | gunter.calendar
+T09 END
+
+P0156 [Heading 3] Cómo debe funcionar
+P0157 [Normal] 1. Consultar disponibilidad y eventos relevantes.
+P0158 [Normal] 2. Resolver zona horaria, participantes, duración y ubicación.
+P0159 [Normal] 3. Pedir confirmación para crear/modificar cuando la política lo requiera.
+P0160 [Normal] 4. Ejecutar skill del proveedor (Google u otro adapter).
+P0161 [Normal] 5. Reconsultar evento por ID y comparar título/fecha/participantes.
+P0162 [Normal] 6. Generar briefing previo desde Cortex/Meetings si se solicita.
+P0163 [Heading 3] Permisos, membresía y seguridad
+P0164 [List Bullet] OAuth con scopes mínimos.
+P0165 [List Bullet] No enviar invitaciones sin autorización explícita configurada.
+P0166 [Heading 3] Online / offline
+P0167 [List Bullet] Offline: leer cache local y crear intención pendiente; no inventar disponibilidad remota.
+P0168 [List Bullet] Al reconectar, revalidar conflictos antes de crear evento.
+P0169 [Heading 3] Verificación del resultado
+P0170 [List Bullet] Evento creado/modificado se reconsulta.
+P0171 [List Bullet] Si no puede verificarse, estado = unverified y se informa.
+P0172 [Heading 3] Errores, fallback y logs
+P0173 [List Bullet] Token OAuth vencido genera INTEGRATION_DISCONNECTED.
+P0174 [List Bullet] Evitar duplicados con idempotency_key.
+P0175 [Heading 3] Configuración del usuario
+P0176 [List Bullet] Proveedor, calendarios visibles, horario laboral, duración por defecto, confirmaciones.
+P0177 [Heading 3] Visibilidad en Admin
+P0178 [List Bullet] OAuth health, latencia, errores, reconexiones, eventos pendientes.
+P0179 [Heading 3] Criterios de aceptación
+P0180 [Normal] ✓ Crear evento verificable.
+P0181 [Normal] ✓ No duplicar al reintentar.
+P0182 [Normal] ✓ Detección de conflicto antes de confirmar cuando haya disponibilidad.
+P0183 [Heading 2] A6. Notificaciones y proactividad
+T10 BEGIN
+T10R01 | Objetivo | Interrumpir solo cuando la información lo justifique y resumir lo demás.
+T10R02 | Experiencia | Gunter avisa sobre bloqueos, vencimientos, desconexiones, seguimientos o eventos importantes sin convertirse en una fuente de ruido.
+T10R03 | Feature key | automation.proactive
+T10 END
+
+P0186 [Heading 3] Cómo debe funcionar
+P0187 [Normal] 1. Recibir evento desde Event Bus.
+P0188 [Normal] 2. Calcular attention_score con urgencia, importancia, confianza, relevancia y sensibilidad temporal.
+P0189 [Normal] 3. Clasificar: ignore, remember, briefing, notify, interrupt o critical.
+P0190 [Normal] 4. Aplicar quiet hours, deduplicación y canal disponible.
+P0191 [Normal] 5. Enviar notificación y registrar delivery/ack cuando exista.
+P0192 [Normal] 6. Si el incidente se resuelve, enviar RECOVERED si aporta valor.
+P0193 [Heading 3] Permisos, membresía y seguridad
+P0194 [List Bullet] El usuario controla categorías y canales.
+P0195 [List Bullet] CRITICAL puede tener reglas especiales, nunca ocultas.
+P0196 [Heading 3] Online / offline
+P0197 [List Bullet] Offline: notificaciones locales elegibles continúan.
+P0198 [List Bullet] Eventos cloud se entregan cuando haya conexión.
+P0199 [Heading 3] Verificación del resultado
+P0200 [List Bullet] Registrar notificación emitida, canal, estado y evento origen.
+P0201 [Heading 3] Errores, fallback y logs
+P0202 [List Bullet] Agrupar cascadas para evitar tormentas.
+P0203 [List Bullet] Fallback de push a bandeja interna si un canal falla.
+P0204 [Heading 3] Configuración del usuario
+P0205 [List Bullet] Quiet hours, prioridades, canales, proyectos/personas clave, umbral de interrupción.
+P0206 [Heading 3] Visibilidad en Admin
+P0207 [List Bullet] Volumen por categoría, delivery rate, dedupe, incidents correlacionados.
+P0208 [Heading 3] Criterios de aceptación
+P0209 [Normal] ✓ Un mismo incidente no genera alertas repetitivas sin cambio de estado.
+P0210 [Normal] ✓ Quiet hours respetados.
+P0211 [Normal] ✓ RECOVERED aparece cuando corresponde.
+P0212 [Heading 2] A7. Reuniones, transcripción y Meeting Copilot
+T11 BEGIN
+T11R01 | Objetivo | Capturar reuniones autorizadas, extraer decisiones, compromisos y contexto reutilizable.
+T11R02 | Experiencia | Durante o después de una reunión, Gunter puede transcribir, resumir, identificar responsables/fechas y proponer tareas o seguimientos.
+T11R03 | Feature key | gunter.meetings, cortex.semantic
+T11 END
+
+P0215 [Heading 3] Cómo debe funcionar
+P0216 [Normal] 1. Iniciar captura únicamente con consentimiento y estado visible.
+P0217 [Normal] 2. Transcribir por streaming o por archivo.
+P0218 [Normal] 3. Segmentar hablantes cuando sea viable y marcar incertidumbre.
+P0219 [Normal] 4. Extraer decisiones, compromisos, preguntas abiertas y próximos pasos.
+P0220 [Normal] 5. Proponer tareas/Calendar/seguimientos; pedir confirmación si generan acciones externas.
+P0221 [Normal] 6. Guardar resumen y relaciones en Cortex con fuente = meeting_id.
+P0222 [Heading 3] Permisos, membresía y seguridad
+P0223 [List Bullet] Consentimiento y política de grabación obligatorios.
+P0224 [List Bullet] Datos sensibles pueden forzar procesamiento local.
+P0225 [Heading 3] Online / offline
+P0226 [List Bullet] Offline: grabación/transcripción local si hay modelo; sincronización posterior opcional.
+P0227 [List Bullet] Online: cloud STT puede elevar calidad.
+P0228 [Heading 3] Verificación del resultado
+P0229 [List Bullet] Cada compromiso debe enlazar al fragmento/transcripción que lo originó.
+P0230 [List Bullet] No convertir inferencias dudosas en hechos confirmados.
+P0231 [Heading 3] Errores, fallback y logs
+P0232 [List Bullet] Errores de audio o diarización se marcan con confidence.
+P0233 [List Bullet] No perder grabación por falla de proveedor: usar cola/local buffer seguro.
+P0234 [Heading 3] Configuración del usuario
+P0235 [List Bullet] Grabación, transcripción local/cloud, retención, detección de compromisos, auto-propuestas.
+P0236 [Heading 3] Visibilidad en Admin
+P0237 [List Bullet] Duración, STT provider, errores, tamaño, items extraídos, acciones creadas.
+P0238 [Heading 3] Criterios de aceptación
+P0239 [Normal] ✓ Se puede localizar el origen de una decisión.
+P0240 [Normal] ✓ El usuario puede corregir un compromiso.
+P0241 [Normal] ✓ No se envían follow-ups automáticamente sin política.
+P0242 [Heading 2] A8. Documentos, archivos y búsqueda personal
+T12 BEGIN
+T12R01 | Objetivo | Permitir consultar información distribuida en documentos y archivos con procedencia.
+T12R02 | Experiencia | El usuario pregunta “busca dónde hablamos de X”, “resume este contrato” o “encuentra el último archivo de Y” y recibe resultados con fuente clara.
+T12R03 | Feature key | gunter.documents, cortex.basic
+T12 END
+
+P0245 [Heading 3] Cómo debe funcionar
+P0246 [Normal] 1. Identificar alcance: archivos locales, biblioteca, cloud o proyecto.
+P0247 [Normal] 2. Indexar contenido permitido con metadata, hash y fuente.
+P0248 [Normal] 3. Buscar semántica y/o textualmente según el caso.
+P0249 [Normal] 4. Construir respuesta con citas/referencias internas.
+P0250 [Normal] 5. Si se solicita acción sobre archivo, delegar a skill de files con Policy/Verification.
+P0251 [Heading 3] Permisos, membresía y seguridad
+P0252 [List Bullet] Scopes por carpeta/fuente.
+P0253 [List Bullet] Nunca indexar zonas excluidas o secretos por defecto.
+P0254 [Heading 3] Online / offline
+P0255 [List Bullet] Offline: búsqueda sobre índices y archivos locales.
+P0256 [List Bullet] Online: añadir Drive/otros conectores si están habilitados.
+P0257 [Heading 3] Verificación del resultado
+P0258 [List Bullet] Resultado enlaza al archivo y posición cuando sea posible.
+P0259 [List Bullet] Acciones de mover/renombrar verifican destino/hash.
+P0260 [Heading 3] Errores, fallback y logs
+P0261 [List Bullet] Índice corrupto se reconstruye sin borrar originales.
+P0262 [List Bullet] Archivos no accesibles se marcan como stale/unavailable.
+P0263 [Heading 3] Configuración del usuario
+P0264 [List Bullet] Fuentes indexadas, exclusiones, retención, “never cloud”, tamaño máximo.
+P0265 [Heading 3] Visibilidad en Admin
+P0266 [List Bullet] Estado de índices, jobs, errores de parseo, espacio usado.
+P0267 [Heading 3] Criterios de aceptación
+P0268 [Normal] ✓ Respuesta distingue hecho extraído de inferencia.
+P0269 [Normal] ✓ Archivo correcto puede abrirse desde el resultado.
+P0270 [Normal] ✓ No indexa ubicaciones excluidas.
+P0271 [Heading 2] A9. Universal Inbox y comunicaciones
+T13 BEGIN
+T13R01 | Objetivo | Unificar pendientes de correo, WhatsApp y otros canales en una cola priorizada.
+T13R02 | Experiencia | El usuario ve qué requiere respuesta, puede pedir resumen, redactar o enviar mediante el canal autorizado.
+T13R03 | Feature key | gunter.inbox, automation.proactive
+T13 END
+
+P0274 [Heading 3] Cómo debe funcionar
+P0275 [Normal] 1. Ingerir eventos/mensajes de integraciones habilitadas.
+P0276 [Normal] 2. Clasificar urgencia, intención, persona/proyecto y estado “requiere respuesta”.
+P0277 [Normal] 3. Deduplicar conversaciones y relacionarlas con Cortex.
+P0278 [Normal] 4. Permitir responder, delegar, convertir en tarea o posponer.
+P0279 [Normal] 5. Para envíos, ejecutar skill específica del canal con confirmación/verificación.
+P0280 [Heading 3] Permisos, membresía y seguridad
+P0281 [List Bullet] Nunca mezclar cuentas/usuarios.
+P0282 [List Bullet] Enviar mensajes normalmente L3; reglas confiables pueden elevar autonomía solo por canal/alcance.
+P0283 [Heading 3] Online / offline
+P0284 [List Bullet] Offline: mostrar cache y preparar drafts; envíos quedan pendientes según política.
+P0285 [List Bullet] Al reconectar, revalidar que el mensaje siga siendo pertinente.
+P0286 [Heading 3] Verificación del resultado
+P0287 [List Bullet] Confirmar aceptación por el canal; no afirmar “leído” sin señal real.
+P0288 [Heading 3] Errores, fallback y logs
+P0289 [List Bullet] Token vencido genera alerta.
+P0290 [List Bullet] Outbox con idempotencia para evitar envío duplicado.
+P0291 [Heading 3] Configuración del usuario
+P0292 [List Bullet] Canales, remitentes prioritarios, reglas de clasificación, auto-draft, confirmaciones.
+P0293 [Heading 3] Visibilidad en Admin
+P0294 [List Bullet] Conexiones, cola, fallos de envío, latencia, items sin procesar.
+P0295 [Heading 3] Criterios de aceptación
+P0296 [Normal] ✓ No duplicar un mensaje por reintento.
+P0297 [Normal] ✓ Distinguir draft de enviado.
+P0298 [Normal] ✓ Convertir conversación a tarea conserva vínculo de origen.
+P0299 [Heading 2] A10. Configuración integrada
+T14 BEGIN
+T14R01 | Objetivo | Centralizar activación, límites y parámetros avanzados sin crear un “Brain Settings” separado.
+T14R02 | Experiencia | El usuario administra voz, memoria, control PC/móvil, pantalla, cámara, automatizaciones, IA local/cloud e integraciones dentro de Configuración actual.
+T14R03 | Feature key | gunter.settings
+T14 END
+
+P0302 [Heading 3] Cómo debe funcionar
+P0303 [Normal] 1. Cada capability registra un schema de setting.
+P0304 [Normal] 2. Mostrar toggle principal si la feature existe para ese nodo/plan.
+P0305 [Normal] 3. Si requiere parámetros, mostrar “Configuración avanzada”.
+P0306 [Normal] 4. Validar entitlement, permisos OS y dependencias antes de activar.
+P0307 [Normal] 5. Propagar cambios a nodes y servicios mediante eventos versionados.
+P0308 [Normal] 6. Registrar cambios sensibles en audit log.
+P0309 [Heading 3] Permisos, membresía y seguridad
+P0310 [List Bullet] Settings no pueden elevar permisos por encima del máximo del sistema.
+P0311 [List Bullet] Reautenticación para cambios de seguridad/administración sensibles.
+P0312 [Heading 3] Online / offline
+P0313 [List Bullet] Settings locales críticos se cachean para offline.
+P0314 [List Bullet] Cambios conflictivos se resuelven por versión/timestamp y reglas definidas.
+P0315 [Heading 3] Verificación del resultado
+P0316 [List Bullet] Tras guardar, leer configuración efectiva y mostrar estado real.
+P0317 [Heading 3] Errores, fallback y logs
+P0318 [List Bullet] Si el node no soporta una feature, mostrar “no disponible” con razón.
+P0319 [List Bullet] Rollback al valor previo ante fallo de propagación.
+P0320 [Heading 3] Configuración del usuario
+P0321 [List Bullet] La propia pantalla es el mecanismo de configuración.
+P0322 [Heading 3] Visibilidad en Admin
+P0323 [List Bullet] Auditoría de cambios, feature adoption, incompatibilidades y errores de sincronización.
+P0324 [Heading 3] Criterios de aceptación
+P0325 [Normal] ✓ No aparecen toggles imposibles en un dispositivo.
+P0326 [Normal] ✓ Plan bloqueado explica requisito.
+P0327 [Normal] ✓ Configuración avanzada valida datos antes de aplicar.
+P0329 [Heading 1] B. Inteligencia incorporada
+P0330 [Normal] Estas capacidades no se presentan como un módulo separado. Son servicios internos compartidos por Chat, Voz, Tareas, Reuniones, Desktop, Mobile y el resto del producto.
+P0331 [Heading 2] B1. Context Gateway
+T15 BEGIN
+T15R01 | Objetivo | Normalizar el contexto proveniente de cualquier superficie antes de razonar o actuar.
+T15R02 | Experiencia | El usuario puede decir “hazlo”, “envíaselo a Diego” o “abre eso” y Gunter resuelve la referencia con el contexto disponible sin pedir datos ya conocidos.
+T15R03 | Feature key | core.context
+T15 END
+
+P0334 [Heading 3] Cómo debe funcionar
+P0335 [Normal] 1. Recibir input + channel + session + node + current app/document + project/person context.
+P0336 [Normal] 2. Resolver entidades, referencias y tiempo.
+P0337 [Normal] 3. Adjuntar memoria relevante con límites de privacidad.
+P0338 [Normal] 4. Construir un context envelope versionado.
+P0339 [Normal] 5. Entregarlo al Brain Core; no ejecutar acciones directamente.
+P0340 [Heading 3] Permisos, membresía y seguridad
+P0341 [List Bullet] Filtrar datos por usuario, sesión y sensitivity.
+P0342 [List Bullet] Contexto de pantalla/cámara solo si está habilitado.
+P0343 [Heading 3] Online / offline
+P0344 [List Bullet] Offline usa contexto local y memoria cacheada.
+P0345 [List Bullet] Online puede enriquecer con datos cloud autorizados.
+P0346 [Heading 3] Verificación del resultado
+P0347 [List Bullet] Registrar qué fuentes de contexto fueron utilizadas, sin volcar contenido sensible en logs.
+P0348 [Heading 3] Errores, fallback y logs
+P0349 [List Bullet] Si una referencia es ambigua y cambia el resultado, pedir aclaración; si no, usar mejor evidencia disponible.
+P0350 [Heading 3] Configuración del usuario
+P0351 [List Bullet] Preferencias de contexto automático, privacidad por fuente, retención de sesión.
+P0352 [Heading 3] Visibilidad en Admin
+P0353 [List Bullet] Métricas de resolución de referencias y fuentes faltantes.
+P0354 [Heading 3] Criterios de aceptación
+P0355 [Normal] ✓ No cruza datos entre usuarios.
+P0356 [Normal] ✓ Resuelve referencias recientes correctamente.
+P0357 [Normal] ✓ Una fuente caída no rompe el envelope completo.
+P0358 [Heading 2] B2. Brain Core / Orquestador
+T16 BEGIN
+T16R01 | Objetivo | Convertir intención en un plan ejecutable y mantener el estado de la tarea hasta su cierre.
+T16R02 | Experiencia | El usuario formula una petición compleja y Gunter la divide, pide confirmación cuando corresponde, ejecuta, se recupera de fallos y explica el resultado.
+T16R03 | Feature key | core.brain
+T16 END
+
+P0361 [Heading 3] Cómo debe funcionar
+P0362 [Normal] 1. Clasificar objetivo e impacto.
+P0363 [Normal] 2. Crear task_run y plan de pasos.
+P0364 [Normal] 3. Resolver skills/nodes necesarios.
+P0365 [Normal] 4. Consultar Policy + Entitlements.
+P0366 [Normal] 5. Ejecutar paso a paso, permitiendo pause/resume/cancel.
+P0367 [Normal] 6. Invocar Verification después de cada side effect relevante.
+P0368 [Normal] 7. Cerrar como COMPLETED, FAILED, PARTIAL o CANCELLED con evidencia.
+P0369 [Heading 3] Permisos, membresía y seguridad
+P0370 [List Bullet] El core no tiene privilegios directos sobre OS/APIs; todo pasa por skills.
+P0371 [List Bullet] Autonomía máxima limitada por Policy.
+P0372 [Heading 3] Online / offline
+P0373 [List Bullet] Offline: ejecuta planes que solo requieren skills locales.
+P0374 [List Bullet] Online: puede distribuir pasos a cloud/nodos remotos.
+P0375 [Heading 3] Verificación del resultado
+P0376 [List Bullet] task_run y task_steps registran estado/evidencia.
+P0377 [Heading 3] Errores, fallback y logs
+P0378 [List Bullet] Reintentar solo pasos idempotentes o explícitamente seguros.
+P0379 [List Bullet] Circuit breaker para dependencias inestables.
+P0380 [Heading 3] Configuración del usuario
+P0381 [List Bullet] Límites de autonomía, preferencia de explicaciones, cancelación, presupuesto.
+P0382 [Heading 3] Visibilidad en Admin
+P0383 [List Bullet] Traces, plan duration, success rate, fallos por skill/node/model.
+P0384 [Heading 3] Criterios de aceptación
+P0385 [Normal] ✓ Nunca declara éxito sin verificación o limitación explícita.
+P0386 [Normal] ✓ Puede reanudar una tarea persistida.
+P0387 [Normal] ✓ Cancelar detiene pasos futuros.
+P0388 [Heading 2] B3. Skill Registry
+T17 BEGIN
+T17R01 | Objetivo | Convertir cada capacidad de Gunter en una herramienta versionada, auditable y gobernable.
+T17R02 | Experiencia | Para el usuario es invisible; para el sistema garantiza que “abrir app”, “crear evento” o “siguiente canción” tengan contratos y comportamiento predecible.
+T17R03 | Feature key | core.skills
+T17 END
+
+P0391 [Heading 3] Cómo debe funcionar
+P0392 [Normal] 1. Registrar name/version/input_schema/output_schema/risk/permissions/entitlement/supported_nodes.
+P0393 [Normal] 2. Validar input antes de ejecutar.
+P0394 [Normal] 3. Resolver implementación compatible con node/protocol_version.
+P0395 [Normal] 4. Aplicar timeout, retry e idempotencia definidos.
+P0396 [Normal] 5. Ejecutar verify() o declarar verificación no disponible.
+P0397 [Normal] 6. Registrar métricas por versión y deshabilitar versiones defectuosas vía feature flag.
+P0398 [Heading 3] Permisos, membresía y seguridad
+P0399 [List Bullet] No cargar skills no firmadas/autorizadas en producción.
+P0400 [List Bullet] Cada skill declara riesgo y autonomy_max.
+P0401 [Heading 3] Online / offline
+P0402 [List Bullet] Skills locales siguen disponibles offline si licencia y dependencias están presentes.
+P0403 [Heading 3] Verificación del resultado
+P0404 [List Bullet] Contrato de salida y evidencia estándar.
+P0405 [Heading 3] Errores, fallback y logs
+P0406 [List Bullet] Una skill inestable puede abrir circuit breaker o rollback de versión.
+P0407 [Heading 3] Configuración del usuario
+P0408 [List Bullet] Algunas skills exponen settings avanzados propios.
+P0409 [Heading 3] Visibilidad en Admin
+P0410 [List Bullet] Versiones, error rate, latencia, adopción, entitlements y health.
+P0411 [Heading 3] Criterios de aceptación
+P0412 [Normal] ✓ Input inválido no llega a execute().
+P0413 [Normal] ✓ Versión puede rollback sin cambiar UI.
+P0414 [Normal] ✓ Node incompatible no recibe comando.
+P0415 [Heading 2] B4. Policy, permisos y niveles de autonomía
+T18 BEGIN
+T18R01 | Objetivo | Decidir si Gunter puede observar, proponer, preparar o ejecutar cada acción.
+T18R02 | Experiencia | El usuario puede autorizar acciones rutinarias sin perder control sobre mensajes, borrados, dinero, seguridad o datos sensibles.
+T18R03 | Feature key | core.policy
+T18 END
+
+P0418 [Heading 3] Cómo debe funcionar
+P0419 [Normal] 1. Recibir skill + usuario + node + contexto + entitlement + risk.
+P0420 [Normal] 2. Calcular nivel permitido L0-L5 y si requiere confirmación/reautenticación.
+P0421 [Normal] 3. Aplicar scopes de datos y recursos.
+P0422 [Normal] 4. Emitir decisión allow/deny/confirm con reason_code.
+P0423 [Normal] 5. Registrar decision_id para auditoría.
+P0424 [Heading 3] Permisos, membresía y seguridad
+P0425 [List Bullet] L0 Observe, L1 Suggest, L2 Prepare, L3 Confirm, L4 Trusted, L5 Delegated.
+P0426 [List Bullet] No existe “autonomía total” global.
+P0427 [List Bullet] Pagos, seguridad, privilegios y borrados irreversibles mantienen restricciones fuertes.
+P0428 [Heading 3] Online / offline
+P0429 [List Bullet] Políticas locales firmadas permiten operación offline limitada.
+P0430 [List Bullet] Cambios administrativos requieren sincronización/lease vigente.
+P0431 [Heading 3] Verificación del resultado
+P0432 [List Bullet] Verificar que la ejecución conserva la decision_id y no cambia el payload tras aprobación.
+P0433 [Heading 3] Errores, fallback y logs
+P0434 [List Bullet] Denied no se reintenta como si fuera fallo técnico.
+P0435 [List Bullet] Si la política está desactualizada, degradar a nivel más conservador.
+P0436 [Heading 3] Configuración del usuario
+P0437 [List Bullet] Autonomía por skill, allowlists, confirmaciones, recursos permitidos, quiet hours.
+P0438 [Heading 3] Visibilidad en Admin
+P0439 [List Bullet] Decisiones de policy, elevaciones, denegaciones y anomalías.
+P0440 [Heading 3] Criterios de aceptación
+P0441 [Normal] ✓ Una confirmación no autoriza un payload distinto.
+P0442 [Normal] ✓ L4 de media no implica L4 de mensajería.
+P0443 [Normal] ✓ Revocar permiso corta ejecuciones futuras.
+P0444 [Heading 2] B5. Execution + Verification Engine
+T19 BEGIN
+T19R01 | Objetivo | Asegurar que las acciones ocurran de verdad y evitar falsos “listo”.
+T19R02 | Experiencia | Cuando Gunter crea, abre, mueve, envía o controla algo, el usuario recibe un resultado verificable o una limitación honesta.
+T19R03 | Feature key | core.verify
+T19 END
+
+P0447 [Heading 3] Cómo debe funcionar
+P0448 [Normal] 1. Recibir autorización y ejecutar skill.
+P0449 [Normal] 2. Capturar resultado bruto.
+P0450 [Normal] 3. Invocar verificador específico: reconsulta API, estado de ventana, hash, playback, etc.
+P0451 [Normal] 4. Comparar resultado esperado vs observado.
+P0452 [Normal] 5. Marcar VERIFIED, VERIFICATION_FAILED o UNVERIFIABLE.
+P0453 [Normal] 6. Actualizar usuario y task_run con evidencia.
+P0454 [Heading 3] Permisos, membresía y seguridad
+P0455 [List Bullet] El verificador no puede elevar permisos.
+P0456 [List Bullet] Evidencia sensible se referencia, no se vuelca indiscriminadamente en logs.
+P0457 [Heading 3] Online / offline
+P0458 [List Bullet] Offline usa verificadores locales.
+P0459 [List Bullet] Cloud verifica integraciones externas al recuperar conexión si aplica.
+P0460 [Heading 3] Verificación del resultado
+P0461 [List Bullet] Crear evento: reconsultar ID.
+P0462 [List Bullet] Abrir app: proceso/ventana.
+P0463 [List Bullet] Mover archivo: destino+hash/tamaño.
+P0464 [List Bullet] Enviar mensaje: aceptación del canal, sin inventar lectura/entrega.
+P0465 [Heading 3] Errores, fallback y logs
+P0466 [List Bullet] Verification failed puede disparar retry seguro o intervención.
+P0467 [List Bullet] Toda discrepancia genera error_fingerprint.
+P0468 [Heading 3] Configuración del usuario
+P0469 [List Bullet] Preferencias mínimas; se configura por skill/policy, no como toggle general.
+P0470 [Heading 3] Visibilidad en Admin
+P0471 [List Bullet] Tasa verified/unverified/failed, evidencia, latencia de verificación.
+P0472 [Heading 3] Criterios de aceptación
+P0473 [Normal] ✓ Side effects críticos tienen verificador o limitación documentada.
+P0474 [Normal] ✓ Un HTTP 200 no equivale automáticamente a VERIFIED.
+P0475 [Heading 2] B6. Model Router
+T20 BEGIN
+T20R01 | Objetivo | Seleccionar automáticamente el modelo local o cloud apropiado por tarea.
+T20R02 | Experiencia | El usuario no tiene que decidir qué IA usar; Gunter prioriza privacidad, disponibilidad, hardware, calidad, latencia, costo y plan.
+T20R03 | Feature key | ai.local, ai.cloud.standard, ai.cloud.reasoning, ai.vision
+T20 END
+
+P0478 [Heading 3] Cómo debe funcionar
+P0479 [Normal] 1. Clasificar tipo de trabajo: intent, STT, TTS, reasoning, coding, vision, embeddings.
+P0480 [Normal] 2. Filtrar modelos no disponibles/incompatibles.
+P0481 [Normal] 3. Aplicar reglas de privacidad “never cloud”.
+P0482 [Normal] 4. Aplicar entitlement, presupuesto y cuota.
+P0483 [Normal] 5. Seleccionar modelo y fallback ordenado.
+P0484 [Normal] 6. Registrar desempeño para optimizar routing futuro.
+P0485 [Heading 3] Permisos, membresía y seguridad
+P0486 [List Bullet] Datos “never cloud” solo usan modelos locales.
+P0487 [List Bullet] No exceder presupuesto/plan silenciosamente.
+P0488 [Heading 3] Online / offline
+P0489 [List Bullet] Offline elimina candidatos cloud y continúa con locales compatibles.
+P0490 [Heading 3] Verificación del resultado
+P0491 [List Bullet] Evaluar respuesta cuando exista benchmark/validator; routing no sustituye Verification de acciones.
+P0492 [Heading 3] Errores, fallback y logs
+P0493 [List Bullet] Proveedor caído abre circuit breaker y se excluye temporalmente.
+P0494 [List Bullet] OOM local baja a modelo más pequeño.
+P0495 [Heading 3] Configuración del usuario
+P0496 [List Bullet] Preferencia local/cloud, modelos descargados, límites CPU/GPU/RAM, presupuesto.
+P0497 [Heading 3] Visibilidad en Admin
+P0498 [List Bullet] Costo, tokens, latencia, error rate, fallback, uso por modelo.
+P0499 [Heading 3] Criterios de aceptación
+P0500 [Normal] ✓ Caída de proveedor no interrumpe comandos locales.
+P0501 [Normal] ✓ Privacidad “never cloud” es respetada.
+P0502 [Normal] ✓ Modelo incompatible no se carga.
+P0503 [Heading 2] B7. Cortex: memoria gobernada
+T21 BEGIN
+T21R01 | Objetivo | Mantener memoria útil, editable y con procedencia en lugar de un historial de chat indiscriminado.
+T21R02 | Experiencia | Gunter recuerda preferencias, decisiones, proyectos y rutinas relevantes; el usuario puede ver qué sabe, corregirlo, exportarlo u olvidarlo.
+T21R03 | Feature key | cortex.basic, cortex.semantic
+T21 END
+
+P0506 [Heading 3] Cómo debe funcionar
+P0507 [Normal] 1. Clasificar candidatos a memoria: working, episodic, semantic, procedural, decision, relationship, error/learning, skill.
+P0508 [Normal] 2. Asignar source, confidence, sensitivity, created_at, expires_at y last_verified.
+P0509 [Normal] 3. Deduplicar y detectar contradicciones.
+P0510 [Normal] 4. Guardar solo si cumple política de relevancia/retención.
+P0511 [Normal] 5. Recuperar por contexto y limitar volumen antes de enviarlo al modelo.
+P0512 [Normal] 6. Permitir correct/forget/export y propagar cambios sincronizados.
+P0513 [Heading 3] Permisos, membresía y seguridad
+P0514 [List Bullet] Memoria sensible cifrada.
+P0515 [List Bullet] El usuario puede desactivar tipos de memoria.
+P0516 [List Bullet] No guardar todo Internet por defecto.
+P0517 [Heading 3] Online / offline
+P0518 [List Bullet] Offline mantiene memoria local y búsqueda; sincroniza cambios al volver la red.
+P0519 [Heading 3] Verificación del resultado
+P0520 [List Bullet] Hechos importantes conservan source/provenance.
+P0521 [List Bullet] Una corrección reemplaza/retira la versión previa sin ocultar auditoría interna.
+P0522 [Heading 3] Errores, fallback y logs
+P0523 [List Bullet] Conflictos entre nodes se marcan para resolución.
+P0524 [List Bullet] Índice puede reconstruirse desde fuente canónica.
+P0525 [Heading 3] Configuración del usuario
+P0526 [List Bullet] Tipos de memoria, retención, exportación, olvido, privacidad, sync.
+P0527 [Heading 3] Visibilidad en Admin
+P0528 [List Bullet] Tamaño, sync health, conflictos, errores de índice, acciones de olvido.
+P0529 [Heading 3] Criterios de aceptación
+P0530 [Normal] ✓ El usuario puede localizar y borrar un recuerdo.
+P0531 [Normal] ✓ No se presenta como confirmado un dato con baja confianza sin contexto.
+P0532 [Heading 2] B8. Knowledge Graph y búsqueda transversal
+T22 BEGIN
+T22R01 | Objetivo | Relacionar personas, proyectos, empresas, documentos, decisiones, tareas y eventos.
+T22R02 | Experiencia | El usuario pregunta “todo lo relacionado con X” y Gunter recupera información conectada en distintos módulos sin depender de palabras exactas.
+T22R03 | Feature key | cortex.graph
+T22 END
+
+P0535 [Heading 3] Cómo debe funcionar
+P0536 [Normal] 1. Extraer entidades y relaciones desde fuentes autorizadas.
+P0537 [Normal] 2. Normalizar identidades y alias sin fusionar entidades dudosas automáticamente.
+P0538 [Normal] 3. Crear edges tipados con source/confidence.
+P0539 [Normal] 4. Usar grafo + búsqueda semántica/textual para responder.
+P0540 [Normal] 5. Permitir navegación desde persona/proyecto hacia decisiones, archivos y compromisos.
+P0541 [Heading 3] Permisos, membresía y seguridad
+P0542 [List Bullet] Mismas reglas de privacidad de Cortex.
+P0543 [List Bullet] No inferir relaciones sensibles como hechos sin soporte.
+P0544 [Heading 3] Online / offline
+P0545 [List Bullet] Offline consulta grafo local/cache.
+P0546 [List Bullet] Online enriquece desde fuentes conectadas.
+P0547 [Heading 3] Verificación del resultado
+P0548 [List Bullet] Cada relación crítica tiene fuente.
+P0549 [List Bullet] Fusiones de entidades reversibles.
+P0550 [Heading 3] Errores, fallback y logs
+P0551 [List Bullet] Conflictos se mantienen como alternativas hasta resolver.
+P0552 [Heading 3] Configuración del usuario
+P0553 [List Bullet] Activar/desactivar grafo avanzado, fuentes incluidas y retención.
+P0554 [Heading 3] Visibilidad en Admin
+P0555 [List Bullet] Nodos/edges, merges, conflictos, latencia y errores de extracción.
+P0556 [Heading 3] Criterios de aceptación
+P0557 [Normal] ✓ Una respuesta puede mostrar procedencia.
+P0558 [Normal] ✓ Dos personas con mismo nombre no se fusionan solo por similitud.
+P0559 [Heading 2] B9. Mission Engine
+T23 BEGIN
+T23R01 | Objetivo | Gestionar objetivos de varios pasos y varios días en vez de solo tareas aisladas.
+T23R02 | Experiencia | El usuario dice “quiero cerrar esta propuesta esta semana” y Gunter mantiene objetivo, subobjetivos, bloqueos, siguientes acciones y criterio de éxito.
+T23R03 | Feature key | automation.missions
+T23 END
+
+P0562 [Heading 3] Cómo debe funcionar
+P0563 [Normal] 1. Crear mission con objective, success_criteria, deadline, owner y scopes.
+P0564 [Normal] 2. Descomponer en subgoals y next_actions.
+P0565 [Normal] 3. Relacionar tareas, compromisos, documentos y comunicaciones.
+P0566 [Normal] 4. Reevaluar progreso al recibir eventos.
+P0567 [Normal] 5. Proponer o ejecutar siguiente acción según autonomía.
+P0568 [Normal] 6. Cerrar solo cuando success_criteria se cumpla/verifique.
+P0569 [Heading 3] Permisos, membresía y seguridad
+P0570 [List Bullet] Autonomy_scope y budget_scope limitan delegación.
+P0571 [List Bullet] No crear acciones externas fuera del mission scope.
+P0572 [Heading 3] Online / offline
+P0573 [List Bullet] Offline continúa con acciones locales; las remotas quedan pendientes.
+P0574 [Heading 3] Verificación del resultado
+P0575 [List Bullet] Progreso se basa en evidencias/eventos, no solo en texto generado.
+P0576 [Heading 3] Errores, fallback y logs
+P0577 [List Bullet] Si se bloquea, estado BLOCKED y notificación según Attention.
+P0578 [List Bullet] No crear loops infinitos de tareas.
+P0579 [Heading 3] Configuración del usuario
+P0580 [List Bullet] Nivel de autonomía, deadlines, check-ins, prioridades.
+P0581 [Heading 3] Visibilidad en Admin
+P0582 [List Bullet] Misiones activas, bloqueadas, costo, steps, error rate y tiempo.
+P0583 [Heading 3] Criterios de aceptación
+P0584 [Normal] ✓ Mission persiste tras reinicio.
+P0585 [Normal] ✓ Bloqueo visible.
+P0586 [Normal] ✓ Cierre exige criterio de éxito.
+P0587 [Heading 2] B10. Commitment Tracker
+T24 BEGIN
+T24R01 | Objetivo | Detectar y hacer seguimiento a promesas, responsables y fechas.
+T24R02 | Experiencia | Gunter recuerda “Carlos enviará X el viernes” y avisa si llega la fecha sin evidencia de cumplimiento.
+T24R03 | Feature key | automation.commitments
+T24 END
+
+P0590 [Heading 3] Cómo debe funcionar
+P0591 [Normal] 1. Extraer commitment desde reunión/chat/correo con source.
+P0592 [Normal] 2. Resolver owner, deliverable, due_at y confidence.
+P0593 [Normal] 3. Si hay ambigüedad, proponer para confirmación en vez de guardar como hecho.
+P0594 [Normal] 4. Vincular a persona/proyecto/mission.
+P0595 [Normal] 5. Escuchar eventos que prueben cumplimiento.
+P0596 [Normal] 6. Escalar seguimiento si vence y sigue abierto.
+P0597 [Heading 3] Permisos, membresía y seguridad
+P0598 [List Bullet] No enviar seguimiento automáticamente a terceros salvo policy.
+P0599 [Heading 3] Online / offline
+P0600 [List Bullet] Offline conserva commitments y reminders locales.
+P0601 [Heading 3] Verificación del resultado
+P0602 [List Bullet] Cumplimiento enlaza a archivo/mensaje/evento o confirmación humana.
+P0603 [Heading 3] Errores, fallback y logs
+P0604 [List Bullet] Commitments dudosos se mantienen “proposed”.
+P0605 [List Bullet] Evitar duplicados por múltiples fuentes.
+P0606 [Heading 3] Configuración del usuario
+P0607 [List Bullet] Auto-detección, anticipación, canales de seguimiento, prioridades.
+P0608 [Heading 3] Visibilidad en Admin
+P0609 [List Bullet] Abiertos, vencidos, cumplidos, fuente, detecciones erróneas corregidas.
+P0610 [Heading 3] Criterios de aceptación
+P0611 [Normal] ✓ Un commitment puede corregirse.
+P0612 [Normal] ✓ No marcar cumplido sin evidencia/confirmación.
+P0613 [Heading 2] B11. Procedure Learning / Teach Gunter
+T25 BEGIN
+T25R01 | Objetivo | Aprender rutinas repetibles a partir de demostración o instrucciones y convertirlas en procedimientos versionados.
+T25R02 | Experiencia | El usuario dice “observa cómo hago esto” y, tras demostrarlo, Gunter propone un proceso reutilizable que puede ejecutarse de forma asistida o autónoma dentro de límites.
+T25R03 | Feature key | automation.procedures
+T25 END
+
+P0616 [Heading 3] Cómo debe funcionar
+P0617 [Normal] 1. Activar modo observación explícito.
+P0618 [Normal] 2. Capturar eventos relevantes, no cada pixel/tecla indiscriminadamente.
+P0619 [Normal] 3. Segmentar pasos, entradas, salidas, precondiciones y verificaciones.
+P0620 [Normal] 4. Generar procedure versionado con variables.
+P0621 [Normal] 5. Simular en sandbox/test data.
+P0622 [Normal] 6. Pedir aprobación y ejecutar asistido.
+P0623 [Normal] 7. Aumentar autonomía solo tras suficiente evidencia.
+P0624 [Heading 3] Permisos, membresía y seguridad
+P0625 [List Bullet] Observación visible y revocable.
+P0626 [List Bullet] No aprender contraseñas/tokens como pasos.
+P0627 [List Bullet] Scopes por apps/carpetas/canales.
+P0628 [Heading 3] Online / offline
+P0629 [List Bullet] Procedures locales pueden ejecutarse offline.
+P0630 [List Bullet] Pasos cloud esperan red o usan fallback.
+P0631 [Heading 3] Verificación del resultado
+P0632 [List Bullet] Cada step declara verify.
+P0633 [List Bullet] Resultado de procedure agrega evidencia por step.
+P0634 [Heading 3] Errores, fallback y logs
+P0635 [List Bullet] Si UI cambia, detener y pedir intervención en vez de improvisar destructivamente.
+P0636 [List Bullet] Versionar cambios.
+P0637 [Heading 3] Configuración del usuario
+P0638 [List Bullet] Modo observación, apps permitidas, triggers, autonomía, horarios, límites.
+P0639 [Heading 3] Visibilidad en Admin
+P0640 [List Bullet] Procedures, versiones, success rate, pasos frágiles, última ejecución.
+P0641 [Heading 3] Criterios de aceptación
+P0642 [Normal] ✓ La primera ejecución es asistida.
+P0643 [Normal] ✓ Un cambio de entrada no reutiliza datos antiguos.
+P0644 [Normal] ✓ Fallos no dejan el sistema en estado inconsistente sin alerta.
+P0645 [Heading 2] B12. Attention Engine y briefings
+T26 BEGIN
+T26R01 | Objetivo | Priorizar información y decidir cuándo recordar, resumir, notificar o interrumpir.
+T26R02 | Experiencia | Gunter se comporta como asistente: concentra lo secundario en briefings y reserva interrupciones para asuntos importantes.
+T26R03 | Feature key | automation.proactive
+T26 END
+
+P0648 [Heading 3] Cómo debe funcionar
+P0649 [Normal] 1. Recibir candidatos desde tasks, missions, commitments, inbox, incidents y calendar.
+P0650 [Normal] 2. Calcular attention_score.
+P0651 [Normal] 3. Aplicar preferencias, contexto actual y quiet hours.
+P0652 [Normal] 4. Deduplicar y agrupar por tema.
+P0653 [Normal] 5. Entregar en briefing/notificación/interrupción.
+P0654 [Normal] 6. Aprender de dismiss/snooze/ack como señales, sin auto-cambiar reglas críticas.
+P0655 [Heading 3] Permisos, membresía y seguridad
+P0656 [List Bullet] El usuario puede bloquear categorías.
+P0657 [List Bullet] CRITICAL sigue política explícita.
+P0658 [Heading 3] Online / offline
+P0659 [List Bullet] Offline procesa eventos locales.
+P0660 [Heading 3] Verificación del resultado
+P0661 [List Bullet] Registrar motivo de prioridad para poder explicarlo.
+P0662 [Heading 3] Errores, fallback y logs
+P0663 [List Bullet] Si score depende de datos obsoletos, reducir confidence.
+P0664 [Heading 3] Configuración del usuario
+P0665 [List Bullet] Quiet hours, threshold, canales, personas/proyectos prioritarios, frecuencia de briefings.
+P0666 [Heading 3] Visibilidad en Admin
+P0667 [List Bullet] Alert volume, dismiss rate, duplicate suppression, critical delivery.
+P0668 [Heading 3] Criterios de aceptación
+P0669 [Normal] ✓ No notificar 10 veces el mismo problema.
+P0670 [Normal] ✓ Puede explicar “por qué me avisaste”.
+P0671 [Heading 2] B13. Error Learning
+T27 BEGIN
+T27R01 | Objetivo | Reducir repetición de fallos mediante memoria de causa, solución y prevención.
+T27R02 | Experiencia | Si una automatización falla porque un archivo cambió de ubicación o una API cambió, Gunter registra la lección y ajusta el procedimiento/routing dentro de reglas.
+T27R03 | Feature key | cortex.learning
+T27 END
+
+P0674 [Heading 3] Cómo debe funcionar
+P0675 [Normal] 1. Capturar error_fingerprint + contexto técnico.
+P0676 [Normal] 2. Determinar causa confirmada o hipótesis.
+P0677 [Normal] 3. Registrar fix aplicado y evidencia de recuperación.
+P0678 [Normal] 4. Crear learning candidate.
+P0679 [Normal] 5. Aplicar solo cambios seguros de configuración/procedimiento; cambios de código pasan por Evolution Engine.
+P0680 [Normal] 6. Medir si el fallo reaparece.
+P0681 [Heading 3] Permisos, membresía y seguridad
+P0682 [List Bullet] No aprender a evadir políticas/confirmaciones.
+P0683 [List Bullet] No almacenar secretos del stack trace.
+P0684 [Heading 3] Online / offline
+P0685 [List Bullet] Error memory local disponible offline.
+P0686 [Heading 3] Verificación del resultado
+P0687 [List Bullet] Lección solo se marca “validated” tras evidencia.
+P0688 [Heading 3] Errores, fallback y logs
+P0689 [List Bullet] Hipótesis no confirmada conserva confidence baja.
+P0690 [Heading 3] Configuración del usuario
+P0691 [List Bullet] Permitir desactivar aprendizaje por dominio y borrar lecciones.
+P0692 [Heading 3] Visibilidad en Admin
+P0693 [List Bullet] Errores recurrentes, fixes, recurrence rate, learning candidates.
+P0694 [Heading 3] Criterios de aceptación
+P0695 [Normal] ✓ Un error conocido puede sugerir solución previa.
+P0696 [Normal] ✓ No cambia seguridad de forma automática.
+P0697 [Heading 2] B14. Evolution Engine / Skill Forge
+T28 BEGIN
+T28R01 | Objetivo | Permitir que Gunter detecte capacidades faltantes y proponga mejoras sin modificar producción libremente.
+T28R02 | Experiencia | Gunter puede decir “he detectado que conviene una skill para X”, generar una propuesta y probarla; Admin decide si se libera.
+T28R03 | Feature key | evolution.skill_forge
+T28 END
+
+P0700 [Heading 3] Cómo debe funcionar
+P0701 [Normal] 1. Detectar capability gap por repetición de workaround o petición no cubierta.
+P0702 [Normal] 2. Generar RFC con valor, riesgos, interfaces y feature key.
+P0703 [Normal] 3. Crear branch/laboratorio aislado.
+P0704 [Normal] 4. Generar código, schemas y tests.
+P0705 [Normal] 5. Ejecutar sandbox, security checks y evaluaciones.
+P0706 [Normal] 6. Crear canary candidate.
+P0707 [Normal] 7. Requerir aprobación Admin para release.
+P0708 [Normal] 8. Monitorizar y rollback si degrada métricas.
+P0709 [Heading 3] Permisos, membresía y seguridad
+P0710 [List Bullet] Nunca auto-modificar Auth, Billing, Policy, Audit core, Evolution core ni reglas que eleven su autonomía.
+P0711 [List Bullet] Sin credenciales de producción en sandbox.
+P0712 [Heading 3] Online / offline
+P0713 [List Bullet] El laboratorio puede trabajar localmente; publicación/release requiere control plane.
+P0714 [Heading 3] Verificación del resultado
+P0715 [List Bullet] Tests/evals son evidencia previa al release.
+P0716 [Heading 3] Errores, fallback y logs
+P0717 [List Bullet] Fallo en sandbox no impacta producción.
+P0718 [List Bullet] Rollback obligatorio para releases sensibles.
+P0719 [Heading 3] Configuración del usuario
+P0720 [List Bullet] Solo Admin: habilitar laboratorio, límites, modelos, repositorios, canary.
+P0721 [Heading 3] Visibilidad en Admin
+P0722 [List Bullet] RFCs, builds, tests, canaries, versiones, rollbacks.
+P0723 [Heading 3] Criterios de aceptación
+P0724 [Normal] ✓ No despliega sin aprobación.
+P0725 [Normal] ✓ Una skill nueva entra OFF/admin_only.
+P0726 [Normal] ✓ Core crítico permanece fuera del alcance autónomo.
+P0728 [Heading 1] C. Ejecución local, Desktop, Mobile y conexión
+P0729 [Normal] Estas funciones convierten a Gunter en un asistente operativo real. Deben estar gobernadas por capability discovery, permisos del sistema operativo, entitlements y verificación.
+P0730 [Heading 2] C1. Desktop Runtime
+T29 BEGIN
+T29R01 | Objetivo | Ejecutar Gunter como aplicación + servicio residente en PC, incluso con el navegador cerrado.
+T29R02 | Experiencia | Gunter puede arrancar con Windows, escuchar/recibir comandos, ejecutar skills locales y reportar salud al Control Plane.
+T29R03 | Feature key | desktop.node
+T29 END
+
+P0733 [Heading 3] Cómo debe funcionar
+P0734 [Normal] 1. Instalar runtime firmado y registrar node.
+P0735 [Normal] 2. Cargar settings, licencia lease, skills y modelos locales disponibles.
+P0736 [Normal] 3. Mantener servicio residente con heartbeat.
+P0737 [Normal] 4. Recibir comandos autenticados o inputs locales.
+P0738 [Normal] 5. Ejecutar Brain/skills locales autorizadas.
+P0739 [Normal] 6. Sincronizar task_runs, outbox y memoria al recuperar red.
+P0740 [Heading 3] Permisos, membresía y seguridad
+P0741 [List Bullet] Servicio con privilegios mínimos.
+P0742 [List Bullet] Elevación de privilegios puntual y explícita cuando sea indispensable.
+P0743 [List Bullet] Node revocable remotamente.
+P0744 [Heading 3] Online / offline
+P0745 [List Bullet] Offline es un objetivo principal: voz, archivos, apps, procedures, scheduler y AI local según recursos.
+P0746 [Heading 3] Verificación del resultado
+P0747 [List Bullet] Heartbeat + health local + evidence por acción.
+P0748 [Heading 3] Errores, fallback y logs
+P0749 [List Bullet] Crash recovery y watchdog.
+P0750 [List Bullet] Si licencia expira offline, degradar features premium según policy.
+P0751 [Heading 3] Configuración del usuario
+P0752 [List Bullet] Inicio con Windows, CPU/GPU/RAM, carpetas/apps permitidas, micrófono, pantalla, comandos, autonomía.
+P0753 [Heading 3] Visibilidad en Admin
+P0754 [List Bullet] Versión, node health, last_seen, capabilities, crashes, lease, recursos.
+P0755 [Heading 3] Criterios de aceptación
+P0756 [Normal] ✓ Opera sin navegador.
+P0757 [Normal] ✓ Remote revoke bloquea nuevos comandos.
+P0758 [Normal] ✓ Reinicio no pierde jobs durables.
+P0759 [Heading 2] C2. Percepción de pantalla
+T30 BEGIN
+T30R01 | Objetivo | Permitir que Gunter entienda temporalmente lo visible para responder “mira esto” o asistir en tareas.
+T30R02 | Experiencia | Con permiso, Gunter puede analizar la ventana activa, screenshot o región y relacionarla con la conversación actual.
+T30R03 | Feature key | desktop.screen, ai.vision
+T30 END
+
+P0762 [Heading 3] Cómo debe funcionar
+P0763 [Normal] 1. Comprobar que screen perception está habilitada.
+P0764 [Normal] 2. Capturar ventana/región con indicador visible.
+P0765 [Normal] 3. Extraer metadata: app, title, bounds y, si procede, imagen/OCR/vision.
+P0766 [Normal] 4. Aplicar redacción/exclusiones configuradas.
+P0767 [Normal] 5. Entregar contexto al Context Gateway.
+P0768 [Normal] 6. Eliminar o retener captura según política.
+P0769 [Heading 3] Permisos, membresía y seguridad
+P0770 [List Bullet] Indicador visible.
+P0771 [List Bullet] Denylist para gestores de contraseñas, ventanas sensibles y apps excluidas.
+P0772 [List Bullet] No captura permanente por defecto.
+P0773 [Heading 3] Online / offline
+P0774 [List Bullet] Offline puede usar OCR/VLM local si instalado.
+P0775 [List Bullet] Online vision cloud solo si privacidad lo permite.
+P0776 [Heading 3] Verificación del resultado
+P0777 [List Bullet] Si se usa para clicar, verificar estado posterior por nueva observación.
+P0778 [Heading 3] Errores, fallback y logs
+P0779 [List Bullet] Si la ventana cambia antes de actuar, invalidar coordenadas y reobservar.
+P0780 [Heading 3] Configuración del usuario
+P0781 [List Bullet] Apps permitidas, modo manual/temporal, privacidad, local/cloud, retención.
+P0782 [Heading 3] Visibilidad en Admin
+P0783 [List Bullet] Capturas solicitadas, redacciones, errores, latencia de vision.
+P0784 [Heading 3] Criterios de aceptación
+P0785 [Normal] ✓ No captura una app excluida.
+P0786 [Normal] ✓ Barge/context no reutiliza screenshot obsoleto para una acción sensible.
+P0787 [Heading 2] C3. Control de apps, archivos e input en PC
+T31 BEGIN
+T31R01 | Objetivo | Abrir/cerrar apps, manipular archivos y realizar input automatizado de forma controlada.
+T31R02 | Experiencia | El usuario puede decir “abre Visual Studio Code”, “busca el último archivo”, “mueve esto a X” o ejecutar una procedure.
+T31R03 | Feature key | desktop.apps, desktop.files, desktop.commands
+T31 END
+
+P0790 [Heading 3] Cómo debe funcionar
+P0791 [Normal] 1. Resolver recurso/app por identificador estable, no solo coordenadas.
+P0792 [Normal] 2. Policy check de carpeta/app/comando.
+P0793 [Normal] 3. Ejecutar skill: open/focus/find/read/write/move/rename/click/type/hotkey.
+P0794 [Normal] 4. Para UI automation, esperar estados y reevaluar ventana.
+P0795 [Normal] 5. Verificar resultado con proceso, ventana, filesystem o estado de UI.
+P0796 [Normal] 6. Registrar evidencia y cambios.
+P0797 [Heading 3] Permisos, membresía y seguridad
+P0798 [List Bullet] Allowlists por app/carpeta.
+P0799 [List Bullet] Denylist de secretos/sistema.
+P0800 [List Bullet] Borrados, comandos y cambios sensibles requieren confirmación.
+P0801 [Heading 3] Online / offline
+P0802 [List Bullet] Principalmente local y offline.
+P0803 [Heading 3] Verificación del resultado
+P0804 [List Bullet] Apps: proceso/ventana.
+P0805 [List Bullet] Files: path+hash/tamaño.
+P0806 [List Bullet] Input: estado posterior observable.
+P0807 [Heading 3] Errores, fallback y logs
+P0808 [List Bullet] No “click ciego” tras cambio de layout.
+P0809 [List Bullet] Rollback para movimientos/renames cuando sea posible.
+P0810 [Heading 3] Configuración del usuario
+P0811 [List Bullet] Apps/carpetas permitidas, commands, confirmaciones, autonomy.
+P0812 [Heading 3] Visibilidad en Admin
+P0813 [List Bullet] Acciones, fallos, paths redacted, process health, retries.
+P0814 [Heading 3] Criterios de aceptación
+P0815 [Normal] ✓ Abrir app se verifica.
+P0816 [Normal] ✓ Mover archivo no duplica ni sobrescribe sin política.
+P0817 [Normal] ✓ Comando fuera de scope es bloqueado.
+P0818 [Heading 2] C4. Browser Agent
+T32 BEGIN
+T32R01 | Objetivo | Automatizar navegación web autorizada para tareas que requieren interacción con sitios.
+T32R02 | Experiencia | Gunter puede investigar, rellenar formularios o ejecutar procedimientos web dentro de límites, mostrando cuándo necesita intervención humana.
+T32R03 | Feature key | browser.agent
+T32 END
+
+P0821 [Heading 3] Cómo debe funcionar
+P0822 [Normal] 1. Abrir sesión de navegador aislada o navegador autorizado.
+P0823 [Normal] 2. Observar DOM/estado de página cuando sea posible.
+P0824 [Normal] 3. Planear navegación y completar pasos.
+P0825 [Normal] 4. Antes de side effects (publicar, enviar, comprar), aplicar Policy/confirmación.
+P0826 [Normal] 5. Verificar resultado en la página/servidor.
+P0827 [Normal] 6. Guardar solo cookies/credenciales mediante almacén seguro, nunca en memoria conversacional.
+P0828 [Heading 3] Permisos, membresía y seguridad
+P0829 [List Bullet] No evadir CAPTCHA, MFA ni controles del sitio.
+P0830 [List Bullet] Dominios y acciones sensibles limitados.
+P0831 [List Bullet] Prompt injection de páginas no puede modificar policies.
+P0832 [Heading 3] Online / offline
+P0833 [List Bullet] Requiere Internet salvo apps web en LAN/local.
+P0834 [Heading 3] Verificación del resultado
+P0835 [List Bullet] URL/estado final, confirmaciones visibles o reconsulta del recurso.
+P0836 [Heading 3] Errores, fallback y logs
+P0837 [List Bullet] Si DOM cambia, detener/replanificar.
+P0838 [List Bullet] No repetir una compra/envío por retry.
+P0839 [Heading 3] Configuración del usuario
+P0840 [List Bullet] Dominios permitidos, sesiones, confirmaciones, descargas, privacidad.
+P0841 [Heading 3] Visibilidad en Admin
+P0842 [List Bullet] Sitios, task traces, errores, bloqueos, cambios de UI.
+P0843 [Heading 3] Criterios de aceptación
+P0844 [Normal] ✓ Side effects no ocurren sin autorización.
+P0845 [Normal] ✓ CAPTCHA deriva a usuario.
+P0846 [Normal] ✓ No reutiliza secretos en prompts.
+P0847 [Heading 2] C5. Gunter Mobile Runtime
+T33 BEGIN
+T33R01 | Objetivo | Convertir el móvil en un node capaz de conversar, ejecutar acciones, aportar sensores y continuar parte del sistema offline.
+T33R02 | Experiencia | La misma cuenta de Gunter puede recibir comandos por voz/texto y controlar funciones compatibles del teléfono.
+T33R03 | Feature key | mobile.node
+T33 END
+
+P0850 [Heading 3] Cómo debe funcionar
+P0851 [Normal] 1. Instalar app, autenticar y registrar node.
+P0852 [Normal] 2. Detectar capabilities reales por OS/versión/hardware/permisos.
+P0853 [Normal] 3. Recibir entitlements y lease.
+P0854 [Normal] 4. Registrar skills móviles disponibles.
+P0855 [Normal] 5. Ejecutar comandos locales o remotos mediante Node Protocol.
+P0856 [Normal] 6. Mantener scheduler/outbox/heartbeat según restricciones del OS.
+P0857 [Heading 3] Permisos, membresía y seguridad
+P0858 [List Bullet] Permisos nativos explícitos.
+P0859 [List Bullet] No mostrar features que el OS no soporte.
+P0860 [List Bullet] Node revocable y límites por plan.
+P0861 [Heading 3] Online / offline
+P0862 [List Bullet] Offline: reminders, media y otras acciones locales permitidas; STT/TTS/modelo local según hardware.
+P0863 [Heading 3] Verificación del resultado
+P0864 [List Bullet] Cada action devuelve capability_used y evidence.
+P0865 [Heading 3] Errores, fallback y logs
+P0866 [List Bullet] Background limitado por OS: usar push-to-talk, shortcuts/intents/push como fallback.
+P0867 [Heading 3] Configuración del usuario
+P0868 [List Bullet] Permisos, media, mensajes, sensores, voz, IA local, batería/background.
+P0869 [Heading 3] Visibilidad en Admin
+P0870 [List Bullet] OS/app version, capabilities, last_seen, permissions health, crashes.
+P0871 [Heading 3] Criterios de aceptación
+P0872 [Normal] ✓ Capability probing coincide con realidad.
+P0873 [Normal] ✓ Misma identidad/memoria al alternar Web/Mobile.
+P0874 [Heading 2] C6. Control multimedia móvil
+T34 BEGIN
+T34R01 | Objetivo | Controlar reproducción de media cuando la plataforma y la app objetivo lo permitan.
+T34R02 | Experiencia | Órdenes como “siguiente canción”, “pausa”, “continúa” se ejecutan sin abrir manualmente el reproductor cuando existe capability.
+T34R03 | Feature key | mobile.media
+T34 END
+
+P0877 [Heading 3] Cómo debe funcionar
+P0878 [Normal] 1. Detectar sesión/reproductor controlable.
+P0879 [Normal] 2. Resolver acción play/pause/next/previous.
+P0880 [Normal] 3. Policy check de acción local de bajo riesgo.
+P0881 [Normal] 4. Enviar comando mediante APIs soportadas.
+P0882 [Normal] 5. Consultar playback state si está disponible.
+P0883 [Normal] 6. Responder con éxito, estado limitado o fallback.
+P0884 [Heading 3] Permisos, membresía y seguridad
+P0885 [List Bullet] Normalmente L4 configurable por ser acción local de bajo riesgo.
+P0886 [List Bullet] No prometer control universal de cualquier app.
+P0887 [Heading 3] Online / offline
+P0888 [List Bullet] Funciona offline si la sesión multimedia es local.
+P0889 [Heading 3] Verificación del resultado
+P0890 [List Bullet] Verificar cambio de playback/track cuando el OS lo expone.
+P0891 [Heading 3] Errores, fallback y logs
+P0892 [List Bullet] Si no hay sesión controlable, ofrecer abrir app o informar limitación.
+P0893 [Heading 3] Configuración del usuario
+P0894 [List Bullet] Apps preferidas, permitir en bloqueo, confirmación opcional.
+P0895 [Heading 3] Visibilidad en Admin
+P0896 [List Bullet] Success rate por OS/app, capability missing.
+P0897 [Heading 3] Criterios de aceptación
+P0898 [Normal] ✓ “Siguiente canción” cambia track o devuelve limitación honesta.
+P0899 [Normal] ✓ No afecta app no seleccionada por error.
+P0900 [Heading 2] C7. Mensajería móvil
+T35 BEGIN
+T35R01 | Objetivo | Preparar y, cuando la plataforma/canal lo permita, enviar mensajes a contactos.
+T35R02 | Experiencia | El usuario dice “envía un mensaje a Diego diciendo…”; Gunter resuelve el contacto, canal y nivel de confirmación.
+T35R03 | Feature key | mobile.messaging
+T35 END
+
+P0903 [Heading 3] Cómo debe funcionar
+P0904 [Normal] 1. Resolver contacto y posibles coincidencias.
+P0905 [Normal] 2. Elegir canal configurado y capability disponible.
+P0906 [Normal] 3. Preparar destinatario + contenido.
+P0907 [Normal] 4. Aplicar confirmación según policy/autonomy.
+P0908 [Normal] 5. Ejecutar integración, intent, deep link o API soportada.
+P0909 [Normal] 6. Verificar aceptación/estado disponible y registrar evidencia.
+P0910 [Heading 3] Permisos, membresía y seguridad
+P0911 [List Bullet] Enviar normalmente L3.
+P0912 [List Bullet] Allowed contacts opcional.
+P0913 [List Bullet] No acceder a contactos sin permiso.
+P0914 [Heading 3] Online / offline
+P0915 [List Bullet] Offline puede preparar y encolar; envío real depende del canal/red.
+P0916 [List Bullet] Acciones antiguas pueden requerir reconfirmación al reconectar.
+P0917 [Heading 3] Verificación del resultado
+P0918 [List Bullet] No afirmar “entregado/leído” si solo existe aceptación por canal.
+P0919 [Heading 3] Errores, fallback y logs
+P0920 [List Bullet] Ambigüedad de contacto obliga aclaración.
+P0921 [List Bullet] Idempotency evita doble envío.
+P0922 [Heading 3] Configuración del usuario
+P0923 [List Bullet] Canal por defecto, confirmación, allowed contacts, cola offline, quiet hours.
+P0924 [Heading 3] Visibilidad en Admin
+P0925 [List Bullet] Mensajes preparados/enviados/fallidos, canal, node, sin almacenar contenido completo en logs.
+P0926 [Heading 3] Criterios de aceptación
+P0927 [Normal] ✓ Contacto ambiguo no se envía.
+P0928 [Normal] ✓ Retry no duplica mensaje.
+P0929 [Normal] ✓ Estado comunicado con precisión.
+P0930 [Heading 2] C8. Sensores y acciones móviles
+T36 BEGIN
+T36R01 | Objetivo | Usar cámara, ubicación, notificaciones, deep links, reminders y otras capacidades autorizadas del teléfono.
+T36R02 | Experiencia | Gunter puede “abre Maps”, “recuérdame esto aquí”, “mira esta factura” o usar contexto de ubicación con consentimiento.
+T36R03 | Feature key | mobile.location, mobile.camera
+T36 END
+
+P0933 [Heading 3] Cómo debe funcionar
+P0934 [Normal] 1. Consultar capability y permiso actual.
+P0935 [Normal] 2. Solicitar permiso nativo si es necesario y permitido.
+P0936 [Normal] 3. Ejecutar acción o capturar contexto durante la sesión.
+P0937 [Normal] 4. Redactar datos según privacidad.
+P0938 [Normal] 5. Verificar estado cuando sea posible.
+P0939 [Normal] 6. Desactivar acceso al terminar si la feature es “solo sesión”.
+P0940 [Heading 3] Permisos, membresía y seguridad
+P0941 [List Bullet] Ubicación precisa opt-in.
+P0942 [List Bullet] Cámara con indicador visible.
+P0943 [List Bullet] Admin no recibe GPS exacto por defecto.
+P0944 [Heading 3] Online / offline
+P0945 [List Bullet] Reminders/deep links/cámara local funcionan sin cloud; mapas/datos externos dependen de red.
+P0946 [Heading 3] Verificación del resultado
+P0947 [List Bullet] Guardar source y timestamp del sensor.
+P0948 [Heading 3] Errores, fallback y logs
+P0949 [List Bullet] Permiso denegado produce fallback, no bucle de prompts.
+P0950 [Heading 3] Configuración del usuario
+P0951 [List Bullet] Precisión de ubicación, retención, cámara local/cloud, apps/deep links, permisos.
+P0952 [Heading 3] Visibilidad en Admin
+P0953 [List Bullet] Permission state, capability, errores, consumo.
+P0954 [Heading 3] Criterios de aceptación
+P0955 [Normal] ✓ Una captura no continúa en segundo plano sin configuración.
+P0956 [Normal] ✓ Ubicación exacta no se expone a Admin por defecto.
+P0957 [Heading 2] C9. Connection Manager, offline y sincronización
+T37 BEGIN
+T37R01 | Objetivo | Mantener continuidad funcional ante pérdidas de red y reconciliar estado al volver Internet.
+T37R02 | Experiencia | El usuario puede seguir hablando y ejecutando tareas locales; Gunter informa modo local solo cuando sea relevante y sincroniza después.
+T37R03 | Feature key | core.connection
+T37 END
+
+P0960 [Heading 3] Cómo debe funcionar
+P0961 [Normal] 1. Monitorizar conectividad + salud de proveedores, no solo “hay Internet”.
+P0962 [Normal] 2. Cambiar ONLINE/DEGRADED/OFFLINE/SYNCING.
+P0963 [Normal] 3. Filtrar skills disponibles por estado.
+P0964 [Normal] 4. Encolar acciones permitidas con expiry/idempotency/reconfirm.
+P0965 [Normal] 5. Al reconectar, refrescar lease/entitlements y descargar eventos.
+P0966 [Normal] 6. Reconciliar conflictos y comprobar si acciones pendientes ya ocurrieron.
+P0967 [Normal] 7. Reanudar jobs seguros y emitir estado recovered.
+P0968 [Heading 3] Permisos, membresía y seguridad
+P0969 [List Bullet] No encolar pagos ni cambios de seguridad para ejecución silenciosa.
+P0970 [List Bullet] Lease premium tiene expiración.
+P0971 [Heading 3] Online / offline
+P0972 [List Bullet] Es el componente que gobierna offline.
+P0973 [Heading 3] Verificación del resultado
+P0974 [List Bullet] Cada queued_action conserva resultado y reconciliation decision.
+P0975 [Heading 3] Errores, fallback y logs
+P0976 [List Bullet] Evitar tormenta de retries.
+P0977 [List Bullet] Si una acción perdió vigencia, cancelarla o reconfirmar.
+P0978 [Heading 3] Configuración del usuario
+P0979 [List Bullet] Duración de cola, auto-retry, avisos de modo offline, sincronización.
+P0980 [Heading 3] Visibilidad en Admin
+P0981 [List Bullet] Estado por node, outbox, sync conflicts, lease expirations, recovery.
+P0982 [Heading 3] Criterios de aceptación
+P0983 [Normal] ✓ Caída de Internet no rompe acciones locales.
+P0984 [Normal] ✓ Al reconectar no se duplican side effects.
+P0985 [Normal] ✓ Lease expirado degrada correctamente.
+P0986 [Heading 2] C10. Integraciones externas
+T38 BEGIN
+T38R01 | Objetivo | Conectar Calendar, Gmail, WhatsApp, Drive y futuras plataformas mediante adapters uniformes.
+T38R02 | Experiencia | El usuario conecta servicios desde Configuración; Gunter los utiliza como skills sin acoplar el core a un proveedor específico.
+T38R03 | Feature key | integrations.*
+T38 END
+
+P0989 [Heading 3] Cómo debe funcionar
+P0990 [Normal] 1. OAuth/credential setup desde UI segura.
+P0991 [Normal] 2. Registrar integration instance y scopes.
+P0992 [Normal] 3. Health check + token refresh.
+P0993 [Normal] 4. Adapter expone capabilities al Skill Registry.
+P0994 [Normal] 5. Eventos entrantes alimentan Event Bus.
+P0995 [Normal] 6. Desconexión revoca uso y genera incidente/alerta según impacto.
+P0996 [Heading 3] Permisos, membresía y seguridad
+P0997 [List Bullet] Scopes mínimos.
+P0998 [List Bullet] Secretos en secret store, nunca repo/log.
+P0999 [List Bullet] Prompt injection de contenido externo no cambia policies.
+P1000 [Heading 3] Online / offline
+P1001 [List Bullet] Integraciones cloud no funcionan offline; datos cacheados se marcan stale.
+P1002 [Heading 3] Verificación del resultado
+P1003 [List Bullet] Operaciones con side effects siguen Verification.
+P1004 [Heading 3] Errores, fallback y logs
+P1005 [List Bullet] Token vencido = INTEGRATION_DISCONNECTED.
+P1006 [List Bullet] Fallback si existe proveedor alternativo.
+P1007 [Heading 3] Configuración del usuario
+P1008 [List Bullet] Conectar/desconectar, scopes, cuenta, health, reglas por integración.
+P1009 [Heading 3] Visibilidad en Admin
+P1010 [List Bullet] Health, token expiry, errores, rate limits, eventos atrasados.
+P1011 [Heading 3] Criterios de aceptación
+P1012 [Normal] ✓ Desconectar detiene uso.
+P1013 [Normal] ✓ Reconectar recupera eventos sin duplicar.
+P1014 [Normal] ✓ Un adapter puede reemplazarse sin cambiar Brain Core.
+P1016 [Heading 1] D. Membresías, administración y operación
+P1017 [Normal] La monetización, el control de dispositivos y la observabilidad deben existir antes de distribuir ampliamente Desktop/Mobile. La lógica comercial no puede quedar dispersa en botones del frontend.
+P1018 [Heading 2] D1. Membresías, Billing y cobro mensual
+T39 BEGIN
+T39R01 | Objetivo | Gestionar planes, renovaciones automáticas, fallos de pago y estados de suscripción.
+T39R02 | Experiencia | Cada cuenta tiene un plan y un ciclo mensual anclado al día de activación; Admin puede ver estado, próxima renovación e historial.
+T39R03 | Feature key | billing.recurring, admin.billing
+T39 END
+
+P1021 [Heading 3] Cómo debe funcionar
+P1022 [Normal] 1. Al activar suscripción, guardar subscription_start_at y billing_anchor.
+P1023 [Normal] 2. Crear checkout/payment method mediante Payment Adapter.
+P1024 [Normal] 3. Procesar webhooks firmados como fuente primaria de cobros y cambios.
+P1025 [Normal] 4. Renovar mensualmente según anchor y política del proveedor.
+P1026 [Normal] 5. En fallo: PAST_DUE → retries → GRACE → SUSPENDED según configuración.
+P1027 [Normal] 6. En recuperación: volver ACTIVE y actualizar entitlements.
+P1028 [Normal] 7. Reconciliar periódicamente provider vs estado interno.
+P1029 [Heading 3] Permisos, membresía y seguridad
+P1030 [List Bullet] No confiar en “pago exitoso” del frontend.
+P1031 [List Bullet] Webhooks idempotentes.
+P1032 [List Bullet] 2FA/reautenticación para cambios Admin sensibles.
+P1033 [Heading 3] Online / offline
+P1034 [List Bullet] Nodes usan lease firmado temporal; no mantienen premium indefinidamente offline.
+P1035 [Heading 3] Verificación del resultado
+P1036 [List Bullet] billing_event conserva provider_event_id y reconciliation status.
+P1037 [Heading 3] Errores, fallback y logs
+P1038 [List Bullet] Webhook fallido va a cola/retry y puede ser CRITICAL si afecta entitlement.
+P1039 [Heading 3] Configuración del usuario
+P1040 [List Bullet] Plan, método de pago, facturación visible, cancelación, grace según política.
+P1041 [Heading 3] Visibilidad en Admin
+P1042 [List Bullet] Suscripciones, cobros, rechazos, retries, refunds, discrepancies.
+P1043 [Heading 3] Criterios de aceptación
+P1044 [Normal] ✓ Un webhook duplicado no duplica cobro/estado.
+P1045 [Normal] ✓ Pago fallido no borra datos.
+P1046 [Normal] ✓ Recuperación restaura entitlement correctamente.
+P1047 [Heading 2] D2. Entitlement Engine y licencia offline
+T40 BEGIN
+T40R01 | Objetivo | Decidir qué features y límites puede usar cada cuenta y node.
+T40R02 | Experiencia | Cambiar un plan desde Admin modifica las capacidades sin deploy; Desktop/Mobile reciben una licencia firmada temporal para seguir offline.
+T40R03 | Feature key | core.entitlements
+T40 END
+
+P1050 [Heading 3] Cómo debe funcionar
+P1051 [Normal] 1. Calcular entitlement efectivo desde plan + add-ons + estado de subscription.
+P1052 [Normal] 2. Generar entitlement_snapshot versionado.
+P1053 [Normal] 3. Emitir license_lease firmado por node con expires_at.
+P1054 [Normal] 4. En cada ejecución, validar feature key, limits y lease.
+P1055 [Normal] 5. Al cambiar plan, emitir entitlement.changed y refrescar nodes.
+P1056 [Normal] 6. Al expirar lease offline, degradar a capacidades permitidas sin borrar datos.
+P1057 [Heading 3] Permisos, membresía y seguridad
+P1058 [List Bullet] Lease firmado/anti-tamper.
+P1059 [List Bullet] Entitlements comerciales no pueden ser alterados por cliente.
+P1060 [Heading 3] Online / offline
+P1061 [List Bullet] Diseñado para continuidad offline controlada.
+P1062 [Heading 3] Verificación del resultado
+P1063 [List Bullet] Node reporta plan_snapshot/lease y servidor puede detectar mismatch.
+P1064 [Heading 3] Errores, fallback y logs
+P1065 [List Bullet] ENTITLEMENT_MISMATCH genera alerta.
+P1066 [List Bullet] Grace comercial separado de lease técnico.
+P1067 [Heading 3] Configuración del usuario
+P1068 [List Bullet] Mostrar features incluidas, consumo y límites; no permitir toggle de feature no incluida.
+P1069 [Heading 3] Visibilidad en Admin
+P1070 [List Bullet] Entitlement por cuenta/node, leases, expiraciones, mismatches.
+P1071 [Heading 3] Criterios de aceptación
+P1072 [Normal] ✓ Cambiar plan impacta sin deploy.
+P1073 [Normal] ✓ Manipular cliente no habilita premium.
+P1074 [Normal] ✓ Offline degrada al expirar lease.
+P1075 [Heading 2] D3. Device Registry y sesiones
+T41 BEGIN
+T41R01 | Objetivo | Administrar dónde está activa cada cuenta y qué capacidades tiene cada dispositivo.
+T41R02 | Experiencia | Admin puede ver PC, móviles y sesiones web, nombre del dispositivo, OS, versión, última conexión, estado y ciudad aproximada.
+T41R03 | Feature key | admin.devices, desktop.node, mobile.node
+T41 END
+
+P1078 [Heading 3] Cómo debe funcionar
+P1079 [Normal] 1. Registrar node tras autenticación fuerte.
+P1080 [Normal] 2. Asignar node_id y credencial rotatoria.
+P1081 [Normal] 3. Recibir capabilities, protocol_version, app_version y heartbeat.
+P1082 [Normal] 4. Calcular approx_city/region desde fuente permitida y marcarla como estimada.
+P1083 [Normal] 5. Mostrar sesiones activas y last_seen.
+P1084 [Normal] 6. Permitir rename, revoke, cerrar sesión y key rotation.
+P1085 [Normal] 7. Aplicar límite de nodes por plan.
+P1086 [Heading 3] Permisos, membresía y seguridad
+P1087 [List Bullet] No mostrar GPS exacto por defecto.
+P1088 [List Bullet] Revocación invalida credenciales/leases.
+P1089 [Heading 3] Online / offline
+P1090 [List Bullet] Node conserva estado local, pero revocación se aplica en cuanto recupera conexión; leases limitan ventana offline.
+P1091 [Heading 3] Verificación del resultado
+P1092 [List Bullet] Heartbeat confirma estado; revoked node no acepta nuevos comandos.
+P1093 [Heading 3] Errores, fallback y logs
+P1094 [List Bullet] Nuevo dispositivo/ciudad anómala puede disparar alerta.
+P1095 [Heading 3] Configuración del usuario
+P1096 [List Bullet] Nombre del dispositivo, confianza, permisos locales; usuario puede ver sus devices.
+P1097 [Heading 3] Visibilidad en Admin
+P1098 [List Bullet] Devices, sessions, city estimate, capabilities, version, lease, state.
+P1099 [Heading 3] Criterios de aceptación
+P1100 [Normal] ✓ Admin puede revocar.
+P1101 [Normal] ✓ Límite de devices respetado.
+P1102 [Normal] ✓ OFFLINE/SYNCING reflejan heartbeats reales.
+P1103 [Heading 2] D4. Admin Accounts & Subscription Console
+T42 BEGIN
+T42R01 | Objetivo | Permitir administración operacional y comercial de cuentas sin tocar base de datos manualmente.
+T42R02 | Experiencia | Admin busca un usuario y ve identidad, plan, subscription, entitlements, dispositivos, sesiones, consumo y eventos relevantes.
+T42R03 | Feature key | admin.accounts
+T42 END
+
+P1106 [Heading 3] Cómo debe funcionar
+P1107 [Normal] 1. Buscar/filtrar cuentas.
+P1108 [Normal] 2. Mostrar resumen con datos mínimos necesarios.
+P1109 [Normal] 3. Permitir acciones autorizadas: plan, add-on, grace, revoke device/session, reset controlado.
+P1110 [Normal] 4. Requerir reason y/o reauth para acciones sensibles.
+P1111 [Normal] 5. Generar audit log de cada cambio.
+P1112 [Normal] 6. Refrescar entitlement después de cambios comerciales.
+P1113 [Heading 3] Permisos, membresía y seguridad
+P1114 [List Bullet] RBAC Admin.
+P1115 [List Bullet] 2FA/reautenticación.
+P1116 [List Bullet] No exponer secretos/tokens.
+P1117 [Heading 3] Online / offline
+P1118 [List Bullet] Es cloud/admin; acciones sobre nodes se aplican al reconectar si no están online.
+P1119 [Heading 3] Verificación del resultado
+P1120 [List Bullet] Después de cambios, reconsultar estado efectivo.
+P1121 [Heading 3] Errores, fallback y logs
+P1122 [List Bullet] Si un cambio falla parcialmente, mostrarlo y no ocultarlo como éxito.
+P1123 [Heading 3] Configuración del usuario
+P1124 [List Bullet] Solo configuración administrativa por rol.
+P1125 [Heading 3] Visibilidad en Admin
+P1126 [List Bullet] Audit trail completo, actor, reason, before/after.
+P1127 [Heading 3] Criterios de aceptación
+P1128 [Normal] ✓ Toda modificación sensible es auditable.
+P1129 [Normal] ✓ No hay ediciones directas de DB desde UI.
+P1130 [Heading 2] D5. Admin Operations Center
+T43 BEGIN
+T43R01 | Objetivo | Dar una vista única de salud técnica, nodos, ejecuciones, colas, billing e integraciones.
+T43R02 | Experiencia | El administrador puede responder “qué falló, cuándo, a quién afectó y si ya se recuperó” sin entrar al servidor.
+T43R03 | Feature key | admin.operations
+T43 END
+
+P1133 [Heading 3] Cómo debe funcionar
+P1134 [Normal] 1. Agregar health de Brain, DB, queue, scheduler, models, integrations, billing, web y nodes.
+P1135 [Normal] 2. Mostrar Live Nodes con ONLINE/DEGRADED/OFFLINE/SYNCING.
+P1136 [Normal] 3. Mostrar Executions por trace/task/skill/user hash/node.
+P1137 [Normal] 4. Agrupar errores por fingerprint en Incidents.
+P1138 [Normal] 5. Exponer queues/DLQ/stalled jobs.
+P1139 [Normal] 6. Mostrar release health por Web/Desktop/Mobile.
+P1140 [Heading 3] Permisos, membresía y seguridad
+P1141 [List Bullet] Acceso Admin restringido.
+P1142 [List Bullet] PII redacted por defecto; drill-down justificado.
+P1143 [Heading 3] Online / offline
+P1144 [List Bullet] Cloud-first; Desktop puede conservar logs locales hasta sincronizar.
+P1145 [Heading 3] Verificación del resultado
+P1146 [List Bullet] Health checks tienen timestamp y source.
+P1147 [Heading 3] Errores, fallback y logs
+P1148 [List Bullet] Dashboard no se rompe si una fuente de observabilidad está caída; muestra “unknown”.
+P1149 [Heading 3] Configuración del usuario
+P1150 [List Bullet] Filtros, ventanas de tiempo, severidad, entorno, notificaciones.
+P1151 [Heading 3] Visibilidad en Admin
+P1152 [List Bullet] Es la propia función Admin.
+P1153 [Heading 3] Criterios de aceptación
+P1154 [Normal] ✓ Un incidente puede reconstruirse desde trace.
+P1155 [Normal] ✓ Nodes desconectados se detectan por heartbeat.
+P1156 [Normal] ✓ Cola stalled es visible.
+P1157 [Heading 2] D6. Logs, traces y auditoría
+T44 BEGIN
+T44R01 | Objetivo | Registrar eventos estructurados suficientes para diagnóstico, seguridad y medición sin filtrar información sensible.
+T44R02 | Experiencia | Los logs son principalmente para Admin/soporte; el usuario recibe mensajes comprensibles, no stack traces.
+T44R03 | Feature key | core.observability
+T44 END
+
+P1160 [Heading 3] Cómo debe funcionar
+P1161 [Normal] 1. Generar trace_id al inicio de cada interacción/acción.
+P1162 [Normal] 2. Propagar trace_id y span_id por Web/Brain/Node/Skill/Provider/Verifier.
+P1163 [Normal] 3. Registrar eventos JSON con severidad, duración, status, error_code/fingerprint y metadata redacted.
+P1164 [Normal] 4. Separar audit logs de acciones sensibles de logs operacionales.
+P1165 [Normal] 5. Aplicar retención, exportación de incidente y control de acceso.
+P1166 [Heading 3] Permisos, membresía y seguridad
+P1167 [List Bullet] Redactar tokens, passwords, payloads privados y contenido sensible.
+P1168 [List Bullet] Hash/seudonimizar user/session cuando sea suficiente.
+P1169 [Heading 3] Online / offline
+P1170 [List Bullet] Node mantiene buffer local cifrado y sincroniza logs permitidos.
+P1171 [Heading 3] Verificación del resultado
+P1172 [List Bullet] evidence_ref enlaza a evidencia sin meterla completa en log.
+P1173 [Heading 3] Errores, fallback y logs
+P1174 [List Bullet] Si logging falla, no bloquear necesariamente la acción de bajo riesgo, pero generar health degradation; acciones críticas pueden requerir audit disponible según policy.
+P1175 [Heading 3] Configuración del usuario
+P1176 [List Bullet] Usuario final no configura logs; Admin define retención/diagnóstico.
+P1177 [Heading 3] Visibilidad en Admin
+P1178 [List Bullet] Search por trace_id, service, node, skill, severity, error fingerprint.
+P1179 [Heading 3] Criterios de aceptación
+P1180 [Normal] ✓ Un trace cruza todos los servicios implicados.
+P1181 [Normal] ✓ No aparecen secretos en export de incidente.
+P1182 [Heading 2] D7. Incidentes, alertas y desconexiones
+T45 BEGIN
+T45R01 | Objetivo | Detectar, correlacionar y notificar fallos técnicos o comerciales relevantes.
+T45R02 | Experiencia | Admin recibe alertas claras como “WhatsApp desconectado” o “PC principal offline”, con impacto, causa, fallback y acción sugerida.
+T45R03 | Feature key | admin.operations
+T45 END
+
+P1185 [Heading 3] Cómo debe funcionar
+P1186 [Normal] 1. Ingerir health/log events.
+P1187 [Normal] 2. Correlacionar por fingerprint/root cause.
+P1188 [Normal] 3. Crear/actualizar incident con severity e impacto.
+P1189 [Normal] 4. Deduplicar cascadas; una caída de Internet no crea 20 incidentes secundarios.
+P1190 [Normal] 5. Notificar por canales configurados.
+P1191 [Normal] 6. Al recuperarse, cerrar como RECOVERED y resumir duración/tareas afectadas.
+P1192 [Heading 3] Permisos, membresía y seguridad
+P1193 [List Bullet] No incluir contenido privado en alertas.
+P1194 [List Bullet] CRITICAL puede ignorar quiet hours según policy.
+P1195 [Heading 3] Online / offline
+P1196 [List Bullet] Nodes pueden generar alertas locales y sincronizarlas luego.
+P1197 [Heading 3] Verificación del resultado
+P1198 [List Bullet] Recovery requiere health check real, no solo timeout terminado.
+P1199 [Heading 3] Errores, fallback y logs
+P1200 [List Bullet] Códigos mínimos: NODE_OFFLINE, PROVIDER_UNAVAILABLE, INTEGRATION_DISCONNECTED, SKILL_FAILED, VERIFICATION_FAILED, QUEUE_STALLED, BILLING_WEBHOOK_FAILED, ENTITLEMENT_MISMATCH, DB_CORE_UNHEALTHY, RECOVERED.
+P1201 [Heading 3] Configuración del usuario
+P1202 [List Bullet] Admin: canales, silencios, thresholds, escalamiento.
+P1203 [Heading 3] Visibilidad en Admin
+P1204 [List Bullet] Incidents list, timeline, affected tasks/nodes, recovery, MTTR.
+P1205 [Heading 3] Criterios de aceptación
+P1206 [Normal] ✓ Una cascada genera incidente raíz.
+P1207 [Normal] ✓ RECOVERED llega una vez.
+P1208 [Normal] ✓ Botón reconectar/silenciar funciona si aplica.
+P1209 [Heading 2] D8. Feature Flags, releases y rollback
+T46 BEGIN
+T46R01 | Objetivo | Introducir funciones gradualmente y poder revertir sin romper Gunter actual.
+T46R02 | Experiencia | Una feature puede estar off, admin_only, canary u on; Desktop/Mobile reportan versiones y compatibilidad.
+T46R03 | Feature key | admin.releases
+T46 END
+
+P1212 [Heading 3] Cómo debe funcionar
+P1213 [Normal] 1. Registrar flag por capability.
+P1214 [Normal] 2. Activar primero en desarrollo/admin.
+P1215 [Normal] 3. Canary por porcentaje/cuentas/nodes.
+P1216 [Normal] 4. Medir error rate, crashes, verification failures y UX regressions.
+P1217 [Normal] 5. Promover gradualmente si cumple gates.
+P1218 [Normal] 6. Rollback inmediato si cruza thresholds.
+P1219 [Normal] 7. Mantener compatibilidad expand-and-contract en DB/protocol.
+P1220 [Heading 3] Permisos, membresía y seguridad
+P1221 [List Bullet] Solo roles autorizados pueden cambiar rollout.
+P1222 [List Bullet] No usar flags para saltarse Policy/Entitlement.
+P1223 [Heading 3] Online / offline
+P1224 [List Bullet] Nodes cachean flags relevantes con expiración; cambios críticos se aplican al reconectar.
+P1225 [Heading 3] Verificación del resultado
+P1226 [List Bullet] Release health compara before/after.
+P1227 [Heading 3] Errores, fallback y logs
+P1228 [List Bullet] Auto-pause rollout ante crash/error spike configurable.
+P1229 [Heading 3] Configuración del usuario
+P1230 [List Bullet] No visible al usuario salvo beta program.
+P1231 [Heading 3] Visibilidad en Admin
+P1232 [List Bullet] Versiones, crash rate, rollout, protocol compatibility, rollback candidates.
+P1233 [Heading 3] Criterios de aceptación
+P1234 [Normal] ✓ Feature nueva inicia OFF/admin_only.
+P1235 [Normal] ✓ Rollback probado.
+P1236 [Normal] ✓ Cliente antiguo no se rompe por schema nuevo.
+P1238 [Heading 1] E. Integridad, seguridad y calidad
+P1239 [Heading 2] E1. Seguridad y privacidad transversal
+T47 BEGIN
+T47R01 | Objetivo | Aplicar mínimo privilegio, protección de datos y defensas contra abuso en todas las funciones.
+T47R02 | Experiencia | El usuario conserva control sobre micrófono, cámara, pantalla, ubicación, memoria y acciones externas; Admin tiene trazabilidad sin invadir contenido innecesario.
+T47R03 | Feature key | security.core
+T47 END
+
+P1242 [Heading 3] Cómo debe funcionar
+P1243 [Normal] 1. Clasificar sensibilidad de datos y riesgo de acción.
+P1244 [Normal] 2. Aplicar autenticación, scopes y Policy.
+P1245 [Normal] 3. Cifrar secretos/memoria sensible en reposo y tránsito.
+P1246 [Normal] 4. Redactar observabilidad.
+P1247 [Normal] 5. Detectar prompt injection de documentos/web y aislar instrucciones no confiables.
+P1248 [Normal] 6. Requerir reautenticación/confirmación reforzada donde corresponda.
+P1249 [Normal] 7. Revisar seguridad en Definition of Done de cada capability.
+P1250 [Heading 3] Permisos, membresía y seguridad
+P1251 [List Bullet] Mínimo privilegio.
+P1252 [List Bullet] 2FA para Admin sensible.
+P1253 [List Bullet] Credenciales por node rotables/revocables.
+P1254 [List Bullet] Rate limits/cuotas.
+P1255 [Heading 3] Online / offline
+P1256 [List Bullet] Offline usa secretos/leases almacenados de forma segura y con expiración.
+P1257 [Heading 3] Verificación del resultado
+P1258 [List Bullet] Security events tienen audit trail.
+P1259 [Heading 3] Errores, fallback y logs
+P1260 [List Bullet] Ante duda de policy, fallar de forma conservadora.
+P1261 [List Bullet] Compromiso de node permite remote revoke.
+P1262 [Heading 3] Configuración del usuario
+P1263 [List Bullet] Privacidad por feature, retención, “never cloud”, sensores.
+P1264 [Heading 3] Visibilidad en Admin
+P1265 [List Bullet] Security incidents, auth failures, policy denials, key rotations.
+P1266 [Heading 3] Criterios de aceptación
+P1267 [Normal] ✓ Prompt de documento no puede elevar permisos.
+P1268 [Normal] ✓ Logs no exponen secretos.
+P1269 [Normal] ✓ Sensores muestran indicador/consentimiento.
+P1270 [Heading 2] E2. QA, pruebas y Definition of Done
+T48 BEGIN
+T48R01 | Objetivo | Evitar que nuevas capacidades degraden el Gunter existente y convertir requisitos funcionales en pruebas repetibles.
+T48R02 | Experiencia | Cada función llega a usuario solo después de pasar contratos, pruebas, seguridad, observabilidad y rollback.
+T48R03 | Feature key | quality.gate
+T48 END
+
+P1273 [Heading 3] Cómo debe funcionar
+P1274 [Normal] 1. Definir schema/API antes de implementar.
+P1275 [Normal] 2. Agregar unit tests de lógica.
+P1276 [Normal] 3. Contract tests de schemas/protocols.
+P1277 [Normal] 4. Integration tests con adapters/nodes.
+P1278 [Normal] 5. UI/regression sobre superficies existentes.
+P1279 [Normal] 6. Pruebas de permisos, entitlement y offline.
+P1280 [Normal] 7. Pruebas de errores/fallback/verification.
+P1281 [Normal] 8. Canary y monitoreo post-release.
+P1282 [Heading 3] Permisos, membresía y seguridad
+P1283 [List Bullet] Security review proporcional al riesgo.
+P1284 [List Bullet] Test data no contiene secretos reales.
+P1285 [Heading 3] Online / offline
+P1286 [List Bullet] Probar ONLINE, DEGRADED, OFFLINE y SYNCING cuando aplique.
+P1287 [Heading 3] Verificación del resultado
+P1288 [List Bullet] Cada criterio de aceptación se traduce a test manual/automatizado.
+P1289 [Heading 3] Errores, fallback y logs
+P1290 [List Bullet] Un test inestable no se ignora: se corrige o se documenta su reemplazo.
+P1291 [Heading 3] Configuración del usuario
+P1292 [List Bullet] No es setting de usuario.
+P1293 [Heading 3] Visibilidad en Admin
+P1294 [List Bullet] CI results, coverage útil, regression failures, canary health.
+P1295 [Heading 3] Criterios de aceptación
+P1296 [Normal] ✓ Una nueva feature tiene contrato, UX, setting si aplica, entitlement, permission, node matrix, offline behavior, verify, logs, tests, security y rollback.
+P1298 [Heading 1] F. Matrices de comportamiento obligatorio
+P1299 [Normal] Estas matrices resumen reglas transversales que todas las funciones deben respetar.
+P1300 [Heading 2] F1. Matriz de acción por nivel de riesgo
+T49 BEGIN
+T49R01 | Tipo de acción | Ejemplos | Autonomía típica | Confirmación | Verificación
+T49R02 | Lectura local | hora, estado, buscar archivo | L4 | No | Fuente/estado
+T49R03 | Acción local reversible | play/pause, abrir app | L4 configurable | No o política | Estado posterior
+T49R04 | Cambio local de datos | mover/renombrar archivo | L3-L4 | Según alcance | Path/hash
+T49R05 | Comunicación externa | enviar correo/mensaje | L3 | Sí por defecto | Aceptación del canal
+T49R06 | Cambio de calendario | crear/modificar evento | L3-L4 | Configurable | Reconsulta ID
+T49R07 | Destructiva/seguridad | borrar, permisos, credenciales | L0-L3 | Reforzada | Estado + audit
+T49R08 | Financiera | compras/pagos | L0-L2 | Siempre humana | Proveedor + reconcile
+T49 END
+
+P1303 [Heading 2] F2. Matriz mínima Web / Desktop / Mobile
+T50 BEGIN
+T50R01 | Capacidad | Web | Desktop | Android | iOS
+T50R02 | Chat / memoria | Sí | Sí | Sí | Sí
+T50R03 | Control PC | Coordina | Ejecuta | Remoto | Remoto
+T50R04 | Media móvil | Coordina | No | Según sesión/API | Según intents/API
+T50R05 | Mensajería móvil | Coordina | No | Canal compatible | Canal compatible
+T50R06 | Pantalla | Web propia | Sí con permiso | Sesión autorizada | Sesión autorizada
+T50R07 | IA local | Limitada navegador | Sí según hardware | Según hardware | Según hardware
+T50R08 | Offline | Cache/PWA limitada | Amplio | Medio/según OS | Más restringido por OS
+T50R09 | Scheduler | Servidor | Local | Local permitido | Local permitido
+T50 END
+
+P1306 [Heading 2] F3. Estados y respuesta esperada
+T51 BEGIN
+T51R01 | ONLINE | Ejecutar con routing normal. No informar estado salvo que aporte valor.
+T51R02 | DEGRADED | Usar fallback. Informar solo si cambia calidad/capacidad o bloquea una acción.
+T51R03 | OFFLINE | Mantener funciones locales; acciones externas se preparan/encolan según policy. Mostrar indicador claro pero no alarmista.
+T51R04 | SYNCING | Reconciliar antes de repetir acciones. Mostrar pendientes solo cuando requieran intervención.
+T51R05 | SUSPENDED | Conservar datos; bloquear/degradar premium según entitlement. Ofrecer regularización, no borrar memoria.
+T51R06 | REVOKED | Node no ejecuta nuevos comandos; usuario/Admin debe volver a autorizar para reutilizarlo.
+T51 END
+
+P1309 [Heading 2] F4. Ejemplos end-to-end
+P1310 [Normal] “Gunter, siguiente canción” Context Gateway → Brain → mobile.media.next → Policy L4 → Mobile Node → Media API → Verify playback → respuesta + trace.
+P1311 [Normal] “Envía mensaje a Diego: llego en 10 minutos” Resolver contacto → mobile.messaging → Policy L3 → confirmación → canal compatible → verify aceptación → registrar task_run.
+P1312 [Normal] “Abre el último archivo de Propiedad Horizontal en el PC” Cortex/Files search → elegir Desktop Node → open file/app → confirmar ventana/documento → evidence.
+P1313 [Normal] “Recuérdame esto mañana a las 9” Resolver tiempo local → tasks.create → scheduler local/cloud → verify task → Attention al vencer.
+P1314 [Normal] “Quiero cerrar esta propuesta esta semana” Crear Mission → subgoals → commitments/tasks → seguimiento por Event Bus → Attention → cierre por success criteria.
+P1315 [Normal] Internet se cae durante una orden Connection Manager OFFLINE → mantener pasos locales → outbox de externos → volver SYNCING → reconcile → ejecutar o reconfirmar → RECOVERED.
+P1317 [Heading 1] G. Orden funcional de implementación
+P1318 [Normal] Este documento describe el estado objetivo. Para incorporarlo sin romper el Gunter actual, las capacidades deben entrar en el siguiente orden:
+P1319 [Normal] 01 1. Baseline y observabilidad — Feature flags, contracts, trace_id, health, Admin Operations, incident engine.
+P1320 [Normal] 02 2. Membresía y licenciamiento — Plans, subscriptions, recurring billing, entitlements, leases.
+P1321 [Normal] 03 3. Nodes y protocolo — Device Registry, heartbeat, capabilities, command/event channel, revoke.
+P1322 [Normal] 04 4. Core común — Context Gateway, Brain Core, Skill Registry, Policy, Verification; migrar tareas/calendario actuales.
+P1323 [Normal] 05 5. Voz y Model Router — Streaming, VAD, barge-in, local/cloud routing.
+P1324 [Normal] 06 6. Desktop Runtime — Apps, files, screen, scheduler/outbox, local AI básico.
+P1325 [Normal] 07 7. Mobile Runtime — Media, mensajes, deep links, reminders, sensores y permisos.
+P1326 [Normal] 08 8. Offline AI + Sync — STT/TTS/LLM/embeddings locales, conflict resolution.
+P1327 [Normal] 09 9. Cortex + Knowledge Graph — Memoria por capas, personal search, relationships, decisions.
+P1328 [Normal] 10 10. Missions + Procedures + Attention — Objetivos persistentes, compromisos, aprendizaje de procesos, briefings.
+P1329 [Normal] 11 11. Evolution Engine — Capability gap, Skill Forge, sandbox, evals, canary, approval y rollback.
+T52 BEGIN
+T52R01 | REGLA DE CIERRE No iniciar control real de PC/Mobile o automejora antes de que contratos, trazabilidad, policy, entitlement y verification estén operativos. Cada función nueva entra con feature flag y rollback.
+T52 END
+
+P1332 [Heading 2] Definition of Done universal
+P1333 [Normal] ✓ Contrato/schema y versión definidos.
+P1334 [Normal] ✓ Integración en superficie actual o justificación de una vista nueva.
+P1335 [Normal] ✓ Feature key, entitlement y comportamiento cuando el plan no incluye la función.
+P1336 [Normal] ✓ Permisos/scopes, autonomía máxima y confirm policy.
+P1337 [Normal] ✓ Matriz Web/Desktop/Android/iOS y capability probing.
+P1338 [Normal] ✓ Comportamiento ONLINE/DEGRADED/OFFLINE/SYNCING documentado.
+P1339 [Normal] ✓ Execution + Verification o limitación explícita.
+P1340 [Normal] ✓ Logs, métricas, trace_id e incident/alert si aplica.
+P1341 [Normal] ✓ Unit + contract + integration + regression tests.
+P1342 [Normal] ✓ Revisión de seguridad y privacidad.
+P1343 [Normal] ✓ Feature flag, canary y rollback probados.
+P1344 [Heading 1] Resultado esperado
+P1345 [Normal] Cuando estas especificaciones estén implementadas, Gunter deberá comportarse como un único asistente distribuido: conversa, recuerda, planifica, ejecuta, verifica, aprende y coordina Web, PC y móvil; continúa con capacidades locales sin Internet; recupera capacidades cloud al conectarse; respeta membresías, permisos y límites; y permite que Admin reconstruya cualquier fallo o desconexión desde logs e incidentes. La mejora de su propio sistema ocurre únicamente mediante laboratorio, pruebas, canary, aprobación y rollback.

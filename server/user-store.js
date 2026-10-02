@@ -21,8 +21,9 @@ const path = require('path');
 const ctx = require('./user-context');
 
 const ROOT = path.join(__dirname, '..');
-const DATA_DIR = path.join(ROOT, 'data');
+const DATA_DIR = path.resolve(process.env.GUNTER_DATA_DIR || path.join(ROOT, 'data'));
 const USERS_DIR = path.join(DATA_DIR, 'users');
+const WHATSAPP_DATA_DIR = path.resolve(process.env.GUNTER_WHATSAPP_DATA_DIR || path.join(ROOT, 'whatsapp-data'));
 
 // Archivos legacy globales → nombre dentro de la carpeta del usuario
 const LEGACY_FILES = {
@@ -35,13 +36,13 @@ const LEGACY_FILES = {
     'tutor-notes.json':        path.join(DATA_DIR, 'tutor-notes.json'),
     'tutor-sessions.json':     path.join(DATA_DIR, 'tutor-sessions.json'),
     // WhatsApp — los archivos legacy globales pasan al dueño (su teléfono era el único)
-    'wa-memory.json':          path.join(ROOT, 'whatsapp-data', 'memory.json'),
-    'wa-messages.json':        path.join(ROOT, 'whatsapp-data', 'messages.json'),
-    'wa-sync-queue.json':      path.join(ROOT, 'whatsapp-data', 'sync-queue.json'),
-    'wa-personality.json':     path.join(ROOT, 'whatsapp-data', 'personality.json'),
-    'wa-state-mirror.json':    path.join(ROOT, 'whatsapp-data', 'state-mirror.json')
+    'wa-memory.json':          path.join(WHATSAPP_DATA_DIR, 'memory.json'),
+    'wa-messages.json':        path.join(WHATSAPP_DATA_DIR, 'messages.json'),
+    'wa-sync-queue.json':      path.join(WHATSAPP_DATA_DIR, 'sync-queue.json'),
+    'wa-personality.json':     path.join(WHATSAPP_DATA_DIR, 'personality.json'),
+    'wa-state-mirror.json':    path.join(WHATSAPP_DATA_DIR, 'state-mirror.json')
 };
-const LEGACY_KNOWLEDGE_DIR = path.join(ROOT, 'whatsapp-data', 'knowledge');
+const LEGACY_KNOWLEDGE_DIR = path.join(WHATSAPP_DATA_DIR, 'knowledge');
 
 function _sanitize(uid) {
     // ids internos: u_<hex> | _local — nunca path traversal

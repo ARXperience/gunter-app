@@ -1,0 +1,567 @@
+- generic [active] [ref=f4e1]:
+  - generic: GUNTER
+  - main [ref=f4e2]:
+    - navigation "Navegación principal de Gunter" [ref=f4e3]:
+      - link "Gunter, centro de comando" [ref=f4e4] [cursor=pointer]:
+        - /url: day.html
+        - generic [ref=f4e6]: GUNTER
+        - generic [ref=f4e7]: COMMAND OS
+      - generic [ref=f4e8]:
+        - link "01 Día" [ref=f4e9] [cursor=pointer]:
+          - /url: day.html
+          - generic [ref=f4e10]: "01"
+          - text: Día
+        - link "02 Reuniones" [ref=f4e11] [cursor=pointer]:
+          - /url: dashboard.html
+          - generic [ref=f4e12]: "02"
+          - text: Reuniones
+        - link "03 Nueva" [ref=f4e13] [cursor=pointer]:
+          - /url: new-project.html
+          - generic [ref=f4e14]: "03"
+          - text: Nueva
+        - link "04 Configurar" [ref=f4e15] [cursor=pointer]:
+          - /url: config.html#premium
+          - generic [ref=f4e16]: "04"
+          - text: Configurar
+      - generic [ref=f4e17]: En línea
+    - generic "Flujo actual" [ref=f4e19]:
+      - generic [ref=f4e20]:
+        - generic [ref=f4e21]: "01"
+        - text: Asistente IA
+      - generic [ref=f4e23]:
+        - generic [ref=f4e24]: "02"
+        - text: Preferencias
+      - generic [ref=f4e26]:
+        - generic [ref=f4e27]: "03"
+        - text: Datos
+    - generic [ref=f4e28]:
+      - text: ◈
+      - link "Volver al Dashboard" [ref=f4e29] [cursor=pointer]:
+        - /url: dashboard.html
+      - heading "Asistente IA" [level=1] [ref=f4e32]
+      - paragraph [ref=f4e33]: Configura cómo Gunter piensa, escucha, recuerda y se anticipa.
+    - tablist "Secciones de configuración" [ref=f4e34]:
+      - tab "◉ Asistente IA" [ref=f4e35] [cursor=pointer]
+      - tab "◇ Preferencias" [ref=f4e36] [cursor=pointer]
+      - tab "⌁ Datos y conexiones" [ref=f4e37] [cursor=pointer]
+      - tab "× Papelera" [ref=f4e38] [cursor=pointer]
+    - generic [ref=f4e40]:
+      - generic [ref=f4e41]:
+        - text: ◈
+        - generic [ref=f4e42]: ✨
+        - generic [ref=f4e43]:
+          - heading "Funciones Premium de Gunter" [level=3] [ref=f4e44]
+          - paragraph [ref=f4e45]: Activa módulos avanzados según lo que necesites. Todo se guarda localmente. Las funciones que requieren cuenta externa muestran instrucciones al activarse.
+        - generic [ref=f4e46]:
+          - button "Restablecer" [ref=f4e47] [cursor=pointer]
+          - button "Exportar" [ref=f4e48] [cursor=pointer]
+      - generic [ref=f4e49]:
+        - generic [ref=f4e50]:
+          - heading "📡 Estado actual de Gunter" [level=4] [ref=f4e51]
+          - paragraph [ref=f4e52]: Vista en tiempo real de qué está activo. Se actualiza solo al activar/desactivar una función.
+        - heading "🔌 Servicios e integraciones" [level=5] [ref=f4e53]
+        - generic [ref=f4e55]:
+          - generic [ref=f4e56]:
+            - generic [ref=f4e57]: 🗣️
+            - generic [ref=f4e58]:
+              - generic [ref=f4e59]: Voz
+              - generic [ref=f4e60]: Desactivada
+          - generic [ref=f4e61]:
+            - generic [ref=f4e62]: 🎙️
+            - generic [ref=f4e63]:
+              - generic [ref=f4e64]: Wake Word
+              - generic [ref=f4e65]: Desactivado
+          - generic [ref=f4e66]:
+            - generic [ref=f4e67]: 💬
+            - generic [ref=f4e68]:
+              - generic [ref=f4e69]: WhatsApp
+              - generic [ref=f4e70]: Sin asistente
+          - generic [ref=f4e71]:
+            - generic [ref=f4e72]: 📅
+            - generic [ref=f4e73]:
+              - generic [ref=f4e74]: Google Calendar
+              - generic [ref=f4e75]: Desconectado
+          - generic [ref=f4e76]:
+            - generic [ref=f4e77]: 🧠
+            - generic [ref=f4e78]:
+              - generic [ref=f4e79]: Memoria proyectos
+              - generic [ref=f4e80]: No configurada
+          - generic [ref=f4e81]:
+            - generic [ref=f4e82]: ✨
+            - generic [ref=f4e83]:
+              - generic [ref=f4e84]: Premium activas
+              - generic [ref=f4e85]: 0 funciónes
+          - generic [ref=f4e86]:
+            - generic [ref=f4e87]: 📦
+            - generic [ref=f4e88]:
+              - generic [ref=f4e89]: Almacenamiento
+              - generic [ref=f4e90]: OK (0%)
+          - generic [ref=f4e91]:
+            - generic [ref=f4e92]: 🎭
+            - generic [ref=f4e93]:
+              - generic [ref=f4e94]: Personalidad
+              - generic [ref=f4e95]: Default
+          - generic [ref=f4e96]:
+            - generic [ref=f4e97]: 🔊
+            - generic [ref=f4e98]:
+              - generic [ref=f4e99]: Modo de voz
+              - generic [ref=f4e100]: Solo texto
+        - generic [ref=f4e101]:
+          - heading "⚙️ Funciones base 0 / 9 activas" [level=5] [ref=f4e102]:
+            - generic [ref=f4e103]: ⚙️ Funciones base
+            - generic [ref=f4e104]: 0 / 9 activas
+          - generic [ref=f4e105]:
+            - generic "Panel de productividad avanzada" [ref=f4e106]:
+              - generic [ref=f4e107]: 📊
+              - generic [ref=f4e108]:
+                - generic [ref=f4e109]: Panel de productividad avanzada
+                - generic [ref=f4e110]:
+                  - text: Inactiva
+                  - generic [ref=f4e111]: 0/5 subs
+            - generic "Memoria total de reuniones" [ref=f4e112]:
+              - generic [ref=f4e113]: 🧠
+              - generic [ref=f4e114]:
+                - generic [ref=f4e115]: Memoria total de reuniones
+                - generic [ref=f4e116]:
+                  - text: Inactiva
+                  - generic [ref=f4e117]: 0/3 subs
+            - generic "Gestión inteligente de documentos" [ref=f4e118]:
+              - generic [ref=f4e119]: 📄
+              - generic [ref=f4e120]:
+                - generic [ref=f4e121]: Gestión inteligente de documentos
+                - generic [ref=f4e122]:
+                  - text: Inactiva
+                  - generic [ref=f4e123]: 0/5 subs
+            - generic "Google Calendar" [ref=f4e124]:
+              - generic [ref=f4e125]: 🗓️
+              - generic [ref=f4e126]:
+                - generic [ref=f4e127]: Google Calendar
+                - generic [ref=f4e128]:
+                  - text: Inactiva
+                  - generic [ref=f4e129]: 0/2 subs
+            - generic "WhatsApp Assistant" [ref=f4e130]:
+              - generic [ref=f4e131]: 💬
+              - generic [ref=f4e132]:
+                - generic [ref=f4e133]: WhatsApp Assistant
+                - generic [ref=f4e134]:
+                  - text: Inactiva
+                  - generic [ref=f4e135]: 0/3 subs
+            - generic "Notion / Google Drive" [ref=f4e136]:
+              - generic [ref=f4e137]: 📚
+              - generic [ref=f4e138]:
+                - generic [ref=f4e139]: Notion / Google Drive
+                - generic [ref=f4e140]:
+                  - text: Inactiva
+                  - generic [ref=f4e141]: 0/2 subs
+            - generic "Personalidad adaptativa de Gunter" [ref=f4e142]:
+              - generic [ref=f4e143]: 🎭
+              - generic [ref=f4e144]:
+                - generic [ref=f4e145]: Personalidad adaptativa de Gunter
+                - generic [ref=f4e146]: Inactiva
+            - generic "Voz humanizada de Gunter" [ref=f4e147]:
+              - generic [ref=f4e148]: 🗣️
+              - generic [ref=f4e149]:
+                - generic [ref=f4e150]: Voz humanizada de Gunter
+                - generic [ref=f4e151]: Inactiva
+            - generic "Activación por voz \"Hi Gunter\"" [ref=f4e152]:
+              - generic [ref=f4e153]: 🎙️
+              - generic [ref=f4e154]:
+                - generic [ref=f4e155]: Activación por voz "Hi Gunter"
+                - generic [ref=f4e156]: Inactiva
+        - generic [ref=f4e157]:
+          - heading "✨ Inteligencia premium 0 / 10 activas" [level=5] [ref=f4e158]:
+            - generic [ref=f4e159]: ✨ Inteligencia premium
+            - generic [ref=f4e160]: 0 / 10 activas
+          - generic [ref=f4e161]:
+            - generic "Planificador del día" [ref=f4e162]:
+              - generic [ref=f4e163]: 🌅
+              - generic [ref=f4e164]:
+                - generic [ref=f4e165]: Planificador del día
+                - generic [ref=f4e166]:
+                  - text: Inactiva
+                  - generic [ref=f4e167]: 0/3 subs
+            - generic "Organiza mi semana" [ref=f4e168]:
+              - generic [ref=f4e169]: 📅
+              - generic [ref=f4e170]:
+                - generic [ref=f4e171]: Organiza mi semana
+                - generic [ref=f4e172]:
+                  - text: Inactiva
+                  - generic [ref=f4e173]: 0/3 subs
+            - generic "Seguimiento automático de proyectos" [ref=f4e174]:
+              - generic [ref=f4e175]: 🎯
+              - generic [ref=f4e176]:
+                - generic [ref=f4e177]: Seguimiento automático de proyectos
+                - generic [ref=f4e178]:
+                  - text: Inactiva
+                  - generic [ref=f4e179]: 0/3 subs
+            - generic "Resumen ejecutivo por proyecto" [ref=f4e180]:
+              - generic [ref=f4e181]: 📊
+              - generic [ref=f4e182]:
+                - generic [ref=f4e183]: Resumen ejecutivo por proyecto
+                - generic [ref=f4e184]:
+                  - text: Inactiva
+                  - generic [ref=f4e185]: 0/3 subs
+            - generic "Follow-up inteligente después de reuniones" [ref=f4e186]:
+              - generic [ref=f4e187]: ✅
+              - generic [ref=f4e188]:
+                - generic [ref=f4e189]: Follow-up inteligente después de reuniones
+                - generic [ref=f4e190]:
+                  - text: Inactiva
+                  - generic [ref=f4e191]: 0/3 subs
+            - generic "Ranking de urgencia" [ref=f4e192]:
+              - generic [ref=f4e193]: 🔥
+              - generic [ref=f4e194]:
+                - generic [ref=f4e195]: Ranking de urgencia
+                - generic [ref=f4e196]:
+                  - text: Inactiva
+                  - generic [ref=f4e197]: 0/3 subs
+            - generic "Cliente / Proyecto 360" [ref=f4e198]:
+              - generic [ref=f4e199]: 🛰️
+              - generic [ref=f4e200]:
+                - generic [ref=f4e201]: Cliente / Proyecto 360
+                - generic [ref=f4e202]:
+                  - text: Inactiva
+                  - generic [ref=f4e203]: 0/5 subs
+            - generic "Centro de decisiones" [ref=f4e204]:
+              - generic [ref=f4e205]: 🧭
+              - generic [ref=f4e206]:
+                - generic [ref=f4e207]: Centro de decisiones
+                - generic [ref=f4e208]:
+                  - text: Inactiva
+                  - generic [ref=f4e209]: 0/3 subs
+            - generic "Alertas inteligentes por WhatsApp" [ref=f4e210]:
+              - generic [ref=f4e211]: 🔔
+              - generic [ref=f4e212]:
+                - generic [ref=f4e213]: Alertas inteligentes por WhatsApp
+                - generic [ref=f4e214]:
+                  - text: Inactiva
+                  - generic [ref=f4e215]: 0/3 subs
+            - generic "Modo delegación" [ref=f4e216]:
+              - generic [ref=f4e217]: 🤝
+              - generic [ref=f4e218]:
+                - generic [ref=f4e219]: Modo delegación
+                - generic [ref=f4e220]:
+                  - text: Inactiva
+                  - generic [ref=f4e221]: 0/3 subs
+        - generic [ref=f4e222]:
+          - heading "🧠 Funciones avanzadas (v2) 0 / 7 activas" [level=5] [ref=f4e223]:
+            - generic [ref=f4e224]: 🧠 Funciones avanzadas (v2)
+            - generic [ref=f4e225]: 0 / 7 activas
+          - generic [ref=f4e226]:
+            - generic "Memoria conversacional" [ref=f4e227]:
+              - generic [ref=f4e228]: 🧬
+              - generic [ref=f4e229]:
+                - generic [ref=f4e230]: Memoria conversacional
+                - generic [ref=f4e231]: Inactiva
+            - generic "Rastreador de compromisos" [ref=f4e232]:
+              - generic [ref=f4e233]: 📋
+              - generic [ref=f4e234]:
+                - generic [ref=f4e235]: Rastreador de compromisos
+                - generic [ref=f4e236]: Inactiva
+            - generic "Pulso proactivo" [ref=f4e237]:
+              - generic [ref=f4e238]: 🫀
+              - generic [ref=f4e239]:
+                - generic [ref=f4e240]: Pulso proactivo
+                - generic [ref=f4e241]: Inactiva
+            - generic "Clima de reunión" [ref=f4e242]:
+              - generic [ref=f4e243]: 🌡️
+              - generic [ref=f4e244]:
+                - generic [ref=f4e245]: Clima de reunión
+                - generic [ref=f4e246]: Inactiva
+            - generic "Modo espejo" [ref=f4e247]:
+              - generic [ref=f4e248]: 🪞
+              - generic [ref=f4e249]:
+                - generic [ref=f4e250]: Modo espejo
+                - generic [ref=f4e251]: Inactiva
+            - generic "Forecast de proyectos" [ref=f4e252]:
+              - generic [ref=f4e253]: 🔮
+              - generic [ref=f4e254]:
+                - generic [ref=f4e255]: Forecast de proyectos
+                - generic [ref=f4e256]: Inactiva
+            - generic "Modo tutor / sabio" [ref=f4e257]:
+              - generic [ref=f4e258]: 📚
+              - generic [ref=f4e259]:
+                - generic [ref=f4e260]: Modo tutor / sabio
+                - generic [ref=f4e261]: Inactiva
+      - generic [ref=f4e262]:
+        - heading "Tienes 0 funciónes premium activas" [level=4] [ref=f4e264]
+        - paragraph [ref=f4e265]: Activa funciones desde las tarjetas de abajo.
+      - generic [ref=f4e266]:
+        - generic [ref=f4e267]:
+          - generic [ref=f4e268]:
+            - generic [ref=f4e269]: 📊
+            - generic [ref=f4e270]:
+              - heading "Panel de productividad avanzada" [level=4] [ref=f4e271]
+              - paragraph [ref=f4e272]: Mide tu rendimiento con datos de tareas, tiempo trabajado, objetivos cumplidos y ROI del tiempo.
+            - switch "Activar" [ref=f4e273] [cursor=pointer]
+          - generic [ref=f4e274]:
+            - generic [ref=f4e275]: Inactivo
+            - button "Configurar" [ref=f4e276] [cursor=pointer]
+        - generic [ref=f4e277]:
+          - generic [ref=f4e278]:
+            - generic [ref=f4e279]: 🧠
+            - generic [ref=f4e280]:
+              - heading "Memoria total de reuniones" [level=4] [ref=f4e281]
+              - paragraph [ref=f4e282]: Busca en reuniones pasadas, recuerda decisiones y conecta conversaciones entre proyectos.
+            - switch "Activar" [ref=f4e283] [cursor=pointer]
+          - generic [ref=f4e284]:
+            - generic [ref=f4e285]: Inactivo
+            - button "Configurar" [ref=f4e286] [cursor=pointer]
+        - generic [ref=f4e287]:
+          - generic [ref=f4e288]:
+            - generic [ref=f4e289]: 📄
+            - generic [ref=f4e290]:
+              - heading "Gestión inteligente de documentos" [level=4] [ref=f4e291]
+              - paragraph [ref=f4e292]: Analiza recibos, contratos, facturas e imágenes para detectar vencimientos, valores y pagos.
+            - switch "Activar" [ref=f4e293] [cursor=pointer]
+          - generic [ref=f4e294]:
+            - generic [ref=f4e295]: Inactivo
+            - button "Configurar" [ref=f4e296] [cursor=pointer]
+        - generic [ref=f4e297]:
+          - generic [ref=f4e298]:
+            - generic [ref=f4e299]: 🗓️
+            - generic [ref=f4e300]:
+              - heading "Google Calendar" [level=4] [ref=f4e301]
+              - paragraph [ref=f4e302]: Crea, edita y recibe recordatorios automáticos en tu Google Calendar desde lenguaje natural.
+            - switch "Activar" [ref=f4e303] [cursor=pointer]
+          - generic [ref=f4e304]:
+            - generic [ref=f4e305]: Inactivo
+            - button "Configurar" [ref=f4e306] [cursor=pointer]
+        - generic [ref=f4e307]:
+          - generic [ref=f4e308]:
+            - generic [ref=f4e309]: 💬
+            - generic [ref=f4e310]:
+              - heading "WhatsApp Assistant" [level=4] [ref=f4e311]
+              - paragraph [ref=f4e312]: "Conversa con Gunter desde WhatsApp: crea tareas, agenda citas, recibe resúmenes y recordatorios."
+            - switch "Activar" [ref=f4e313] [cursor=pointer]
+          - generic [ref=f4e314]:
+            - generic [ref=f4e315]: Inactivo
+            - button "Configurar" [ref=f4e316] [cursor=pointer]
+        - generic [ref=f4e317]:
+          - generic [ref=f4e318]:
+            - generic [ref=f4e319]: 📚
+            - generic [ref=f4e320]:
+              - heading "Notion / Google Drive" [level=4] [ref=f4e321]
+              - paragraph [ref=f4e322]: Conecta documentos, notas y archivos como memoria de trabajo de Gunter.
+            - switch "Activar" [ref=f4e323] [cursor=pointer]
+          - generic [ref=f4e324]:
+            - generic [ref=f4e325]: Inactivo
+            - button "Configurar" [ref=f4e326] [cursor=pointer]
+        - generic [ref=f4e327]:
+          - generic [ref=f4e328]:
+            - generic [ref=f4e329]: 🎭
+            - generic [ref=f4e330]:
+              - heading "Personalidad adaptativa de Gunter" [level=4] [ref=f4e331]
+              - paragraph [ref=f4e332]: Gunter ajusta tono, estilo y comportamiento según el contexto.
+            - switch [ref=f4e333] [cursor=pointer]
+          - generic [ref=f4e334]:
+            - generic [ref=f4e335]: Inactivo
+            - button "Configurar" [ref=f4e336] [cursor=pointer]
+        - generic [ref=f4e337]:
+          - generic [ref=f4e338]:
+            - generic [ref=f4e339]: 🗣️
+            - generic [ref=f4e340]:
+              - heading "Voz humanizada de Gunter" [level=4] [ref=f4e341]
+              - paragraph [ref=f4e342]: Gunter habla con voz natural, expresiva y configurable — o responde solo por texto.
+            - switch [ref=f4e343] [cursor=pointer]
+          - generic [ref=f4e344]:
+            - generic [ref=f4e345]: Inactivo
+            - button "Configurar" [ref=f4e346] [cursor=pointer]
+        - generic [ref=f4e347]:
+          - generic [ref=f4e348]:
+            - generic [ref=f4e349]: 🎙️
+            - generic [ref=f4e350]:
+              - heading "Activación por voz \"Hi Gunter\"" [level=4] [ref=f4e351]
+              - paragraph [ref=f4e352]: Gunter te escucha cuando lo llamas y activa una conversación natural.
+            - switch [ref=f4e353] [cursor=pointer]
+          - generic [ref=f4e354]:
+            - generic [ref=f4e355]: Inactivo
+            - button "Configurar" [ref=f4e356] [cursor=pointer]
+        - generic [ref=f4e357]:
+          - generic [ref=f4e358]: ✨
+          - generic [ref=f4e359]:
+            - heading "Inteligencia Premium" [level=4] [ref=f4e360]
+            - paragraph [ref=f4e361]: Funciones que combinan tu memoria de proyectos con IA para planear, priorizar y delegar.
+        - generic [ref=f4e362]:
+          - generic [ref=f4e363]:
+            - generic [ref=f4e364]: 🌅
+            - generic [ref=f4e365]:
+              - heading "Planificador del día" [level=4] [ref=f4e366]
+              - paragraph [ref=f4e367]: Organiza tus tareas, reuniones, pagos y proyectos en un plan diario priorizado con IA.
+            - switch "Activar" [ref=f4e368] [cursor=pointer]
+          - generic [ref=f4e369]:
+            - generic [ref=f4e370]: Inactivo
+            - button "Configurar" [ref=f4e371] [cursor=pointer]
+        - generic [ref=f4e372]:
+          - generic [ref=f4e373]:
+            - generic [ref=f4e374]: 📅
+            - generic [ref=f4e375]:
+              - heading "Organiza mi semana" [level=4] [ref=f4e376]
+              - paragraph [ref=f4e377]: Distribuye tareas, reuniones y prioridades en la semana, equilibrando carga y proyectos.
+            - switch "Activar" [ref=f4e378] [cursor=pointer]
+          - generic [ref=f4e379]:
+            - generic [ref=f4e380]: Inactivo
+            - button "Configurar" [ref=f4e381] [cursor=pointer]
+        - generic [ref=f4e382]:
+          - generic [ref=f4e383]:
+            - generic [ref=f4e384]: 🎯
+            - generic [ref=f4e385]:
+              - heading "Seguimiento automático de proyectos" [level=4] [ref=f4e386]
+              - paragraph [ref=f4e387]: Detecta proyectos sin actividad, tareas vencidas, reuniones sin próximos pasos y riesgos de retraso.
+            - switch "Activar" [ref=f4e388] [cursor=pointer]
+          - generic [ref=f4e389]:
+            - generic [ref=f4e390]: Inactivo
+            - button "Configurar" [ref=f4e391] [cursor=pointer]
+        - generic [ref=f4e392]:
+          - generic [ref=f4e393]:
+            - generic [ref=f4e394]: 📊
+            - generic [ref=f4e395]:
+              - heading "Resumen ejecutivo por proyecto" [level=4] [ref=f4e396]
+              - paragraph [ref=f4e397]: Genera un estado claro del proyecto con avances, pendientes, riesgos, decisiones y próximos pasos.
+            - switch "Activar" [ref=f4e398] [cursor=pointer]
+          - generic [ref=f4e399]:
+            - generic [ref=f4e400]: Inactivo
+            - button "Configurar" [ref=f4e401] [cursor=pointer]
+        - generic [ref=f4e402]:
+          - generic [ref=f4e403]:
+            - generic [ref=f4e404]: ✅
+            - generic [ref=f4e405]:
+              - heading "Follow-up inteligente después de reuniones" [level=4] [ref=f4e406]
+              - paragraph [ref=f4e407]: Detecta compromisos, tareas, responsables y decisiones al terminar una reunión.
+            - switch "Activar" [ref=f4e408] [cursor=pointer]
+          - generic [ref=f4e409]:
+            - generic [ref=f4e410]: Inactivo
+            - button "Configurar" [ref=f4e411] [cursor=pointer]
+        - generic [ref=f4e412]:
+          - generic [ref=f4e413]:
+            - generic [ref=f4e414]: 🔥
+            - generic [ref=f4e415]:
+              - heading "Ranking de urgencia" [level=4] [ref=f4e416]
+              - paragraph [ref=f4e417]: Ordena tareas y proyectos según vencimiento, impacto, dinero, riesgo y prioridad.
+            - switch "Activar" [ref=f4e418] [cursor=pointer]
+          - generic [ref=f4e419]:
+            - generic [ref=f4e420]: Inactivo
+            - button "Configurar" [ref=f4e421] [cursor=pointer]
+        - generic [ref=f4e422]:
+          - generic [ref=f4e423]:
+            - generic [ref=f4e424]: 🛰️
+            - generic [ref=f4e425]:
+              - heading "Cliente / Proyecto 360" [level=4] [ref=f4e426]
+              - paragraph [ref=f4e427]: "Vista completa de cada proyecto: tareas, reuniones, documentos, decisiones, pagos, riesgos y próximos pasos."
+            - switch "Activar" [ref=f4e428] [cursor=pointer]
+          - generic [ref=f4e429]:
+            - generic [ref=f4e430]: Inactivo
+            - button "Configurar" [ref=f4e431] [cursor=pointer]
+        - generic [ref=f4e432]:
+          - generic [ref=f4e433]:
+            - generic [ref=f4e434]: 🧭
+            - generic [ref=f4e435]:
+              - heading "Centro de decisiones" [level=4] [ref=f4e436]
+              - paragraph [ref=f4e437]: Guarda, organiza y permite consultar decisiones importantes tomadas en reuniones o conversaciones.
+            - switch "Activar" [ref=f4e438] [cursor=pointer]
+          - generic [ref=f4e439]:
+            - generic [ref=f4e440]: Inactivo
+            - button "Configurar" [ref=f4e441] [cursor=pointer]
+        - generic [ref=f4e442]:
+          - generic [ref=f4e443]:
+            - generic [ref=f4e444]: 🔔
+            - generic [ref=f4e445]:
+              - heading "Alertas inteligentes por WhatsApp" [level=4] [ref=f4e446]
+              - paragraph [ref=f4e447]: Envía alertas con contexto sobre pagos, reuniones, tareas vencidas, proyectos quietos y riesgos.
+            - switch "Activar" [ref=f4e448] [cursor=pointer]
+          - generic [ref=f4e449]:
+            - generic [ref=f4e450]: Inactivo
+            - button "Configurar" [ref=f4e451] [cursor=pointer]
+        - generic [ref=f4e452]:
+          - generic [ref=f4e453]:
+            - generic [ref=f4e454]: 🤝
+            - generic [ref=f4e455]:
+              - heading "Modo delegación" [level=4] [ref=f4e456]
+              - paragraph [ref=f4e457]: Convierte tareas en mensajes claros para delegar por WhatsApp o copiar y enviar.
+            - switch "Activar" [ref=f4e458] [cursor=pointer]
+          - generic [ref=f4e459]:
+            - generic [ref=f4e460]: Inactivo
+            - button "Configurar" [ref=f4e461] [cursor=pointer]
+        - generic [ref=f4e462]:
+          - generic [ref=f4e463]: 🧠
+          - generic [ref=f4e464]:
+            - heading "Funciones avanzadas (v2)" [level=4] [ref=f4e465]
+            - paragraph [ref=f4e466]: Memoria de largo plazo, comportamiento autónomo y análisis predictivo. Lo que convierte a Gunter en copiloto.
+        - generic [ref=f4e467]:
+          - generic [ref=f4e468]:
+            - generic [ref=f4e469]: 🧬
+            - generic [ref=f4e470]:
+              - heading "Memoria conversacional" [level=4] [ref=f4e471]
+              - paragraph [ref=f4e472]: Gunter recuerda lo que hablan en sesiones anteriores y lo trae cuando es relevante.
+            - switch "Activar" [ref=f4e473] [cursor=pointer]
+          - generic [ref=f4e474]:
+            - generic [ref=f4e475]: Inactivo
+            - button "Configurar" [ref=f4e476] [cursor=pointer]
+        - generic [ref=f4e477]:
+          - generic [ref=f4e478]:
+            - generic [ref=f4e479]: 📋
+            - generic [ref=f4e480]:
+              - heading "Rastreador de compromisos" [level=4] [ref=f4e481]
+              - paragraph [ref=f4e482]: Detecta promesas en reuniones, WhatsApp y mensajes. Avisa cuando te deben algo o se te olvida algo prometido.
+            - switch "Activar" [ref=f4e483] [cursor=pointer]
+          - generic [ref=f4e484]:
+            - generic [ref=f4e485]: Inactivo
+            - button "Configurar" [ref=f4e486] [cursor=pointer]
+        - generic [ref=f4e487]:
+          - generic [ref=f4e488]:
+            - generic [ref=f4e489]: 🫀
+            - generic [ref=f4e490]:
+              - heading "Pulso proactivo" [level=4] [ref=f4e491]
+              - paragraph [ref=f4e492]: "Gunter actúa por iniciativa propia: detecta riesgos, oportunidades y propone acciones sin esperar tu pregunta. Confirmación obligatoria."
+            - switch "Activar" [ref=f4e493] [cursor=pointer]
+          - generic [ref=f4e494]:
+            - generic [ref=f4e495]: Inactivo
+            - button "Configurar" [ref=f4e496] [cursor=pointer]
+        - generic [ref=f4e497]:
+          - generic [ref=f4e498]:
+            - generic [ref=f4e499]: 🌡️
+            - generic [ref=f4e500]:
+              - heading "Clima de reunión" [level=4] [ref=f4e501]
+              - paragraph [ref=f4e502]: Analiza tensión, consenso, monólogos e indecisión durante reuniones. El avatar reacciona en vivo.
+            - switch "Activar" [ref=f4e503] [cursor=pointer]
+          - generic [ref=f4e504]:
+            - generic [ref=f4e505]: Inactivo
+            - button "Configurar" [ref=f4e506] [cursor=pointer]
+        - generic [ref=f4e507]:
+          - generic [ref=f4e508]:
+            - generic [ref=f4e509]: 🪞
+            - generic [ref=f4e510]:
+              - heading "Modo espejo" [level=4] [ref=f4e511]
+              - paragraph [ref=f4e512]: Aprende tu estilo de escritura por contacto. Las redacciones de delegación suenan a ti.
+            - switch "Activar" [ref=f4e513] [cursor=pointer]
+          - generic [ref=f4e514]:
+            - generic [ref=f4e515]: Inactivo
+            - button "Configurar" [ref=f4e516] [cursor=pointer]
+        - generic [ref=f4e517]:
+          - generic [ref=f4e518]:
+            - generic [ref=f4e519]: 🔮
+            - generic [ref=f4e520]:
+              - heading "Forecast de proyectos" [level=4] [ref=f4e521]
+              - paragraph [ref=f4e522]: Predice cuándo cierra realmente cada proyecto basado en velocidad histórica. Alerta de puntos de no-retorno.
+            - switch "Activar" [ref=f4e523] [cursor=pointer]
+          - generic [ref=f4e524]:
+            - generic [ref=f4e525]: Inactivo
+            - button "Configurar" [ref=f4e526] [cursor=pointer]
+  - button "Menú de usuario" [ref=f4e528] [cursor=pointer]: C
+  - button "Cambiar tema claro/oscuro" [ref=f4e529] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f4e533]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué es la memoria?"
+        - button "¿Qué es el forecast?"
+        - button "Activa el pulso proactivo"
+        - button "Ponte más suave"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f4e534] [cursor=pointer]

@@ -4,11 +4,10 @@
    Recordatorios con 3 canales:
      1) in-app toast (siempre)
      2) Notification API (si el usuario concedió permiso)
-     3) push server-side — stub (fase futura)
+     3) Web Push del servidor, incluso con la app cerrada
 
-   Los recordatorios viven en IndexedDB. Un scheduler
-   en memoria dispara cuando llega la hora, aún en la
-   misma pestaña; al cargar la app se rehidratan.
+   Los recordatorios nuevos viven en la cola durable del servidor.
+   IndexedDB se conserva como respaldo y para registros heredados.
    ============================================= */
 
 (function () {
@@ -29,6 +28,12 @@
     async function schedule({ title, fireAt, priority = 'normal', meta = {} }) {
         if (!title) throw new Error('Reminder requiere title');
         if (!fireAt) throw new Error('Reminder requiere fireAt');
+        if (window.GunterJobs?.scheduleReminder) {
+            const job = await window.GunterJobs.scheduleReminder({ title, runAt: fireAt, priority, message: meta.message || '', dedupeKey: meta.dedupeKey || null });
+            const reminder = durableToReminder(job);
+            emit('reminders-changed', { op: 'create', id: reminder.id, durable: true });
+            return reminder;
+        }
         const rem = {
             id: newId(),
             title,
@@ -83,10 +88,67 @@
 
     async function requestPermission() {
         if (!('Notification' in window)) return 'unsupported';
+        let permission = Notification.permission;
         if (Notification.permission === 'default') {
-            return await Notification.requestPermission();
+            permission = await Notification.requestPermission();
         }
-        return Notification.permission;
+        if (permission === 'granted') await enablePush().catch(error => console.warn('[push] subscribe:', error.message));
+        return permission;
+    }
+
+    async function enablePush() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('push_unsupported');
+        if (Notification.permission !== 'granted') throw new Error('notification_permission_required');
+        const keyResponse = await fetch('/api/push/public-key');
+        const keyJson = await keyResponse.json().catch(() => ({}));
+        if (!keyResponse.ok || !keyJson.success || !keyJson.data?.publicKey) throw new Error(keyJson.error || 'push_key_unavailable');
+        const registration = await navigator.serviceWorker.ready;
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(keyJson.data.publicKey) });
+        const response = await fetch('/api/push/subscribe', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscription: subscription.toJSON(), deviceLabel: deviceLabel() })
+        });
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || !json.success) throw new Error(json.error || 'push_subscription_failed');
+        return json.data;
+    }
+
+    async function disablePush() {
+        if (!('serviceWorker' in navigator)) return { removed: false };
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager?.getSubscription?.();
+        if (!subscription) return { removed: false };
+        await fetch('/api/push/unsubscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: subscription.endpoint }) });
+        const removed = await subscription.unsubscribe();
+        return { removed };
+    }
+
+    async function pushStatus() {
+        const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+        if (!supported) return { supported: false, permission: 'unsupported', subscribed: false, devices: [] };
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        const response = await fetch('/api/push/status');
+        const json = await response.json().catch(() => ({}));
+        return { supported: true, permission: Notification.permission, subscribed: Boolean(subscription), devices: json.data?.devices || [] };
+    }
+
+    async function testPush() {
+        const response = await fetch('/api/push/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmed: true }) });
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || !json.success) throw new Error(json.error || 'push_test_failed');
+        return json.data;
+    }
+
+    function base64UrlToBytes(value) {
+        const padding = '='.repeat((4 - value.length % 4) % 4);
+        const binary = atob((value + padding).replace(/-/g, '+').replace(/_/g, '/'));
+        return Uint8Array.from(binary, char => char.charCodeAt(0));
+    }
+    function deviceLabel() {
+        const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+        return `${mobile ? 'Móvil' : 'PC'} · ${navigator.platform || 'Navegador'}`.slice(0, 100);
     }
 
     async function update(id, patch) {
@@ -108,12 +170,17 @@
     }
 
     async function cancel(id) {
+        if (String(id || '').startsWith('job_') && window.GunterJobs?.cancel) {
+            const job = await window.GunterJobs.cancel(id);
+            emit('reminders-changed', { op: 'update', id, durable: true });
+            return durableToReminder(job);
+        }
         const t = timers.get(id);
         if (t) { clearTimeout(t); timers.delete(id); }
         return update(id, { status: 'cancelled' });
     }
 
-    async function list({ status } = {}) {
+    async function listLocal({ status } = {}) {
         const db = await openDB();
         const all = await new Promise((res, rej) => {
             const r = db.transaction(STORE).objectStore(STORE).getAll();
@@ -124,8 +191,22 @@
             .sort((a, b) => (a.fireAt || '') < (b.fireAt || '') ? -1 : 1);
     }
 
+    async function list({ status } = {}) {
+        const local = await listLocal({ status }).catch(() => []);
+        if (!window.GunterJobs?.list) return local;
+        try {
+            const durable = await window.GunterJobs.list({ status, type: 'reminder', limit: 200 });
+            const byId = new Map([...durable.map(durableToReminder), ...local].map(item => [item.id, item]));
+            return [...byId.values()].sort((a, b) => String(a.fireAt || '').localeCompare(String(b.fireAt || '')));
+        } catch { return local; }
+    }
+
+    function durableToReminder(job) {
+        return { ...job, fireAt: job?.runAt || job?.fireAt, meta: job?.payload || {}, durable: true };
+    }
+
     async function rehydrate() {
-        const scheduled = await list({ status: 'scheduled' });
+        const scheduled = await listLocal({ status: 'scheduled' });
         for (const r of scheduled) {
             if (!timers.has(r.id)) arm(r);
         }
@@ -283,6 +364,6 @@
     }
 
     window.GunterNotificationsService = {
-        schedule, cancel, update, list, rehydrate, requestPermission, showToast, withOperation
+        schedule, cancel, update, list, rehydrate, requestPermission, enablePush, disablePush, pushStatus, testPush, showToast, withOperation
     };
 })();

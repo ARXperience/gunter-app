@@ -30,7 +30,7 @@
 
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#00d4ff">
+    <meta name="theme-color" content="#0A141A">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -38,12 +38,21 @@
 
     <!-- Medieval Futuristic Theme -->
     <link rel="stylesheet" href="styles/gunter-mascot.css?v66b-gunter-pixar-1783590000000">
-    <link rel="stylesheet" href="styles/gunter-companion.css?v66b-gunter-pixar-1783590000000">
-        <link rel="preload" as="style" href="styles/gunter-design-system.css">
-    <link rel="preload" as="style" href="styles/gunter-legacy-overrides.css">
+    <link rel="stylesheet" href="styles/gunter-companion.css?v70-particles">
 <link rel="stylesheet" href="styles/gunter-design-system.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-prism.css?v66b-gunter-pixar-1783590000000">
+    <link rel="stylesheet" href="styles/gunter-cinematic.css?v83-static-polar">
+    <script src="js/services/gunter-cinematic-shell.js?v81-static-polar" defer></script>
+    <link rel="stylesheet" href="styles/gunter-command-center.css?v115-mobile-no-header">
+    <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
+    <script src="js/services/gunter-particles.js?v3-stitch-3d" defer></script>
+    <script src="js/services/gunter-command-center.js?v107-stitch-console" defer></script>
+    <script src="js/services/gunter-icon-system.js?v3-unified-icons" defer></script>
+    <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
+    <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
+    <script src="js/services/connection-manager.js?v87-context-sync" defer></script>
+    <script src="js/services/web-node-runtime.js?v84-control" defer></script>
 </head>
 
 <body class="at-dark">
@@ -298,7 +307,7 @@
     <!-- Scripts -->
     <script src="js/config.js"></script>
     <script src="js/premium-features-service.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/theme-manager.js" defer></script>
+    <script src="js/theme-manager.js?v67-security-20260828" defer></script>
     <script src="js/theme-backgrounds.js" defer></script>
     <!-- Hooks premium (no ejecutan nada salvo que el flag esté activo):
          PremiumFeaturesService.isEnabled('meetingMemory')
@@ -331,14 +340,18 @@
          No se inicializan agresivamente; respetan configuración premium del usuario. -->
 
     <!-- Servicios base requeridos por el pipeline (transcript-store ya cargado arriba en B4) -->
-    <script src="js/services/notifications-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/notifications-service.js?v102-background-push" defer></script>
     <script src="js/services/nlp-llm-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/tasks-service.js" defer></script>
     <script src="js/services/events-service.js" defer></script>
 
     <!-- Voz humanizada + Wake word "Hi Gunter" en meeting -->
-    <script src="js/services/voice-service.js" defer></script>
-    <script src="js/services/wake-word-service.js" defer></script>
+    <script src="js/core/temporal-context.js?v70-assistant" defer></script>
+    <script src="js/core/wake-invocation.js?v68-assistant" defer></script>
+    <script src="js/core/conversation-state.js?v73-assistant" defer></script>
+    <script src="js/services/voice-activity-service.js?v73-assistant" defer></script>
+    <script src="js/services/voice-service.js?v71-assistant" defer></script>
+    <script src="js/services/wake-word-service.js?v73-assistant" defer></script>
 
     <!-- v2 — Memoria conversacional cross-sesión (F1) — necesaria para que
          climate-service.refineWithLLM no inyecte memoria pesada (skipMemory:true) -->    <script src="js/services/embedding-service.js?v66b-gunter-pixar-1783590000000" defer></script>
@@ -358,20 +371,23 @@
     <script src="js/core/models.js" defer></script>
     <script src="js/core/trace-logger.js" defer></script>
     <script src="js/core/date-service.js" defer></script>
-    <script src="js/core/context-provider.js" defer></script>
-    <script src="js/core/time-parser.js" defer></script>
+    <script src="js/core/context-provider.js?v87-context-sync" defer></script>
+    <script src="js/core/time-parser.js?v68-assistant" defer></script>
+    <script src="js/services/jobs-service.js?v73-assistant" defer></script>
+    <script src="js/core/assistant-tools.js?v103-device-runtime" defer></script>
+    <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
     <script src="js/core/intent-engine.js" defer></script>
-    <script src="js/core/entity-extractor.js" defer></script>
+    <script src="js/core/entity-extractor.js?v68-assistant" defer></script>
     <script src="js/core/decision-engine.js" defer></script>
     <script src="js/core/action-engine.js" defer></script>
-    <script src="js/core/pipeline.js" defer></script>
+    <script src="js/core/pipeline.js?v89-natural-workflows" defer></script>
     <!-- ============== /Fase A.A1 ============== -->
 
     <script src="js/controllers/session-recovery.js" defer></script>
     <script src="js/audio-vault.js" defer></script>
     <script src="js/gunter-avatar.js" defer></script>
     <script src="js/gunter-reactions.js" defer></script>
-    <script src="js/app.js" defer></script>
+    <script src="js/app.js?v67-security-20260828" defer></script>
     <script>
         // ===== INITIALIZE =====
         document.addEventListener('DOMContentLoaded', async () => {
@@ -1030,7 +1046,6 @@ TRANSCRIPCIÓN ACTUAL:
     </script>
 
     <!-- Phase 2 Design Enhancements -->
-    <script src="js/particle-effects.js" defer></script>
 
     <!-- PWA registration (Fase 8) -->
     <script src="js/services/pwa-register.js" defer></script>
@@ -1139,7 +1154,7 @@ TRANSCRIPCIÓN ACTUAL:
 
     <!-- Medieval Futuristic Theme -->
     <script src="js/services/sw-updater.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/theme-toggle.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/actions-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/theme-toggle.js?v80-polar" defer></script>    <script src="js/services/actions-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-rules-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-mood-service.js?v66b-gunter-pixar-1783590000000" defer></script>
 
@@ -1147,9 +1162,9 @@ TRANSCRIPCIÓN ACTUAL:
 
 
 
-    <script src="js/services/gunter-companion.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/gunter-companion.js?v71-assistant" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/gunter-onboarding.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/gunter-onboarding.js?v67-security-20260828" defer></script>
 </body>
 
 </html>

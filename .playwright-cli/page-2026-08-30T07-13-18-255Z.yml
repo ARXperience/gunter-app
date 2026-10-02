@@ -1,0 +1,124 @@
+- generic [active] [ref=f2e1]:
+  - generic: GUNTER
+  - main [ref=f2e72]:
+    - navigation "Navegación principal de Gunter" [ref=f2e73]:
+      - generic [ref=f2e78]:
+        - link "Día" [ref=f2e306] [cursor=pointer]:
+          - /url: day.html
+        - link "Reuniones" [ref=f2e307] [cursor=pointer]:
+          - /url: dashboard.html
+        - link "Nueva" [ref=f2e308] [cursor=pointer]:
+          - /url: new-project.html
+        - link "Config" [ref=f2e309] [cursor=pointer]:
+          - /url: config.html#premium
+    - generic "Flujo actual" [ref=f2e89]:
+      - generic [ref=f2e90]:
+        - generic [ref=f2e91]: "01"
+        - text: Ahora
+      - generic [ref=f2e93]:
+        - generic [ref=f2e94]: "02"
+        - text: Capturar
+      - generic [ref=f2e96]:
+        - generic [ref=f2e97]: "03"
+        - text: Ejecutar
+    - generic [ref=f2e98]:
+      - generic [ref=f2e99]:
+        - generic [ref=f2e100]: Buenos días
+        - heading "domingo, 30 de agosto" [level=1] [ref=f2e101]
+        - paragraph [ref=f2e102]: Un día despejado. Usa la barra de captura para agregar algo.
+      - generic [ref=f2e103]:
+        - generic [ref=f2e104]:
+          - generic [ref=f2e105]: 📋
+          - strong [ref=f2e106]: "0"
+          - text: tareas
+        - generic [ref=f2e107]:
+          - generic [ref=f2e108]: 📅
+          - strong [ref=f2e109]: "0"
+          - text: eventos
+        - generic [ref=f2e110]:
+          - generic [ref=f2e111]: ⏰
+          - strong [ref=f2e112]: "0"
+          - text: vencidas
+    - generic [ref=f2e113]:
+      - text: "01"
+      - generic [ref=f2e114]: Comando rápido
+      - generic [ref=f2e115]:
+        - button "📎" [ref=f2e116] [cursor=pointer]
+        - 'textbox "Dile a Gunter qué necesitas: “organiza mi día”, “recuérdame llamar a Ana”…" [ref=f2e117]'
+        - button "➤ Enviar" [ref=f2e118] [cursor=pointer]
+      - paragraph [ref=f2e119]: Lenguaje natural en español · Tareas, eventos, recordatorios, facturas
+    - tablist [ref=f2e120]:
+      - generic [ref=f2e121]:
+        - generic [ref=f2e122]: Enfoque
+        - generic [ref=f2e123]:
+          - tab "Ahora" [ref=f2e124] [cursor=pointer]:
+            - generic [ref=f2e125]: ◉
+          - tab "Actividad" [selected] [ref=f2e127] [cursor=pointer]:
+            - generic [ref=f2e128]: ↻
+    - generic [ref=f2e253]:
+      - generic [ref=f2e254]:
+        - generic [ref=f2e255]:
+          - generic [ref=f2e256]: Registro verificable
+          - heading "Actividad de Gunter" [level=2] [ref=f2e257]
+          - paragraph [ref=f2e258]: Qué hizo, qué sigue y qué necesita de ti.
+        - button "Actualizar actividad" [ref=f2e259] [cursor=pointer]: Actualizar
+      - generic "Resumen de actividad" [ref=f2e260]:
+        - generic [ref=f2e371]:
+          - strong [ref=f2e372]: "1"
+          - text: en curso
+        - generic [ref=f2e373]:
+          - strong [ref=f2e374]: "1"
+          - text: requieren atención
+        - generic [ref=f2e375]:
+          - strong [ref=f2e376]: "1"
+          - text: verificados
+      - group "Filtrar actividad" [ref=f2e267]:
+        - button "Todo" [ref=f2e268] [cursor=pointer]
+        - button "En curso" [ref=f2e269] [cursor=pointer]
+        - button "Requiere atención" [ref=f2e270] [cursor=pointer]
+      - status [ref=f2e271]: Flujo actualizado.
+      - generic [ref=f2e272]:
+        - article [ref=f2e377]:
+          - generic [ref=f2e380]:
+            - generic [ref=f2e381]:
+              - generic [ref=f2e382]:
+                - generic [ref=f2e383]: Flujo
+                - heading "Registrar seguimiento" [level=3] [ref=f2e384]
+              - generic [ref=f2e385]: Requiere confirmación
+            - paragraph [ref=f2e387]: Crear una tarea de seguimiento para la próxima revisión
+            - generic [ref=f2e388]:
+              - time [ref=f2e389]: 30 de ago, 2:13 a. m.
+              - generic [ref=f2e390]: 0 de 1 pasos verificados
+            - group [ref=f2e391]:
+              - generic "Ver secuencia y evidencia" [ref=f2e392] [cursor=pointer]
+        - article [ref=f2e393]:
+          - generic [ref=f2e396]:
+            - generic [ref=f2e397]:
+              - generic [ref=f2e398]:
+                - generic [ref=f2e399]: Flujo
+                - heading "Revisar agenda del día" [level=3] [ref=f2e400]
+              - generic [ref=f2e401]: Completado
+            - paragraph [ref=f2e403]: Consultar los eventos de hoy y verificar que la agenda esté disponible
+            - generic [ref=f2e404]:
+              - time [ref=f2e405]: 30 de ago, 2:08 a. m.
+              - generic [ref=f2e406]: 1 de 1 pasos verificados
+              - generic [ref=f2e407]: 1 evidencia
+            - group [ref=f2e408]:
+              - generic "Ver secuencia y evidencia" [ref=f2e409] [cursor=pointer]
+  - button "Menú de usuario" [ref=f2e219] [cursor=pointer]: G
+  - generic "Asistente Gunter" [ref=f2e224]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Funcionando a media máquina
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué tengo hoy?"
+        - button "Activa el planificador"
+        - button "Ponte más divertido"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - generic: Dime "que tengo activo" para ver tus features premium.
+    - button "Abrir Gunter" [ref=f2e225] [cursor=pointer]

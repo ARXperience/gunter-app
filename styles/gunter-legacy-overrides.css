@@ -951,11 +951,10 @@ body.at-dark  .gday__quickbar-form input[type="text"] {
     color: var(--gd-ink) !important;
     font-family: var(--gd-font-body) !important;
     font-size: var(--gd-t-base) !important;
-    outline: none !important;
-    transition: all var(--gd-dur-fast) var(--gd-ease) !important;
+    transition: color var(--gd-dur-fast) var(--gd-ease), background-color var(--gd-dur-fast) var(--gd-ease), border-color var(--gd-dur-fast) var(--gd-ease), box-shadow var(--gd-dur-fast) var(--gd-ease), transform var(--gd-dur-fast) var(--gd-ease) !important;
 }
-body.at-light .gday__quickbar-form input[type="text"]:focus,
-body.at-dark  .gday__quickbar-form input[type="text"]:focus {
+body.at-light .gday__quickbar-form input[type="text"]:focus-visible,
+body.at-dark  .gday__quickbar-form input[type="text"]:focus-visible {
     background: var(--gd-surface) !important;
     box-shadow: var(--gd-sh-2) !important;
     transform: translate(-1px, -1px) !important;
@@ -972,7 +971,7 @@ body.at-dark  .gday__quickbar-form button[type="submit"] {
     font-weight: 700 !important;
     font-size: var(--gd-t-sm) !important;
     cursor: pointer !important;
-    transition: all var(--gd-dur-fast) var(--gd-ease) !important;
+    transition: color var(--gd-dur-fast) var(--gd-ease), background-color var(--gd-dur-fast) var(--gd-ease), border-color var(--gd-dur-fast) var(--gd-ease), box-shadow var(--gd-dur-fast) var(--gd-ease), transform var(--gd-dur-fast) var(--gd-ease) !important;
     white-space: nowrap !important;
 }
 body.at-light .gday__quickbar-form button[type="submit"]:hover,
@@ -4332,4 +4331,3 @@ body.at-light .gtutor-map__shared, body.at-dark .gtutor-map__shared {
         text-align: left !important;
     }
 }
-

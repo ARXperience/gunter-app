@@ -14,15 +14,15 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const BACKUP_DIR = path.join(ROOT, 'backups');
+const BACKUP_DIR = path.resolve(process.env.GUNTER_BACKUP_DIR || path.join(ROOT, 'backups'));
 const KEEP = 14;
 const EVERY_MS = 12 * 60 * 60 * 1000;   // 12 h
 const BOOT_DELAY_MS = 3 * 60 * 1000;    // 3 min tras el arranque
 
 const SOURCES = [
-    { src: path.join(ROOT, 'data'), name: 'data', skip: ['tts-cache'] },
-    { src: path.join(ROOT, 'whatsapp-data'), name: 'whatsapp-data', skip: [] },
-    { src: path.join(ROOT, 'whatsapp-session'), name: 'whatsapp-session', skip: [] }
+    { src: path.resolve(process.env.GUNTER_DATA_DIR || path.join(ROOT, 'data')), name: 'data', skip: ['tts-cache'] },
+    { src: path.resolve(process.env.GUNTER_WHATSAPP_DATA_DIR || path.join(ROOT, 'whatsapp-data')), name: 'whatsapp-data', skip: [] },
+    { src: path.resolve(process.env.GUNTER_WHATSAPP_SESSION_DIR || path.join(ROOT, 'whatsapp-session')), name: 'whatsapp-session', skip: [] }
 ];
 
 function runBackup() {

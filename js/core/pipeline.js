@@ -10,11 +10,65 @@
     const { startStage, endStage, recordError, persist } = window.GunterTraceLogger;
 
     async function handleUserInput(text) {
-        const ctx = window.GunterContextProvider.build();
+        const ctx = window.GunterContextProvider.enrich
+            ? await window.GunterContextProvider.enrich(text, { channel: 'pipeline' })
+            : window.GunterContextProvider.build();
         window.GunterContextProvider.pushConversationTurn('user', text);
         const state = window.GunterCoreModels.newPipelineState(text, ctx);
 
         try {
+            // Los planes multipaso pasan primero por el coordinador durable.
+            // Una propuesta no ejecuta efectos hasta que el usuario aprueba la secuencia completa.
+            if (window.GunterWorkflowOrchestrator?.dispatch) {
+                const workflowResult = await window.GunterWorkflowOrchestrator.dispatch(text);
+                if (workflowResult?.handled) {
+                    state.intent = {
+                        primary: { type: 'workflow', confidence: 1 }, alternatives: [],
+                        multiIntent: true, method: 'allowlist-workflow'
+                    };
+                    state.workflowId = workflowResult.workflowId || null;
+                    state.plan = workflowResult.plan ? { type: 'workflow', workflowId: state.workflowId, steps: workflowResult.plan } : null;
+                    state.execution = {
+                        executed: workflowResult.status === 'complete' ? (workflowResult.workflow?.steps || []).map(step => ({ stepId: step.stepId })) : [],
+                        failed: ['error', 'blocked'].includes(workflowResult.status) ? [{ reason: workflowResult.status }] : [],
+                        pending: workflowResult.status === 'awaiting_confirmation' ? (workflowResult.plan || []).map(step => step.index) : [],
+                        sideEffects: [],
+                        uiResponse: {
+                            speech: workflowResult.reply,
+                            animation: workflowResult.status === 'complete' ? 'applaud' : workflowResult.status === 'awaiting_confirmation' ? 'think' : 'alert',
+                            panels: [{ type: 'activity-updated' }],
+                            awaitingConfirmation: workflowResult.status === 'awaiting_confirmation',
+                            workflowId: state.workflowId
+                        }
+                    };
+                    window.GunterContextProvider.pushConversationTurn('assistant', workflowResult.reply);
+                    persist(state);
+                    return { state, awaitingConfirmation: workflowResult.status === 'awaiting_confirmation', response: state.execution.uiResponse, workflow: workflowResult };
+                }
+            }
+
+            // El reloj del dispositivo es la única fuente para fecha/hora actual.
+            // Esta ruta es determinista, instantánea y no consume el LLM.
+            const temporal = window.GunterTemporalContext?.answer?.(text, {
+                now: ctx.now,
+                timezone: ctx.timezone,
+                locale: navigator.language || 'es-CO'
+            });
+            if (temporal) {
+                state.intent = {
+                    primary: { type: 'query', confidence: 1 },
+                    alternatives: [], multiIntent: false, method: 'device-clock'
+                };
+                state.execution = {
+                    executed: [], failed: [], pending: [], sideEffects: [],
+                    uiResponse: { speech: temporal.reply, animation: 'nod', panels: [] },
+                    temporal
+                };
+                window.GunterContextProvider.pushConversationTurn('assistant', temporal.reply);
+                persist(state);
+                return { state, awaitingConfirmation: false, response: state.execution.uiResponse };
+            }
+
             // 1) Intent
             startStage(state, 'intent');
             state.intent = await window.GunterIntentEngine.classifyIntent(text, ctx);
@@ -124,6 +178,21 @@
     }
 
     async function handleConfirmation(pendingState, answer) {
+        if (pendingState?.workflowId && window.GunterWorkflowOrchestrator?.confirm) {
+            const result = await window.GunterWorkflowOrchestrator.confirm(pendingState.workflowId, answer?.accepted === true);
+            pendingState.execution = {
+                executed: result.status === 'complete' ? (result.workflow?.steps || []).map(step => ({ stepId: step.stepId })) : [],
+                failed: ['error', 'blocked'].includes(result.status) ? [{ reason: result.status }] : [],
+                pending: [], sideEffects: [],
+                uiResponse: {
+                    speech: result.reply,
+                    animation: result.status === 'complete' ? 'applaud' : result.status === 'cancelled' ? 'nod' : 'alert',
+                    panels: [{ type: 'activity-updated' }]
+                }
+            };
+            persist(pendingState);
+            return { state: pendingState, response: pendingState.execution.uiResponse, workflow: result };
+        }
         if (!pendingState?.plan) return null;
         const ctx = pendingState.input.userContext;
         try {

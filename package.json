@@ -4,7 +4,23 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "node test/smoke.js",
+    "test": "node scripts/test.js",
+    "test:auth": "node test/auth-security.js",
+    "test:ui": "node test/ui-contracts.js",
+    "test:api-base": "node test/api-base.js",
+    "test:preflight": "node test/preflight-guard.js",
+    "test:assistant": "node test/assistant-core.js",
+    "test:jobs": "node test/jobs-core.js",
+    "test:control": "node test/control-plane-core.js",
+    "test:smoke": "node scripts/test.js --smoke-only",
+    "test:node": "node test/gunter-node.js",
+    "test:mobile": "node test/mobile-runtime.js",
+    "test:mobile-push": "node test/mobile-push.js",
+    "test:e2e": "node test/run-e2e.js",
+    "preflight": "node scripts/preflight.js",
+    "node:pair": "node gunter-node/cli.js pair",
+    "node:start": "node gunter-node/cli.js start",
+    "node:status": "node gunter-node/cli.js status",
     "start": "node server.js",
     "dev": "node server.js"
   },
@@ -12,18 +28,33 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@napi-rs/canvas": "^1.0.2",
-    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "@napi-rs/canvas": "^1.0.8",
+    "@whiskeysockets/baileys": "^7.0.0-rc.14",
     "canvas": "^3.2.3",
-    "dotenv": "^17.2.3",
-    "msedge-tts": "^2.0.6",
+    "dotenv": "^17.4.2",
+    "msedge-tts": "^2.0.7",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
     "pino": "^10.3.1",
     "qrcode": "^1.5.4",
-    "tesseract.js": "^7.0.0"
+    "tesseract.js": "^7.0.0",
+    "web-push": "^3.6.7",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
-    "@imgly/background-removal-node": "^1.4.5"
+    "@imgly/background-removal-node": "^1.4.5",
+    "@playwright/test": "^1.63.0"
+  },
+  "overrides": {
+    "ws": "^8.21.0",
+    "tar": "^7.5.22",
+    "@imgly/background-removal-node": {
+      "sharp": "^0.35.0",
+      "lodash": "^4.18.1",
+      "zod": "^3.25.76"
+    },
+    "@whiskeysockets/baileys": {
+      "sharp": "^0.35.0"
+    }
   }
 }

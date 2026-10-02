@@ -1,0 +1,145 @@
+- generic [active] [ref=f5e1]:
+  - generic: GUNTER
+  - main [ref=f5e2]:
+    - navigation "Navegación principal de Gunter" [ref=f5e3]:
+      - generic [ref=f5e4]:
+        - link "Día" [ref=f5e5] [cursor=pointer]:
+          - /url: day.html
+        - link "Reuniones" [ref=f5e6] [cursor=pointer]:
+          - /url: dashboard.html
+        - link "Nueva" [ref=f5e7] [cursor=pointer]:
+          - /url: new-project.html
+        - link "Config" [ref=f5e8] [cursor=pointer]:
+          - /url: config.html#premium
+    - generic "Flujo actual" [ref=f5e9]:
+      - generic [ref=f5e10]:
+        - generic [ref=f5e11]: "01"
+        - text: Asistente IA
+      - generic [ref=f5e13]:
+        - generic [ref=f5e14]: "02"
+        - text: Preferencias
+      - generic [ref=f5e16]:
+        - generic [ref=f5e17]: "03"
+        - text: Datos
+    - generic [ref=f5e18]:
+      - text: ◈
+      - link "Volver al Dashboard" [ref=f5e19] [cursor=pointer]:
+        - /url: dashboard.html
+      - heading "Asistente IA" [level=1] [ref=f5e22]
+      - paragraph [ref=f5e23]: Configura cómo Gunter piensa, escucha, recuerda y se anticipa.
+    - tablist "Secciones de configuración" [ref=f5e24]:
+      - tab "◉ Asistente IA" [ref=f5e25] [cursor=pointer]
+      - tab "◇ Preferencias" [ref=f5e26] [cursor=pointer]
+      - tab "⌁ Datos y conexiones" [ref=f5e27] [cursor=pointer]
+      - tab "× Papelera" [ref=f5e28] [cursor=pointer]
+    - generic [ref=f5e30]:
+      - region [ref=f5e31]:
+        - generic [ref=f5e32]:
+          - generic [ref=f5e33]:
+            - text: CONTROL PLANE · V1
+            - heading "Sistema Jarvis" [level=2] [ref=f5e34]
+            - paragraph [ref=f5e35]: Decide qué puede hacer Gunter, dónde puede hacerlo y cuándo debe pedir confirmación.
+          - generic [ref=f5e36]: Comprobando
+        - paragraph [ref=f5e40]: Cargando capacidades…
+        - generic [ref=f5e41]:
+          - generic [ref=f5e42]:
+            - generic [ref=f5e43]:
+              - generic [ref=f5e44]: "02"
+              - heading "Dispositivos activos" [level=3] [ref=f5e45]
+            - button "Actualizar" [ref=f5e46] [cursor=pointer]
+          - paragraph [ref=f5e48]: Comprobando nodos…
+        - generic [ref=f5e49]:
+          - generic [ref=f5e51]:
+            - generic [ref=f5e52]: "03"
+            - heading "Mapa funcional de Gunter" [level=3] [ref=f5e53]
+          - paragraph [ref=f5e54]: Una vista honesta de lo que ya funciona, lo que está protegido y lo que necesita una aplicación nativa o proveedor externo.
+          - paragraph [ref=f5e56]: Cargando mapa funcional…
+      - generic [ref=f5e57]:
+        - text: ◈
+        - generic [ref=f5e58]: ✨
+        - generic [ref=f5e59]:
+          - heading "Funciones Premium de Gunter" [level=3] [ref=f5e60]
+          - paragraph [ref=f5e61]: Activa módulos avanzados según lo que necesites. Todo se guarda localmente. Las funciones que requieren cuenta externa muestran instrucciones al activarse.
+        - generic [ref=f5e62]:
+          - button "Restablecer" [ref=f5e63] [cursor=pointer]
+          - button "Exportar" [ref=f5e64] [cursor=pointer]
+      - generic [ref=f5e65]:
+        - generic [ref=f5e66]:
+          - heading "📡 Estado actual de Gunter" [level=4] [ref=f5e67]
+          - paragraph [ref=f5e68]: Vista en tiempo real de qué está activo. Se actualiza solo al activar/desactivar una función.
+        - heading "🔌 Servicios e integraciones" [level=5] [ref=f5e69]
+        - generic [ref=f5e71]:
+          - generic [ref=f5e72]:
+            - generic [ref=f5e73]: 🗣️
+            - generic [ref=f5e74]:
+              - generic [ref=f5e75]: Voz
+              - generic [ref=f5e76]: Desactivada
+          - generic [ref=f5e77]:
+            - generic [ref=f5e78]: 🎙️
+            - generic [ref=f5e79]:
+              - generic [ref=f5e80]: Wake Word
+              - generic [ref=f5e81]: Desactivado
+          - generic [ref=f5e82]:
+            - generic [ref=f5e83]: 💬
+            - generic [ref=f5e84]:
+              - generic [ref=f5e85]: WhatsApp
+              - generic [ref=f5e86]: Sin asistente
+          - generic [ref=f5e87]:
+            - generic [ref=f5e88]: 📅
+            - generic [ref=f5e89]:
+              - generic [ref=f5e90]: Google Calendar
+              - generic [ref=f5e91]: Desconectado
+          - generic [ref=f5e92]:
+            - generic [ref=f5e93]: 🧠
+            - generic [ref=f5e94]:
+              - generic [ref=f5e95]: Memoria proyectos
+              - generic [ref=f5e96]: No configurada
+          - generic [ref=f5e97]:
+            - generic [ref=f5e98]: ✨
+            - generic [ref=f5e99]:
+              - generic [ref=f5e100]: Premium activas
+              - generic [ref=f5e101]: 0 funciones
+          - generic [ref=f5e102]:
+            - generic [ref=f5e103]: 📦
+            - generic [ref=f5e104]:
+              - generic [ref=f5e105]: Almacenamiento
+              - generic [ref=f5e106]: OK (0%)
+          - generic [ref=f5e107]:
+            - generic [ref=f5e108]: 🎭
+            - generic [ref=f5e109]:
+              - generic [ref=f5e110]: Personalidad
+              - generic [ref=f5e111]: Default
+          - generic [ref=f5e112]:
+            - generic [ref=f5e113]: 🔊
+            - generic [ref=f5e114]:
+              - generic [ref=f5e115]: Modo de voz
+              - generic [ref=f5e116]: Solo texto
+        - group [ref=f5e117]:
+          - generic "Estado por módulo 26 +" [ref=f5e118] [cursor=pointer]:
+            - text: Estado por módulo
+            - generic [ref=f5e119]: "26"
+            - text: +
+      - generic [ref=f5e120]:
+        - heading "Tienes 0 funciones premium activas" [level=4] [ref=f5e122]
+        - paragraph [ref=f5e123]: Activa funciones desde las tarjetas de abajo.
+      - group [ref=f5e124]:
+        - generic "Catálogo de funciones +" [ref=f5e125] [cursor=pointer]:
+          - generic [ref=f5e126]: Catálogo de funciones
+          - text: +
+  - generic "Asistente Gunter" [ref=f5e127]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Funcionando a media máquina
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué es la memoria?"
+        - button "¿Qué es el forecast?"
+        - button "Activa el pulso proactivo"
+        - button "Ponte más suave"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f5e128] [cursor=pointer]
+  - button "Menú de usuario" [ref=f5e130] [cursor=pointer]: V

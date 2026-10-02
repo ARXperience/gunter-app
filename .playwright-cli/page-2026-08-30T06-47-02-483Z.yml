@@ -1,0 +1,367 @@
+- generic [active] [ref=f3e1]:
+  - generic: GUNTER
+  - main [ref=f3e2]:
+    - navigation "Navegación principal de Gunter" [ref=f3e3]:
+      - link "Gunter, centro de comando" [ref=f3e4] [cursor=pointer]:
+        - /url: day.html
+        - generic [ref=f3e6]: GUNTER
+        - generic [ref=f3e7]: COMMAND OS
+      - generic [ref=f3e8]:
+        - link "01 Día" [ref=f3e9] [cursor=pointer]:
+          - /url: day.html
+          - generic [ref=f3e10]: "01"
+          - text: Día
+        - link "02 Reuniones" [ref=f3e11] [cursor=pointer]:
+          - /url: dashboard.html
+          - generic [ref=f3e12]: "02"
+          - text: Reuniones
+        - link "03 Nueva" [ref=f3e13] [cursor=pointer]:
+          - /url: new-project.html
+          - generic [ref=f3e14]: "03"
+          - text: Nueva
+        - link "04 Config" [ref=f3e15] [cursor=pointer]:
+          - /url: config.html#premium
+          - generic [ref=f3e16]: "04"
+          - text: Config
+      - generic [ref=f3e17]: En línea
+    - generic "Flujo actual" [ref=f3e19]:
+      - generic [ref=f3e20]:
+        - generic [ref=f3e21]: "01"
+        - text: Asistente IA
+      - generic [ref=f3e23]:
+        - generic [ref=f3e24]: "02"
+        - text: Preferencias
+      - generic [ref=f3e26]:
+        - generic [ref=f3e27]: "03"
+        - text: Datos
+    - generic [ref=f3e28]:
+      - text: ◈
+      - link "Volver al Dashboard" [ref=f3e29] [cursor=pointer]:
+        - /url: dashboard.html
+      - heading "Asistente IA" [level=1] [ref=f3e32]
+      - paragraph [ref=f3e33]: Configura cómo Gunter piensa, escucha, recuerda y se anticipa.
+    - tablist "Secciones de configuración" [ref=f3e34]:
+      - tab "◉ Asistente IA" [ref=f3e35] [cursor=pointer]
+      - tab "◇ Preferencias" [ref=f3e36] [cursor=pointer]
+      - tab "⌁ Datos y conexiones" [ref=f3e37] [cursor=pointer]
+      - tab "× Papelera" [ref=f3e38] [cursor=pointer]
+    - generic [ref=f3e40]:
+      - region [ref=f3e41]:
+        - generic [ref=f3e42]:
+          - generic [ref=f3e43]:
+            - text: CONTROL PLANE · V1
+            - heading "Sistema Jarvis" [level=2] [ref=f3e44]
+            - paragraph [ref=f3e45]: Decide qué puede hacer Gunter, dónde puede hacerlo y cuándo debe pedir confirmación.
+          - generic [ref=f3e46]: 1 pendiente(s)
+        - generic [ref=f3e48]:
+          - generic [ref=f3e49]:
+            - generic [ref=f3e50]: Plan aplicado
+            - strong [ref=f3e51]: Compatibilidad actual
+          - generic [ref=f3e52]:
+            - generic [ref=f3e53]: Suscripción
+            - strong [ref=f3e54]: ACTIVE
+          - generic [ref=f3e55]:
+            - generic [ref=f3e56]: Snapshot
+            - strong [ref=f3e57]: 9624d2e54b
+        - generic [ref=f3e58]:
+          - generic [ref=f3e59]:
+            - generic [ref=f3e60]:
+              - generic [ref=f3e61]: "01"
+              - heading "Permisos del asistente" [level=3] [ref=f3e62]
+            - generic [ref=f3e63]: 8 disponibles · 10 protegidos
+          - paragraph [ref=f3e64]: Estos permisos son el límite de seguridad. Los ajustes de cada función aparecen después, en el catálogo del asistente.
+          - generic [ref=f3e65]:
+            - article [ref=f3e66]:
+              - generic [ref=f3e67]:
+                - generic [ref=f3e68]:
+                  - text: gunter.voice
+                  - heading "Voz continua" [level=4] [ref=f3e69]
+                  - paragraph [ref=f3e70]: Escucha, interrupción y respuesta por voz con privacidad configurable.
+                - generic "Activar o desactivar" [ref=f3e71] [cursor=pointer]:
+                  - checkbox [ref=f3e72]
+              - group [ref=f3e74]:
+                - generic "Configuración avanzada +" [ref=f3e75] [cursor=pointer]
+            - article [ref=f3e76]:
+              - generic [ref=f3e77]:
+                - generic [ref=f3e78]:
+                  - text: cortex.basic
+                  - heading "Memoria" [level=4] [ref=f3e79]
+                  - paragraph [ref=f3e80]: Memoria gobernada con procedencia, retención y sincronización.
+                - generic "Activar o desactivar" [ref=f3e81] [cursor=pointer]:
+                  - checkbox [ref=f3e82]
+              - group [ref=f3e84]:
+                - generic "Configuración avanzada +" [ref=f3e85] [cursor=pointer]
+            - article [ref=f3e86]:
+              - generic [ref=f3e87]:
+                - generic [ref=f3e88]:
+                  - text: gunter.documents
+                  - heading "Documentos y archivos" [level=4] [ref=f3e89]
+                  - paragraph [ref=f3e90]: Fuentes y límites para la búsqueda personal de documentos.
+                - generic "Activar o desactivar" [ref=f3e91] [cursor=pointer]:
+                  - checkbox [checked] [ref=f3e92]
+              - group [ref=f3e94]:
+                - generic "Configuración avanzada +" [ref=f3e95] [cursor=pointer]
+            - article [ref=f3e96]:
+              - generic [ref=f3e97]:
+                - generic [ref=f3e98]:
+                  - text: gunter.inbox
+                  - heading "Bandeja universal" [level=4] [ref=f3e99]
+                  - paragraph [ref=f3e100]: Prioriza comunicaciones conectadas sin enviar nada sin autorización.
+                - generic "Activar o desactivar" [ref=f3e101] [cursor=pointer]:
+                  - checkbox [checked] [ref=f3e102]
+              - group [ref=f3e104]:
+                - generic "Configuración avanzada +" [ref=f3e105] [cursor=pointer]
+            - article [ref=f3e106]:
+              - generic [ref=f3e107]:
+                - generic [ref=f3e108]:
+                  - text: automation.proactive
+                  - heading "Proactividad" [level=4] [ref=f3e109]
+                  - paragraph [ref=f3e110]: Briefings y avisos según prioridad y horas de silencio.
+                - generic "Activar o desactivar" [ref=f3e111] [cursor=pointer]:
+                  - checkbox [checked] [ref=f3e112]
+              - group [ref=f3e114]:
+                - generic "Configuración avanzada +" [ref=f3e115] [cursor=pointer]
+            - article [ref=f3e116]:
+              - generic [ref=f3e117]:
+                - generic [ref=f3e118]:
+                  - text: ai.cloud.standard
+                  - heading "Cloud AI" [level=4] [ref=f3e119]
+                  - paragraph [ref=f3e120]: Modelos cloud con presupuesto, privacidad y fallback.
+                - generic "Activar o desactivar" [ref=f3e121] [cursor=pointer]:
+                  - checkbox [checked] [ref=f3e122]
+              - group [ref=f3e124]:
+                - generic "Configuración avanzada +" [ref=f3e125] [cursor=pointer]
+            - article [ref=f3e126]:
+              - generic [ref=f3e127]:
+                - generic [ref=f3e128]:
+                  - text: core.connection
+                  - heading "Conexión y sincronización" [level=4] [ref=f3e129]
+                  - paragraph [ref=f3e130]: Cola offline, reconexión y salud entre Web, Desktop y Mobile.
+                - generic "Activar o desactivar" [ref=f3e131] [cursor=pointer]:
+                  - checkbox [checked] [ref=f3e132]
+              - group [ref=f3e134]:
+                - generic "Configuración avanzada +" [ref=f3e135] [cursor=pointer]
+            - article [ref=f3e136]:
+              - generic [ref=f3e137]:
+                - generic [ref=f3e138]:
+                  - text: integrations.core
+                  - heading "Integraciones" [level=4] [ref=f3e139]
+                  - paragraph [ref=f3e140]: Conexiones externas, salud, permisos y reconexión.
+                - generic "Activar o desactivar" [ref=f3e141] [cursor=pointer]:
+                  - checkbox [checked] [ref=f3e142]
+              - group [ref=f3e144]:
+                - generic "Configuración avanzada +" [ref=f3e145] [cursor=pointer]
+          - group [ref=f3e146]:
+            - generic "Próximas capacidades 10 +" [ref=f3e147] [cursor=pointer]:
+              - text: Próximas capacidades
+              - generic [ref=f3e148]: "10"
+              - text: +
+        - generic [ref=f3e149]:
+          - generic [ref=f3e150]:
+            - generic [ref=f3e151]:
+              - generic [ref=f3e152]: "02"
+              - heading "Dispositivos activos" [level=3] [ref=f3e153]
+            - button "Actualizar" [ref=f3e154] [cursor=pointer]
+          - article [ref=f3e157]:
+            - generic [ref=f3e159]:
+              - strong [ref=f3e160]: Chrome · Web
+              - generic [ref=f3e161]: WEB · ONLINE · protocolo 1.0.0
+            - time [ref=f3e162]: 30/8/2026, 1:45:47 a. m.
+        - generic [ref=f3e163]:
+          - generic [ref=f3e164]:
+            - generic [ref=f3e165]:
+              - generic [ref=f3e166]: "03"
+              - heading "Mapa funcional de Gunter" [level=3] [ref=f3e167]
+            - generic [ref=f3e168]: 24 habilitadas · 44 definidas
+          - paragraph [ref=f3e169]: Una vista honesta de lo que ya funciona, lo que está protegido y lo que necesita una aplicación nativa o proveedor externo.
+          - generic [ref=f3e170]:
+            - group [ref=f3e171]:
+              - generic "A Experiencia 10/10 −" [ref=f3e172] [cursor=pointer]:
+                - generic [ref=f3e173]: A
+                - strong [ref=f3e174]: Experiencia
+                - generic [ref=f3e175]: 10/10
+                - text: −
+              - generic [ref=f3e176]:
+                - generic [ref=f3e177]:
+                  - generic [ref=f3e178]: A1
+                  - generic [ref=f3e179]:
+                    - strong [ref=f3e180]: Gunter Now / Centro de mando
+                    - generic [ref=f3e181]: gunter.now · WEB
+                  - generic [ref=f3e182]: Activo
+                - generic [ref=f3e183]:
+                  - generic [ref=f3e184]: A2
+                  - generic [ref=f3e185]:
+                    - strong [ref=f3e186]: Chat contextual
+                    - generic [ref=f3e187]: gunter.chat · WEB
+                  - generic [ref=f3e188]: Activo
+                - generic [ref=f3e189]:
+                  - generic [ref=f3e190]: A3
+                  - generic [ref=f3e191]:
+                    - strong [ref=f3e192]: Voz continua y conversación natural
+                    - generic [ref=f3e193]: gunter.voice · WEB
+                  - generic [ref=f3e194]: Activo
+                - generic [ref=f3e195]:
+                  - generic [ref=f3e196]: A4
+                  - generic [ref=f3e197]:
+                    - strong [ref=f3e198]: Tareas y recordatorios
+                    - generic [ref=f3e199]: gunter.tasks · WEB
+                  - generic [ref=f3e200]: Activo
+                - generic [ref=f3e201]:
+                  - generic [ref=f3e202]: A5
+                  - generic [ref=f3e203]:
+                    - strong [ref=f3e204]: Calendario y agenda
+                    - generic [ref=f3e205]: gunter.calendar · WEB
+                  - generic [ref=f3e206]: Activo
+                - generic [ref=f3e207]:
+                  - generic [ref=f3e208]: A6
+                  - generic [ref=f3e209]:
+                    - strong [ref=f3e210]: Notificaciones y proactividad
+                    - generic [ref=f3e211]: automation.proactive · WEB
+                  - generic [ref=f3e212]: Activo
+                - generic [ref=f3e213]:
+                  - generic [ref=f3e214]: A7
+                  - generic [ref=f3e215]:
+                    - strong [ref=f3e216]: Reuniones y Meeting Copilot
+                    - generic [ref=f3e217]: gunter.meetings · WEB
+                    - paragraph [ref=f3e218]: Falta transcripción de audio y diarización conectadas a un proveedor.
+                  - generic [ref=f3e219]: Parcial
+                - generic [ref=f3e220]:
+                  - generic [ref=f3e221]: A8
+                  - generic [ref=f3e222]:
+                    - strong [ref=f3e223]: Documentos, archivos y búsqueda personal
+                    - generic [ref=f3e224]: gunter.documents · WEB
+                    - paragraph [ref=f3e225]: La búsqueda web existe; los conectores y la indexación semántica son progresivos.
+                  - generic [ref=f3e226]: Parcial
+                - generic [ref=f3e227]:
+                  - generic [ref=f3e228]: A9
+                  - generic [ref=f3e229]:
+                    - strong [ref=f3e230]: Universal Inbox y comunicaciones
+                    - generic [ref=f3e231]: gunter.inbox · WEB
+                    - paragraph [ref=f3e232]: Requiere adaptadores externos para correo y mensajería real.
+                  - generic [ref=f3e233]: Parcial
+                - generic [ref=f3e234]:
+                  - generic [ref=f3e235]: A10
+                  - generic [ref=f3e236]:
+                    - strong [ref=f3e237]: Configuración integrada
+                    - generic [ref=f3e238]: gunter.settings · WEB
+                  - generic [ref=f3e239]: Activo
+            - group [ref=f3e240]:
+              - generic "B Inteligencia 9/14 +" [ref=f3e241] [cursor=pointer]:
+                - generic [ref=f3e242]: B
+                - strong [ref=f3e243]: Inteligencia
+                - generic [ref=f3e244]: 9/14
+                - text: +
+            - group [ref=f3e245]:
+              - generic "C Dispositivos e integraciones 2/10 +" [ref=f3e246] [cursor=pointer]:
+                - generic [ref=f3e247]: C
+                - strong [ref=f3e248]: Dispositivos e integraciones
+                - generic [ref=f3e249]: 2/10
+                - text: +
+            - group [ref=f3e250]:
+              - generic "D Operación y negocio 2/8 +" [ref=f3e251] [cursor=pointer]:
+                - generic [ref=f3e252]: D
+                - strong [ref=f3e253]: Operación y negocio
+                - generic [ref=f3e254]: 2/8
+                - text: +
+            - group [ref=f3e255]:
+              - generic "E Seguridad y calidad 1/2 +" [ref=f3e256] [cursor=pointer]:
+                - generic [ref=f3e257]: E
+                - strong [ref=f3e258]: Seguridad y calidad
+                - generic [ref=f3e259]: 1/2
+                - text: +
+            - paragraph [ref=f3e260]: Las 4 matrices obligatorias —riesgo, plataformas, estados y flujos end-to-end— se aplican como reglas transversales del Control Plane.
+      - generic [ref=f3e261]:
+        - text: ◈
+        - generic [ref=f3e262]: ✨
+        - generic [ref=f3e263]:
+          - heading "Funciones Premium de Gunter" [level=3] [ref=f3e264]
+          - paragraph [ref=f3e265]: Activa módulos avanzados según lo que necesites. Todo se guarda localmente. Las funciones que requieren cuenta externa muestran instrucciones al activarse.
+        - generic [ref=f3e266]:
+          - button "Restablecer" [ref=f3e267] [cursor=pointer]
+          - button "Exportar" [ref=f3e268] [cursor=pointer]
+      - generic [ref=f3e475]:
+        - generic [ref=f3e476]:
+          - heading "📡 Estado actual de Gunter" [level=4] [ref=f3e477]
+          - paragraph [ref=f3e478]: Vista en tiempo real de qué está activo. Se actualiza solo al activar/desactivar una función.
+        - heading "🔌 Servicios e integraciones" [level=5] [ref=f3e479]
+        - generic [ref=f3e481]:
+          - generic [ref=f3e482]:
+            - generic [ref=f3e483]: 🗣️
+            - generic [ref=f3e484]:
+              - generic [ref=f3e485]: Voz
+              - generic [ref=f3e486]: Desactivada
+          - generic [ref=f3e487]:
+            - generic [ref=f3e488]: 🎙️
+            - generic [ref=f3e489]:
+              - generic [ref=f3e490]: Wake Word
+              - generic [ref=f3e491]: Desactivado
+          - generic [ref=f3e492]:
+            - generic [ref=f3e493]: 💬
+            - generic [ref=f3e494]:
+              - generic [ref=f3e495]: WhatsApp
+              - generic [ref=f3e496]: Sin asistente
+          - generic [ref=f3e497]:
+            - generic [ref=f3e498]: 📅
+            - generic [ref=f3e499]:
+              - generic [ref=f3e500]: Google Calendar
+              - generic [ref=f3e501]: Desconectado
+          - generic [ref=f3e502]:
+            - generic [ref=f3e503]: 🧠
+            - generic [ref=f3e504]:
+              - generic [ref=f3e505]: Memoria proyectos
+              - generic [ref=f3e506]: No configurada
+          - generic [ref=f3e507]:
+            - generic [ref=f3e508]: ✨
+            - generic [ref=f3e509]:
+              - generic [ref=f3e510]: Premium activas
+              - generic [ref=f3e511]: 0 funciones
+          - generic [ref=f3e512]:
+            - generic [ref=f3e513]: 📦
+            - generic [ref=f3e514]:
+              - generic [ref=f3e515]: Almacenamiento
+              - generic [ref=f3e516]: OK (0%)
+          - generic [ref=f3e517]:
+            - generic [ref=f3e518]: 🎭
+            - generic [ref=f3e519]:
+              - generic [ref=f3e520]: Personalidad
+              - generic [ref=f3e521]: Default
+          - generic [ref=f3e522]:
+            - generic [ref=f3e523]: 🔊
+            - generic [ref=f3e524]:
+              - generic [ref=f3e525]: Modo de voz
+              - generic [ref=f3e526]: Solo texto
+        - group [ref=f3e527]:
+          - generic "Estado por módulo 26 +" [ref=f3e528] [cursor=pointer]:
+            - text: Estado por módulo
+            - generic [ref=f3e529]: "26"
+            - text: +
+      - generic [ref=f3e324]:
+        - heading "Tienes 0 funciones premium activas" [level=4] [ref=f3e326]
+        - paragraph [ref=f3e327]: Activa funciones desde las tarjetas de abajo.
+      - group [ref=f3e328]:
+        - generic "Catálogo de funciones 26 módulos · abre para activar o configurar +" [ref=f3e329] [cursor=pointer]:
+          - generic [ref=f3e330]: Catálogo de funciones
+          - generic [ref=f3e331]: 26 módulos · abre para activar o configurar
+          - text: +
+  - button "Menú de usuario" [ref=f3e333] [cursor=pointer]: S
+  - button "Cambiar tema claro/oscuro" [ref=f3e334] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f3e338]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Funcionando a media máquina
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué es la memoria?"
+        - button "¿Qué es el forecast?"
+        - button "Activa el pulso proactivo"
+        - button "Ponte más suave"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f3e339] [cursor=pointer]
+  - generic [ref=f3e418]: ⚠ Sin conexión a internet — Gunter funciona en modo offline (acciones locales).
+  - generic [ref=f3e530]:
+    - generic [ref=f3e531]: ℹ
+    - generic [ref=f3e532]: Cambio guardado; se sincronizará al recuperar conexión.

@@ -427,11 +427,11 @@ body.at-dark .form-input, body.at-dark .gn-glass-input {
   border: var(--gd-bw-2) solid var(--gd-ink) !important;
   border-radius: var(--gd-r-sm) !important;
   box-shadow: var(--gd-sh-2) !important;
-  transition: all var(--gd-dur-fast) var(--gd-ease) !important;
+  transition: color var(--gd-dur-fast) var(--gd-ease), background-color var(--gd-dur-fast) var(--gd-ease), border-color var(--gd-dur-fast) var(--gd-ease), box-shadow var(--gd-dur-fast) var(--gd-ease), transform var(--gd-dur-fast) var(--gd-ease) !important;
 }
-body.at-light input:focus, body.at-dark input:focus,
-body.at-light textarea:focus, body.at-dark textarea:focus,
-body.at-light select:focus, body.at-dark select:focus {
+body.at-light input:focus-visible, body.at-dark input:focus-visible,
+body.at-light textarea:focus-visible, body.at-dark textarea:focus-visible,
+body.at-light select:focus-visible, body.at-dark select:focus-visible {
   outline: none !important;
   box-shadow: 4px 4px 0 0 var(--gd-primary) !important;
   transform: translate(-1px, -1px) !important;
@@ -619,7 +619,7 @@ body.at-light .sidebar__nav-item, body.at-dark .sidebar__nav-item {
   text-decoration: none !important;
   background: transparent !important;
   box-shadow: none !important;
-  transition: all var(--gd-dur-fast) var(--gd-ease) !important;
+  transition: color var(--gd-dur-fast) var(--gd-ease), background-color var(--gd-dur-fast) var(--gd-ease), border-color var(--gd-dur-fast) var(--gd-ease), box-shadow var(--gd-dur-fast) var(--gd-ease), transform var(--gd-dur-fast) var(--gd-ease) !important;
 }
 body.at-light .sidebar__nav-item:hover, body.at-dark .sidebar__nav-item:hover {
   background: var(--gd-tertiary-lo) !important;
@@ -729,7 +729,7 @@ body.at-light .gday__tab, body.at-dark .gday__tab {
   box-shadow: none !important;
   white-space: nowrap;
   text-decoration: none !important;
-  transition: all var(--gd-dur-fast) var(--gd-ease) !important;
+  transition: color var(--gd-dur-fast) var(--gd-ease), background-color var(--gd-dur-fast) var(--gd-ease), box-shadow var(--gd-dur-fast) var(--gd-ease) !important;
 }
 body.at-light .config-tab:hover, body.at-dark .config-tab:hover,
 body.at-light .gday__tab:hover, body.at-dark .gday__tab:hover {

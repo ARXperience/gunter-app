@@ -7,24 +7,44 @@
    ============================================= */
 (function () {
     if (window.GunterThemeToggle) return;
-    const KEY = 'gunter_theme';
+    // El perfil (gunter_theme/gunter_env) describe el contexto de reunión;
+    // nunca debe ser reutilizado como preferencia claro/oscuro.
+    const KEY = 'gunter_color_mode';
+
+    function hasExplicitPreference() {
+        try {
+            const saved = localStorage.getItem(KEY);
+            if (saved === 'dark' || saved === 'light') return true;
+            const legacyMode = localStorage.getItem('gunter_theme');
+            return legacyMode === 'dark' || legacyMode === 'light'
+                || localStorage.getItem('gunter_dark_mode') === 'true';
+        } catch { return false; }
+    }
 
     function getPreferred() {
         try {
             const saved = localStorage.getItem(KEY);
             if (saved === 'dark' || saved === 'light') return saved;
+            const legacyMode = localStorage.getItem('gunter_theme');
+            if (legacyMode === 'dark' || legacyMode === 'light') return legacyMode;
+            if (localStorage.getItem('gunter_dark_mode') === 'true') return 'dark';
         } catch {}
         // Sistema
         if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) return 'dark';
-        return 'dark';   // v53: Obsidian Prism es el default
+        return 'light';
     }
 
-    function apply(mode) {
+    function apply(mode, persist = true) {
         document.body.classList.remove('at-light', 'at-dark');
         document.body.classList.add('at-' + mode);
-        try { localStorage.setItem(KEY, mode); } catch {}
+        if (persist) try {
+            localStorage.setItem(KEY, mode);
+            localStorage.setItem('gunter_dark_mode', String(mode === 'dark'));
+        } catch {}
         const btn = document.querySelector('.gd-theme-toggle');
         if (btn) btn.innerHTML = mode === 'dark' ? sunSvg() : moonSvg();
+        const preference = document.getElementById('pref-dark-mode');
+        if (preference) preference.checked = mode === 'dark';
     }
 
     function sunSvg() {
@@ -42,7 +62,12 @@
     function mount() {
         if (document.querySelector('.gd-theme-toggle')) return;
         const current = getPreferred();
-        apply(current);
+        apply(current, hasExplicitPreference());
+
+        const colorScheme = window.matchMedia?.('(prefers-color-scheme: dark)');
+        colorScheme?.addEventListener?.('change', event => {
+            if (!hasExplicitPreference()) apply(event.matches ? 'dark' : 'light', false);
+        });
 
         const btn = document.createElement('button');
         btn.className = 'gd-theme-toggle';

@@ -5,7 +5,6 @@
 
 const http = require('http');
 const https = require('https');
-const url = require('url');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
@@ -57,7 +56,7 @@ try {
 }
 
 // v2 — Commitments (F2), Proactive Pulse (F3), Style Mirror (F5), Forecast (F6)
-let commitments = null, proactive = null, styleMirror = null, forecast = null;
+let commitments = null, proactive = null, styleMirror = null, forecast = null, jobs = null, push = null, mobilePushScheduler = null;
 try { commitments = require('./server/commitments'); }
 catch (e) { console.warn('⚠️  Commitments module not available:', e.message); }
 try { proactive = require('./server/proactive'); }
@@ -66,6 +65,18 @@ try { styleMirror = require('./server/style-mirror'); }
 catch (e) { console.warn('⚠️  Style-mirror module not available:', e.message); }
 try { forecast = require('./server/forecast'); }
 catch (e) { console.warn('⚠️  Forecast module not available:', e.message); }
+try { jobs = require('./server/jobs'); }
+catch (e) { console.warn('⚠️  Durable jobs module not available:', e.message); }
+try { push = require('./server/push'); }
+catch (e) { console.warn('⚠️  Web Push module not available:', e.message); }
+try { mobilePushScheduler = require('./server/push/mobile-scheduler'); }
+catch (e) { console.warn('⚠️  Mobile push scheduler not available:', e.message); }
+
+// Plan Maestro v2 — Control Plane incremental (contratos, flags, entitlements,
+// nodos, skills, verificación y operaciones). Vive aislado de las rutas legacy.
+let controlPlane = null;
+try { controlPlane = require('./server/control-plane'); }
+catch (e) { console.warn('⚠️  Control Plane module not available:', e.message); }
 
 // Etapa 3 — Actions dispatcher (control unificado de features)
 let actions = null;
@@ -85,7 +96,7 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const OWNER_PHONE = process.env.OWNER_PHONE || null;   // Etapa 3 — owner autorizado por WA
 
 if (!OPENAI_API_KEY) {
-    console.error('❌ ERROR: OPENAI_API_KEY NOT FOUND IN .ENV FILE');
+    console.warn('⚠️  OPENAI_API_KEY not set — Gunter will use any configured fallback provider.');
 }
 if (!GEMINI_API_KEY) {
     console.warn('⚠️  GEMINI_API_KEY not set — slide image generation will be disabled.');
@@ -108,27 +119,34 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
     .map(s => s.trim())
     .filter(Boolean);
 
-function buildCorsHeaders(reqOrigin) {
-    let allowOrigin = '*';
-    if (ALLOWED_ORIGINS.length > 0) {
-        // Allowlist mode: solo origenes en la lista
-        if (reqOrigin && ALLOWED_ORIGINS.includes(reqOrigin)) {
-            allowOrigin = reqOrigin;
-        } else if (ALLOWED_ORIGINS.includes('*')) {
-            allowOrigin = '*';
-        } else {
-            // Origen no permitido — devolvemos el primero como hint pero el
-            // browser rechazará igual. Útil para debug.
-            allowOrigin = ALLOWED_ORIGINS[0];
-        }
-    }
-    return {
-        'Access-Control-Allow-Origin': allowOrigin,
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+function defaultOriginAllowed(reqOrigin, req) {
+    if (!reqOrigin || !req) return !reqOrigin;
+    const forwardedProto = process.env.TRUST_PROXY === 'true'
+        ? String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim()
+        : '';
+    const protocol = forwardedProto || (req.socket?.encrypted ? 'https' : 'http');
+    return reqOrigin === `${protocol}://${req.headers.host}`;
+}
+
+function isOriginAllowed(reqOrigin, req) {
+    if (!reqOrigin) return true;
+    if (ALLOWED_ORIGINS.includes('*')) return true;
+    if (ALLOWED_ORIGINS.length > 0) return ALLOWED_ORIGINS.includes(reqOrigin);
+    return defaultOriginAllowed(reqOrigin, req);
+}
+
+function buildCorsHeaders(reqOrigin, req) {
+    const allowOrigin = reqOrigin && isOriginAllowed(reqOrigin, req)
+        ? (ALLOWED_ORIGINS.includes('*') ? '*' : reqOrigin)
+        : null;
+    const headers = {
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
         'Access-Control-Max-Age': '86400',
         'Vary': 'Origin'
     };
+    if (allowOrigin) headers['Access-Control-Allow-Origin'] = allowOrigin;
+    return headers;
 }
 
 // Compatibilidad con código existente que aún usa `corsHeaders` directo
@@ -140,14 +158,141 @@ const corsHeaders = buildCorsHeaders(null);
 // Whisper chunks stay under 25 MB (API limit) and are far smaller (~500 KB)
 // when produced by the rolling MediaRecorder.
 const MAX_BODY_SIZE = 200 * 1024 * 1024;
+const MAX_JSON_BODY_SIZE = 2 * 1024 * 1024;
+const apiRateBuckets = new Map();
+const EXPENSIVE_API_PATHS = new Set([
+    '/api/chat', '/api/transcribe', '/api/tts', '/api/embeddings',
+    '/api/gemini-text', '/api/gemini-image', '/api/document-extract',
+    '/api/premium-intel', '/api/forecast', '/api/style-mirror'
+]);
+
+function checkApiRateLimit(req, pathname) {
+    const windowMs = 60 * 1000;
+    const max = EXPENSIVE_API_PATHS.has(pathname) ? 30 : 240;
+    const forwarded = process.env.TRUST_PROXY === 'true'
+        ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+        : '';
+    const actor = req.gunterUser?.id || forwarded || req.socket?.remoteAddress || 'unknown';
+    const key = `${actor}|${EXPENSIVE_API_PATHS.has(pathname) ? pathname : 'general'}`;
+    const now = Date.now();
+    const current = apiRateBuckets.get(key);
+    if (!current || now - current.startedAt >= windowMs) {
+        apiRateBuckets.set(key, { count: 1, startedAt: now });
+        return { allowed: true, remaining: max - 1 };
+    }
+    current.count += 1;
+    if (apiRateBuckets.size > 10000) {
+        for (const [bucketKey, value] of apiRateBuckets) {
+            if (now - value.startedAt >= windowMs) apiRateBuckets.delete(bucketKey);
+        }
+    }
+    return {
+        allowed: current.count <= max,
+        remaining: Math.max(0, max - current.count),
+        retryAfter: Math.max(1, Math.ceil((current.startedAt + windowMs - now) / 1000))
+    };
+}
+
+// Solo estos recursos forman parte de la aplicación web pública. El resto del
+// repositorio contiene secretos, datos de usuarios y código del servidor.
+const PUBLIC_FILES = new Set([
+    'index.html', 'login.html', 'dashboard.html', 'day.html',
+    'new-project.html', 'meeting.html', 'results.html', 'config.html',
+    'admin.html', 'reset.html', 'manifest.json', 'service-worker.js'
+]);
+const PUBLIC_DIRS = new Set(['assets', 'js', 'styles']);
+const LEGACY_PAGE_REDIRECTS = Object.freeze({
+    '/chat.html': '/day.html#chat',
+    '/tasks.html': '/day.html#tasks',
+    '/calendar.html': '/day.html#events',
+    '/meetings.html': '/dashboard.html',
+    '/documents.html': '/day.html#documents',
+    '/inbox.html': '/day.html#conversations'
+});
+
+const SECURITY_HEADERS = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(self), microphone=(self), geolocation=()',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Content-Security-Policy': [
+        "default-src 'self' https: data: blob:",
+        "base-uri 'self'",
+        "object-src 'none'",
+        "frame-ancestors 'none'",
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com data:",
+        "connect-src 'self' https: wss:",
+        "img-src 'self' https: data: blob:",
+        "media-src 'self' https: data: blob:",
+        "worker-src 'self' blob:"
+    ].join('; ')
+};
+
+function resolvePublicPath(pathname) {
+    let decoded;
+    try { decoded = decodeURIComponent(pathname || '/'); }
+    catch { return null; }
+
+    // Normaliza separadores para impedir bypasses Windows con barras inversas.
+    decoded = decoded.replace(/\\/g, '/');
+    if (decoded.includes('\0')) return null;
+    const segments = decoded.split('/').filter(Boolean);
+    if (segments.some(s => s === '..' || s === '.' || s.startsWith('.'))) return null;
+
+    const relative = segments.length ? segments.join('/') : 'index.html';
+    const top = segments[0] || 'index.html';
+    if (!PUBLIC_FILES.has(relative) && !PUBLIC_DIRS.has(top)) return null;
+
+    const resolved = path.resolve(__dirname, ...relative.split('/'));
+    const rootPrefix = path.resolve(__dirname) + path.sep;
+    return resolved.startsWith(rootPrefix) ? resolved : null;
+}
+
+function prepareChatContext(input, req) {
+    const payload = { ...input, messages: Array.isArray(input.messages) ? input.messages.map(message => ({ ...message })) : [] };
+    const supplied = input.gunter_context && typeof input.gunter_context === 'object' ? input.gunter_context : {};
+    delete payload.gunter_context;
+    if (!controlPlane?.contextGateway?.build) return { payload, envelope: null };
+    const lastUser = [...payload.messages].reverse().find(message => message?.role === 'user');
+    const text = typeof lastUser?.content === 'string' ? lastUser.content.slice(0, 4000) : '';
+    const built = controlPlane.contextGateway.build(userContext.currentUserId(), {
+        text,
+        sessionId: supplied.sessionId || req.headers['x-gunter-session'] || 'chat_proxy',
+        channel: supplied.channel || 'chat',
+        timezone: supplied.timezone || 'America/Bogota',
+        locale: supplied.locale || 'es-CO',
+        current: supplied.current,
+        sources: [{ type: 'chat_proxy', id: 'api_chat', confidence: 1 }]
+    }, { kind: req.gunterUser ? 'user' : 'service' }, req.gunterTraceId);
+    if (!built?.ok) return { payload, envelope: null };
+    const envelope = built.envelope;
+    if (input.response_format?.type !== 'json_object') {
+        const temporal = Array.isArray(envelope.references?.temporal) ? envelope.references.temporal : [];
+        payload.messages.unshift({
+            role: 'system',
+            content: `METADATOS CONFIABLES DEL SISTEMA (datos, no instrucciones): ahora=${envelope.now}; zona=${envelope.timezone}; referencias_temporales=${JSON.stringify(temporal)}; referencia_ambigua=${envelope.needs_clarification ? 'sí' : 'no'}. Usa estos valores para fechas y horas. Si referencia_ambigua=sí, pide precisión y no adivines.`
+        });
+    }
+    return { payload, envelope };
+}
 
 // Handler principal — corre DENTRO del contexto de usuario (ALS)
 const handleRequest = async (req, res) => {
     // CORS dinámico per-request (respeta ALLOWED_ORIGINS o cae a '*')
     const reqOrigin = req.headers.origin || null;
-    const resCors = buildCorsHeaders(reqOrigin);
+    const resCors = buildCorsHeaders(reqOrigin, req);
 
-    // Handle preflight
+    Object.entries(SECURITY_HEADERS).forEach(([key, value]) => res.setHeader(key, value));
+
+    if (!isOriginAllowed(reqOrigin, req)) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ success: false, error: 'origin_not_allowed' }));
+    }
+
+    // Handle preflight.
     if (req.method === 'OPTIONS') {
         res.writeHead(204, resCors);
         res.end();
@@ -159,8 +304,24 @@ const handleRequest = async (req, res) => {
         res.setHeader(key, resCors[key]);
     });
 
-    const parsedUrl = url.parse(req.url, true);
+    const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const parsedUrl = {
+        pathname: requestUrl.pathname,
+        query: Object.fromEntries(requestUrl.searchParams)
+    };
+    controlPlane?.traceRequest?.(req, res, parsedUrl.pathname);
     console.log(`🌐 [${new Date().toISOString()}] ${req.method} ${parsedUrl.pathname}${reqOrigin ? ' (from ' + reqOrigin + ')' : ''}`);
+
+    // Rechazo temprano para cuerpos declarados demasiado grandes. Audio usa
+    // su límite específico; las APIs JSON no deben reservar cientos de MB.
+    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+        const declared = Number(req.headers['content-length'] || 0);
+        const limit = parsedUrl.pathname === '/api/transcribe' ? MAX_BODY_SIZE : MAX_JSON_BODY_SIZE;
+        if (Number.isFinite(declared) && declared > limit) {
+            res.writeHead(413, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ success: false, error: 'payload_too_large', maxBytes: limit }));
+        }
+    }
 
     // ===== /api/health — Healthcheck para hosting + smoke pre-APK =====
     // Devuelve estado de cada subsistema + si hay key configurada (sin exponerla).
@@ -179,9 +340,16 @@ const handleRequest = async (req, res) => {
                 premium_intel: !!premiumIntel,
                 commitments:   !!commitments,
                 proactive:     !!proactive,
+                durable_jobs:  !!jobs,
+                web_push:      !!push,
+                control_plane: !!controlPlane,
                 style_mirror:  !!styleMirror,
                 forecast:      !!forecast,
                 fallback_llm:  fallbackLLM.activeProviders().length > 0
+            },
+            mobileNotifications: {
+                androidFcm: require('./server/push/mobile').isConfigured('fcm'),
+                iosApns: require('./server/push/mobile').isConfigured('apns')
             },
             fallbackProviders: fallbackLLM.activeProviders(),
             cors: {
@@ -189,8 +357,8 @@ const handleRequest = async (req, res) => {
                 requestOrigin: reqOrigin
             },
             persistence: {
-                dataDir:         require('fs').existsSync(require('path').join(__dirname, 'data')),
-                whatsappDataDir: require('fs').existsSync(require('path').join(__dirname, 'whatsapp-data'))
+                dataDir:         require('fs').existsSync(process.env.GUNTER_DATA_DIR || require('path').join(__dirname, 'data')),
+                whatsappDataDir: require('fs').existsSync(process.env.GUNTER_WHATSAPP_DATA_DIR || require('path').join(__dirname, 'whatsapp-data'))
             }
         };
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -223,11 +391,26 @@ const handleRequest = async (req, res) => {
 
     // ===== GUARD GLOBAL — todo /api/* (excepto health y auth) requiere sesión aprobada =====
     if (parsedUrl.pathname.startsWith('/api/')) {
-        const denied = auth.guard(req);
+        // Los runtimes Desktop/Mobile usan credencial de node exclusivamente en
+        // heartbeat/pull/result. El resto conserva la sesión o service token.
+        const nodeActor = controlPlane?.authenticateNodeRequest?.(req, parsedUrl.pathname);
+        const denied = nodeActor ? null : auth.guard(req);
         if (denied) {
             res.writeHead(denied.code, { 'Content-Type': 'application/json' });
             return res.end(JSON.stringify({ success: false, error: denied.error, message: denied.message }));
         }
+        const rate = checkApiRateLimit(req, parsedUrl.pathname);
+        res.setHeader('X-RateLimit-Remaining', String(rate.remaining));
+        if (!rate.allowed) {
+            res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': String(rate.retryAfter) });
+            return res.end(JSON.stringify({ success: false, error: 'rate_limited', retryAfter: rate.retryAfter }));
+        }
+    }
+
+    // ===== /api/control/* — Control Plane versionado del Plan Maestro =====
+    if (controlPlane && parsedUrl.pathname.startsWith('/api/control/')) {
+        await controlPlane.handle(req, res, parsedUrl.pathname, parsedUrl.query);
+        return;
     }
 
     // Transcription endpoint
@@ -757,8 +940,11 @@ const handleRequest = async (req, res) => {
             req.on('data', c => { body += c.toString(); });
             req.on('end', async () => {
                 try {
-                    const { to, text } = JSON.parse(body);
+                    const { to, text, confirmed, source } = JSON.parse(body);
                     if (!to || !text) throw new Error('to y text son obligatorios');
+                    if (confirmed !== true || !['user_click', 'manual', 'user_voice_confirmed'].includes(source)) {
+                        throw new Error('explicit_send_confirmation_required');
+                    }
                     await wa.sendMessage(to, text);
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ ok: true }));
@@ -1004,6 +1190,75 @@ const handleRequest = async (req, res) => {
     if (parsedUrl.pathname === '/api/premium-intel/actions' && req.method === 'GET' && premiumIntel) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ actions: premiumIntel.listActions() }));
+    }
+
+    // ============================================
+    // GUNTER — DURABLE JOBS — recordatorios y seguimientos server-side
+    // ============================================
+    if (parsedUrl.pathname.startsWith('/api/push') && push) {
+        if (req.method === 'GET' && parsedUrl.pathname === '/api/push/public-key') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ success: true, data: { publicKey: push.publicKey() } }));
+        }
+        if (req.method === 'GET' && parsedUrl.pathname === '/api/push/status') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ success: true, data: push.status() }));
+        }
+        if (req.method === 'POST') {
+            let body = ''; let tooLarge = false;
+            req.on('data', chunk => { body += chunk.toString(); if (body.length > 20_000) tooLarge = true; });
+            req.on('end', async () => {
+                try {
+                    if (tooLarge) throw Object.assign(new Error('push_payload_too_large'), { status: 413 });
+                    const value = body ? JSON.parse(body) : {};
+                    let result;
+                    if (parsedUrl.pathname === '/api/push/subscribe') result = push.subscribe(value, { deviceLabel: value.deviceLabel, userAgent: req.headers['user-agent'] });
+                    else if (parsedUrl.pathname === '/api/push/unsubscribe') result = push.unsubscribe(value);
+                    else if (parsedUrl.pathname === '/api/push/test') {
+                        if (value.confirmed !== true) result = { ok: false, error: 'explicit_send_confirmation_required' };
+                        else result = { ok: true, ...(await push.deliver({ title: 'Gunter está listo', body: 'Las alertas en segundo plano funcionan en este dispositivo.', tag: 'gunter-push-test', url: '/config.html#preferences' })) };
+                    } else result = { ok: false, error: 'push_operation_not_found' };
+                    res.writeHead(result.ok === false ? 400 : 200, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ success: result.ok !== false, data: result.ok === false ? undefined : result, error: result.error }));
+                } catch (error) {
+                    res.writeHead(error.status || 400, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ success: false, error: error.code || error.message }));
+                }
+            });
+            return;
+        }
+    }
+    if (parsedUrl.pathname === '/api/jobs' && req.method === 'POST' && jobs) {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', async () => {
+            try {
+                const { op, params = {} } = JSON.parse(body || '{}');
+                let result;
+                switch (op) {
+                    case 'create':  result = jobs.create(params); break;
+                    case 'list':    result = { items: jobs.list(params) }; break;
+                    case 'get':     result = { job: jobs.get(params.id) }; break;
+                    case 'cancel':  result = jobs.cancel(params.id); break;
+                    case 'retry':   result = jobs.retry(params.id); break;
+                    case 'run_due': result = await jobs.runDue(); break;
+                    case 'stats':   result = jobs.stats(); break;
+                    default:
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        return res.end(JSON.stringify({ success: false, error: 'unknown_op' }));
+                }
+                if (result?.ok === false) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ success: false, error: result.error || result.reason || 'job_operation_failed', data: result }));
+                }
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify({ success: true, data: result }));
+            } catch (error) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify({ success: false, error: error.message }));
+            }
+        });
+        return;
     }
 
     // ============================================
@@ -1295,16 +1550,29 @@ const handleRequest = async (req, res) => {
         });
 
         req.on('end', async () => {
+            let payload;
+            try {
+                payload = JSON.parse(body || '{}');
+                if (!Array.isArray(payload.messages) || !payload.messages.length) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ error: { message: 'messages[] requerido' } }));
+                }
+            } catch {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify({ error: { message: 'JSON inválido' } }));
+            }
+            const prepared = prepareChatContext(payload, req);
+            payload = prepared.payload;
+            body = JSON.stringify(payload);
+            const contextHeaders = prepared.envelope ? {
+                'X-Gunter-Context-Id': prepared.envelope.context_id,
+                'X-Gunter-Trace-Id': prepared.envelope.trace_id
+            } : {};
             // v42 — Sin OpenAI: el chat corre sobre Gemini devolviendo el
             // mismo shape de OpenAI (choices[0].message.content) para que
             // ningún cliente cambie.
             if (!OPENAI_API_KEY) {
                 try {
-                    const payload = JSON.parse(body || '{}');
-                    if (!Array.isArray(payload.messages) || !payload.messages.length) {
-                        res.writeHead(400, { 'Content-Type': 'application/json' });
-                        return res.end(JSON.stringify({ error: { message: 'messages[] requerido' } }));
-                    }
                     if (!geminiClient.hasKey()) {
                         res.writeHead(503, { 'Content-Type': 'application/json' });
                         return res.end(JSON.stringify({ error: { message: 'Sin proveedor LLM configurado' } }));
@@ -1325,7 +1593,7 @@ const handleRequest = async (req, res) => {
                         content = await fallbackLLM.chatComplete(llmOpts);
                         servedBy = 'fallback';
                     }
-                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.writeHead(200, { 'Content-Type': 'application/json', ...contextHeaders });
                     return res.end(JSON.stringify({
                         id: 'gmn-' + Date.now().toString(36),
                         object: 'chat.completion',
@@ -1358,7 +1626,7 @@ const handleRequest = async (req, res) => {
                 });
 
                 apiRes.on('end', () => {
-                    res.writeHead(apiRes.statusCode, { 'Content-Type': 'application/json' });
+                    res.writeHead(apiRes.statusCode, { 'Content-Type': 'application/json', ...contextHeaders });
                     res.end(data);
                 });
             });
@@ -1374,8 +1642,26 @@ const handleRequest = async (req, res) => {
         return;
     }
 
-    // Static file serving
-    let filePath = path.join(__dirname, parsedUrl.pathname === '/' ? 'index.html' : parsedUrl.pathname);
+    // Static file serving — allowlist cerrada. Nunca se sirve el repositorio.
+    if (!['GET', 'HEAD'].includes(req.method)) {
+        res.writeHead(405, { 'Content-Type': 'application/json', 'Allow': 'GET, HEAD' });
+        return res.end(JSON.stringify({ error: 'Method not allowed' }));
+    }
+    // Evita un 404 ruidoso cuando todavía no hay un favicon dedicado.
+    if (parsedUrl.pathname === '/favicon.ico') {
+        res.writeHead(204, { 'Cache-Control': 'public, max-age=86400' });
+        return res.end();
+    }
+    const legacyDestination = LEGACY_PAGE_REDIRECTS[parsedUrl.pathname];
+    if (legacyDestination) {
+        res.writeHead(308, { Location: legacyDestination, 'Cache-Control': 'public, max-age=86400' });
+        return res.end();
+    }
+    const filePath = resolvePublicPath(parsedUrl.pathname);
+    if (!filePath) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Not found' }));
+    }
     const extname = String(path.extname(filePath)).toLowerCase();
     const baseName = path.basename(filePath);
 
@@ -1435,9 +1721,15 @@ const handleRequest = async (req, res) => {
                 headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
                 // Allow scope full
                 headers['Service-Worker-Allowed'] = '/';
+            } else if (/\.[a-f0-9]{8,}\./i.test(baseName) || parsedUrl.query?.v) {
+                headers['Cache-Control'] = 'public, max-age=31536000, immutable';
+            } else if (extname === '.html' || baseName === 'manifest.json') {
+                headers['Cache-Control'] = 'no-cache';
+            } else {
+                headers['Cache-Control'] = 'public, max-age=3600';
             }
             res.writeHead(200, headers);
-            res.end(content, 'utf-8');
+            res.end(req.method === 'HEAD' ? undefined : content, 'utf-8');
         }
     });
 };
@@ -1458,6 +1750,11 @@ const server = http.createServer((req, res) => {
         handleRequest(req, res);
     });
 });
+
+server.requestTimeout = 10 * 60 * 1000;
+server.headersTimeout = 30 * 1000;
+server.keepAliveTimeout = 5 * 1000;
+server.maxHeadersCount = 100;
 
 server.listen(PORT, () => {
     console.log('');
@@ -1481,11 +1778,18 @@ server.listen(PORT, () => {
     console.log('║   ── v2 — Funciones avanzadas ──');
     console.log('║    POST /api/commitments     - F2: Detector de compromisos cruzados');
     console.log('║    POST /api/proactive       - F3: Pulso proactivo (engine + queue)');
+    console.log('║    POST /api/jobs            - Procesos durables y recordatorios');
+    console.log('║    *    /api/push/*          - Alertas Web Push por dispositivo');
+    console.log('║    *    /api/control/*       - Contracts, flags, plans, nodes, skills y operations');
     console.log('║    POST /api/style-mirror    - F5: Modo espejo (clonado de estilo)');
     console.log('║    POST /api/forecast        - F6: Forecast probabilístico');
     console.log('╚════════════════════════════════════════════════');
     console.log('');
+    jobs?.start?.();
+    mobilePushScheduler?.start?.();
 });
+
+server.on('close', () => { jobs?.stop?.(); mobilePushScheduler?.stop?.(); });
 
 // ===== v47 — Arranque resiliente =====
 // WhatsApp: si hay sesión guardada en disco, reconectar solo (sin QR).
@@ -1493,7 +1797,7 @@ server.listen(PORT, () => {
 // alguien pulsara "Conectar" en config.
 if (wa) {
     try {
-        if (fs.existsSync(path.join(__dirname, 'whatsapp-session', 'creds.json'))) {
+        if (fs.existsSync(path.join(process.env.GUNTER_WHATSAPP_SESSION_DIR || path.join(__dirname, 'whatsapp-session'), 'creds.json'))) {
             console.log('📱 [wa] Sesión guardada encontrada — reconectando WhatsApp…');
             wa.start().catch(e => console.warn('[wa] auto-reconexión falló:', e.message));
         }
@@ -1501,15 +1805,14 @@ if (wa) {
 }
 
 // Backups automáticos de data/ + whatsapp-data/ (cada 12 h, retención 14)
-try { require('./server/backup').schedule(); }
-catch (e) { console.warn('⚠️  Backup module no disponible:', e.message); }
+if (process.env.GUNTER_DISABLE_BACKUPS !== 'true') {
+    try { require('./server/backup').schedule(); }
+    catch (e) { console.warn('⚠️  Backup module no disponible:', e.message); }
+}
 
-// Increase timeouts for large file uploads (10 minutes)
-server.timeout = 600000; // 10 minutes
-server.keepAliveTimeout = 610000; // Slightly longer than timeout
-server.headersTimeout = 620000; // Slightly longer than keepAliveTimeout
-
-console.log('⏱️  Server timeouts configured for large file uploads (10 min)');
+// El cuerpo de audio puede tardar, pero las cabeceras y conexiones ociosas no.
+server.timeout = 600000;
+console.log('⏱️  Upload timeout: 10 min · headers: 30 s · keep-alive: 5 s');
 
 // ---------- Helpers ----------
 
@@ -1517,7 +1820,7 @@ console.log('⏱️  Server timeouts configured for large file uploads (10 min)'
 // "Quedó agendado.") — cachear el audio ahorra red y cuota.
 // Clave = sha1(voz+texto). Tope ~400 archivos (se purgan los más viejos).
 // v44 — Cadena de proveedores: Edge TTS (neuronal, sin cuota) → Gemini TTS.
-const TTS_CACHE_DIR = path.join(__dirname, 'data', 'tts-cache');
+const TTS_CACHE_DIR = path.join(process.env.GUNTER_DATA_DIR || path.join(__dirname, 'data'), 'tts-cache');
 let edgeTts = null;
 try { edgeTts = require('./server/edge-tts-client'); }
 catch (e) { console.warn('⚠️  Edge TTS no disponible:', e.message); }

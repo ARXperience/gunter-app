@@ -15,27 +15,40 @@
 
     <link rel="stylesheet" href="styles/design-system.css">
     <link rel="stylesheet" href="styles/pages/day.css">
+    <link rel="stylesheet" href="styles/pages/activity.css?v88-workflows">
+    <link rel="stylesheet" href="styles/pages/conversations.css?v101-attachments">
+    <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
     <link rel="stylesheet" href="styles/pages/premium-intel-panels.css">
     <link rel="stylesheet" href="styles/responsive-mobile.css">
     <link rel="stylesheet" href="styles/ui-polish.css">
 
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#00d4ff">
+    <meta name="theme-color" content="#0A141A">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="assets/gunter/gunter_transparent_default_1769134184933.png">
     <link rel="stylesheet" href="styles/gunter-mascot.css?v66b-gunter-pixar-1783590000000">
-    <link rel="stylesheet" href="styles/gunter-companion.css?v66b-gunter-pixar-1783590000000">
-        <link rel="preload" as="style" href="styles/gunter-design-system.css">
-    <link rel="preload" as="style" href="styles/gunter-legacy-overrides.css">
+    <link rel="stylesheet" href="styles/gunter-companion.css?v70-particles">
 <link rel="stylesheet" href="styles/gunter-design-system.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-prism.css?v66b-gunter-pixar-1783590000000">
+    <link rel="stylesheet" href="styles/gunter-cinematic.css?v83-static-polar">
+    <script src="js/services/gunter-cinematic-shell.js?v81-static-polar" defer></script>
+    <link rel="stylesheet" href="styles/gunter-command-center.css?v115-mobile-no-header">
+    <link rel="stylesheet" href="styles/gunter-hologram.css?v2-stitch-console">
+    <script src="js/services/gunter-particles.js?v3-stitch-3d" defer></script>
+    <script src="js/services/gunter-command-center.js?v107-stitch-console" defer></script>
+    <script src="js/services/gunter-icon-system.js?v3-unified-icons" defer></script>
+    <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
+    <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
+    <script src="js/services/connection-manager.js?v87-context-sync" defer></script>
+    <script src="js/services/web-node-runtime.js?v84-control" defer></script>
 </head>
 
 <body class="at-dark">
+    <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
     <div class="gday">
 
         <div class="gday__shell">
@@ -108,13 +121,13 @@
             </aside>
 
             <!-- ========== MAIN ========== -->
-            <main class="gday__main">
+            <main class="gday__main" id="main-content" tabindex="-1">
 
                 <!-- Header -->
                 <header class="gday__header">
                     <div>
                         <div class="gday__eyebrow" id="gday-greeting">Buen día</div>
-                        <h1 class="gday__title" id="gday-date">—</h1>
+                    <p class="gday__title" id="gday-date">—</p>
                         <p class="gday__subtitle" id="gday-subtitle">Esto es lo que tienes por delante.</p>
                     </div>
                     <div class="gday__header-stats" id="gday-stats">
@@ -140,12 +153,12 @@
                     <div class="gday__quickbar" id="gday-quickbar-drop">
                         <div class="gday__quickbar-label">Captura rápida</div>
                         <form class="gday__quickbar-form" id="gday-quickbar-form">
-                            <button type="button" id="gday-doc-btn" class="gday__doc-btn"
+                            <button type="button" id="gday-doc-btn" class="gday__doc-btn" aria-label="Adjuntar recibo o factura"
                                 title="Subir recibo o factura">📎</button>
-                            <input type="file" id="gday-doc-file" accept="image/*,application/pdf" capture="environment" hidden>
+                            <input type="file" id="gday-doc-file" accept="image/*,application/pdf" capture="environment" aria-label="Recibo o factura para analizar" hidden>
                             <input type="text" id="gday-quickbar-input"
                                 placeholder='"recuérdame llamar a Ana mañana", "agenda reunión viernes 3pm", o arrastra una factura'
-                                autocomplete="off">
+                                aria-label="Escribe una tarea, evento, recordatorio o consulta para Gunter" autocomplete="off">
                             <button type="submit">➤ Enviar</button>
                         </form>
                         <p class="gday__quickbar-hint">Lenguaje natural en español · Tareas, eventos, recordatorios, facturas</p>
@@ -197,6 +210,16 @@
 
                 </section>
                 <!-- /TAB: HOY -->
+
+                <!-- TAB: ACTIVIDAD OPERATIVA -->
+                <section class="gday__tab-panel" data-tab-panel="activity" hidden>
+                    <div id="gday-activity"></div>
+                </section>
+
+                <!-- TAB: CONVERSACIONES UNIFICADAS -->
+                <section class="gday__tab-panel" data-tab-panel="conversations" hidden>
+                    <div id="gday-conversations"></div>
+                </section>
 
                 <!-- TAB: PLAN DEL DÍA (premium intel - Sprint C) -->
                 <section class="gday__tab-panel" data-tab-panel="plan-day" hidden>
@@ -289,7 +312,7 @@
     </div>
 
     <!-- ========== SCRIPTS ========== -->
-    <script src="js/config.js"></script>
+    <script src="js/config.js?v103-api-base"></script>
     <script src="js/premium-features-service.js?v66b-gunter-pixar-1783590000000" defer></script>
 
     <!-- Avatar (neutral, no theme) -->
@@ -299,7 +322,7 @@
     <!-- Core -->
     <script src="js/core/models.js" defer></script>
     <script src="js/core/trace-logger.js" defer></script>
-    <script src="js/core/context-provider.js" defer></script>
+    <script src="js/core/context-provider.js?v87-context-sync" defer></script>
     <script src="js/core/date-service.js" defer></script>
     <script src="js/services/nlp-llm-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/tasks-service.js" defer></script>
@@ -309,7 +332,7 @@
     <script src="js/services/events-service.js" defer></script>
     <script src="js/services/status-bus.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/connectivity-monitor.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/notifications-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/notifications-service.js?v102-background-push" defer></script>
     <script src="js/services/transcript-store.js" defer></script>
     <script src="js/services/error-mapper.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/document-service.js" defer></script>
@@ -321,8 +344,12 @@
 
     <!-- Premium Intelligence (Sprint B) -->
     <script src="js/services/premium-intelligence-service.js" defer></script>
-    <script src="js/services/voice-service.js" defer></script>
-    <script src="js/services/wake-word-service.js" defer></script>
+    <script src="js/core/temporal-context.js?v70-assistant" defer></script>
+    <script src="js/core/wake-invocation.js?v68-assistant" defer></script>
+    <script src="js/core/conversation-state.js?v73-assistant" defer></script>
+    <script src="js/services/voice-activity-service.js?v73-assistant" defer></script>
+    <script src="js/services/voice-service.js?v71-assistant" defer></script>
+    <script src="js/services/wake-word-service.js?v73-assistant" defer></script>
 
     <!-- Adapters (Fase 7) — capa de indirección para futuro backend -->
     <script src="js/adapters/storage-adapter.js" defer></script>
@@ -332,12 +359,15 @@
     <script src="js/adapters/voice-adapter.js" defer></script>
     <script src="js/adapters/index.js" defer></script>
 
-    <script src="js/core/time-parser.js" defer></script>
+    <script src="js/core/time-parser.js?v68-assistant" defer></script>
+    <script src="js/services/jobs-service.js?v73-assistant" defer></script>
+    <script src="js/core/assistant-tools.js?v103-device-runtime" defer></script>
+    <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
     <script src="js/core/intent-engine.js" defer></script>
-    <script src="js/core/entity-extractor.js" defer></script>
+    <script src="js/core/entity-extractor.js?v68-assistant" defer></script>
     <script src="js/core/decision-engine.js" defer></script>
     <script src="js/core/action-engine.js" defer></script>
-    <script src="js/core/pipeline.js" defer></script>
+    <script src="js/core/pipeline.js?v89-natural-workflows" defer></script>
 
     <!-- Widgets existentes (el today-widget se estiliza con overrides) -->
     <script src="js/controllers/today-widget.js" defer></script>
@@ -385,24 +415,26 @@
     <script src="js/controllers/meeting-memory.js" defer></script>
     <script src="js/controllers/day-whatsapp-tab.js" defer></script>
     <script src="js/controllers/day-secondary-tabs.js" defer></script>
+    <script src="js/controllers/activity-panel.js?v88-workflows" defer></script>
+    <script src="js/controllers/conversations-panel.js?v101-attachments" defer></script>
 
     <!-- Tab router (debe ir antes del day-controller) -->
-    <script src="js/controllers/day-tabs.js" defer></script>
+    <script src="js/controllers/day-tabs.js?v96-nav-hash" defer></script>
 
     <!-- Gunter Día controller -->
-    <script src="js/controllers/day-controller.js" defer></script>
+    <script src="js/controllers/day-controller.js?v102-background-push" defer></script>
 
     <!-- PWA registration (Fase 8) -->
     <script src="js/services/pwa-register.js" defer></script>
     <script src="js/services/sw-updater.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/theme-toggle.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/actions-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/theme-toggle.js?v80-polar" defer></script>    <script src="js/services/actions-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-rules-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-mood-service.js?v66b-gunter-pixar-1783590000000" defer></script>
 
 
-    <script src="js/services/gunter-companion.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/gunter-companion.js?v71-assistant" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/gunter-onboarding.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/gunter-onboarding.js?v67-security-20260828" defer></script>
 </body>
 
 </html>

@@ -47,7 +47,7 @@
         const r = await fetch(`${BASE}/send`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to, text })
+            body: JSON.stringify({ to, text, confirmed: true, source: 'user_click' })
         });
         return r.ok ? r.json() : { error: (await r.text()) };
     }

@@ -79,16 +79,16 @@
         el.innerHTML = `
             <div class="gn-onboarding__backdrop"></div>
             <div class="gn-onboarding__spotlight"></div>
-            <div class="gn-onboarding__card" role="dialog" aria-modal="true">
+            <div class="gn-onboarding__card" role="dialog" aria-modal="true" aria-labelledby="gn-onboarding-title" aria-describedby="gn-onboarding-body">
                 <div class="gn-onboarding__emoji"></div>
                 <div class="gn-onboarding__progress">
                     ${STEPS.map((_, i) => `<span class="gn-onboarding__dot"></span>`).join('')}
                 </div>
-                <h2 class="gn-onboarding__title"></h2>
-                <p class="gn-onboarding__body"></p>
+                <h2 class="gn-onboarding__title" id="gn-onboarding-title"></h2>
+                <p class="gn-onboarding__body" id="gn-onboarding-body"></p>
                 <div class="gn-onboarding__actions">
-                    <button class="gn-onboarding__skip" data-onb-action="skip">Saltar tour</button>
-                    <button class="gn-onboarding__next gn-glass-btn" data-onb-action="next">Siguiente</button>
+                    <button type="button" class="gn-onboarding__skip" data-onb-action="skip">Saltar tour</button>
+                    <button type="button" class="gn-onboarding__next gn-glass-btn" data-onb-action="next">Siguiente</button>
                 </div>
             </div>
         `;
@@ -103,8 +103,12 @@
             .gn-onboarding {
                 position: fixed;
                 inset: 0;
-                z-index: var(--z-onboarding, 600);
+                /* Debe quedar por encima del companion móvil (legacy usa 9999). */
+                z-index: var(--z-onboarding, 20000);
                 pointer-events: none;
+                display: grid;
+                place-items: end center;
+                padding: 24px max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
             }
             .gn-onboarding__backdrop {
                 position: absolute;
@@ -125,11 +129,11 @@
             }
             .gn-onboarding__spotlight.is-active { display: block; }
             .gn-onboarding__card {
-                position: absolute;
-                left: 50%;
-                bottom: 40px;
-                transform: translateX(-50%);
+                position: relative;
                 width: min(400px, calc(100vw - 32px));
+                max-height: calc(100dvh - 48px);
+                overflow-y: auto;
+                overscroll-behavior: contain;
                 padding: 28px 24px 22px;
                 background: var(--glass-elevated);
                 border: 1px solid var(--glass-border-hi);
@@ -207,8 +211,8 @@
             }
             @media (max-width: 480px) {
                 .gn-onboarding__card {
-                    bottom: 20px;
                     padding: 24px 20px 18px;
+                    max-height: calc(100dvh - 32px - env(safe-area-inset-bottom));
                 }
                 .gn-onboarding__emoji { font-size: 48px; }
                 .gn-onboarding__title { font-size: var(--text-xl); }

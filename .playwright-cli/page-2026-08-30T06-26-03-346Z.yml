@@ -1,0 +1,48 @@
+- generic [active] [ref=f2e1]:
+  - generic: GUNTER
+  - main [ref=f2e2]:
+    - navigation "Navegación principal de Gunter" [ref=f2e3]:
+      - link "Gunter, centro de comando" [ref=f2e4] [cursor=pointer]:
+        - /url: day.html
+        - generic [ref=f2e6]: GUNTER
+        - generic [ref=f2e7]: COMMAND OS
+      - generic [ref=f2e8]:
+        - link "01 Día" [ref=f2e9] [cursor=pointer]:
+          - /url: day.html
+          - generic [ref=f2e10]: "01"
+          - text: Día
+        - link "02 Reuniones" [ref=f2e11] [cursor=pointer]:
+          - /url: dashboard.html
+          - generic [ref=f2e12]: "02"
+          - text: Reuniones
+        - link "03 Nueva" [ref=f2e13] [cursor=pointer]:
+          - /url: new-project.html
+          - generic [ref=f2e14]: "03"
+          - text: Nueva
+        - link "04 Config" [ref=f2e15] [cursor=pointer]:
+          - /url: config.html#premium
+          - generic [ref=f2e16]: "04"
+          - text: Config
+      - generic [ref=f2e17]: En línea
+    - generic "Flujo actual" [ref=f2e19]:
+      - generic [ref=f2e20]:
+        - generic [ref=f2e21]: "01"
+        - text: Asistente IA
+      - generic [ref=f2e23]:
+        - generic [ref=f2e24]: "02"
+        - text: Preferencias
+      - generic [ref=f2e26]:
+        - generic [ref=f2e27]: "03"
+        - text: Datos
+    - generic [ref=f2e28]:
+      - text: ◈
+      - link "Volver al Dashboard" [ref=f2e29] [cursor=pointer]:
+        - /url: dashboard.html
+      - heading "Configuración" [level=1] [ref=f2e32]
+      - paragraph [ref=f2e33]: Administra tus proyectos, preferencias y datos desde un solo lugar.
+    - tablist "Secciones de configuración" [ref=f2e34]:
+      - tab "◉ Asistente IA" [ref=f2e35] [cursor=pointer]
+      - tab "◇ Preferencias" [ref=f2e36] [cursor=pointer]
+      - tab "⌁ Datos y conexiones" [ref=f2e37] [cursor=pointer]
+      - tab "× Papelera" [ref=f2e38] [cursor=pointer]
+  - button "Menú de usuario" [ref=f2e40] [cursor=pointer]: V

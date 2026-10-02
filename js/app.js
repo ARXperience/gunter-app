@@ -201,10 +201,12 @@ function showToast(message, type = 'info') {
 
   const toast = document.createElement('div');
   toast.className = `toast toast--${type}`;
-  toast.innerHTML = `
-    <span>${getToastIcon(type)}</span>
-    <span>${message}</span>
-  `;
+  const icon = document.createElement('span');
+  icon.setAttribute('aria-hidden', 'true');
+  icon.textContent = getToastIcon(type);
+  const copy = document.createElement('span');
+  copy.textContent = String(message || '');
+  toast.append(icon, copy);
 
   container.appendChild(toast);
 
@@ -223,45 +225,6 @@ function getToastIcon(type) {
     info: 'ℹ'
   };
   return icons[type] || icons.info;
-}
-
-// ===== AVATAR STATE MANAGER =====
-class GunterAvatar {
-  constructor(element) {
-    this.element = element;
-    this.states = {
-      default: 'assets/gunter/gunter_default_1769130911628.png',
-      listening: 'assets/gunter/gunter_listening_1769131008264.png',
-      analyzing: 'assets/gunter/gunter_analyzing_1769131035783.png',
-      alert: 'assets/gunter/gunter_alert_1769131090250.png',
-      celebration: 'assets/gunter/gunter_celebration_1769131151470.png'
-    };
-    this.currentState = 'default';
-  }
-  
-  setState(state) {
-    if (this.states[state] && state !== this.currentState) {
-      this.currentState = state;
-      const container = this.element.closest('.gunter-avatar');
-      
-      if (container) {
-        container.dataset.state = state;
-      }
-      
-      // Update image with fade
-      this.element.style.opacity = '0';
-      setTimeout(() => {
-        this.element.src = this.states[state];
-        this.element.style.opacity = '1';
-      }, 200);
-      
-      // Update state text if exists
-      const stateText = document.getElementById('gunter-state-text');
-      if (stateText) {
-        stateText.textContent = state.toUpperCase();
-      }
-    }
-  }
 }
 
 // ===== UTILITY FUNCTIONS =====
@@ -290,7 +253,7 @@ function formatTime(seconds) {
 // Export for use in other scripts
 window.GunterApp = {
   showToast,
-  GunterAvatar,
+  GunterAvatar: window.GunterAvatar || null,
   debounce,
   formatTime
 };

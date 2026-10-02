@@ -4,12 +4,12 @@
    ============================================= */
 
 (function () {
-    const TABS = ['premium', 'preferences', 'trash', 'data'];
+    const TABS = ['premium', 'preferences', 'data', 'trash'];
     const TITLES = {
-        'premium':     { t: 'Funciones Premium', s: 'Activa módulos avanzados de Gunter. Todo se guarda localmente.' },
-        'preferences': { t: 'Preferencias',   s: 'Personaliza apariencia, idioma y accesibilidad.' },
+        'premium':     { t: 'Asistente IA', s: 'Configura cómo Gunter piensa, escucha, recuerda y se anticipa.' },
+        'preferences': { t: 'Preferencias', s: 'Personaliza apariencia, idioma y accesibilidad.' },
         'trash':       { t: 'Papelera',       s: 'Proyectos eliminados. Restaura o elimina definitivamente.' },
-        'data':        { t: 'Datos y Privacidad', s: 'Exporta, importa o borra tu información local.' }
+        'data':        { t: 'Datos y conexiones', s: 'Gestiona respaldos, memoria, integraciones y privacidad.' }
     };
 
     function activateTab(name) {
@@ -17,6 +17,9 @@
 
         document.querySelectorAll('.config-tab').forEach(btn => {
             btn.classList.toggle('is-active', btn.dataset.tab === name);
+            const active = btn.dataset.tab === name;
+            btn.setAttribute('aria-selected', String(active));
+            btn.tabIndex = active ? 0 : -1;
         });
         document.querySelectorAll('.config-tab-panel').forEach(p => {
             p.hidden = p.dataset.panel !== name;
@@ -43,6 +46,7 @@
         if (window.GunterAdvancedSettings?.mount) {
             window.GunterAdvancedSettings.mount('#premium-panel');
             premiumMounted = true;
+            window.GunterControlPlaneSettings?.mount?.('#premium-panel');
         } else {
             const el = document.getElementById('premium-panel');
             if (el) el.innerHTML = '<p class="settings-empty">Cargando módulo premium…</p>';
@@ -50,11 +54,28 @@
     }
 
     function initTabs() {
-        document.querySelectorAll('.config-tab').forEach(btn => {
+        const tabs = [...document.querySelectorAll('.config-tab')];
+        tabs.forEach((btn, index) => {
             btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+            btn.addEventListener('keydown', event => {
+                const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length
+                    : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length
+                    : event.key === 'Home' ? 0
+                    : event.key === 'End' ? tabs.length - 1 : -1;
+                if (next < 0) return;
+                event.preventDefault();
+                activateTab(tabs[next].dataset.tab);
+                tabs[next].focus();
+            });
         });
         const initial = (location.hash || '').replace('#', '') || 'premium';
         activateTab(initial);
+        // Los enlaces globales usan hashes para aterrizar en una sección concreta.
+        // Al navegar entre hashes de la misma página no hay recarga, así que
+        // sincronizamos panel, pestaña y URL también en ese caso.
+        window.addEventListener('hashchange', () => {
+            activateTab((location.hash || '').replace(/^#/, '') || 'premium');
+        });
     }
 
     // ---------- Trash ----------
@@ -170,8 +191,32 @@
         const openaiEl = document.getElementById('status-openai');
         const geminiEl = document.getElementById('status-gemini');
         const googleEl = document.getElementById('status-google');
+        const fcmEl = document.getElementById('status-fcm');
+        const apnsEl = document.getElementById('status-apns');
 
-        if (openaiEl) openaiEl.innerHTML = '<span class="ok">Configurado vía .env</span>';
+        fetch('/api/health')
+            .then(r => r.ok ? r.json() : Promise.reject(new Error('health_unavailable')))
+            .then(d => {
+                if (openaiEl) {
+                    const fallback = Array.isArray(d.fallbackProviders) ? d.fallbackProviders : [];
+                    openaiEl.innerHTML = d.services?.openai
+                        ? '<span class="ok">✓ Activo</span>'
+                        : fallback.length
+                            ? `<span class="ok">OpenAI no configurado · alternativa activa (${fallback.map(escapeHtml).join(', ')})</span>`
+                            : '<span class="missing">Falta OPENAI_API_KEY y no hay alternativa activa</span>';
+                }
+                if (fcmEl) fcmEl.innerHTML = d.mobileNotifications?.androidFcm
+                    ? '<span class="ok">✓ Configurado</span>'
+                    : '<span class="missing">Pendiente: cuenta de servicio FCM en el servidor</span>';
+                if (apnsEl) apnsEl.innerHTML = d.mobileNotifications?.iosApns
+                    ? '<span class="ok">✓ APNs configurado en el servidor</span>'
+                    : '<span class="missing">Pendiente: clave APNs del equipo</span>';
+            })
+            .catch(() => {
+                if (openaiEl) openaiEl.innerHTML = '<span class="missing">Servidor no responde</span>';
+                if (fcmEl) fcmEl.innerHTML = '<span class="missing">Servidor no responde</span>';
+                if (apnsEl) apnsEl.innerHTML = '<span class="missing">Servidor no responde</span>';
+            });
 
         if (geminiEl) {
             fetch((window.GUNTER_CONFIG?.PROXY_GEMINI_STATUS_URL) || '/api/gemini-status')
@@ -304,6 +349,8 @@
 
         const importInput = document.getElementById('import-data-input');
         if (importInput) importInput.addEventListener('change', handleImport);
+        const importButton = document.getElementById('import-data-select');
+        if (importButton && importInput) importButton.addEventListener('click', () => importInput.click());
 
         const wipeBtn = document.getElementById('wipe-all-btn');
         if (wipeBtn) wipeBtn.addEventListener('click', wipeEverything);

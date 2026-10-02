@@ -1,0 +1,130 @@
+- generic [active] [ref=f13e1]:
+  - generic: GUNTER
+  - main [ref=f13e2]:
+    - navigation "Navegación principal de Gunter" [ref=f13e3]:
+      - link "Gunter, centro de comando" [ref=f13e4] [cursor=pointer]:
+        - /url: day.html
+        - generic [ref=f13e6]: GUNTER
+        - generic [ref=f13e7]: COMMAND OS
+      - generic [ref=f13e8]:
+        - link "01 Día" [ref=f13e9] [cursor=pointer]:
+          - /url: day.html
+          - generic [ref=f13e10]: "01"
+          - text: Día
+        - link "02 Reuniones" [ref=f13e11] [cursor=pointer]:
+          - /url: dashboard.html
+          - generic [ref=f13e12]: "02"
+          - text: Reuniones
+        - link "03 Nueva" [ref=f13e13] [cursor=pointer]:
+          - /url: new-project.html
+          - generic [ref=f13e14]: "03"
+          - text: Nueva
+        - link "04 Config" [ref=f13e15] [cursor=pointer]:
+          - /url: config.html#premium
+          - generic [ref=f13e16]: "04"
+          - text: Config
+      - generic [ref=f13e17]: En línea
+    - generic "Flujo actual" [ref=f13e19]:
+      - generic [ref=f13e20]:
+        - generic [ref=f13e21]: "01"
+        - text: Contexto
+      - generic [ref=f13e23]:
+        - generic [ref=f13e24]: "02"
+        - text: Objetivo
+      - generic [ref=f13e26]:
+        - generic [ref=f13e27]: "03"
+        - text: Captura
+    - generic [ref=f13e28]:
+      - text: ◈
+      - link "Volver al Dashboard" [ref=f13e29] [cursor=pointer]:
+        - /url: dashboard.html
+      - heading "Preparar reunión" [level=1] [ref=f13e32]
+      - paragraph [ref=f13e33]: Dale contexto a Gunter antes de iniciar la captura.
+    - generic [ref=f13e34]:
+      - generic [ref=f13e35]:
+        - generic [ref=f13e36]:
+          - generic [ref=f13e37]: "1"
+          - generic [ref=f13e38]: Contexto
+        - generic [ref=f13e40]:
+          - generic [ref=f13e41]: "2"
+          - generic [ref=f13e42]: Objetivo
+        - generic [ref=f13e44]:
+          - generic [ref=f13e45]: "3"
+          - generic [ref=f13e46]: Captura
+      - generic [ref=f13e48]:
+        - generic [ref=f13e49] [cursor=pointer]:
+          - generic [ref=f13e50]: 🏢
+          - heading "Empresarial" [level=3] [ref=f13e51]
+          - paragraph [ref=f13e52]: Para proyectos corporativos enfocados en ROI, eficiencia y escalabilidad.
+          - list [ref=f13e53]:
+            - listitem [ref=f13e54]: Análisis de viabilidad financiera
+            - listitem [ref=f13e55]: Métricas de negocio y KPIs
+            - listitem [ref=f13e56]: Roadmap ejecutivo
+            - listitem [ref=f13e57]: "Estilo visual: Corporate Sleek"
+        - generic [ref=f13e58] [cursor=pointer]:
+          - generic [ref=f13e59]: 🎨
+          - heading "Artístico" [level=3] [ref=f13e60]
+          - paragraph [ref=f13e61]: Para proyectos creativos enfocados en impacto visual y experiencias.
+          - list [ref=f13e62]:
+            - listitem [ref=f13e63]: Análisis de impacto y audiencia
+            - listitem [ref=f13e64]: Propuestas creativas
+            - listitem [ref=f13e65]: Estrategia de contenido
+            - listitem [ref=f13e66]: "Estilo visual: Digital Avant-garde"
+        - generic [ref=f13e67] [cursor=pointer]:
+          - generic [ref=f13e68]: 🎙️
+          - heading "Podcast" [level=3] [ref=f13e69]
+          - paragraph [ref=f13e70]: Para proyectos de audio enfocados en estructura y engagement.
+          - list [ref=f13e71]:
+            - listitem [ref=f13e72]: Estructura de episodios
+            - listitem [ref=f13e73]: Análisis de gancho y retención
+            - listitem [ref=f13e74]: Estrategia de crecimiento
+            - listitem [ref=f13e75]: "Estilo visual: Studio Lo-Fi"
+        - generic [ref=f13e76] [cursor=pointer]:
+          - generic [ref=f13e77]: ☯️
+          - heading "Zen" [level=3] [ref=f13e78]
+          - paragraph [ref=f13e79]: Sabio que se adapta a cualquier conversación, con datos curiosos y humor ligero.
+          - list [ref=f13e80]:
+            - text: ·
+            - listitem [ref=f13e81]: Análisis holístico y filosófico
+            - listitem [ref=f13e82]: Datos curiosos contextuales
+            - listitem [ref=f13e83]: Adaptación al tono del diálogo
+            - listitem [ref=f13e84]: "Estilo visual: Serene Sage"
+      - generic [ref=f13e85]:
+        - generic [ref=f13e86]:
+          - heading "Detalles del Proyecto" [level=3] [ref=f13e87]
+          - generic [ref=f13e91]:
+            - generic [ref=f13e92]: Nombre del Proyecto
+            - textbox "Nombre del Proyecto" [ref=f13e93]:
+              - /placeholder: "ej: App de Delivery 2.0"
+          - generic [ref=f13e94]:
+            - generic [ref=f13e95]: Describe tu mercado
+            - textbox "Describe tu mercado" [ref=f13e96]:
+              - /placeholder: "ej: Startups de tecnología enfocadas en logística y última milla en LATAM..."
+        - generic [ref=f13e97]:
+          - heading "Subir Audio (Opcional)" [level=3] [ref=f13e98]
+          - paragraph [ref=f13e102]: ¿Ya tienes una grabación? Súbela y Gunter la transcribirá y analizará automáticamente.
+          - generic [ref=f13e103] [cursor=pointer]:
+            - paragraph [ref=f13e108]: Arrastra un audio aquí o haz clic para seleccionar
+            - paragraph [ref=f13e109]: MP3, WAV, M4A, OGG, WebM (máx. 250MB)
+        - generic [ref=f13e110]:
+          - link "Cancelar" [ref=f13e111] [cursor=pointer]:
+            - /url: dashboard.html
+          - button "Ajustar y Analizar" [ref=f13e112] [cursor=pointer]
+          - button "Iniciar Reunión" [disabled] [ref=f13e116] [cursor=pointer]
+  - button "Menú de usuario" [ref=f13e121] [cursor=pointer]: C
+  - button "Cambiar tema claro/oscuro" [ref=f13e122] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f13e126]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué es Empresarial?"
+        - button "¿Qué es Podcast?"
+        - button "¿Qué es Zen?"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f13e127] [cursor=pointer]

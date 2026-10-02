@@ -1,9 +1,7 @@
 /* =============================================
    GUNTER ADAPTER - Notification (Fase 7)
    -------------------------------------------------
-   Hoy: in-app toasts + Web Notification API
-   (GunterNotificationsService). Mañana: push real
-   server-side, FCM, OneSignal — la API se mantiene.
+   In-app toasts + Web Notification API + Web Push persistente.
 
    Interfaz:
      notification.toast(message, opts?): handle
@@ -73,6 +71,9 @@
             if (!svc?.requestPermission) return 'unsupported';
             return await svc.requestPermission();
         },
+        async enablePush() { return window.GunterNotificationsService?.enablePush?.(); },
+        async disablePush() { return window.GunterNotificationsService?.disablePush?.(); },
+        async pushStatus() { return window.GunterNotificationsService?.pushStatus?.(); },
         get name() { return 'local'; }
     };
 
@@ -87,7 +88,10 @@
         schedule:          (...a) => current().schedule(...a),
         cancel:            (...a) => current().cancel(...a),
         list:              (...a) => current().list(...a),
-        requestPermission: ()     => current().requestPermission()
+        requestPermission: ()     => current().requestPermission(),
+        enablePush:        ()     => current().enablePush?.(),
+        disablePush:       ()     => current().disablePush?.(),
+        pushStatus:        ()     => current().pushStatus?.()
     };
 
     window.GunterAdapters = window.GunterAdapters || {};

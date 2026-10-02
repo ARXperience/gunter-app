@@ -39,6 +39,16 @@
     let currentUtterance = null;
     let speaking = false;
     let ttsAvailable = null;   // se detecta primera vez
+    let lastSpokenText = '';
+    let speechStartedAt = 0;
+
+    function notifyVoiceState(state, detail = {}) {
+        try {
+            window.dispatchEvent(new CustomEvent('gunter-voice-state', {
+                detail: { state, speaking, text: lastSpokenText, startedAt: speechStartedAt, ...detail }
+            }));
+        } catch { /* entorno sin CustomEvent */ }
+    }
 
     async function checkTtsAvailable() {
         if (ttsAvailable !== null) return ttsAvailable;
@@ -251,8 +261,15 @@
 
     async function processQueue() {
         const next = queue.shift();
-        if (!next) { speaking = false; return; }
+        if (!next) {
+            speaking = false;
+            notifyVoiceState('idle', { reason: 'queue-empty' });
+            return;
+        }
         speaking = true;
+        lastSpokenText = next.text;
+        speechStartedAt = Date.now();
+        notifyVoiceState('speaking', { context: next.opts.context || 'chat' });
 
         try {
             await checkTtsAvailable();
@@ -277,7 +294,7 @@
         }
     }
 
-    function cancel() {
+    function cancel(reason = 'cancelled') {
         queue = [];
         speaking = false;
         if (currentAudio) {
@@ -285,6 +302,33 @@
             currentAudio = null;
         }
         try { speechSynthesis.cancel(); } catch {}
+        notifyVoiceState('idle', { reason });
+    }
+
+    function isSpeaking() {
+        return speaking;
+    }
+
+    // Evita que la escucha continua confunda la propia voz de Gunter con
+    // una interrupción del usuario. Se compara la transcripción reciente
+    // con el texto que está reproduciendo el TTS.
+    function isLikelyEcho(transcript) {
+        if (!speaking || !transcript || !lastSpokenText) return false;
+        if (Date.now() - speechStartedAt > 60_000) return false;
+        const clean = value => String(value || '').toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9ñ\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const heard = clean(transcript);
+        const spoken = clean(lastSpokenText);
+        if (heard.length >= 10 && (spoken.includes(heard) || heard.includes(spoken))) return true;
+        const heardTokens = new Set(heard.split(' ').filter(token => token.length > 2));
+        const spokenTokens = new Set(spoken.split(' ').filter(token => token.length > 2));
+        if (!heardTokens.size || !spokenTokens.size) return false;
+        let overlap = 0;
+        heardTokens.forEach(token => { if (spokenTokens.has(token)) overlap += 1; });
+        return overlap / heardTokens.size >= 0.7;
     }
 
     function stripMarkdown(s) {
@@ -302,7 +346,10 @@
     window.GunterVoice = {
         speak, cancel, shouldSpeak, getStyleConfig,
         // Fase E.E2/E3
-        setMeetingActive, isMeetingActive, shortenForSpeech
+        setMeetingActive, isMeetingActive, shortenForSpeech,
+        // Conversación continua / barge-in
+        isSpeaking, isLikelyEcho,
+        getPlaybackState: () => ({ speaking, text: lastSpokenText, startedAt: speechStartedAt, queued: queue.length })
     };
 
     // Event shortcut

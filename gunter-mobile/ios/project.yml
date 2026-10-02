@@ -1,0 +1,19 @@
+name: GunterMobile
+options:
+  bundleIdPrefix: com.gunter
+targets:
+  GunterMobile:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources: [GunterMobile]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gunter.mobile
+        SWIFT_VERSION: "5.0"
+        INFOPLIST_KEY_CFBundleDisplayName: Gunter
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: GunterMobile/GunterMobile.entitlements
+        Release:
+          CODE_SIGN_ENTITLEMENTS: GunterMobile/GunterMobile.Release.entitlements

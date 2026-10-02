@@ -1,0 +1,175 @@
+- generic [active] [ref=f4e1]:
+  - generic [aria-hidden]:
+    - generic: GUNTER
+  - link "Saltar al contenido principal" [ref=f4e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=f4e4]:
+    - complementary [ref=f4e5]:
+      - generic [ref=f4e34]:
+        - generic [ref=f4e35]: Asistente
+        - generic [ref=f4e36]: Gunter
+      - navigation [ref=f4e37]:
+        - link "Hoy" [ref=f4e38] [cursor=pointer]:
+          - /url: day.html
+        - link "Capturar" [ref=f4e42] [cursor=pointer]:
+          - /url: day.html#capture
+        - link "Eventos" [ref=f4e47] [cursor=pointer]:
+          - /url: day.html#events
+        - link "Tareas" [ref=f4e52] [cursor=pointer]:
+          - /url: day.html#tasks
+        - link "Recordatorios" [ref=f4e57] [cursor=pointer]:
+          - /url: day.html#reminders
+        - link "Chat con Gunter" [ref=f4e62] [cursor=pointer]:
+          - /url: day.html#chat
+        - link "Configuración" [ref=f4e66] [cursor=pointer]:
+          - /url: config.html#preferences
+      - generic [ref=f4e71]:
+        - generic [ref=f4e72]: local-user
+        - text: Local · sin servidor
+    - main [ref=f4e73]:
+      - navigation "Navegación principal de Gunter" [ref=f4e74]:
+        - link "Gunter, centro de comando" [ref=f4e75] [cursor=pointer]:
+          - /url: day.html
+          - generic [ref=f4e77]: GUNTER
+          - generic [ref=f4e78]: COMMAND OS
+        - generic [ref=f4e79]:
+          - link "01 Día" [ref=f4e80] [cursor=pointer]:
+            - /url: day.html
+            - generic [ref=f4e81]: "01"
+            - text: Día
+          - link "02 Reuniones" [ref=f4e82] [cursor=pointer]:
+            - /url: dashboard.html
+            - generic [ref=f4e83]: "02"
+            - text: Reuniones
+          - link "03 Nueva" [ref=f4e84] [cursor=pointer]:
+            - /url: new-project.html
+            - generic [ref=f4e85]: "03"
+            - text: Nueva
+          - link "04 Config" [ref=f4e86] [cursor=pointer]:
+            - /url: config.html#premium
+            - generic [ref=f4e87]: "04"
+            - text: Config
+        - generic [ref=f4e88]: En línea
+      - generic "Flujo actual" [ref=f4e90]:
+        - generic [ref=f4e91]:
+          - generic [ref=f4e92]: "01"
+          - text: Ahora
+        - generic [ref=f4e94]:
+          - generic [ref=f4e95]: "02"
+          - text: Capturar
+        - generic [ref=f4e97]:
+          - generic [ref=f4e98]: "03"
+          - text: Ejecutar
+      - generic [ref=f4e99]:
+        - generic [ref=f4e100]:
+          - generic [ref=f4e101]: Buenas tardes
+          - heading "jueves, 24 de septiembre" [level=1] [ref=f4e102]
+          - paragraph [ref=f4e103]: Un día despejado. Usa la barra de captura para agregar algo.
+        - generic [ref=f4e104]:
+          - generic [ref=f4e105]:
+            - generic [ref=f4e106]: 📋
+            - strong [ref=f4e107]: "0"
+            - text: tareas
+          - generic [ref=f4e108]:
+            - generic [ref=f4e109]: 📅
+            - strong [ref=f4e110]: "0"
+            - text: eventos
+          - generic [ref=f4e111]:
+            - generic [ref=f4e112]: ⏰
+            - strong [ref=f4e113]: "0"
+            - text: vencidas
+      - generic [ref=f4e114]:
+        - text: "01"
+        - generic [ref=f4e115]: Comando rápido
+        - generic [ref=f4e116]:
+          - button "Adjuntar recibo o factura" [ref=f4e117] [cursor=pointer]: 📎
+          - textbox "Escribe una tarea, evento, recordatorio o consulta para Gunter" [ref=f4e118]:
+            - /placeholder: "Dile a Gunter qué necesitas: “organiza mi día”, “recuérdame llamar a Ana”…"
+          - button "➤ Enviar" [ref=f4e119] [cursor=pointer]
+        - paragraph [ref=f4e120]: Lenguaje natural en español · Tareas, eventos, recordatorios, facturas
+      - tablist [ref=f4e121]:
+        - generic [ref=f4e122]:
+          - generic [ref=f4e123]: Enfoque
+          - generic [ref=f4e124]:
+            - tab "Ahora" [selected] [ref=f4e125] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f4e126]: ◉
+            - tab "Actividad" [ref=f4e128] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f4e129]: ↻
+            - tab "Conversaciones" [ref=f4e131] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f4e132]: ◫
+      - tabpanel "Ahora" [ref=f4e134]:
+        - generic [ref=f4e135]:
+          - generic [ref=f4e136]:
+            - generic [ref=f4e137]:
+              - heading "📅 Agenda inmediata" [level=3] [ref=f4e138]:
+                - generic [ref=f4e139]: 📅
+                - text: Agenda inmediata
+              - button "Ver todos" [ref=f4e140] [cursor=pointer]
+            - paragraph [ref=f4e142]: Sin eventos hoy.
+          - generic [ref=f4e144]:
+            - heading "📋 Prioridades de hoy" [level=3] [ref=f4e145]:
+              - generic [ref=f4e146]: 📋
+              - text: Prioridades de hoy
+            - button "Ver todas" [ref=f4e147] [cursor=pointer]
+        - generic [ref=f4e150]:
+          - button "🌅 Planificar mi día 🔒" [ref=f4e151] [cursor=pointer]:
+            - generic [ref=f4e152]: 🌅
+            - generic [ref=f4e153]: Planificar mi día
+            - generic [ref=f4e154]: 🔒
+          - button "📅 Organizar semana 🔒" [ref=f4e155] [cursor=pointer]:
+            - generic [ref=f4e156]: 📅
+            - generic [ref=f4e157]: Organizar semana
+            - generic [ref=f4e158]: 🔒
+          - button "🔥 Más urgente 🔒" [ref=f4e159] [cursor=pointer]:
+            - generic [ref=f4e160]: 🔥
+            - generic [ref=f4e161]: Más urgente
+            - generic [ref=f4e162]: 🔒
+          - button "🛰️ Proyecto 360 🔒" [ref=f4e163] [cursor=pointer]:
+            - generic [ref=f4e164]: 🛰️
+            - generic [ref=f4e165]: Proyecto 360
+            - generic [ref=f4e166]: 🔒
+        - generic [ref=f4e167]:
+          - generic [ref=f4e168]:
+            - generic [ref=f4e169]:
+              - heading "⏰ Seguimientos activos" [level=3] [ref=f4e170]:
+                - generic [ref=f4e171]: ⏰
+                - text: Seguimientos activos
+              - button "🔔 Activar notificaciones" [ref=f4e172] [cursor=pointer]
+            - paragraph [ref=f4e174]: No tienes recordatorios activos.
+          - generic [ref=f4e175]:
+            - generic [ref=f4e176]:
+              - heading "💬 Conversar con Gunter" [level=3] [ref=f4e177]:
+                - generic [ref=f4e178]: 💬
+                - text: Conversar con Gunter
+              - button "Limpiar" [ref=f4e179] [cursor=pointer]
+            - generic [ref=f4e181]:
+              - generic [ref=f4e182]:
+                - generic [ref=f4e212]:
+                  - strong [ref=f4e213]: Gunter
+                  - generic [ref=f4e214]: Tu asistente del día
+                - button "Cerrar" [ref=f4e215] [cursor=pointer]: ✕
+              - generic [ref=f4e216]: "Buenas tardes. Escríbeme tareas, recordatorios, reuniones o preguntas. Ejemplo: \"recuérdame llamar al banco mañana a las 10\"."
+              - generic [ref=f4e219]:
+                - button "¿Qué tengo hoy?" [ref=f4e220] [cursor=pointer]
+                - button "Recordatorio diario" [ref=f4e221] [cursor=pointer]
+                - button "Agendar reunión" [ref=f4e222] [cursor=pointer]
+              - generic [ref=f4e223]:
+                - 'textbox "Escribe: crea una tarea, agenda una reunión, pregunta…" [ref=f4e224]'
+                - button "➤" [ref=f4e225] [cursor=pointer]
+  - button "Cambiar tema claro/oscuro" [ref=f4e226] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f4e230]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué tengo hoy?"
+        - button "Activa el planificador"
+        - button "Ponte más divertido"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f4e231] [cursor=pointer]
+  - button "Menú de usuario" [ref=f4e256] [cursor=pointer]: Q

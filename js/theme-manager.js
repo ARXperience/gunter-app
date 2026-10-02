@@ -5,7 +5,11 @@
 
 class GunterThemeManager {
     constructor() {
-        this.currentTheme = localStorage.getItem('gunter_theme') || this.detectSystemPreference();
+        const storedTheme = localStorage.getItem('gunter_theme');
+        const validThemes = ['empresarial', 'artistico', 'podcast', 'zen'];
+        this.currentTheme = validThemes.includes(storedTheme)
+            ? storedTheme
+            : this.detectSystemPreference();
         this.darkMode = localStorage.getItem('gunter_dark_mode') === 'true';
         this.themeStylesheet = null;
         this.transitionDuration = 300; // ms
@@ -31,8 +35,8 @@ class GunterThemeManager {
         }
         this.loadTheme(this.currentTheme);
         this.setupThemeFromProject();
-        this.applyDarkMode(this.darkMode);
-        this.setupSystemPreferenceListener();
+        // El modo Polar claro/oscuro vive en GunterThemeToggle. No aplicar
+        // aquí la antigua clase .dark-mode: duplicaba y desincronizaba temas.
     }
 
     // Páginas donde el tema SÍ aplica (flujo de reunión)

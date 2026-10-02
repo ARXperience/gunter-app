@@ -1,0 +1,95 @@
+- generic [active] [ref=f6e1]:
+  - generic [aria-hidden]:
+    - generic: GUNTER
+  - link "Saltar al contenido principal" [ref=f6e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=f6e3]:
+    - navigation "Navegación principal de Gunter" [ref=f6e4]:
+      - link "Gunter, centro de comando" [ref=f6e5] [cursor=pointer]:
+        - /url: day.html
+      - link "＋ Nueva reunión" [ref=f6e6] [cursor=pointer]:
+        - /url: new-project.html
+        - text: ＋
+        - generic [ref=f6e7]: Nueva reunión
+      - link "Configuración" [ref=f6e8] [cursor=pointer]:
+        - /url: config.html#preferences
+        - text: ⚙
+      - group [ref=f6e9]:
+        - generic "Abrir navegación" [ref=f6e10] [cursor=pointer]:
+          - text: ☰
+          - generic [ref=f6e11]: Menú
+    - navigation "Ubicación actual" [ref=f6e12]:
+      - list [ref=f6e13]:
+        - listitem [ref=f6e14]:
+          - generic [ref=f6e15]: Configuración
+    - generic [ref=f6e16]:
+      - text: ◈
+      - link "Volver al Dashboard" [ref=f6e17] [cursor=pointer]:
+        - /url: dashboard.html
+      - heading "Preferencias" [level=1] [ref=f6e20]
+      - paragraph [ref=f6e21]: Personaliza apariencia, idioma y accesibilidad.
+    - tablist "Secciones de configuración" [ref=f6e22]:
+      - tab "◉ Asistente IA" [ref=f6e23] [cursor=pointer]
+      - tab "◇ Preferencias" [selected] [ref=f6e24] [cursor=pointer]
+      - tab "⌁ Datos y conexiones" [ref=f6e25] [cursor=pointer]
+      - tab "× Papelera" [ref=f6e26] [cursor=pointer]
+    - tabpanel "◇ Preferencias" [ref=f6e27]:
+      - generic [ref=f6e28]:
+        - heading "Apariencia" [level=3] [ref=f6e29]
+        - paragraph [ref=f6e30]: Cambia la paleta, tipografía y personalidad de Gunter en toda la app.
+        - generic [ref=f6e31]:
+          - generic [ref=f6e32]: Tema actual
+          - generic [ref=f6e33]:
+            - button "🏢 Empresarial" [ref=f6e34] [cursor=pointer]
+            - button "🎨 Artístico" [ref=f6e35] [cursor=pointer]
+            - button "🎙️ Podcast" [ref=f6e36] [cursor=pointer]
+            - button "☯️ Zen" [ref=f6e37] [cursor=pointer]
+        - generic [ref=f6e38]:
+          - generic [ref=f6e39]: Modo oscuro
+          - checkbox "Modo oscuro" [ref=f6e40] [cursor=pointer]
+        - paragraph [ref=f6e41]: Si no eliges un modo, Gunter sigue la preferencia de tu sistema.
+      - generic [ref=f6e42]:
+        - heading "Idioma de transcripción" [level=3] [ref=f6e43]
+        - paragraph [ref=f6e44]: Idioma que recibe Whisper y Web Speech durante la reunión.
+        - generic [ref=f6e45]:
+          - generic [ref=f6e46]: Idioma
+          - combobox "Idioma" [ref=f6e47]:
+            - option "Español"
+            - option "English"
+            - option "Português"
+            - option "Français"
+      - generic [ref=f6e48]:
+        - heading "Accesibilidad" [level=3] [ref=f6e49]
+        - paragraph [ref=f6e50]: Controla las animaciones y efectos si te molestan.
+        - generic [ref=f6e51]:
+          - generic [ref=f6e52]: Reducir animaciones
+          - checkbox "Reducir animaciones" [ref=f6e53] [cursor=pointer]
+        - generic [ref=f6e54]:
+          - generic [ref=f6e55]: Efectos de click
+          - checkbox "Efectos de click" [checked] [ref=f6e56] [cursor=pointer]
+      - generic [ref=f6e57]:
+        - heading "Alertas en segundo plano" [level=3] [ref=f6e58]
+        - paragraph [ref=f6e59]: Recibe recordatorios aunque Gunter no esté abierto. Requiere permiso del navegador; fuera de localhost, el sitio debe usar HTTPS.
+        - generic [ref=f6e60]:
+          - generic [ref=f6e61]:
+            - strong [ref=f6e62]: Desactivadas en este dispositivo
+            - generic [ref=f6e63]: Actívalas para recibir recordatorios con la app cerrada.
+          - button "Activar" [ref=f6e64] [cursor=pointer]
+        - button "Enviar alerta de prueba" [disabled] [ref=f6e65]
+  - button "Menú de usuario" [ref=f6e67] [cursor=pointer]: P
+  - generic "Asistente Gunter" [ref=f6e68]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué es la memoria?"
+        - button "¿Qué es el forecast?"
+        - button "Activa el pulso proactivo"
+        - button "Ponte más suave"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f6e69] [cursor=pointer]

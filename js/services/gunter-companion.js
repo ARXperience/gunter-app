@@ -105,77 +105,12 @@
         wrapper.className = 'gn-comp';
         wrapper.id = 'gunter-companion';
         wrapper.setAttribute('aria-label', 'Asistente Gunter');
-        // Gunter Adventure Time — fiel al personaje real:
-        // Cuerpo tipo huevo negro, panza blanca ovalada gigante, ojos grandes,
-        // pico pequeño triangular naranja, aletas y pies naranjas.
-        const MASCOT_SVG = `
-            <svg class="gn-mascot" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <!-- Sombra sutil debajo -->
-                <ellipse cx="50" cy="95" rx="24" ry="3" fill="#000" opacity="0.18"/>
-
-                <!-- Pies naranjas -->
-                <ellipse class="gn-mascot__foot gn-mascot__foot--left"
-                         cx="38" cy="91" rx="8" ry="4"
-                         fill="#F97316" stroke="#1c1b1b" stroke-width="2.5" stroke-linejoin="round"/>
-                <ellipse class="gn-mascot__foot gn-mascot__foot--right"
-                         cx="62" cy="91" rx="8" ry="4"
-                         fill="#F97316" stroke="#1c1b1b" stroke-width="2.5" stroke-linejoin="round"/>
-
-                <!-- Cuerpo huevo negro -->
-                <g class="gn-mascot__body">
-                    <ellipse cx="50" cy="52" rx="30" ry="35"
-                             fill="#1c1b1b" stroke="#1c1b1b" stroke-width="2.5"/>
-                    <!-- Panza blanca ovalada (AT signature) -->
-                    <ellipse class="gn-mascot__belly"
-                             cx="50" cy="60" rx="20" ry="24"
-                             fill="#ffffff"/>
-                </g>
-
-                <!-- Aletas cortas -->
-                <ellipse class="gn-mascot__wing gn-mascot__wing--left"
-                         cx="19" cy="55" rx="5" ry="12"
-                         fill="#1c1b1b" stroke="#1c1b1b" stroke-width="2.5"/>
-                <ellipse class="gn-mascot__wing gn-mascot__wing--right"
-                         cx="81" cy="55" rx="5" ry="12"
-                         fill="#1c1b1b" stroke="#1c1b1b" stroke-width="2.5"/>
-
-                <!-- Cejas thinking -->
-                <g class="gn-mascot__brow" opacity="0" style="transform:translateY(-4px);transition:opacity 300ms ease, transform 300ms ease;">
-                    <path d="M 26 30 Q 32 26, 42 30" stroke="#ffffff" stroke-width="3" stroke-linecap="round" fill="none"/>
-                    <path d="M 74 30 Q 68 26, 58 30" stroke="#ffffff" stroke-width="3" stroke-linecap="round" fill="none"/>
-                </g>
-
-                <!-- Ojos grandes ovalados (icónico Gunter) -->
-                <g class="gn-mascot__eye gn-mascot__eye--left">
-                    <ellipse cx="36" cy="40" rx="8" ry="10"
-                             fill="#ffffff" stroke="#1c1b1b" stroke-width="2"/>
-                    <ellipse class="gn-mascot__pupil"
-                             cx="36" cy="42" rx="4" ry="6" fill="#1c1b1b"/>
-                    <circle class="gn-mascot__shine" cx="34" cy="38" r="1.6" fill="#ffffff"/>
-                </g>
-                <g class="gn-mascot__eye gn-mascot__eye--right">
-                    <ellipse cx="64" cy="40" rx="8" ry="10"
-                             fill="#ffffff" stroke="#1c1b1b" stroke-width="2"/>
-                    <ellipse class="gn-mascot__pupil"
-                             cx="64" cy="42" rx="4" ry="6" fill="#1c1b1b"/>
-                    <circle class="gn-mascot__shine" cx="62" cy="38" r="1.6" fill="#ffffff"/>
-                </g>
-
-                <!-- Pico triangular naranja pequeño -->
-                <path class="gn-mascot__beak"
-                      d="M 44 55 L 56 55 L 50 63 Z"
-                      fill="#F97316" stroke="#1c1b1b" stroke-width="2.5" stroke-linejoin="round"/>
-
-                <!-- Mejillas rosadas kawaii AT -->
-                <ellipse cx="25" cy="55" rx="4" ry="3" fill="#EC4899" opacity="0.35"/>
-                <ellipse cx="75" cy="55" rx="4" ry="3" fill="#EC4899" opacity="0.35"/>
-            </svg>
-        `;
+        const MASCOT_PARTICLES = '<span class="gn-mascot gn-particle-surface" data-gunter-particles="chat" aria-hidden="true"></span>';
 
         wrapper.innerHTML = `
             <div class="gn-comp__chat" role="dialog" aria-label="Chat con Gunter">
                 <header class="gn-comp__chat-header">
-                    <div class="gn-comp__chat-avatar">${MASCOT_SVG}</div>
+                    <div class="gn-comp__chat-avatar">${MASCOT_PARTICLES}</div>
                     <div class="gn-comp__chat-title">
                         <strong>Gunter</strong>
                         <small id="gn-comp-status">Tu asistente</small>
@@ -200,7 +135,7 @@
             </div>
             <div class="gn-comp__tooltip" data-comp-action="expand-from-tooltip"></div>
             <button class="gn-comp__bubble" data-comp-action="toggle" aria-label="Abrir Gunter">
-                ${MASCOT_SVG}
+                ${MASCOT_PARTICLES}
                 <span class="gn-comp__notif is-hidden" id="gn-comp-notif"></span>
             </button>
         `;
@@ -397,6 +332,13 @@
     // ─────────────────────────────────────
     function tryClientIntercepts(text) {
         const t = (text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        const temporal = window.GunterTemporalContext?.answer?.(text, {
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            locale: navigator.language || 'es-CO'
+        });
+        if (temporal) {
+            return { reply: temporal.reply, intent: `temporal-${temporal.intent}`, __clientHandled: true };
+        }
         const buf = window.GunterLogBuffer;
         if (!buf) return null;
 
@@ -659,6 +601,58 @@
                 setTyping(false);
                 addMessage('assistant', clientResp.reply);
                 return;
+            }
+
+            // 0.2. Planes multipaso durables. Solo intercepta cuando detecta
+            // dos o más habilidades Web permitidas y siempre propone antes de actuar.
+            if (window.GunterWorkflowOrchestrator?.dispatch) {
+                try {
+                    const workflowResponse = await withTimeout(
+                        window.GunterWorkflowOrchestrator.dispatch(text),
+                        30000,
+                        'workflow-orchestrator-timeout'
+                    );
+                    if (workflowResponse?.handled) {
+                        clearTimeout(safetyTimer);
+                        setTyping(false);
+                        addMessage('assistant', workflowResponse.reply);
+                        if (workflowResponse.status === 'complete') {
+                            setMascotState('celebration');
+                            setTimeout(() => setMascotState('default'), 900);
+                        } else if (workflowResponse.status === 'awaiting_confirmation') {
+                            setMascotState('thinking');
+                        }
+                        window.GunterActivityPanel?.refresh?.();
+                        return;
+                    }
+                } catch (workflowError) {
+                    console.warn('[companion] workflow error:', workflowError.message);
+                }
+            }
+
+            // 0.25. Registro local de herramientas (agenda, tareas, eventos).
+            // Se ejecuta antes del dispatcher/LLM porque tiene validación,
+            // confirmación y verificación de persistencia propias.
+            if (window.GunterAssistantTools?.dispatch) {
+                try {
+                    const toolResponse = await withTimeout(
+                        window.GunterAssistantTools.dispatch(text),
+                        8000,
+                        'assistant-tools-timeout'
+                    );
+                    if (toolResponse?.handled) {
+                        clearTimeout(safetyTimer);
+                        setTyping(false);
+                        addMessage('assistant', toolResponse.reply);
+                        if (toolResponse.status === 'complete') {
+                            setMascotState('celebration');
+                            setTimeout(() => setMascotState('default'), 800);
+                        }
+                        return;
+                    }
+                } catch (toolError) {
+                    console.warn('[companion] assistant tools error:', toolError.message);
+                }
             }
 
             // 0.5. Resolver referencias anafóricas ("activalo", "y ese?")
@@ -1071,7 +1065,7 @@ Gunter:`;
         if (STATE.log.length > MAX_LOG) STATE.log.shift();
     }
 
-    function _afterAssistantMessage(fullText) {
+    function _afterAssistantMessage(fullText, options = {}) {
         // Memoria de LT
         try {
             const memSvc = window.GunterConversationMemory;
@@ -1088,7 +1082,12 @@ Gunter:`;
 
         // Voz (habla el mensaje completo, no por chunks)
         if (window.GunterVoice?.speak) {
-            try { window.GunterVoice.speak(fullText, { context: 'chat' }); } catch { /* noop */ }
+            try {
+                window.GunterVoice.speak(fullText, {
+                    context: options.voiceContext || 'chat',
+                    force: options.forceVoice === true
+                });
+            } catch { /* noop */ }
         }
         // Mascota talking
         setMascotState('talking');
@@ -1111,7 +1110,7 @@ Gunter:`;
         if (navigator.vibrate) { try { navigator.vibrate(10); } catch {} }
     }
 
-    function addMessage(role, text) {
+    function addMessage(role, text, options = {}) {
         // Si es del assistant y es largo, dividimos en varios bubbles
         // con delay para que se vean escalonados y nada se corte.
         if (role === 'assistant') {
@@ -1122,7 +1121,7 @@ Gunter:`;
                         _pushOne(role, part);
                         saveLog();
                         renderLog();
-                        if (i === parts.length - 1) _afterAssistantMessage(text);
+                        if (i === parts.length - 1) _afterAssistantMessage(text, options);
                     }, i * SPLIT_DELAY_MS);
                 });
                 return;
@@ -1130,7 +1129,7 @@ Gunter:`;
             _pushOne(role, text);
             saveLog();
             renderLog();
-            _afterAssistantMessage(text);
+            _afterAssistantMessage(text, options);
             return;
         }
 
@@ -1268,6 +1267,23 @@ Gunter:`;
         else if (st === 'error') react('shake');
     });
 
+    // Estado conversacional único para que el header y la mascota reflejen
+    // escucha, procesamiento, voz y confirmaciones pendientes.
+    window.addEventListener('gunter-conversation-state', event => {
+        const value = event.detail?.value;
+        if (value === 'listening_wake' || value === 'listening_query') setMascotState('listening');
+        else if (value === 'thinking') setMascotState('thinking');
+        else if (value === 'speaking') setMascotState('talking');
+        else if (value === 'awaiting_confirmation') {
+            setMascotState('listening');
+            const status = document.getElementById('gn-comp-status');
+            if (status) status.textContent = 'Esperando confirmación…';
+        } else if (value === 'error') {
+            const status = document.getElementById('gn-comp-status');
+            if (status) status.textContent = 'Necesito atención';
+        } else setMascotState('default');
+    });
+
     // Humor dinámico: re-evaluar cada 5 min y al volver a la pestaña
     function refreshMood(withReaction) {
         try {
@@ -1305,7 +1321,7 @@ Gunter:`;
     window.GunterCompanion = {
         mount, expand, minimize, hide, show, toggle,
         react,                                        // v66: otros módulos pueden dispararle gestos
-        say: (text) => addMessage('assistant', text),
+        say: (text, options) => addMessage('assistant', text, options),
         showBubble,
         // Entry point cuando el wake word transcribió una orden hablada.
         // Se comporta como si el usuario hubiera escrito el texto.

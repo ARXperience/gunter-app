@@ -1,0 +1,85 @@
+- generic [active] [ref=f3e1]:
+  - generic: GUNTER
+  - generic [ref=f3e2]:
+    - complementary [ref=f3e3]:
+      - generic [ref=f3e4]: Gunter
+      - generic [ref=f3e33]:
+        - link "Día" [ref=f3e34] [cursor=pointer]:
+          - /url: day.html
+        - link "Reuniones" [ref=f3e35] [cursor=pointer]:
+          - /url: dashboard.html
+      - navigation [ref=f3e36]:
+        - link "Dashboard" [ref=f3e37] [cursor=pointer]:
+          - /url: dashboard.html
+        - link "Nueva Reunión" [ref=f3e44] [cursor=pointer]:
+          - /url: new-project.html
+        - link "Resultados" [ref=f3e49] [cursor=pointer]:
+          - /url: results.html
+        - link "Configuración" [ref=f3e54] [cursor=pointer]:
+          - /url: config.html#preferences
+      - generic [ref=f3e59]:
+        - generic [ref=f3e60]: G
+        - generic [ref=f3e61]:
+          - generic [ref=f3e62]: Tu cuenta
+          - generic [ref=f3e63]: Local · sin servidor
+    - main [ref=f3e64]:
+      - generic [ref=f3e65]:
+        - link "Día" [ref=f3e66] [cursor=pointer]:
+          - /url: day.html
+        - link "Reuniones" [ref=f3e67] [cursor=pointer]:
+          - /url: dashboard.html
+      - region "Gunter" [ref=f3e68]:
+        - text: GUNTER
+        - generic [ref=f3e69]:
+          - img "Gunter" [ref=f3e71]
+          - generic [ref=f3e73]:
+            - heading "GUNTER" [level=2] [ref=f3e74]
+            - paragraph [ref=f3e75]: Fragmento cognitivo activo
+            - generic [ref=f3e77]: Sistemas en línea · listo para trabajar
+      - generic [ref=f3e80]:
+        - text: ◈
+        - generic [ref=f3e81]:
+          - generic [ref=f3e82]: Gunter Reuniones
+          - heading "Proyectos y análisis" [level=1] [ref=f3e83]
+          - paragraph [ref=f3e84]: Aquí está el estado de tus proyectos.
+        - link "Nueva Reunión" [ref=f3e86] [cursor=pointer]:
+          - /url: new-project.html
+      - generic [ref=f3e88]:
+        - generic [ref=f3e93]:
+          - generic [ref=f3e94]: "0"
+          - generic [ref=f3e95]: Proyectos Totales
+        - generic [ref=f3e100]:
+          - generic [ref=f3e101]: "0"
+          - generic [ref=f3e102]: Completados
+        - generic [ref=f3e108]:
+          - generic [ref=f3e109]: "0"
+          - generic [ref=f3e110]: En Progreso
+        - generic [ref=f3e116]:
+          - generic [ref=f3e117]: "0"
+          - generic [ref=f3e118]: Horas de Reuniones
+      - generic [ref=f3e119]:
+        - generic [ref=f3e120]:
+          - heading "Proyectos Recientes" [level=2] [ref=f3e121]
+          - button "Ver todos" [ref=f3e122] [cursor=pointer]
+        - link "+ Crear Nuevo Proyecto" [ref=f3e124] [cursor=pointer]:
+          - /url: config.html
+          - generic [ref=f3e125]: +
+          - generic [ref=f3e126]: Crear Nuevo Proyecto
+  - button "Menú de usuario" [ref=f3e128] [cursor=pointer]: F
+  - button "Cambiar tema claro/oscuro" [ref=f3e129] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f3e133]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué puedes hacer?"
+        - button "Iniciar reunión"
+        - button "Activa la memoria"
+        - button "Activa el pulso"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f3e134] [cursor=pointer]

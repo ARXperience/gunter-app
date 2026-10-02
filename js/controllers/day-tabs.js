@@ -8,28 +8,39 @@
 
 (function () {
     const TABS = [
-        { id: 'today',        label: 'Hoy',           icon: '🗓️', alwaysOn: true },
-        // ===== Premium Intelligence (Sprint C) =====
-        { id: 'plan-day',     label: 'Plan de hoy',   icon: '🌅', flag: 'dailyPlanner',       mounter: 'mountDailyPlanner' },
-        { id: 'plan-week',    label: 'Mi semana',     icon: '📅', flag: 'weeklyPlanner',      mounter: 'mountWeeklyPlanner' },
-        { id: 'urgency',      label: 'Urgencia',      icon: '🔥', flag: 'urgencyRanking',     mounter: 'mountUrgency' },
-        { id: 'project-360',  label: 'Proyecto 360',  icon: '🛰️', flag: 'project360',         mounter: 'mountProject360' },
-        { id: 'decisions',    label: 'Decisiones',    icon: '🧭', flag: 'decisionCenter',     mounter: 'mountDecisions' },
-        { id: 'delegation',   label: 'Delegación',    icon: '🤝', flag: 'delegationMode',     mounter: 'mountDelegation' },
-        { id: 'alerts-wa',    label: 'Alertas WA',    icon: '🔔', flag: 'smartWhatsappAlerts',mounter: 'mountSmartAlerts' },
-        // ===== Existentes =====
-        { id: 'productivity', label: 'Productividad', icon: '📊', flag: 'productivityPanel',  mounter: 'mountProductivity' },
-        { id: 'memory',       label: 'Memoria',       icon: '🧠', flag: 'meetingMemory',      mounter: 'mountMemory' },
-        { id: 'documents',    label: 'Documentos',    icon: '📄', flag: 'smartDocuments',     mounter: 'mountDocuments' },
-        { id: 'whatsapp',     label: 'WhatsApp',      icon: '💬', flag: 'whatsappAssistant',  mounter: 'mountWhatsApp', badge: true },
-        { id: 'voice',        label: 'Voz',           icon: '🗣️', flag: 'voiceEnabled',       mounter: 'mountVoice' },
-        { id: 'wake',         label: 'Wake word',     icon: '🎙️', flag: 'wakeWordEnabled',    mounter: 'mountWake' },
-        // ===== v2 — Funciones avanzadas =====
-        { id: 'commitments',  label: 'Compromisos',   icon: '🤝', flag: 'commitmentTracker',  mounter: 'mountCommitments' },
-        { id: 'proactive',    label: 'Pulso',         icon: '⚡', flag: 'proactivePulse',     mounter: 'mountProactive' },
-        { id: 'forecast',     label: 'Forecast',      icon: '🔮', flag: 'projectForecast',    mounter: 'mountForecast' },
-        // ===== Modo tutor · biblioteca curada =====
-        { id: 'tutor',        label: 'Tutor',         icon: '📚', flag: 'tutorMode',          mounter: 'mountTutor' }
+        // 1. Enfoque inmediato: qué ocurre y qué requiere atención.
+        { id: 'today',        label: 'Ahora',          icon: '◉',  group: 'focus', alwaysOn: true },
+        { id: 'activity',     label: 'Actividad',      icon: '↻',  group: 'focus', alwaysOn: true, mounter: 'mountActivity' },
+        { id: 'conversations',label: 'Conversaciones', icon: '◫',  group: 'focus', alwaysOn: true, mounter: 'mountConversations', badge: true },
+        { id: 'plan-day',     label: 'Plan del día',   icon: '↗',  group: 'focus', flag: 'dailyPlanner',        mounter: 'mountDailyPlanner' },
+        { id: 'urgency',      label: 'Prioridades',    icon: '!',  group: 'focus', flag: 'urgencyRanking',      mounter: 'mountUrgency' },
+        { id: 'plan-week',    label: 'Semana',         icon: '▦',  group: 'focus', flag: 'weeklyPlanner',       mounter: 'mountWeeklyPlanner' },
+        { id: 'proactive',    label: 'Pulso',          icon: '⌁',  group: 'focus', flag: 'proactivePulse',      mounter: 'mountProactive' },
+
+        // 2. Inteligencia: decidir, proyectar y delegar.
+        { id: 'project-360',  label: 'Proyectos',      icon: '◎',  group: 'intel', flag: 'project360',          mounter: 'mountProject360' },
+        { id: 'decisions',    label: 'Decisiones',     icon: '◇',  group: 'intel', flag: 'decisionCenter',      mounter: 'mountDecisions' },
+        { id: 'commitments',  label: 'Compromisos',    icon: '✓',  group: 'intel', flag: 'commitmentTracker',   mounter: 'mountCommitments' },
+        { id: 'delegation',   label: 'Delegar',        icon: '⇄',  group: 'intel', flag: 'delegationMode',      mounter: 'mountDelegation' },
+        { id: 'forecast',     label: 'Forecast',       icon: '⌁',  group: 'intel', flag: 'projectForecast',     mounter: 'mountForecast' },
+        { id: 'productivity', label: 'Rendimiento',    icon: '▥',  group: 'intel', flag: 'productivityPanel',   mounter: 'mountProductivity' },
+
+        // 3. Conocimiento: lo que Gunter recuerda y puede consultar.
+        { id: 'memory',       label: 'Memoria',        icon: '◌',  group: 'knowledge', flag: 'meetingMemory',   mounter: 'mountMemory' },
+        { id: 'documents',    label: 'Documentos',     icon: '▤',  group: 'knowledge', flag: 'smartDocuments',  mounter: 'mountDocuments' },
+        { id: 'tutor',        label: 'Tutor',          icon: '⌘',  group: 'knowledge', flag: 'tutorMode',       mounter: 'mountTutor' },
+
+        // 4. Canales: cómo se comunica y escucha el asistente.
+        { id: 'voice',        label: 'Voz',            icon: '◖',  group: 'channels', flag: 'voiceEnabled',        mounter: 'mountVoice' },
+        { id: 'wake',         label: 'Invocación',     icon: '◉',  group: 'channels', flag: 'wakeWordEnabled',     mounter: 'mountWake' },
+        { id: 'alerts-wa',    label: 'Alertas',        icon: '!',  group: 'channels', flag: 'smartWhatsappAlerts', mounter: 'mountSmartAlerts' }
+    ];
+
+    const GROUPS = [
+        { id: 'focus', label: 'Enfoque' },
+        { id: 'intel', label: 'Inteligencia' },
+        { id: 'knowledge', label: 'Conocimiento' },
+        { id: 'channels', label: 'Canales' }
     ];
 
     let bar = null;
@@ -47,27 +58,65 @@
         if (!bar) return;
 
         const visible = TABS.filter(t => t.alwaysOn || flag(t.flag));
-        bar.innerHTML = visible.map(t => `
-            <button class="gday__tab ${activeTab === t.id ? 'is-active' : ''}" role="tab"
-                data-tab="${t.id}" aria-selected="${activeTab === t.id}">
-                <span>${t.icon}</span>
-                <span>${t.label}</span>
-                ${t.badge ? '<span class="gday__tab-badge" data-tab-badge="' + t.id + '">0</span>' : ''}
-            </button>
-        `).join('');
+        if (!visible.some(t => t.id === activeTab)) activeTab = 'today';
+        bar.innerHTML = GROUPS.map(group => {
+            const items = visible.filter(t => t.group === group.id);
+            if (!items.length) return '';
+            return `
+                <div class="gday__tab-group" data-tab-group="${group.id}">
+                    <span class="gday__tab-group-label">${group.label}</span>
+                    <div class="gday__tab-group-items">
+                        ${items.map(t => `
+                            <button class="gday__tab ${activeTab === t.id ? 'is-active' : ''}" role="tab"
+                                data-tab="${t.id}" aria-selected="${activeTab === t.id}">
+                                <span aria-hidden="true">${t.icon}</span>
+                                <span>${t.label}</span>
+                                ${t.badge ? '<span class="gday__tab-badge" data-tab-badge="' + t.id + '">0</span>' : ''}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>`;
+        }).join('');
 
         bar.querySelectorAll('[data-tab]').forEach(btn => {
             btn.addEventListener('click', () => activate(btn.dataset.tab));
+            const tabId = `gday-tab-${btn.dataset.tab}`;
+            const panelId = `gday-panel-${btn.dataset.tab}`;
+            btn.id = tabId;
+            btn.setAttribute('aria-controls', panelId);
+            btn.tabIndex = btn.dataset.tab === activeTab ? 0 : -1;
         });
 
-        // Ensure the active tab still exists; fall back to today otherwise
-        if (!visible.find(t => t.id === activeTab)) activeTab = 'today';
+        bar.onkeydown = event => {
+            if (!event.target.matches('.gday__tab')) return;
+            const tabs = [...bar.querySelectorAll('.gday__tab')];
+            const index = tabs.indexOf(event.target);
+            const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length
+                : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length
+                : event.key === 'Home' ? 0
+                : event.key === 'End' ? tabs.length - 1 : -1;
+            if (next < 0) return;
+            event.preventDefault();
+            activate(tabs[next].dataset.tab);
+            tabs[next].focus();
+        };
+
         showPanel(activeTab);
     }
 
     function showPanel(id) {
         document.querySelectorAll('.gday__tab-panel').forEach(p => {
             p.hidden = p.dataset.tabPanel !== id;
+            const tabId = `gday-tab-${p.dataset.tabPanel}`;
+            p.id = `gday-panel-${p.dataset.tabPanel}`;
+            p.setAttribute('role', 'tabpanel');
+            p.setAttribute('aria-labelledby', tabId);
+            p.tabIndex = 0;
+        });
+        bar?.querySelectorAll('.gday__tab').forEach(tab => {
+            const active = tab.dataset.tab === id;
+            tab.setAttribute('aria-selected', String(active));
+            tab.tabIndex = active ? 0 : -1;
         });
         // Next-up ribbon solo visible en Hoy
         const ribbon = document.getElementById('gday-next-ribbon');
@@ -87,12 +136,23 @@
             const on = b.dataset.tab === id;
             b.classList.toggle('is-active', on);
             b.setAttribute('aria-selected', String(on));
+            b.tabIndex = on ? 0 : -1;
         });
         showPanel(id);
     }
 
     // ---------- Per-tab mounters ----------
     const MOUNTERS = {
+        mountActivity: () => {
+            if (window.GunterActivityPanel?.mount) {
+                window.GunterActivityPanel.mount('#gday-activity');
+            }
+        },
+        mountConversations: () => {
+            if (window.GunterConversationsPanel?.mount) {
+                window.GunterConversationsPanel.mount('#gday-conversations');
+            }
+        },
         mountDailyPlanner: () => {
             if (window.GunterDailyPlannerPanel?.mount) {
                 window.GunterDailyPlannerPanel.mount('#gday-plan-day');
@@ -206,22 +266,38 @@
     });
 
     // WhatsApp unread badge updater
-    window.addEventListener('whatsapp-status', () => updateWhatsAppBadge());
-    window.addEventListener('whatsapp-sync', () => updateWhatsAppBadge());
+    window.addEventListener('whatsapp-status', () => updateConversationBadge());
+    window.addEventListener('whatsapp-sync', () => updateConversationBadge());
+    window.addEventListener('gunter-conversations-updated', event => updateConversationBadge(event.detail));
 
-    async function updateWhatsAppBadge() {
-        const el = document.querySelector('[data-tab-badge="whatsapp"]');
-        if (!el || !window.GunterWhatsApp) return;
+    async function updateConversationBadge(stats) {
+        const el = document.querySelector('[data-tab-badge="conversations"]');
+        if (!el) return;
         try {
-            const msgs = await window.GunterWhatsApp.messages(20);
-            const count = msgs.filter(m => m.direction === 'in').length;
+            const count = Number(stats?.unread ?? (await window.GunterControlPlane?.conversations?.({ limit: 100 }))?.stats?.unread ?? 0);
             el.textContent = count > 0 ? String(count) : '';
             el.style.display = count > 0 ? '' : 'none';
         } catch {}
     }
 
+    function activateFromHash() {
+        const requested = String(location.hash || '').replace(/^#/, '');
+        const todayTargets = {
+            capture: 'gday-quickbar-drop', tasks: 'tasks-card', events: 'events-card',
+            reminders: 'reminders-card', chat: 'chat-card'
+        };
+        if (todayTargets[requested]) {
+            activate('today');
+            requestAnimationFrame(() => document.getElementById(todayTargets[requested])?.scrollIntoView({ block: 'center' }));
+        } else if (requested && TABS.some(tab => tab.id === requested && (tab.alwaysOn || flag(tab.flag)))) activate(requested);
+    }
+
     function init() {
         render();
+        activateFromHash();
+        // Los accesos globales pueden cambiar de panel sin recargar Día.
+        window.addEventListener('hashchange', activateFromHash);
+        updateConversationBadge();
     }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);

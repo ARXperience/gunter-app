@@ -1,0 +1,13 @@
+- generic [ref=e2]:
+  - link "Saltar al contenido" [ref=e3] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=e4]:
+    - generic [ref=e8]:
+      - text: Círculo de
+      - generic [ref=e9]: Palabra
+    - heading "Este camino aún no existe." [level=1] [ref=e10]
+    - link "Volver al inicio" [ref=e11] [cursor=pointer]:
+      - /url: /
+  - contentinfo [ref=e14]:
+    - generic [ref=e15]: "2026 Desarrollado por:"
+    - img "Centro Digital de Diseño" [ref=e16]

@@ -1,0 +1,92 @@
+- generic [active] [ref=f9e1]:
+  - generic [aria-hidden]:
+    - generic: GUNTER
+  - link "Saltar al contenido principal" [ref=f9e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=f9e4]:
+    - navigation "Navegación principal de Gunter" [ref=f9e5]:
+      - link "Gunter, inicio" [ref=f9e6] [cursor=pointer]:
+        - /url: day.html
+        - generic [ref=f9e7]: GUNTER
+        - generic [ref=f9e8]: ASISTENTE PERSONAL
+      - generic [ref=f9e9]:
+        - link "Hoy" [ref=f9e10] [cursor=pointer]:
+          - /url: day.html
+        - link "Conversaciones" [ref=f9e11] [cursor=pointer]:
+          - /url: day.html#conversations
+        - link "Reuniones" [ref=f9e12] [cursor=pointer]:
+          - /url: dashboard.html
+        - group [ref=f9e13]:
+          - generic "Organizar" [ref=f9e14] [cursor=pointer]:
+            - text: Organizar
+            - generic [aria-hidden] [ref=f9e15]: ⌄
+        - link "Resultados" [ref=f9e16] [cursor=pointer]:
+          - /url: results.html
+        - link "Conexiones" [ref=f9e17] [cursor=pointer]:
+          - /url: config.html#data
+      - link "Preparar una nueva reunión" [ref=f9e18] [cursor=pointer]:
+        - /url: new-project.html
+        - text: ＋
+        - generic [ref=f9e19]: Nueva reunión
+      - link "Configuración" [ref=f9e20] [cursor=pointer]:
+        - /url: config.html#preferences
+        - text: ⚙
+    - navigation "Ubicación actual" [ref=f9e21]:
+      - list [ref=f9e22]:
+        - listitem [ref=f9e23]:
+          - generic [ref=f9e24]: Reuniones
+    - generic [ref=f9e25]:
+      - text: ◈
+      - generic [ref=f9e26]:
+        - generic [ref=f9e27]: Gunter Reuniones
+        - heading "Centro de reuniones" [level=1] [ref=f9e28]
+        - paragraph [ref=f9e29]: Aquí está el estado de tus proyectos.
+      - link "Nueva Reunión" [ref=f9e31] [cursor=pointer]:
+        - /url: new-project.html
+    - generic [ref=f9e33]:
+      - generic [ref=f9e34]:
+        - heading "Reuniones recientes" [level=2] [ref=f9e35]
+        - button "Ver todos" [ref=f9e36] [cursor=pointer]
+      - link "+ Preparar nueva reunión" [ref=f9e38] [cursor=pointer]:
+        - /url: new-project.html
+        - generic [ref=f9e39]: +
+        - generic [ref=f9e40]: Preparar nueva reunión
+    - generic [ref=f9e41]:
+      - generic [ref=f9e46]:
+        - generic [ref=f9e47]: "0"
+        - generic [ref=f9e48]: Reuniones
+      - generic [ref=f9e53]:
+        - generic [ref=f9e54]: "0"
+        - generic [ref=f9e55]: Analizadas
+      - generic [ref=f9e61]:
+        - generic [ref=f9e62]: "0"
+        - generic [ref=f9e63]: En curso
+      - generic [ref=f9e69]:
+        - generic [ref=f9e70]: "0"
+        - generic [ref=f9e71]: Horas capturadas
+    - region "Gunter" [ref=f9e72]:
+      - text: GUNTER
+      - generic [ref=f9e73]:
+        - img "Gunter" [ref=f9e75]
+        - generic [ref=f9e77]:
+          - heading "GUNTER" [level=2] [ref=f9e78]
+          - paragraph [ref=f9e79]: Núcleo de Gunter activo
+          - generic [ref=f9e81]: Sistemas en línea · listo para trabajar
+  - button "Cambiar tema claro/oscuro" [ref=f9e84] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f9e88]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué puedes hacer?"
+        - button "Iniciar reunión"
+        - button "Activa la memoria"
+        - button "Activa el pulso"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f9e89] [cursor=pointer]
+  - button "Menú de usuario" [ref=f9e114] [cursor=pointer]: P

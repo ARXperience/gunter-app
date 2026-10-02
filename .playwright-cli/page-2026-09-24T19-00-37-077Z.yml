@@ -1,0 +1,36 @@
+- generic [active] [ref=e1]:
+  - generic [aria-hidden]:
+    - generic: GUNTER
+  - main [ref=e2]:
+    - heading "Gunter" [level=1] [ref=e4]
+    - paragraph [ref=e5]: Configura tu cuenta de administrador para empezar.
+    - generic [ref=e6]:
+      - strong [ref=e7]: Primera vez por aquí.
+      - text: "Todavía no existe ningún usuario: la cuenta que crees ahora será la del"
+      - strong [ref=e8]: administrador
+      - text: ", con control total del sistema."
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: Tu nombre
+        - textbox "Tu nombre" [ref=e12]:
+          - /placeholder: Como quieres que Gunter te llame
+      - generic [ref=e13]:
+        - generic [ref=e14]: Usuario
+        - textbox "Usuario" [ref=e15]:
+          - /placeholder: minusculas-sin-espacios
+      - generic [ref=e16]:
+        - generic [ref=e17]: Email (opcional)
+        - textbox "Email (opcional)" [ref=e18]:
+          - /placeholder: tu@correo.com
+      - generic [ref=e19]:
+        - generic [ref=e20]: Contraseña (mínimo 8)
+        - textbox "Contraseña (mínimo 8)" [ref=e21]:
+          - /placeholder: ••••••••
+      - generic [ref=e22]:
+        - generic [ref=e23]: Repite la contraseña
+        - textbox "Repite la contraseña" [ref=e24]:
+          - /placeholder: ••••••••
+      - button "Crear cuenta admin" [ref=e25] [cursor=pointer]
+      - paragraph [ref=e26]:
+        - text: ¿Ya tienes cuenta?
+        - button "Inicia sesión" [ref=e27] [cursor=pointer]

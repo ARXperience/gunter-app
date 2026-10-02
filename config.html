@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="styles/pages/config.css">
     <link rel="stylesheet" href="styles/pages/config-polish.css">
     <link rel="stylesheet" href="styles/pages/config-settings.css">
-    <link rel="stylesheet" href="styles/pages/advanced-settings.css?v66b-gunter-pixar-1783590000000">
+    <link rel="stylesheet" href="styles/pages/advanced-settings.css?v85d-final">
     <!-- (audio-trimmer.css eliminado: pertenecía al flujo Nuevo Proyecto) -->
 
     <!-- Phase 2 Design Enhancements -->
@@ -35,7 +35,7 @@
 
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#00d4ff">
+    <meta name="theme-color" content="#0A141A">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -43,19 +43,27 @@
 
     <!-- Medieval Futuristic Theme -->
     <link rel="stylesheet" href="styles/gunter-mascot.css?v66b-gunter-pixar-1783590000000">
-    <link rel="stylesheet" href="styles/gunter-companion.css?v66b-gunter-pixar-1783590000000">
-        <link rel="preload" as="style" href="styles/gunter-design-system.css">
-    <link rel="preload" as="style" href="styles/gunter-legacy-overrides.css">
+    <link rel="stylesheet" href="styles/gunter-companion.css?v70-particles">
 <link rel="stylesheet" href="styles/gunter-design-system.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-prism.css?v66b-gunter-pixar-1783590000000">
+    <link rel="stylesheet" href="styles/gunter-cinematic.css?v83-static-polar">
+    <script src="js/services/gunter-cinematic-shell.js?v81-static-polar" defer></script>
+    <link rel="stylesheet" href="styles/gunter-command-center.css?v115-mobile-no-header">
+    <link rel="stylesheet" href="styles/pages/control-plane.css?v95-device-access">
+    <link rel="stylesheet" href="styles/pages/social-settings.css?v103-device-runtime">
+    <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
+    <script src="js/services/gunter-particles.js?v3-stitch-3d" defer></script>
+    <script src="js/services/gunter-command-center.js?v107-stitch-console" defer></script>
+    <script src="js/services/gunter-icon-system.js?v3-unified-icons" defer></script>
 </head>
 
 <body class="at-dark">
+    <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
     <!-- Neural Mesh Background -->
     <div class="neural-mesh-bg"></div>
 
-    <main class="config-page">
+    <main class="config-page" id="main-content" tabindex="-1">
         <!-- Header -->
         <header class="config-header">
             <a href="dashboard.html" class="config-header__back">
@@ -72,27 +80,27 @@
 
         <!-- Tabs (Nuevo Proyecto vive en dashboard.html, no aquí) -->
         <nav class="config-tabs" role="tablist" aria-label="Secciones de configuración">
-            <button class="config-tab" role="tab" data-tab="premium">✨ Premium</button>
-            <button class="config-tab" role="tab" data-tab="preferences">⚙️ Preferencias</button>
-            <button class="config-tab" role="tab" data-tab="trash">🗑️ Papelera</button>
-            <button class="config-tab" role="tab" data-tab="data">🔐 Datos y Privacidad</button>
+            <button class="config-tab" id="config-tab-premium" role="tab" data-tab="premium" aria-controls="config-panel-premium" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="brain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18V5a3 3 0 0 0-5.8-1A4 4 0 0 0 4 11a4 4 0 0 0 2 7h6ZM12 18V5a3 3 0 0 1 5.8-1A4 4 0 0 1 20 11a4 4 0 0 1-2 7h-6Z"/><path d="M8 8a2 2 0 0 0 0 4m8-5a2 2 0 0 1 0 4"/></svg><span>Asistente IA</span></button>
+            <button class="config-tab" id="config-tab-preferences" role="tab" data-tab="preferences" aria-controls="config-panel-preferences" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.7 1l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.7-1l-1.7.6-1.4-2.4 1.4-1.1a7 7 0 0 1 0-2l-1.4-1.1 1.4-2.4 1.7.6a8 8 0 0 1 1.7-1l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.7 1l1.7-.6 1.4 2.4-1.4 1.1a7 7 0 0 1-.1 1.9z" transform="translate(-1 -1)"/></svg><span>Preferencias</span></button>
+            <button class="config-tab" id="config-tab-data" role="tab" data-tab="data" aria-controls="config-panel-data" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l2-2A5 5 0 0 0 12 3.9l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1"/></svg><span>Datos y conexiones</span></button>
+            <button class="config-tab" id="config-tab-trash" role="tab" data-tab="trash" aria-controls="config-panel-trash" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18m-2 0-.9 14H5.9L5 6m4 0V4h6v2m-5 4v6m4-6v6"/></svg><span>Papelera</span></button>
         </nav>
 
 
 
         <!-- TAB: PREMIUM -->
-        <section class="config-tab-panel" data-panel="premium" hidden>
+        <section class="config-tab-panel" id="config-panel-premium" role="tabpanel" aria-labelledby="config-tab-premium" tabindex="0" data-panel="premium" hidden>
             <div id="premium-panel"></div>
         </section>
 
 
         <!-- TAB: PREFERENCES -->
-        <section class="config-tab-panel" data-panel="preferences" hidden>
+        <section class="config-tab-panel" id="config-panel-preferences" role="tabpanel" aria-labelledby="config-tab-preferences" tabindex="0" data-panel="preferences" hidden>
             <div class="settings-card">
                 <h3>Apariencia</h3>
-                <p class="settings-card__hint">Cambia la paleta, tipografía y personalidad de Gunter en toda la app.</p>
+                    <p class="settings-card__hint">Elige el ambiente de tus sesiones. La interfaz conserva la identidad Polar y su modo claro u oscuro.</p>
                 <div class="settings-row">
-                    <label>Tema actual</label>
+                    <label>Entorno de reuniones</label>
                     <div class="theme-chooser" id="theme-chooser">
                         <button type="button" data-theme-value="empresarial">🏢 Empresarial</button>
                         <button type="button" data-theme-value="artistico">🎨 Artístico</button>
@@ -137,11 +145,21 @@
                     <input type="checkbox" id="pref-click-fx" class="form-toggle" checked>
                 </div>
             </div>
+
+            <div class="settings-card" id="push-settings-card">
+                <h3>Alertas en segundo plano</h3>
+                <p class="settings-card__hint">Recibe recordatorios aunque Gunter no esté abierto. Requiere permiso del navegador; fuera de localhost, el sitio debe usar HTTPS.</p>
+                <div class="settings-row settings-row--toggle">
+                    <div><strong id="push-settings-state">Comprobando…</strong><small id="push-settings-detail" style="display:block;color:var(--text-muted);margin-top:4px;">Este permiso se administra por dispositivo.</small></div>
+                    <button type="button" class="btn btn--secondary" id="push-settings-toggle">Activar</button>
+                </div>
+                <button type="button" class="btn btn--secondary" id="push-settings-test" disabled>Enviar alerta de prueba</button>
+            </div>
         </section>
 
 
         <!-- TAB: TRASH -->
-        <section class="config-tab-panel" data-panel="trash" hidden>
+        <section class="config-tab-panel" id="config-panel-trash" role="tabpanel" aria-labelledby="config-tab-trash" tabindex="0" data-panel="trash" hidden>
             <div class="settings-card">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                     <div>
@@ -158,7 +176,7 @@
 
 
         <!-- TAB: DATA -->
-        <section class="config-tab-panel" data-panel="data" hidden>
+        <section class="config-tab-panel" id="config-panel-data" role="tabpanel" aria-labelledby="config-tab-data" tabindex="0" data-panel="data" hidden>
             <!-- Fase F.F3 — Reordenamiento + microcopy + zona de peligro separada -->
 
             <div class="data-section-intro">
@@ -179,9 +197,9 @@
             <div class="settings-card">
                 <h3>Importar datos</h3>
                 <p class="settings-card__hint">Restaura un respaldo previo. Se fusionará con lo que tengas actualmente.</p>
-                <input type="file" id="import-data-input" accept=".json" style="display:none;">
-                <button type="button" class="btn btn--secondary" onclick="document.getElementById('import-data-input').click()">Seleccionar archivo…</button>
-                <span id="import-data-status" class="settings-card__hint" style="margin-left:12px;"></span>
+                <input type="file" id="import-data-input" accept=".json" aria-label="Archivo JSON de respaldo" style="display:none;">
+                <button type="button" class="btn btn--secondary" id="import-data-select">Seleccionar archivo…</button>
+                <span id="import-data-status" class="settings-card__hint" style="margin-left:12px;" role="status" aria-live="polite"></span>
             </div>
 
             <!-- 2. Almacenamiento local (Fase D) -->
@@ -215,17 +233,12 @@
                     <li><strong>OpenAI</strong> (Whisper + análisis): <span id="status-openai">—</span></li>
                     <li><strong>Gemini</strong> (imágenes de diapositivas): <span id="status-gemini">—</span></li>
                     <li><strong>Google OAuth</strong> (Calendar): <span id="status-google">—</span></li>
+                    <li><strong>Android FCM</strong> (avisos a nodos): <span id="status-fcm">—</span></li>
+                    <li><strong>iOS APNs</strong> (avisos a nodos): <span id="status-apns">—</span></li>
                 </ul>
             </div>
 
-            <div class="settings-card">
-                <h3>🔗 Integraciones externas</h3>
-                <p class="settings-card__hint">
-                    Google Calendar, WhatsApp y otras integraciones se gestionan desde la pestaña
-                    <strong>✨ Premium</strong>. Allí puedes conectar cada servicio y activar funciones específicas.
-                </p>
-                <a href="#premium" class="btn btn--primary">Ir a Funciones Premium →</a>
-            </div>
+            <div id="social-settings-panel"></div>
 
             <!-- 3.5 Memoria conversacional (v2 — F1) -->
             <h4 class="data-section-title">🧬 Memoria conversacional</h4>
@@ -273,23 +286,31 @@
     </main>
 
     <!-- Scripts -->
-    <script src="js/config.js"></script>
-    <script src="js/theme-manager.js" defer></script>
+    <script src="js/config.js?v103-api-base"></script>
+    <script src="js/theme-manager.js?v67-security-20260828" defer></script>
     <script src="js/theme-backgrounds.js" defer></script>
     <script src="js/data-service.js" defer></script>
     <script src="js/services/google-auth-service.js" defer></script>
     <script src="js/services/calendar-service.js" defer></script>
     <script src="js/services/status-bus.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/connectivity-monitor.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/notifications-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/notifications-service.js?v102-background-push" defer></script>
     <script src="js/services/transcript-store.js" defer></script>
     <script src="js/services/local-data-maintenance-service.js" defer></script>
     <script src="js/services/error-mapper.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/tasks-service.js" defer></script>
     <script src="js/services/events-service.js" defer></script>
     <script src="js/services/whatsapp-service.js" defer></script>
-    <script src="js/services/voice-service.js" defer></script>
-    <script src="js/services/wake-word-service.js" defer></script>
+    <script src="js/core/temporal-context.js?v70-assistant" defer></script>
+    <script src="js/core/wake-invocation.js?v68-assistant" defer></script>
+    <script src="js/core/conversation-state.js?v73-assistant" defer></script>
+    <script src="js/core/time-parser.js?v71-assistant" defer></script>
+    <script src="js/services/jobs-service.js?v73-assistant" defer></script>
+    <script src="js/services/voice-activity-service.js?v73-assistant" defer></script>
+    <script src="js/core/assistant-tools.js?v103-device-runtime" defer></script>
+    <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
+    <script src="js/services/voice-service.js?v71-assistant" defer></script>
+    <script src="js/services/wake-word-service.js?v73-assistant" defer></script>
 
     <!-- Adapters (Fase 7) -->
     <script src="js/adapters/storage-adapter.js" defer></script>
@@ -300,21 +321,26 @@
     <script src="js/adapters/index.js" defer></script>
 
     <script src="js/premium-features-service.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/advanced-settings.js" defer></script>
+    <script src="js/advanced-settings.js?v85d-final" defer></script>
+    <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
+    <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
+    <script src="js/services/connection-manager.js?v87-context-sync" defer></script>
+    <script src="js/services/web-node-runtime.js?v84-control" defer></script>
+    <script src="js/controllers/control-plane-settings.js?v104-resident-node" defer></script>
+    <script src="js/controllers/social-settings-panel.js?v103-device-runtime" defer></script>
 
     <!-- v2 — Memoria Conversacional (F1): se carga aquí solo para que la card de gestión funcione (stats/list/clear/forget). El modo write/recall vive en day.html y meeting.html. -->    <script src="js/services/embedding-service.js?v66b-gunter-pixar-1783590000000" defer></script>
 
     <script src="js/services/conversation-memory-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/controllers/conversation-memory-panel.js" defer></script>
 
-    <script src="js/config-settings.js" defer></script>
+    <script src="js/config-settings.js?v105-hash-tabs" defer></script>
     <!-- (ai-analysis, cache-service, audio-chunker, audio-trimmer eliminados:
          pertenecían al flujo Nuevo Proyecto que ahora vive en dashboard.html) -->
-    <script src="js/app.js" defer></script>
+    <script src="js/app.js?v67-security-20260828" defer></script>
     <!-- (Nuevo Proyecto inline script eliminado: el panel ahora vive en dashboard.html) -->
 
     <!-- Phase 2 Design Enhancements -->
-    <script src="js/particle-effects.js" defer></script>
     <script src="js/card-interactions.js" defer></script>
 
     <!-- PWA registration (Fase 8) -->
@@ -323,22 +349,64 @@
     <!-- Fase F.F5 — Wiring del toggle dark mode -->
     <script>
         (function () {
-            const cb = document.getElementById('pref-dark-mode');
-            if (!cb) return;
-            // Reflejar estado guardado
-            try { cb.checked = localStorage.getItem('gunter_dark_mode') === 'true'; } catch {}
-            cb.addEventListener('change', () => {
-                if (window.GunterTheme?.toggleDarkMode) {
-                    window.GunterTheme.toggleDarkMode(cb.checked);
-                } else {
-                    // Fallback: setear flag y aplicar clase manualmente
-                    try {
-                        localStorage.setItem('gunter_dark_mode', String(cb.checked));
-                        document.documentElement.classList.toggle('dark-mode', cb.checked);
-                    } catch {}
-                }
+            window.addEventListener('DOMContentLoaded', () => {
+                const cb = document.getElementById('pref-dark-mode');
+                if (!cb) return;
+                cb.checked = window.GunterThemeToggle?.getPreferred?.() === 'dark';
+                cb.addEventListener('change', () => {
+                    if (window.GunterThemeToggle?.apply) {
+                        window.GunterThemeToggle.apply(cb.checked ? 'dark' : 'light');
+                    } else {
+                        try {
+                            localStorage.setItem('gunter_color_mode', cb.checked ? 'dark' : 'light');
+                            document.body.classList.toggle('at-dark', cb.checked);
+                            document.body.classList.toggle('at-light', !cb.checked);
+                        } catch {}
+                    }
+                });
             });
         })();
+    </script>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const state = document.getElementById('push-settings-state');
+            const detail = document.getElementById('push-settings-detail');
+            const toggle = document.getElementById('push-settings-toggle');
+            const test = document.getElementById('push-settings-test');
+            if (!state || !toggle) return;
+            const service = () => window.GunterNotificationsService;
+            async function refreshPush() {
+                try {
+                    const current = await service()?.pushStatus?.();
+                    if (!current?.supported) {
+                        state.textContent = 'No disponible en este navegador'; detail.textContent = 'Usa un navegador compatible y HTTPS.'; toggle.disabled = true; return;
+                    }
+                    if (current.permission === 'denied') {
+                        state.textContent = 'Bloqueadas por el navegador'; detail.textContent = 'Cambia el permiso del sitio desde la barra de direcciones.'; toggle.disabled = true; test.disabled = true; return;
+                    }
+                    state.textContent = current.subscribed ? 'Activas en este dispositivo' : 'Desactivadas en este dispositivo';
+                    detail.textContent = current.subscribed ? `${current.devices.length || 1} dispositivo(s) vinculado(s) a tu cuenta.` : 'Actívalas para recibir recordatorios con la app cerrada.';
+                    toggle.textContent = current.subscribed ? 'Desactivar' : 'Activar'; toggle.disabled = false; test.disabled = !current.subscribed;
+                    toggle.dataset.active = current.subscribed ? 'true' : 'false';
+                } catch (error) { state.textContent = 'No pude comprobarlas'; detail.textContent = error.message || 'Reintenta cuando el servidor esté disponible.'; toggle.disabled = false; }
+            }
+            toggle.addEventListener('click', async () => {
+                toggle.disabled = true;
+                try {
+                    if (toggle.dataset.active === 'true') await service().disablePush();
+                    else await service().requestPermission();
+                } catch (error) { service()?.showToast?.(`No pude cambiar las alertas: ${error.message}`, { variant: 'error', silent: true }); }
+                await refreshPush();
+            });
+            test.addEventListener('click', async () => {
+                test.disabled = true;
+                try { await service().testPush(); service().showToast('Alerta de prueba enviada.', { variant: 'success', silent: true }); }
+                catch (error) { service()?.showToast?.(`No pude enviar la prueba: ${error.message}`, { variant: 'error', silent: true }); }
+                await refreshPush();
+            });
+            refreshPush();
+        });
     </script>
 
     <!-- Fase D — Wiring del card de almacenamiento local -->
@@ -529,7 +597,7 @@
 
     <!-- Medieval Futuristic Theme -->
     <script src="js/services/sw-updater.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/theme-toggle.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/actions-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/nlp-llm-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/commitments-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/theme-toggle.js?v80-polar" defer></script>    <script src="js/services/actions-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/nlp-llm-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/commitments-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-rules-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-mood-service.js?v66b-gunter-pixar-1783590000000" defer></script>
 
@@ -539,9 +607,9 @@
 
 
 
-    <script src="js/services/gunter-companion.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/gunter-companion.js?v71-assistant" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/gunter-onboarding.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/gunter-onboarding.js?v67-security-20260828" defer></script>
 </body>
 
 </html>

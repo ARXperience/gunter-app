@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Orbitron:ital,wght@1,700;1,900&amp;family=Inter:wght@400;500;600;700&amp;family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script src="https://ajax.googleapis.com/ajax/libs/threejs/r125/three.min.js"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-primary-fixed-variant": "#41474e", "surface-container-low": "#151b2d", "on-tertiary-fixed": "#131b2e", "secondary-fixed-dim": "#bcc7de", "on-secondary": "#263143", "error-container": "#93000a", "on-surface-variant": "#c5c6cb", "error": "#ffb4ab", "surface-container-highest": "#2e3447", "on-secondary-fixed-variant": "#3c475a", "primary-fixed-dim": "#c1c7cf", "tertiary-fixed": "#dae2fd", "secondary-fixed": "#d8e3fb", "outline": "#8e9195", "on-background": "#dce1fb", "on-tertiary": "#283044", "primary-fixed": "#dde3eb", "on-secondary-container": "#aeb9d0", "on-error-container": "#ffdad6", "secondary": "#bcc7de", "on-primary-container": "#5f656c", "surface-container-lowest": "#070d1f", "surface-bright": "#33394c", "surface-variant": "#2e3447", "primary": "#ffffff", "on-primary": "#2b3137", "secondary-container": "#3e495d", "primary-container": "#dde3eb", "surface-container": "#191f31", "on-tertiary-container": "#5c647a", "on-secondary-fixed": "#111c2d", "inverse-on-surface": "#2a3043", "on-error": "#690005", "surface-container-high": "#23293c", "inverse-primary": "#595f66", "tertiary": "#ffffff", "tertiary-container": "#dae2fd", "surface-dim": "#0c1324", "tertiary-fixed-dim": "#bec6e0", "surface": "#0c1324", "outline-variant": "#44474a", "on-surface": "#dce1fb", "on-primary-fixed": "#161c22", "on-tertiary-fixed-variant": "#3f465c", "background": "#000000", "inverse-surface": "#dce1fb", "surface-tint": "#c1c7cf" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "gutter": "16px", "container-padding": "24px", "section-gap": "48px", "base": "8px" }, "fontFamily": { "orbitron": ["Orbitron", "sans-serif"], "body-lg": ["Inter"], "label-sm": ["Inter"], "display-lg-mobile": ["Inter"], "body-md": ["Inter"], "display-lg": ["Inter"], "headline-md": ["Inter"] }, "fontSize": { "body-lg": ["18px", { "lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400" }], "label-sm": ["12px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600" }], "display-lg-mobile": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600" }], "body-md": ["16px", { "lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400" }], "display-lg": ["48px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "600" }], "headline-md": ["24px", { "lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "500" }] } } } };</script><style>
+  @layer base {
+    html, body { width: 100vw; margin: 0; padding: 0; background-color: #000000; }
+    body { overscroll-behavior: none; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  }
+  ::-webkit-scrollbar { display: none; }
+  body { min-height: max(884px, 100dvh); }
+  .hex-grid-pattern {
+    background-color: #000000;
+    background-image: radial-gradient(circle at 50% 48%, rgba(6, 182, 212, 0.12) 0%, rgba(2, 6, 14, 0.95) 60%, #000000 100%),
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(34, 211, 238, 0.035) 40px),
+      repeating-linear-gradient(60deg, transparent, transparent 39px, rgba(34, 211, 238, 0.025) 40px),
+      repeating-linear-gradient(120deg, transparent, transparent 39px, rgba(34, 211, 238, 0.025) 40px);
+  }
+  .glow-cyan-text {
+    text-shadow: 0 0 10px rgba(56, 189, 248, 0.85), 0 0 22px rgba(6, 182, 212, 0.5);
+  }
+  .glow-cyan-box {
+    box-shadow: 0 0 16px rgba(6, 182, 212, 0.45), inset 0 0 12px rgba(6, 182, 212, 0.25);
+  }
+  .glow-cyan-ring {
+    box-shadow: 0 0 24px rgba(34, 211, 238, 0.4), inset 0 0 16px rgba(34, 211, 238, 0.25);
+  }
+</style>
+</head><body class="bg-black font-body-md text-on-surface flex flex-col min-h-screen antialiased selection:bg-cyan-500/20 selection:text-cyan-200 overflow-x-hidden">
+<!-- 1. Cabecera superior fiel a la referencia de JARVIS (IMAGE_15) con GUNTER -->
+<header class="fixed top-0 w-full z-50 pt-safe bg-black/85 backdrop-blur-md border-b border-cyan-900/30">
+<div class="h-14 px-4 flex items-center justify-between relative">
+<!-- Subtexto discreto de copyright / build a la izquierda -->
+<div class="text-[9px] font-mono tracking-widest text-cyan-600/70 select-none">
+      © 2025 GUNTER TACTICAL
+    </div>
+<!-- Título Central 'GUNTER' en tipografía deportiva futurista itálica (estilo JARVIS) -->
+<div class="absolute left-1/2 -translate-x-1/2 flex items-center">
+<h1 class="font-orbitron italic font-black text-xl tracking-[0.25em] text-cyan-200 glow-cyan-text select-none">
+        GUNTER
+      </h1>
+</div>
+<!-- Botón de información "(i)" circular cian brillante en esquina superior derecha -->
+<button aria-label="System Info" class="w-8 h-8 rounded-full border border-cyan-400/80 bg-cyan-950/40 flex items-center justify-center glow-cyan-box active:scale-95 transition-transform" type="button">
+<span class="font-orbitron italic font-bold text-cyan-300 text-sm leading-none drop-shadow-[0_0_6px_#38bdf8]">i</span>
+</button>
+</div>
+</header>
+<!-- 2. Área Central Dominante (Núcleo holográfico cuántico e isométrico interactivo con Pingüino Gunter) -->
+<main class="flex-1 flex flex-col items-center justify-center relative w-full pt-16 pb-24 px-2 hex-grid-pattern overflow-hidden">
+<!-- Micro-telemetría superior flotante fiel a IMAGE_15 -->
+<div class="w-full max-w-sm flex items-center justify-between px-3 mb-2 text-[10px] font-mono text-cyan-400/80 select-none z-20">
+<span class="flex items-center gap-1.5 tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+      TGT.AZ: 042° // ELEV: +14.2°
+    </span>
+<span class="tracking-wider text-cyan-300 drop-shadow-[0_0_6px_rgba(34,211,238,0.5)]">
+      CRYO CORE: -42.0°C
+    </span>
+</div>
+<!-- Contenedor del Reactor Holográfico Isométrico Cuántico -->
+<div class="relative w-full max-w-[390px] aspect-square flex items-center justify-center cursor-pointer select-none" id="hologram-viewport">
+<!-- Aura de luz de fondo / Radial ambient glow cian neón -->
+<div class="absolute inset-0 rounded-full bg-cyan-500/15 blur-[65px] pointer-events-none"></div>
+<div class="absolute w-72 h-72 rounded-full bg-teal-400/10 blur-3xl pointer-events-none"></div>
+<!-- Outer Organic Particle / Wave Ring HUD Graphic (Aura fluctuante exterior táctica) -->
+<div class="absolute inset-2 rounded-full border border-cyan-400/25 pointer-events-none animate-[pulse_4s_ease-in-out_infinite] glow-cyan-ring"></div>
+<!-- Anillos concéntricos HUD segmentados de fondo con graduaciones angulares -->
+<svg class="absolute inset-4 w-[calc(100%-32px)] h-[calc(100%-32px)] pointer-events-none animate-[spin_60s_linear_infinite]" fill="none" viewbox="0 0 300 300">
+<circle cx="150" cy="150" r="144" stroke="#22d3ee" stroke-dasharray="3 14" stroke-opacity="0.3" stroke-width="1.8"></circle>
+<circle cx="150" cy="150" r="134" stroke="#38bdf8" stroke-dasharray="16 10" stroke-opacity="0.4" stroke-width="1.5"></circle>
+<circle cx="150" cy="150" r="122" stroke="#06b6d4" stroke-dasharray="36 16" stroke-opacity="0.45" stroke-width="2.5"></circle>
+</svg>
+<!-- Anillo de persiana segmentado estilo Reactor Arc -->
+<svg class="absolute inset-8 w-[calc(100%-64px)] h-[calc(100%-64px)] pointer-events-none animate-[spin_32s_linear_infinite_reverse]" fill="none" viewbox="0 0 260 260">
+<g stroke="#38bdf8" stroke-dasharray="14 18" stroke-opacity="0.35" stroke-width="8">
+<circle cx="130" cy="130" r="110"></circle>
+</g>
+<circle cx="130" cy="130" r="96" stroke="#22d3ee" stroke-dasharray="5 7" stroke-opacity="0.55" stroke-width="1.5"></circle>
+</svg>
+<!-- Anillo central blanco brillante con resplandor neón -->
+<div class="absolute w-[184px] h-[184px] rounded-full border-2 border-white/85 shadow-[0_0_24px_rgba(255,255,255,0.9),0_0_45px_rgba(34,211,238,0.7)] pointer-events-none z-20"></div>
+<!-- Three.js Interactive Isometric Quantum Hologram Engine (SCREEN_75 integrado) -->
+<div class="relative w-full h-full flex items-center justify-center z-10 touch-none" id="threejs-iso-core"></div>
+</div>
+<!-- Telemetría inferior flotante del núcleo (Chip de estado fiel a la captura) -->
+<div class="w-full max-w-sm flex items-center justify-center mt-3 z-20 select-none">
+<div class="px-5 py-1.5 rounded-full bg-cyan-950/40 border border-cyan-500/40 backdrop-blur-md shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+<span class="text-[11px] font-mono text-cyan-300 tracking-wider font-semibold glow-cyan-text">
+        CORE SYNAPSE: 99.8% // COHERENCE LOCKED
+      </span>
+</div>
+</div>
+</main>
+<!-- Botón flotante circular pequeño con signo de interrogación "(?)" en cian neón justo sobre el dock a la derecha (IMAGE_15) -->
+<div class="fixed bottom-20 right-4 z-40">
+<button aria-label="Help &amp; Directives" class="w-9 h-9 rounded-full border border-cyan-400 bg-[#05111c]/90 text-cyan-300 flex items-center justify-center glow-cyan-box hover:scale-105 active:scale-95 transition-all shadow-[0_0_15px_rgba(6,182,212,0.6)]" type="button">
+<span class="font-orbitron font-bold text-base leading-none drop-shadow-[0_0_5px_#22d3ee]">?</span>
+</button>
+</div>
+<!-- 3. Menú inferior / Dock de navegación idéntico al de la referencia IMAGE_15 -->
+<nav class="fixed bottom-0 w-full z-50 pb-safe bg-[#02050b]/95 backdrop-blur-xl border-t border-cyan-500/40 shadow-[0_-8px_30px_rgba(0,0,0,0.85)]">
+<!-- Línea decorativa cibernética superior con muesca angular central -->
+<div class="absolute -top-[2px] inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_8px_#22d3ee]"></div>
+<div class="h-16 py-2 px-3 flex items-center justify-around relative max-w-md mx-auto">
+<!-- 1. Reloj / Cronómetro / Timeline táctico (icono circular con agujas) -->
+<a aria-label="Timeline" class="flex items-center justify-center w-12 h-12 rounded-full text-cyan-400/85 hover:text-cyan-200 transition-colors group" href="#">
+<svg class="w-8 h-8 text-cyan-400 filter drop-shadow-[0_0_6px_rgba(34,211,238,0.7)] group-hover:scale-105 transition-transform" fill="none" stroke="currentColor" stroke-width="1.8" viewbox="0 0 32 32">
+<circle cx="16" cy="16" r="13" stroke-width="1.8"></circle>
+<path d="M16 8 L16 16 L22 20" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</a>
+<!-- 2. Red de nodos / Share / Conexión sináptica (tres nodos conectados) -->
+<a aria-label="Synaptic Network" class="flex items-center justify-center w-12 h-12 rounded-full text-cyan-400/85 hover:text-cyan-200 transition-colors group" href="#">
+<svg class="w-8 h-8 text-cyan-400 filter drop-shadow-[0_0_6px_rgba(34,211,238,0.7)] group-hover:scale-105 transition-transform" fill="none" stroke="currentColor" stroke-width="1.8" viewbox="0 0 32 32">
+<circle cx="9" cy="16" fill="currentColor" fill-opacity="0.2" r="3.5"></circle>
+<circle cx="23" cy="8" fill="currentColor" fill-opacity="0.2" r="3.5"></circle>
+<circle cx="23" cy="24" fill="currentColor" fill-opacity="0.2" r="3.5"></circle>
+<line stroke-linecap="round" stroke-width="2" x1="12" x2="20" y1="14.5" y2="9.5"></line>
+<line stroke-linecap="round" stroke-width="2" x1="12" x2="20" y1="17.5" y2="22.5"></line>
+</svg>
+</a>
+<!-- 3. MICRÓFONO CENTRAL ELEVADO EN CÁPSULA CIRCULAR con relieve táctico especial (como en IMAGE_15) -->
+<div class="relative -top-2 flex flex-col items-center">
+<!-- Cápsula con relieve y bisel angular -->
+<div class="w-14 h-14 rounded-full border-2 border-cyan-400/90 bg-[#051322] flex items-center justify-center shadow-[0_0_22px_rgba(6,182,212,0.8),inset_0_0_12px_rgba(34,211,238,0.5)] active:scale-95 transition-transform cursor-pointer group">
+<!-- Aro interior decorativo concéntrico -->
+<div class="w-11 h-11 rounded-full border border-cyan-400/50 flex items-center justify-center bg-cyan-950/40">
+<svg class="w-6 h-6 text-cyan-300 drop-shadow-[0_0_8px_#38bdf8] group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="1.9" viewbox="0 0 24 24">
+<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" fill="currentColor" fill-opacity="0.3"></path>
+<path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke-linecap="round"></path>
+<line stroke-linecap="round" x1="12" x2="12" y1="19" y2="22"></line>
+</svg>
+</div>
+</div>
+<!-- Indicador luminoso inferior bajo el micro -->
+<div class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#38bdf8] mt-1"></div>
+</div>
+<!-- 4. Reactor / Disco óptico / Memoria cuántica (círculo concéntrico segmentado) -->
+<a aria-label="Core Matrix" class="flex items-center justify-center w-12 h-12 rounded-full text-cyan-400/85 hover:text-cyan-200 transition-colors group" href="#">
+<svg class="w-8 h-8 text-cyan-400 filter drop-shadow-[0_0_6px_rgba(34,211,238,0.7)] group-hover:scale-105 transition-transform" fill="none" stroke="currentColor" stroke-width="1.8" viewbox="0 0 32 32">
+<circle cx="16" cy="16" r="13"></circle>
+<circle cx="16" cy="16" fill="currentColor" fill-opacity="0.35" r="4.5"></circle>
+<line stroke-linecap="round" x1="16" x2="16" y1="3" y2="8"></line>
+<line stroke-linecap="round" x1="16" x2="16" y1="24" y2="29"></line>
+</svg>
+</a>
+<!-- 5. Casco cibernético / Máscara táctica estilizada (emblema de Gunter / HUD de armadura de IMAGE_15) -->
+<a aria-label="Armor HUD" class="flex items-center justify-center w-12 h-12 rounded-full text-cyan-400/85 hover:text-cyan-200 transition-colors group" href="#">
+<svg class="w-8 h-8 text-cyan-400 filter drop-shadow-[0_0_6px_rgba(34,211,238,0.7)] group-hover:scale-105 transition-transform" fill="none" stroke="currentColor" stroke-width="1.8" viewbox="0 0 32 32">
+<path d="M9 5 C12 3, 20 3, 23 5 C25 9, 26 15, 25 21 C24 26, 19 29, 16 29 C13 29, 8 26, 7 21 C6 15, 7 9, 9 5 Z" stroke-linejoin="round"></path>
+<path d="M10 13 L14 15 L14 17 L10 15 Z" fill="currentColor" fill-opacity="0.8"></path>
+<path d="M22 13 L18 15 L18 17 L22 15 Z" fill="currentColor" fill-opacity="0.8"></path>
+<line stroke-linecap="round" x1="13" x2="19" y1="21" y2="21"></line>
+<line stroke-linecap="round" x1="14" x2="18" y1="24" y2="24"></line>
+</svg>
+</a>
+</div>
+</nav>
+<!-- ThreeJS Script Execution based on SCREEN_75 -->
+<script>
+(function() {
+  const container = document.getElementById('threejs-iso-core');
+  if (!container) return;
+
+  const width = container.clientWidth || 360;
+  const height = container.clientHeight || 360;
+
+  const scene = new THREE.Scene();
+  
+  // Isometric / Axonometric tilt camera setup
+  const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
+  camera.position.set(0, 13, 23);
+  camera.lookAt(0, 0, 0);
+
+  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  container.appendChild(renderer.domElement);
+
+  // Group to apply global Isometric tilt (Pitch & Yaw)
+  const isoMasterGroup = new THREE.Group();
+  isoMasterGroup.rotation.x = 0.52; // ~30 deg isometric slant
+  isoMasterGroup.rotation.y = -0.42; // ~-24 deg isometric yaw
+  scene.add(isoMasterGroup);
+
+  // Particle Counts for Penguin & Rings
+  const PENGUIN_COUNT = 2400;
+  const ISO_RINGS_COUNT = 3200;
+  const TOTAL_COUNT = PENGUIN_COUNT + ISO_RINGS_COUNT;
+
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(TOTAL_COUNT * 3);
+  const basePositions = new Float32Array(TOTAL_COUNT * 3);
+  const velocities = new Float32Array(TOTAL_COUNT * 3);
+  const colors = new Float32Array(TOTAL_COUNT * 3);
+  const baseColors = new Float32Array(TOTAL_COUNT * 3);
+  const sizes = new Float32Array(TOTAL_COUNT);
+  const baseSizes = new Float32Array(TOTAL_COUNT);
+  const pMeta = new Float32Array(TOTAL_COUNT * 4); // [isRing, radius/level, speed, angle/phase]
+
+  const cyan = new THREE.Color(0x38bdf8);
+  const deepCyan = new THREE.Color(0x0284c7);
+  const brightTurquoise = new THREE.Color(0x2dd4bf);
+  const neonElectric = new THREE.Color(0x67e8f9);
+  const coreWhite = new THREE.Color(0xffffff);
+
+  let idx = 0;
+
+  // 1. PENGUIN NUCLEUS (Quantum Penguin at core center)
+  for (let i = 0; i < PENGUIN_COUNT; i++) {
+    let x = 0, y = 0, z = 0;
+    let part = Math.random();
+    let c = coreWhite;
+
+    if (part < 0.44) {
+      // Torso / Core Heart
+      const u = Math.random();
+      const v = Math.random();
+      const theta = u * 2.0 * Math.PI;
+      const phi = Math.acos(2.0 * v - 1.0);
+      const rx = 2.1 * Math.sin(phi) * Math.cos(theta);
+      const ry = 3.5 * Math.cos(phi);
+      const rz = 1.6 * Math.sin(phi) * Math.sin(theta);
+      x = rx * (0.85 + 0.15 * Math.random());
+      y = ry - 0.2;
+      z = rz * (0.85 + 0.15 * Math.random());
+      c = Math.random() > 0.4 ? cyan : coreWhite;
+    } else if (part < 0.68) {
+      // Head & Neural Crown
+      const u = Math.random();
+      const v = Math.random();
+      const theta = u * 2.0 * Math.PI;
+      const phi = Math.acos(2.0 * v - 1.0);
+      const r = 1.5 * (0.88 + 0.12 * Math.random());
+      x = r * Math.sin(phi) * Math.cos(theta) * 0.92;
+      y = 3.3 + r * Math.cos(phi) * 0.95;
+      z = r * Math.sin(phi) * Math.sin(theta) * 0.88;
+      c = Math.random() > 0.5 ? coreWhite : neonElectric;
+    } else if (part < 0.88) {
+      // Kinetic Wings / Flippers
+      const side = Math.random() > 0.5 ? 1 : -1;
+      const t = Math.random();
+      x = side * (1.9 + t * 1.5 + (Math.random() - 0.5) * 0.3);
+      y = 1.9 - t * 3.8;
+      z = (Math.random() - 0.5) * 0.5;
+      c = brightTurquoise;
+    } else if (part < 0.94) {
+      // Cyber Visor / Beak
+      const t = Math.random();
+      x = (Math.random() - 0.5) * 0.4 * (1 - t);
+      y = 3.2 - t * 0.45;
+      z = 1.35 + t * 1.5;
+      c = coreWhite;
+    } else {
+      // Quantum Base Anchors / Feet
+      const side = Math.random() > 0.5 ? 1 : -1;
+      x = side * (1.0 + Math.random() * 0.7);
+      y = -3.8 + (Math.random() - 0.5) * 0.4;
+      z = (Math.random() - 0.5) * 1.0;
+      c = deepCyan;
+    }
+
+    positions[idx * 3] = x;
+    positions[idx * 3 + 1] = y;
+    positions[idx * 3 + 2] = z;
+    basePositions[idx * 3] = x;
+    basePositions[idx * 3 + 1] = y;
+    basePositions[idx * 3 + 2] = z;
+
+    colors[idx * 3] = c.r;
+    colors[idx * 3 + 1] = c.g;
+    colors[idx * 3 + 2] = c.b;
+    baseColors[idx * 3] = c.r;
+    baseColors[idx * 3 + 1] = c.g;
+    baseColors[idx * 3 + 2] = c.b;
+
+    sizes[idx] = 1.6 + Math.random() * 2.0;
+    baseSizes[idx] = sizes[idx];
+
+    pMeta[idx * 4] = 0.0; // 0 = Penguin
+    pMeta[idx * 4 + 1] = 0.0;
+    pMeta[idx * 4 + 2] = 0.0;
+    pMeta[idx * 4 + 3] = 0.0;
+    idx++;
+  }
+
+  // 2. ISOMETRIC & HIGH-TECH ORBITAL RINGS & AUREOLAS
+  const RING_SPECS = [
+    { radius: 3.8, yLevel: 1.2, count: 420, speed: 0.65, col: coreWhite, hasTicks: true, planeTiltX: 0.1, planeTiltZ: -0.05 },
+    { radius: 5.6, yLevel: 0.0, count: 680, speed: -0.45, col: neonElectric, hasTicks: true, planeTiltX: -0.15, planeTiltZ: 0.12 },
+    { radius: 7.8, yLevel: -1.0, count: 780, speed: 0.38, col: cyan, hasTicks: true, planeTiltX: 0.18, planeTiltZ: -0.2 },
+    { radius: 9.8, yLevel: 0.6, count: 680, speed: -0.28, col: brightTurquoise, hasTicks: false, planeTiltX: -0.08, planeTiltZ: 0.15 },
+    { radius: 12.0, yLevel: -0.5, count: 640, speed: 0.22, col: deepCyan, hasTicks: true, planeTiltX: 0.05, planeTiltZ: -0.08 }
+  ];
+
+  RING_SPECS.forEach((ring) => {
+    for (let k = 0; k < ring.count && idx < TOTAL_COUNT; k++) {
+      const angle = (k / ring.count) * Math.PI * 2;
+      const isTick = ring.hasTicks && (k % 6 === 0);
+      const tickOffset = isTick ? (Math.random() - 0.5) * 0.4 : 0;
+      const rVal = ring.radius + tickOffset + (Math.random() - 0.5) * 0.2;
+      
+      let rx = rVal * Math.cos(angle);
+      let rz = rVal * Math.sin(angle);
+      let ry = ring.yLevel + (Math.random() - 0.5) * 0.2;
+
+      // Isometric plane tilt calculations
+      const cosX = Math.cos(ring.planeTiltX);
+      const sinX = Math.sin(ring.planeTiltX);
+      const y1 = ry * cosX - rz * sinX;
+      const z1 = ry * sinX + rz * cosX;
+
+      const cosZ = Math.cos(ring.planeTiltZ);
+      const sinZ = Math.sin(ring.planeTiltZ);
+      const x2 = rx * cosZ - y1 * sinZ;
+      const y2 = rx * sinZ + y1 * cosZ;
+
+      positions[idx * 3] = x2;
+      positions[idx * 3 + 1] = y2;
+      positions[idx * 3 + 2] = z1;
+      basePositions[idx * 3] = x2;
+      basePositions[idx * 3 + 1] = y2;
+      basePositions[idx * 3 + 2] = z1;
+
+      const c = isTick ? coreWhite : ring.col;
+      colors[idx * 3] = c.r;
+      colors[idx * 3 + 1] = c.g;
+      colors[idx * 3 + 2] = c.b;
+      baseColors[idx * 3] = c.r;
+      baseColors[idx * 3 + 1] = c.g;
+      baseColors[idx * 3 + 2] = c.b;
+
+      sizes[idx] = isTick ? 3.8 : (1.8 + Math.random() * 1.5);
+      baseSizes[idx] = sizes[idx];
+
+      pMeta[idx * 4] = 1.0; // 1 = Ring particle
+      pMeta[idx * 4 + 1] = ring.radius;
+      pMeta[idx * 4 + 2] = ring.speed;
+      pMeta[idx * 4 + 3] = angle;
+      idx++;
+    }
+  });
+
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+  // Circular glow radial texture
+  const canvasTexture = document.createElement('canvas');
+  canvasTexture.width = 64;
+  canvasTexture.height = 64;
+  const ctx = canvasTexture.getContext('2d');
+  const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+  gradient.addColorStop(0.25, 'rgba(103, 232, 249, 0.95)');
+  gradient.addColorStop(0.65, 'rgba(14, 165, 233, 0.35)');
+  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 64, 64);
+
+  const pointTexture = new THREE.CanvasTexture(canvasTexture);
+
+  const material = new THREE.PointsMaterial({
+    size: 0.36,
+    vertexColors: true,
+    map: pointTexture,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  const particleSystem = new THREE.Points(geometry, material);
+  isoMasterGroup.add(particleSystem);
+
+  // Mouse & Touch Tracking for interactive acceleration & glow
+  let mouseX = 0, mouseY = 0;
+  let targetMouseX = 0, targetMouseY = 0;
+  let isHovered = false;
+  let hoverIntensity = 0;
+
+  function updatePointer(clientX, clientY) {
+    const rect = container.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    targetMouseX = ((clientX - cx) / (rect.width / 2)) * 14.0;
+    targetMouseY = -((clientY - cy) / (rect.height / 2)) * 12.0;
+    isHovered = true;
+  }
+
+  const vPort = document.getElementById('hologram-viewport') || window;
+  vPort.addEventListener('mousemove', (e) => updatePointer(e.clientX, e.clientY));
+  vPort.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 0) updatePointer(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  vPort.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 0) updatePointer(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  vPort.addEventListener('touchend', () => { isHovered = false; });
+  vPort.addEventListener('mouseleave', () => { isHovered = false; });
+
+  function onWindowResize() {
+    const w = container.clientWidth || 360;
+    const h = container.clientHeight || 360;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  }
+  window.addEventListener('resize', onWindowResize);
+
+  const clock = new THREE.Clock();
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const elapsedTime = clock.getElapsedTime();
+
+    // Smooth lerp pointer
+    mouseX += (targetMouseX - mouseX) * 0.08;
+    mouseY += (targetMouseY - mouseY) * 0.08;
+
+    const targetHover = isHovered ? 1.0 : 0.0;
+    hoverIntensity += (targetHover - hoverIntensity) * 0.06;
+
+    // Isometric breathing orientation
+    isoMasterGroup.rotation.y = -0.42 + Math.sin(elapsedTime * 0.3) * 0.05 + mouseX * 0.02;
+    isoMasterGroup.rotation.x = 0.52 + Math.cos(elapsedTime * 0.25) * 0.03 - mouseY * 0.02;
+
+    // Rings spin up to 4.5x faster and flare into electric cyan and pure white
+    const speedMultiplier = 1.0 + hoverIntensity * 4.2;
+
+    const posAttr = geometry.attributes.position;
+    const colAttr = geometry.attributes.color;
+    const szAttr = geometry.attributes.size;
+    const pArr = posAttr.array;
+    const cArr = colAttr.array;
+    const sArr = szAttr.array;
+
+    for (let i = 0; i < idx; i++) {
+      const i3 = i * 3;
+      const i4 = i * 4;
+      const isRing = pMeta[i4];
+      const bx = basePositions[i3];
+      const by = basePositions[i3 + 1];
+      const bz = basePositions[i3 + 2];
+
+      if (isRing > 0.5) {
+        // High-tech Isometric Orbital Ring: Rotates rapidly around Y
+        const baseSpeed = pMeta[i4 + 2];
+        const currentSpeed = baseSpeed * speedMultiplier;
+        const currentAngle = pMeta[i4 + 3] + elapsedTime * currentSpeed;
+
+        const cosA = Math.cos(currentAngle);
+        const sinA = Math.sin(currentAngle);
+
+        const rx = bx * cosA - bz * sinA;
+        const rz = bx * sinA + bz * cosA;
+
+        // Subtle tech pulsation
+        const pulse = 1.0 + 0.02 * Math.sin(elapsedTime * 4.0 + i);
+        pArr[i3] = rx * pulse;
+        pArr[i3 + 1] = by * pulse;
+        pArr[i3 + 2] = rz * pulse;
+
+        // LIGHT UP ON TOUCH: Interpolate towards intense radiant white-cyan
+        const rNorm = baseColors[i3];
+        const gNorm = baseColors[i3 + 1];
+        const bNorm = baseColors[i3 + 2];
+
+        // Luminescence boost
+        cArr[i3] = THREE.MathUtils.lerp(rNorm, 1.0, hoverIntensity * 0.85);
+        cArr[i3 + 1] = THREE.MathUtils.lerp(gNorm, 1.0, hoverIntensity * 0.85);
+        cArr[i3 + 2] = THREE.MathUtils.lerp(bNorm, 1.0, hoverIntensity * 0.65);
+
+        // Particle size expands when illuminated
+        sArr[i] = baseSizes[i] * (1.0 + hoverIntensity * 0.8);
+      } else {
+        // PENGUIN NUCLEUS: Calm baseline center, bursts & disperses on touch/proximity
+        const px = pArr[i3];
+        const py = pArr[i3 + 1];
+        const pz = pArr[i3 + 2];
+
+        const dx = px - mouseX;
+        const dy = py - mouseY;
+        const distSq = dx * dx + dy * dy;
+        const repelRadius = 6.4;
+
+        if (distSq < repelRadius * repelRadius && hoverIntensity > 0.05) {
+          const dist = Math.sqrt(distSq) + 0.001;
+          const force = (1.0 - dist / repelRadius) * 3.6 * hoverIntensity;
+          velocities[i3] += (dx / dist) * force * 0.5 + (Math.random() - 0.5) * 0.2;
+          velocities[i3 + 1] += (dy / dist) * force * 0.5 + (Math.random() - 0.5) * 0.2;
+          velocities[i3 + 2] += (Math.random() - 0.5) * force * 0.95;
+        }
+
+        // Return to home position (elastic nucleus memory)
+        velocities[i3] += (bx - px) * 0.07;
+        velocities[i3 + 1] += (by - py) * 0.07;
+        velocities[i3 + 2] += (bz - pz) * 0.07;
+
+        velocities[i3] *= 0.84;
+        velocities[i3 + 1] *= 0.84;
+        velocities[i3 + 2] *= 0.84;
+
+        pArr[i3] += velocities[i3];
+        pArr[i3 + 1] += velocities[i3 + 1];
+        pArr[i3 + 2] += velocities[i3 + 2];
+
+        // Core nucleus radiant intensity boost
+        cArr[i3] = THREE.MathUtils.lerp(baseColors[i3], 1.0, hoverIntensity * 0.6);
+        cArr[i3 + 1] = THREE.MathUtils.lerp(baseColors[i3 + 1], 1.0, hoverIntensity * 0.6);
+        cArr[i3 + 2] = THREE.MathUtils.lerp(baseColors[i3 + 2], 1.0, hoverIntensity * 0.5);
+        sArr[i] = baseSizes[i] * (1.0 + hoverIntensity * 0.4);
+      }
+    }
+
+    posAttr.needsUpdate = true;
+    colAttr.needsUpdate = true;
+    szAttr.needsUpdate = true;
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+})();
+</script>
+</body></html>

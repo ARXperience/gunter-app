@@ -1,0 +1,226 @@
+- generic [active] [ref=f8e1]:
+  - generic [aria-hidden]:
+    - generic: GUNTER
+  - link "Saltar al contenido principal" [ref=f8e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=f8e3]:
+    - navigation "Navegación principal de Gunter" [ref=f8e4]:
+      - link "Gunter, inicio" [ref=f8e5] [cursor=pointer]:
+        - /url: day.html
+      - link "Preparar una nueva reunión" [ref=f8e6] [cursor=pointer]:
+        - /url: new-project.html
+        - text: ＋
+        - generic [ref=f8e7]: Nueva reunión
+      - link "Configuración" [ref=f8e8] [cursor=pointer]:
+        - /url: config.html#preferences
+        - text: ⚙
+      - group [ref=f8e9]:
+        - generic "Abrir navegación" [ref=f8e10] [cursor=pointer]:
+          - text: ☰
+          - generic [ref=f8e11]: Menú
+    - navigation "Ubicación actual" [ref=f8e12]:
+      - list [ref=f8e13]:
+        - listitem [ref=f8e14]:
+          - generic [ref=f8e15]: Configuración
+    - generic [ref=f8e16]:
+      - text: ◈
+      - link "Volver al Dashboard" [ref=f8e17] [cursor=pointer]:
+        - /url: dashboard.html
+      - heading "Datos y conexiones" [level=1] [ref=f8e235]
+      - paragraph [ref=f8e21]: Gestiona respaldos, memoria, integraciones y privacidad.
+    - tablist "Secciones de configuración" [ref=f8e22]:
+      - tab "◉ Asistente IA" [ref=f8e23] [cursor=pointer]
+      - tab "◇ Preferencias" [ref=f8e24] [cursor=pointer]
+      - tab "⌁ Datos y conexiones" [selected] [ref=f8e25] [cursor=pointer]
+      - tab "× Papelera" [ref=f8e26] [cursor=pointer]
+    - tabpanel "⌁ Datos y conexiones" [ref=f8e27]:
+      - paragraph [ref=f8e29]:
+        - text: Aquí gestionas tus respaldos, espacio en este navegador y conexiones externas.
+        - strong [ref=f8e30]: Estas opciones no eliminan tus proyectos ni tareas
+        - text: ", salvo que uses la zona de peligro al final."
+      - heading "📁 Respaldos" [level=4] [ref=f8e31]
+      - generic [ref=f8e32]:
+        - heading "Exportar datos" [level=3] [ref=f8e33]
+        - paragraph [ref=f8e34]: Descarga un JSON con todos tus proyectos, transcripciones y análisis.
+        - button "Descargar respaldo (.json)" [ref=f8e35] [cursor=pointer]
+      - generic [ref=f8e36]:
+        - heading "Importar datos" [level=3] [ref=f8e37]
+        - paragraph [ref=f8e38]: Restaura un respaldo previo. Se fusionará con lo que tengas actualmente.
+        - button "Seleccionar archivo…" [ref=f8e39] [cursor=pointer]
+        - status
+      - heading "📦 Almacenamiento" [level=4] [ref=f8e40]
+      - generic [ref=f8e41]:
+        - heading "📦 Almacenamiento local" [level=3] [ref=f8e42]
+        - paragraph [ref=f8e43]: Mide cuánto espacio usa Gunter en este navegador y limpia datos antiguos sin borrar lo importante (proyectos, tareas, decisiones, configuración).
+        - paragraph [ref=f8e45]: Aún no he medido el almacenamiento. Click "Analizar".
+        - generic [ref=f8e46]:
+          - button "📊 Analizar almacenamiento" [ref=f8e47] [cursor=pointer]
+          - button "🔍 Simular limpieza" [disabled] [ref=f8e48]
+          - button "🧹 Limpiar datos antiguos" [disabled] [ref=f8e49]
+        - paragraph [ref=f8e50]:
+          - text: "La limpieza sólo borra: audios completados >30 días, sesiones de transcripción completadas >14 días, análisis generados antiguos (rotación a 100), y caché temporal."
+          - strong [ref=f8e51]: NO borra
+          - text: proyectos, tareas, eventos, documentos, ni configuraciones.
+      - heading "🔗 Conexiones externas" [level=4] [ref=f8e52]
+      - generic [ref=f8e53]:
+        - heading "Claves de API" [level=3] [ref=f8e54]
+        - paragraph [ref=f8e55]:
+          - text: Las claves de los servicios externos se leen desde el archivo
+          - code [ref=f8e56]: .env
+          - text: del servidor. Para cambiarlas, edita ese archivo y reinicia
+          - code [ref=f8e57]: npm run dev
+          - text: .
+        - list [ref=f8e58]:
+          - listitem [ref=f8e59]:
+            - strong [ref=f8e60]: OpenAI
+            - text: "(Whisper + análisis):"
+            - generic [ref=f8e61]: OpenAI no configurado · alternativa activa (groq, pollinations)
+          - listitem [ref=f8e62]:
+            - strong [ref=f8e63]: Gemini
+            - text: "(imágenes de diapositivas):"
+            - generic [ref=f8e64]: ✓ Activo
+          - listitem [ref=f8e65]:
+            - strong [ref=f8e66]: Google OAuth
+            - text: "(Calendar):"
+            - generic [ref=f8e67]: Falta GOOGLE_CLIENT_ID en .env
+          - listitem [ref=f8e68]:
+            - strong [ref=f8e69]: Android FCM
+            - text: "(avisos a nodos):"
+            - generic [ref=f8e70]: "Pendiente: cuenta de servicio FCM en el servidor"
+          - listitem [ref=f8e71]:
+            - strong [ref=f8e72]: iOS APNs
+            - text: "(avisos a nodos):"
+            - generic [ref=f8e73]: "Pendiente: clave APNs del equipo"
+      - generic [ref=f8e75]:
+        - generic [ref=f8e76]:
+          - generic [ref=f8e77]:
+            - generic [ref=f8e78]:
+              - text: CANALES
+              - heading "Redes y mensajería" [level=3] [ref=f8e79]
+              - paragraph [ref=f8e80]: Vincula tus cuentas personales desde este equipo. Gunter te explicará las condiciones antes de solicitar acceso.
+            - link "Abrir conversaciones" [ref=f8e81] [cursor=pointer]:
+              - /url: day.html#conversations
+          - generic [ref=f8e82]:
+            - article [ref=f8e83]:
+              - generic [ref=f8e84]:
+                - generic [ref=f8e85]: W
+                - generic [ref=f8e86]:
+                  - strong [ref=f8e87]: WhatsApp
+                  - generic [ref=f8e88]: Desactivado
+                - generic [ref=f8e89] [cursor=pointer]:
+                  - checkbox "Inactivo" [ref=f8e90]
+                  - emphasis [ref=f8e91]: Inactivo
+              - paragraph [ref=f8e92]: Mensajes y conversaciones mediante el bridge local de WhatsApp.
+              - generic [ref=f8e93]:
+                - button "Conectar" [disabled] [ref=f8e94]
+                - generic [ref=f8e95]: Sin cuenta vinculada
+            - article [ref=f8e96]:
+              - generic [ref=f8e97]:
+                - generic [ref=f8e98]: I
+                - generic [ref=f8e99]:
+                  - strong [ref=f8e100]: Instagram
+                  - generic [ref=f8e101]: Desactivado
+                - generic [ref=f8e102] [cursor=pointer]:
+                  - checkbox "Inactivo" [ref=f8e103]
+                  - emphasis [ref=f8e104]: Inactivo
+              - paragraph [ref=f8e105]: Mensajes de cuentas personales o profesionales a través del nodo local de Beeper.
+              - generic [ref=f8e106]: Nodo sin conexión
+              - generic [ref=f8e108]:
+                - button "Vincular con Beeper" [disabled] [ref=f8e109]
+                - generic [ref=f8e110]: Sin cuenta vinculada
+            - article [ref=f8e111]:
+              - generic [ref=f8e112]:
+                - generic [ref=f8e113]: M
+                - generic [ref=f8e114]:
+                  - strong [ref=f8e115]: Messenger
+                  - generic [ref=f8e116]: Desactivado
+                - generic [ref=f8e117] [cursor=pointer]:
+                  - checkbox "Inactivo" [ref=f8e118]
+                  - emphasis [ref=f8e119]: Inactivo
+              - paragraph [ref=f8e120]: Conversaciones de perfiles personales de Facebook a través del nodo local de Beeper.
+              - generic [ref=f8e121]: Nodo sin conexión
+              - generic [ref=f8e123]:
+                - button "Vincular con Beeper" [disabled] [ref=f8e124]
+                - generic [ref=f8e125]: Sin cuenta vinculada
+          - generic [ref=f8e126]:
+            - generic [ref=f8e127]: ✓
+            - paragraph [ref=f8e128]:
+              - strong [ref=f8e129]: Control humano por diseño.
+              - text: Gunter puede leer para resumir y preparar borradores, pero enviar siempre exige tu orden o un clic confirmado.
+        - generic [ref=f8e130]:
+          - generic [ref=f8e132]:
+            - text: ENSEÑAR A GUNTER
+            - heading "Rutas aprendidas" [level=3] [ref=f8e133]
+            - paragraph [ref=f8e134]: Graba botones y pantallas como objetivos semánticos. La ruta debe simularse y aprobarse antes de poder repetirse.
+          - generic [ref=f8e135]:
+            - generic [ref=f8e136]:
+              - text: Nombre de la ruta
+              - textbox "Nombre de la ruta" [ref=f8e137]:
+                - /placeholder: Ej. completar reporte semanal
+            - button "Enseñar ruta del PC" [ref=f8e138] [cursor=pointer]
+            - button "Observar esta web" [ref=f8e139] [cursor=pointer]
+            - button "Preparar publicación" [ref=f8e140] [cursor=pointer]
+          - generic [ref=f8e141]:
+            - strong [ref=f8e142]: Cada dispositivo conserva sus propios permisos.
+            - generic [ref=f8e143]: Gunter Node para PC puede abrir rutas y programas, controlar multimedia y guardar objetivos accesibles por nombre o identificador, sin depender de coordenadas. Escribir, pulsar, publicar o enviar vuelve a pedir confirmación. En Android/iOS, el alcance seguirá limitado por los permisos de la app móvil.
+          - generic [ref=f8e145]:
+            - strong [ref=f8e146]: No hay rutas guardadas
+            - generic [ref=f8e147]: Inicia una observación y Gunter irá registrando los controles que utilices.
+      - heading "🧬 Memoria conversacional" [level=4] [ref=f8e148]
+      - generic [ref=f8e149]:
+        - heading "🧠 Lo que Gunter recuerda de ti" [level=3] [ref=f8e150]
+        - paragraph [ref=f8e151]:
+          - text: Memoria de largo plazo de tus conversaciones (web, voz, WhatsApp). Gunter recupera lo relevante automáticamente al responderte.
+          - strong [ref=f8e152]: Solo se almacena en este navegador.
+        - generic [ref=f8e153]:
+          - generic [ref=f8e154]:
+            - strong [ref=f8e155]: "0"
+            - text: turnos guardados
+          - generic [ref=f8e156]:
+            - strong [ref=f8e157]: sin datos
+            - text: por canal
+          - generic [ref=f8e158]:
+            - strong [ref=f8e159]: —
+            - text: turno más antiguo
+          - generic [ref=f8e160]:
+            - strong [ref=f8e161]: 0 B
+            - text: uso estimado
+        - generic [ref=f8e162]:
+          - button "🔄 Refrescar" [ref=f8e163] [cursor=pointer]
+          - button "📜 Ver últimos 20 turnos" [ref=f8e164] [cursor=pointer]
+          - button "🩹 Olvidar lo que contenga…" [ref=f8e165] [cursor=pointer]
+          - button "🧹 Olvidar TODO" [ref=f8e166] [cursor=pointer]
+        - paragraph [ref=f8e167]:
+          - text: Esta función requiere la flag
+          - strong [ref=f8e168]: “Memoria conversacional cross-sesión”
+          - text: activada en Premium → Funciones avanzadas. Sin la flag, no se guarda nada.
+      - heading "⚠️ Zona de peligro" [level=4] [ref=f8e169]
+      - generic [ref=f8e170]:
+        - heading "Borrar todos los datos locales" [level=3] [ref=f8e171]
+        - paragraph [ref=f8e172]:
+          - text: Esto elimina
+          - strong [ref=f8e173]: todos
+          - text: los proyectos, análisis, transcripciones y audios guardados en este navegador.
+          - strong [ref=f8e174]: No se puede deshacer.
+        - paragraph [ref=f8e175]:
+          - text: "Antes de hacerlo: usa"
+          - strong [ref=f8e176]: Exportar datos
+          - text: arriba para guardar un respaldo.
+        - button "Borrar todo" [ref=f8e177] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f8e178]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué es la memoria?"
+        - button "¿Qué es el forecast?"
+        - button "Activa el pulso proactivo"
+        - button "Ponte más suave"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f8e179] [cursor=pointer]
+  - button "Menú de usuario" [ref=f8e181] [cursor=pointer]: P

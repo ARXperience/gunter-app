@@ -1,0 +1,113 @@
+- generic [active] [ref=f3e1]:
+  - generic: GUNTER
+  - generic [ref=f3e2]:
+    - complementary [ref=f3e3]:
+      - generic [ref=f3e4]: Gunter
+      - generic [ref=f3e33]:
+        - link "Día" [ref=f3e34] [cursor=pointer]:
+          - /url: day.html
+        - link "Reuniones" [ref=f3e35] [cursor=pointer]:
+          - /url: dashboard.html
+      - navigation [ref=f3e36]:
+        - link "Dashboard" [ref=f3e37] [cursor=pointer]:
+          - /url: dashboard.html
+        - link "Nueva Reunión" [ref=f3e44] [cursor=pointer]:
+          - /url: new-project.html
+        - link "Resultados" [ref=f3e49] [cursor=pointer]:
+          - /url: results.html
+        - link "Configuración" [ref=f3e54] [cursor=pointer]:
+          - /url: config.html#preferences
+      - generic [ref=f3e59]:
+        - generic [ref=f3e60]: G
+        - generic [ref=f3e61]:
+          - generic [ref=f3e62]: Tu cuenta
+          - generic [ref=f3e63]: Local · sin servidor
+    - main [ref=f3e64]:
+      - navigation "Navegación principal de Gunter" [ref=f3e65]:
+        - link "Gunter, centro de comando" [ref=f3e66] [cursor=pointer]:
+          - /url: day.html
+          - generic [ref=f3e68]: GUNTER
+          - generic [ref=f3e69]: COMMAND OS
+        - generic [ref=f3e70]:
+          - link "01 Día" [ref=f3e71] [cursor=pointer]:
+            - /url: day.html
+            - generic [ref=f3e72]: "01"
+            - text: Día
+          - link "02 Reuniones" [ref=f3e73] [cursor=pointer]:
+            - /url: dashboard.html
+            - generic [ref=f3e74]: "02"
+            - text: Reuniones
+          - link "03 Nueva" [ref=f3e75] [cursor=pointer]:
+            - /url: new-project.html
+            - generic [ref=f3e76]: "03"
+            - text: Nueva
+          - link "04 Config" [ref=f3e77] [cursor=pointer]:
+            - /url: config.html#premium
+            - generic [ref=f3e78]: "04"
+            - text: Config
+        - generic [ref=f3e79]: En línea
+      - generic "Flujo actual" [ref=f3e81]:
+        - generic [ref=f3e82]:
+          - generic [ref=f3e83]: "01"
+          - text: Preparar
+        - generic [ref=f3e85]:
+          - generic [ref=f3e86]: "02"
+          - text: Reunir
+        - generic [ref=f3e88]:
+          - generic [ref=f3e89]: "03"
+          - text: Analizar
+      - generic [ref=f3e90]:
+        - text: ◈
+        - generic [ref=f3e91]:
+          - generic [ref=f3e92]: Gunter Reuniones
+          - heading "Centro de reuniones" [level=1] [ref=f3e93]
+          - paragraph [ref=f3e94]: Prepara, captura y convierte cada conversación en decisiones accionables.
+        - link "Nueva Reunión" [ref=f3e96] [cursor=pointer]:
+          - /url: new-project.html
+      - generic [ref=f3e98]:
+        - generic [ref=f3e99]:
+          - heading "Reuniones recientes" [level=2] [ref=f3e100]
+          - button "Ver todos" [ref=f3e101] [cursor=pointer]
+        - link "+ Preparar nueva reunión" [ref=f3e103] [cursor=pointer]:
+          - /url: new-project.html
+          - generic [ref=f3e104]: +
+          - generic [ref=f3e105]: Preparar nueva reunión
+      - generic [ref=f3e106]:
+        - generic [ref=f3e111]:
+          - generic [ref=f3e112]: "0"
+          - generic [ref=f3e113]: Reuniones
+        - generic [ref=f3e118]:
+          - generic [ref=f3e119]: "0"
+          - generic [ref=f3e120]: Analizadas
+        - generic [ref=f3e126]:
+          - generic [ref=f3e127]: "0"
+          - generic [ref=f3e128]: En curso
+        - generic [ref=f3e134]:
+          - generic [ref=f3e135]: "0"
+          - generic [ref=f3e136]: Horas capturadas
+      - region "Gunter" [ref=f3e137]:
+        - text: GUNTER
+        - generic [ref=f3e138]:
+          - img "Gunter" [ref=f3e140]
+          - generic [ref=f3e142]:
+            - heading "GUNTER" [level=2] [ref=f3e143]
+            - paragraph [ref=f3e144]: Núcleo Jarvis activo
+            - generic [ref=f3e146]: Sistemas en línea · listo para trabajar
+  - button "Menú de usuario" [ref=f3e150] [cursor=pointer]: C
+  - button "Cambiar tema claro/oscuro" [ref=f3e151] [cursor=pointer]
+  - generic "Asistente Gunter" [ref=f3e155]:
+    - dialog "Chat con Gunter":
+      - banner:
+        - generic:
+          - strong: Gunter
+          - generic: Tu asistente
+        - button "Cerrar chat"
+      - generic:
+        - button "¿Qué puedes hacer?"
+        - button "Iniciar reunión"
+        - button "Activa la memoria"
+        - button "Activa el pulso"
+      - generic:
+        - textbox "Escribe o pregúntame algo…"
+        - button "Enviar"
+    - button "Abrir Gunter" [ref=f3e156] [cursor=pointer]

@@ -17,7 +17,7 @@ const handler = require('./handler');
 const userContext = require('../user-context');
 const authStore = require('../auth/store');
 
-const SESSION_DIR = path.join(__dirname, '..', '..', 'whatsapp-session');
+const SESSION_DIR = path.resolve(process.env.GUNTER_WHATSAPP_SESSION_DIR || path.join(__dirname, '..', '..', 'whatsapp-session'));
 
 // Multi-usuario: el número puente es UNO (este socket), pero cada mensaje
 // entrante se procesa en el contexto del usuario dueño de ese teléfono.

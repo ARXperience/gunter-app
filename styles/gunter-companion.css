@@ -204,6 +204,8 @@
 
 .gn-comp.is-expanded .gn-comp__bubble {
   animation-play-state: paused;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Header del chat */
@@ -233,6 +235,22 @@
   overflow: visible;
 }
 .gn-comp__chat-avatar .gn-mascot { width: 100%; height: 100%; }
+.gn-comp__bubble {
+  width: 76px;
+  height: 76px;
+  padding: 11px;
+  border: 1px solid color-mix(in srgb, var(--gc-accent, #68c8ce) 50%, transparent);
+  border-radius: 22px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--gd-surface, #101e25) 96%, transparent), color-mix(in srgb, var(--gd-primary-lo, #15343a) 78%, transparent));
+  box-shadow: 0 10px 30px rgba(0,0,0,.28), 0 0 24px color-mix(in srgb, var(--gc-accent, #68c8ce) 17%, transparent), inset 0 1px 0 rgba(255,255,255,.08);
+  animation: gn-comp-idle 5.6s ease-in-out infinite;
+}
+.gn-comp__bubble::before { inset: 1px; border-radius: inherit; background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--gc-accent, #68c8ce) 9%, transparent), transparent 68%); }
+.gn-comp__bubble:hover { border-color: var(--gc-accent, #68c8ce); box-shadow: 0 12px 34px rgba(0,0,0,.3), 0 0 28px color-mix(in srgb, var(--gc-accent, #68c8ce) 25%, transparent); }
+.gn-comp__bubble .gn-mascot.gn-particle-surface,
+.gn-comp__chat-avatar .gn-mascot.gn-particle-surface { display: block; width: 100%; height: 100%; }
+.gn-mascot.gn-particle-surface > canvas { display: block; width: 100%; height: 100%; }
+.social-onboarding__guide .social-onboarding__gunter { position: absolute; z-index: 1; top: 50%; right: 8px; width: 116px; height: 116px; transform: translateY(-50%); opacity: .84; pointer-events: none; }
 
 .gn-comp__chat-title {
   flex: 1;

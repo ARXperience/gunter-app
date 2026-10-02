@@ -85,5 +85,45 @@
         };
     }
 
-    window.GunterContextProvider = { build, pushConversationTurn };
+    function sessionId() {
+        const key = 'gunter_context_session_id';
+        try {
+            let value = sessionStorage.getItem(key);
+            if (!value) { value = `web_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`; sessionStorage.setItem(key, value); }
+            return value;
+        } catch { return 'web_session'; }
+    }
+
+    async function enrich(text, options = {}) {
+        const local = build();
+        const control = window.GunterControlPlane;
+        if (!control?.contextEnvelope || navigator.onLine === false) return { ...local, contextState: 'DEGRADED', contextSource: 'local' };
+        try {
+            const result = await control.contextEnvelope({
+                text,
+                sessionId: sessionId(),
+                channel: options.channel || 'web',
+                timezone: local.timezone,
+                locale: navigator.language || 'es-CO',
+                current: {
+                    project: local.currentProject?.name || undefined,
+                    route: location.pathname.split('/').pop() || 'index.html'
+                },
+                sources: [{ type: 'browser_context', id: 'local_context_provider', confidence: 0.9 }]
+            });
+            const envelope = result?.envelope || null;
+            return {
+                ...local,
+                now: envelope?.now || local.now,
+                controlContext: envelope,
+                resolvedReferences: envelope?.references || {},
+                contextState: envelope ? 'ONLINE' : 'DEGRADED',
+                contextSource: envelope ? 'control-plane' : 'local'
+            };
+        } catch (error) {
+            return { ...local, contextState: 'DEGRADED', contextSource: 'local', contextError: error.code || error.message };
+        }
+    }
+
+    window.GunterContextProvider = { build, enrich, pushConversationTurn };
 })();

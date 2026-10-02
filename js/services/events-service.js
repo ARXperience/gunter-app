@@ -8,11 +8,38 @@
 
 (function () {
     const DB_NAME = 'gunter_daily';
+    const DB_VERSION = 2;
     const STORE = 'events';
 
     function openDB() {
         return new Promise((resolve, reject) => {
-            const req = indexedDB.open(DB_NAME);
+            // Abrir siempre con el mismo esquema que tasks-service. Antes,
+            // si EventsService era el primer módulo en tocar una BD nueva,
+            // IndexedDB creaba una base v1 sin stores y la primera consulta
+            // de agenda fallaba con NotFoundError.
+            const req = indexedDB.open(DB_NAME, DB_VERSION);
+            req.onupgradeneeded = () => {
+                const db = req.result;
+                if (!db.objectStoreNames.contains('tasks')) {
+                    const tasks = db.createObjectStore('tasks', { keyPath: 'id' });
+                    tasks.createIndex('status', 'status');
+                    tasks.createIndex('dueAt', 'dueAt');
+                    tasks.createIndex('projectId', 'projectId');
+                    tasks.createIndex('ownerId', 'ownerId');
+                    tasks.createIndex('source', 'source');
+                }
+                if (!db.objectStoreNames.contains(STORE)) {
+                    const events = db.createObjectStore(STORE, { keyPath: 'id' });
+                    events.createIndex('startAt', 'startAt');
+                    events.createIndex('projectId', 'projectId');
+                    events.createIndex('ownerId', 'ownerId');
+                }
+                if (!db.objectStoreNames.contains('reminders')) {
+                    const reminders = db.createObjectStore('reminders', { keyPath: 'id' });
+                    reminders.createIndex('fireAt', 'fireAt');
+                    reminders.createIndex('status', 'status');
+                }
+            };
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
         });

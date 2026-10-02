@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0d1220">
+    <meta name="theme-color" content="#0A141A">
     <title>Gunter — Acceso</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -97,7 +97,12 @@
         .glogin__btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
         .glogin__btn:disabled { opacity: .55; cursor: wait; transform: none; }
         .glogin__toggle { text-align: center; margin-top: 18px; font-size: 13.5px; color: #8a93a8; }
-        .glogin__toggle a { color: #7dd3fc; font-weight: 700; text-decoration: none; cursor: pointer; }
+        .glogin__toggle button {
+            appearance: none; border: 0; padding: 2px; background: transparent;
+            color: #7dd3fc; font: inherit; font-weight: 700; cursor: pointer;
+        }
+        .glogin__toggle button:hover { text-decoration: underline; }
+        .glogin__toggle button:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 3px; border-radius: 4px; }
         .glogin__err {
             display: none; margin: 0 0 14px; padding: 11px 13px;
             background: rgba(230, 90, 90, .12); border: 1px solid rgba(230,90,90,.3);
@@ -120,6 +125,14 @@
         .hidden { display: none !important; }
         @media (max-width: 480px) { .glogin { padding: 26px 20px 22px; } }
     </style>
+<link rel="stylesheet" href="styles/gunter-cinematic.css?v83-static-polar">
+<script src="js/services/gunter-cinematic-shell.js?v81-static-polar" defer></script>
+    <script src="js/services/theme-toggle.js?v80-polar" defer></script>
+<link rel="stylesheet" href="styles/gunter-command-center.css?v115-mobile-no-header">
+<script src="js/services/gunter-command-center.js?v102-home-rail" defer></script>
+<script src="js/services/gunter-icon-system.js?v3-unified-icons" defer></script>
+    <script src="js/services/control-plane-service.js?v86-functional" defer></script>
+    <script src="js/services/web-node-runtime.js?v84-control" defer></script>
 </head>
 <body class="at-dark">
     <main class="glogin" role="main">
@@ -136,16 +149,16 @@
         <!-- LOGIN -->
         <form id="glogin-form-login" autocomplete="on">
             <div class="glogin__field">
-                <label for="gl-user">Usuario</label>
+                <label for="gl-user">Usuario o email</label>
                 <input id="gl-user" name="username" autocomplete="username" required
-                       autocapitalize="none" spellcheck="false" placeholder="tu-usuario">
+                       autocapitalize="none" spellcheck="false" placeholder="tu-usuario o tu@correo.com">
             </div>
             <div class="glogin__field">
                 <label for="gl-pass">Contraseña</label>
                 <input id="gl-pass" name="password" type="password" autocomplete="current-password" required placeholder="••••••••">
             </div>
             <button class="glogin__btn" type="submit" id="gl-submit">Entrar</button>
-            <p class="glogin__toggle">¿No tienes cuenta? <a id="gl-to-register">Regístrate</a></p>
+            <p class="glogin__toggle">¿No tienes cuenta? <button type="button" id="gl-to-register">Regístrate</button></p>
         </form>
 
         <!-- REGISTRO -->
@@ -170,10 +183,10 @@
             </div>
             <div class="glogin__field">
                 <label for="gr-pass2">Repite la contraseña</label>
-                <input id="gr-pass2" type="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
+                <input id="gr-pass2" name="confirmPassword" type="password" autocomplete="new-password" required minlength="8" placeholder="••••••••">
             </div>
             <button class="glogin__btn" type="submit" id="gr-submit">Crear cuenta</button>
-            <p class="glogin__toggle">¿Ya tienes cuenta? <a id="gl-to-login">Inicia sesión</a></p>
+            <p class="glogin__toggle">¿Ya tienes cuenta? <button type="button" id="gl-to-login">Inicia sesión</button></p>
         </form>
 
         <!-- PENDIENTE DE APROBACIÓN -->
@@ -200,7 +213,7 @@
             const qs = new URLSearchParams(location.search);
             const nextPage = (() => {
                 // Solo rutas internas relativas — nunca URLs absolutas (anti open-redirect)
-                const n = qs.get('next') || 'index.html';
+                const n = qs.get('next') || 'day.html';
                 return /^[a-z0-9_-]+\.html(\?.*)?$/i.test(n) ? n : 'index.html';
             })();
 

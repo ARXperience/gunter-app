@@ -34,8 +34,10 @@ const MAX_ATTEMPTS = 6;
 const WINDOW_MS = 15 * 60 * 1000;
 
 function _rateKey(req, username) {
-    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
-        || req.socket?.remoteAddress || 'unknown';
+    const forwarded = process.env.TRUST_PROXY === 'true'
+        ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+        : '';
+    const ip = forwarded || req.socket?.remoteAddress || 'unknown';
     return ip + '|' + String(username || '').toLowerCase();
 }
 function _rateCheck(key) {
@@ -154,7 +156,7 @@ function handle(sub, method, body, req) {
         return {
             status: 200,
             headers: { 'Set-Cookie': _cookieHeader(token, req) },
-            body: { success: true, user: store.publicUser(r.user), isFirst: r.isFirst, token }
+            body: { success: true, user: store.publicUser(r.user), isFirst: r.isFirst }
         };
     }
 
@@ -174,7 +176,7 @@ function handle(sub, method, body, req) {
         return {
             status: 200,
             headers: { 'Set-Cookie': _cookieHeader(token, req) },
-            body: { success: true, user: store.publicUser(r.user), token }
+            body: { success: true, user: store.publicUser(r.user) }
         };
     }
 
@@ -209,7 +211,15 @@ function handle(sub, method, body, req) {
         if (!check.ok) return { status: 401, body: { success: false, error: 'La contraseña actual no es correcta.' } };
         const r = store.changePassword(who.user.id, body.next);
         if (!r.ok) return { status: 400, body: { success: false, error: r.error } };
-        return { status: 200, body: { success: true } };
+        // Cambiar credenciales invalida todas las sesiones previas y rota la actual.
+        // Así se cierran otros dispositivos sin expulsar al usuario del que inició el cambio.
+        sessions.destroyAllForUser(who.user.id);
+        const token = sessions.create(who.user.id, req.headers['user-agent']);
+        return {
+            status: 200,
+            headers: { 'Set-Cookie': _cookieHeader(token, req) },
+            body: { success: true, user: store.publicUser(store.findById(who.user.id)) }
+        };
     }
 
     // ── Admin ──
@@ -248,6 +258,7 @@ function handle(sub, method, body, req) {
             if (r.ok) {
                 sessions.destroyAllForUser(body.userId);
                 // Privacidad: al eliminar el usuario se borran TODOS sus datos
+                try { require('../control-plane/privacy').purgeUser(body.userId); } catch (e) { console.warn('[auth] limpieza de Control Plane falló:', e.message); }
                 try { require('../user-store').removeUserData(body.userId); } catch (e) { console.warn('[auth] limpieza de datos falló:', e.message); }
                 try { require('../user-context').invalidateOwnerCache(); } catch { }
                 console.log(`🗑️ [auth] Usuario eliminado: ${r.user.username}`);
