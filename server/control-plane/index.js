@@ -40,6 +40,19 @@ async function handle(req, res, pathname, query = {}) {
     try {
         if (req.method === 'GET' && route === 'contracts') return send(res, 200, { success: true, data: contracts.catalog() });
         if (req.method === 'GET' && route === 'health') return send(res, 200, { success: true, data: healthSnapshot(actor) });
+        if (req.method === 'GET' && route === 'hybrid/status') {
+            const userId = targetUser(actor, query.userId);
+            return send(res, 200, { success: true, data: {
+                ...settings.hybridStatus(userId), providers: modelRouter.hybridInventory(),
+                flags: Object.fromEntries(['ai.local', 'stt.local', 'tts.local', 'embeddings.local', 'hybrid.routing'].map(key => [key, flags.evaluate(key, { ...actor, userId }).enabled])),
+                sync: sync.status(userId), storage: { web: 'CURRENT_STORES', sqlite: 'NOT_CONFIGURED' }
+            } });
+        }
+        if (req.method === 'POST' && route === 'hybrid/mode') {
+            const body = await readBody(req);
+            const userId = targetUser(actor, body.userId);
+            return sendResult(res, settings.patchHybrid(userId, body));
+        }
         if (req.method === 'GET' && route === 'capabilities') {
             const userId = targetUser(actor, query.userId);
             return send(res, 200, { success: true, data: capabilities.catalog(userId, { ...actor, userId }) });

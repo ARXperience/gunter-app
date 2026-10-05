@@ -336,6 +336,7 @@
     <!-- Servicios base -->
     <script src="js/services/status-bus.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/connectivity-monitor.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/stt-provider.js" defer></script>
     <script src="js/services/notifications-service.js?v102-background-push" defer></script>
     <script src="js/services/transcript-store.js" defer></script>
 
@@ -640,24 +641,7 @@
             const apiUrl = config.PROXY_TRANSCRIBE_URL ||
                 (typeof window.getApiUrl === 'function' ? window.getApiUrl('transcribe') : '/api/transcribe');
 
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                body: formData
-                // SIN Authorization header — el server inyecta el Bearer desde su .env
-            });
-
-            if (!response.ok) {
-                let errorMessage = 'Error en la transcripción';
-                try {
-                    const error = await response.json();
-                    errorMessage = error.error?.message || error.error || errorMessage;
-                } catch (e) {
-                    errorMessage = await response.text() || errorMessage;
-                }
-                throw new Error(errorMessage);
-            }
-
-            return await response.text();
+            return window.GunterSTT.transcribe(formData, { url: apiUrl });
         }
 
         function saveProjectData() {

@@ -118,6 +118,11 @@ ${p.focusCoach ? '- Actúa también como coach de enfoque.' : ''}`);
 
     async function complete(prompt, opts = {}) {
         if (opts.signal?.aborted) throw new DOMException('Interrupted', 'AbortError');
+        const localOnly = window.GunterRuntimeState?.getState?.();
+        if (localOnly?.privacy === 'LOCAL_ONLY' || localOnly?.mode === 'LOCAL') {
+            const code = localOnly.privacy === 'LOCAL_ONLY' ? 'LOCAL_PROVIDER_NOT_INSTALLED' : 'LOCAL_MODEL_NOT_INSTALLED';
+            throw Object.assign(new Error(code), { code });
+        }
         const pp = personalityPreamble(prompt);
         const key = JSON.stringify({ p: prompt, o: { ...opts, signal: undefined }, personality: pp });
         if (cache.has(key)) return cache.get(key);
@@ -200,5 +205,21 @@ Proyecto activo: ${userContext.currentProject?.name || 'ninguno'}
 
     function clearCache() { cache.clear(); }
 
-    window.GunterNlpLlm = { complete, answerQuery, clearCache };
+    const CloudBrain = Object.freeze({ id: 'cloud.current', generate: complete,
+        stream: async function* (prompt, options) { yield await complete(prompt, options); },
+        health: () => ({ installed: true, status: 'CURRENT_PROVIDER' }),
+        cancel: controller => controller?.abort?.() });
+    const LocalBrain = Object.freeze({ id: 'local.stub', installed: false,
+        generate: async () => { throw Object.assign(new Error('LOCAL_MODEL_NOT_INSTALLED'), { code: 'LOCAL_MODEL_NOT_INSTALLED' }); },
+        stream: async function* () { throw Object.assign(new Error('LOCAL_MODEL_NOT_INSTALLED'), { code: 'LOCAL_MODEL_NOT_INSTALLED' }); },
+        health: () => ({ installed: false, status: 'NOT_INSTALLED' }), cancel: () => {} });
+    function selectedBrain() { const state = window.GunterRuntimeState?.getState?.() || {}; return state.mode === 'LOCAL' || state.privacy === 'LOCAL_ONLY' ? LocalBrain : CloudBrain; }
+    const BrainRouter = Object.freeze({
+        generate: (prompt, options) => selectedBrain().generate(prompt, options),
+        stream: (prompt, options) => selectedBrain().stream(prompt, options),
+        health: () => ({ cloud: CloudBrain.health(), local: LocalBrain.health() }),
+        cancel: CloudBrain.cancel, providers: { CloudBrain, LocalBrain }
+    });
+    window.GunterBrainRouter = BrainRouter;
+    window.GunterNlpLlm = { complete: BrainRouter.generate, answerQuery, clearCache };
 })();

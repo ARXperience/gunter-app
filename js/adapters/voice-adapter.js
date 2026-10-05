@@ -33,6 +33,7 @@
     }
 
     // ---------- Default: GunterVoice ----------
+    // Legacy name `local` denotes the web adapter, NOT a local TTS model.
     const localImpl = {
         speak(text, opts = {}) {
             const v = window.GunterVoice;
@@ -55,6 +56,10 @@
 
     const surface = {
         register, use,
+        get providers() { return window.GunterVoice?.providers || {}; },
+        get providerStatus() { return { cloud: this.providers.CloudTTS?.status || 'UNKNOWN',
+            browser: this.providers.BrowserFallback?.status || 'UNKNOWN',
+            local: this.providers.LocalTTS?.status || 'NOT_INSTALLED' }; },
         get current() { return current(); },
         get activeName() { return active; },
         speak:       (...a) => current().speak(...a),

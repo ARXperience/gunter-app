@@ -11,6 +11,15 @@
     // Catálogo: clave → { user, hint? }
     // Match orden: primero código exacto (network/openai/quota), luego regex sobre el mensaje.
     const CATALOG = {
+        PROVIDER_UNAVAILABLE: { user: 'El proveedor solicitado no está disponible.', hint: 'Consulta el diagnóstico de proveedores.' },
+        NETWORK_UNAVAILABLE: { user: 'No hay conexión disponible para esta función.', hint: 'Revisa Internet y el servidor.' },
+        PERMISSION_DENIED: { user: 'No tienes permiso para esta acción.' },
+        CONFIRMATION_REQUIRED: { user: 'Necesito tu confirmación antes de continuar.' },
+        LOCAL_ONLY_MODE: { user: 'El modo solo local bloquea esta conexión externa.' },
+        SYNC_UNAVAILABLE: { user: 'La sincronización no está disponible ahora.', hint: 'Los cambios admitidos quedan en la cola local.' },
+        LOCAL_MODEL_NOT_INSTALLED: { user: 'El modelo local todavía no está instalado.', hint: 'Usa AUTO/CLOUD mientras se prepara el proveedor local.' },
+        LOCAL_PROVIDER_NOT_INSTALLED: { user: 'El proveedor local para esta función todavía no está instalado.', hint: 'LOCAL_ONLY mantiene bloqueada la nube; vuelve a STANDARD si quieres usar el proveedor actual.' },
+        SQLITE_NOT_CONFIGURED: { user: 'La base SQLite aún no está configurada.', hint: 'Los datos web permanecen en su almacenamiento actual.' },
         // Network / connectivity
         offline:           { user: 'Sin conexión a internet. Verifica tu red.', hint: 'Tus datos locales siguen seguros.' },
         timeout:           { user: 'La operación está tardando más de lo normal. Intenta otra vez.' },
@@ -151,6 +160,11 @@
 
     function detectKey(message, context) {
         if (!message) return 'unknown';
+        for (const code of ['PROVIDER_UNAVAILABLE', 'NETWORK_UNAVAILABLE', 'PERMISSION_DENIED', 'CONFIRMATION_REQUIRED', 'LOCAL_ONLY_MODE', 'SYNC_UNAVAILABLE'])
+            if (message.includes(code)) return code;
+        if (/LOCAL_PROVIDER_NOT_INSTALLED/.test(message)) return 'LOCAL_PROVIDER_NOT_INSTALLED';
+        if (/LOCAL_MODEL_NOT_INSTALLED/.test(message)) return 'LOCAL_MODEL_NOT_INSTALLED';
+        if (/SQLITE_NOT_CONFIGURED/.test(message)) return 'SQLITE_NOT_CONFIGURED';
 
         // Context-prioritized detection
         if (context === 'document' && /imagen|recibo|factura/i.test(message)) {

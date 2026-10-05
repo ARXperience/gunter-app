@@ -390,6 +390,7 @@
             form.append('language', (this.options.language || 'es').split('-')[0]);
             form.append('response_format', 'json');
 
+            if (window.GunterSTT?.transcribe) return window.GunterSTT.transcribe(form, { url: this.options.whisperUrl });
             const resp = await fetch(this.options.whisperUrl, { method: 'POST', body: form });
             if (!resp.ok) {
                 const txt = await resp.text().catch(() => '');

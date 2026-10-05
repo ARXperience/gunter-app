@@ -4,6 +4,8 @@ const settings = require('./settings');
 
 const MAX_BATCH = 50;
 const MAX_RECEIPTS = 1000;
+const CONTRACT_VERSION = 1;
+const ACTIVE_OPERATIONS = Object.freeze(['settings.patch']);
 
 function applyBatch(userId, input = {}, actor = {}) {
     const items = Array.isArray(input.items) ? input.items.slice(0, MAX_BATCH) : [];
@@ -41,7 +43,9 @@ function applyBatch(userId, input = {}, actor = {}) {
 function applyOne(userId, item, actor) {
     const operationId = token(item.operationId, 120);
     const type = token(item.type, 80);
-    if (type !== 'settings.patch') return { operationId, status: 'REJECTED', error: 'operation_not_allowlisted' };
+    if (item.contractVersion !== undefined && item.contractVersion !== CONTRACT_VERSION)
+        return { operationId, status: 'REJECTED', error: 'unsupported_sync_contract' };
+    if (!ACTIVE_OPERATIONS.includes(type)) return { operationId, status: 'REJECTED', error: 'operation_not_allowlisted' };
     const payload = item.payload && typeof item.payload === 'object' && !Array.isArray(item.payload) ? item.payload : {};
     const current = settings.list(userId, actor).find(setting => setting.key === payload.key);
     if (!current) return { operationId, status: 'REJECTED', error: 'setting_not_found' };
@@ -65,4 +69,4 @@ function load(userId) { const data = store.loadJson(fileFor(userId), { version: 
 function token(value, max) { return String(value || '').replace(/[^\p{L}\p{N}_.:@/-]/gu, '_').slice(0, max); }
 function countResults(items) { return { total: items.length, applied: items.filter(item => item.status === 'APPLIED').length, duplicate: items.filter(item => item.duplicate).length, conflict: items.filter(item => item.status === 'CONFLICT').length, rejected: items.filter(item => item.status === 'REJECTED').length }; }
 
-module.exports = { MAX_BATCH, applyBatch, status, purge, _load: load };
+module.exports = { MAX_BATCH, CONTRACT_VERSION, ACTIVE_OPERATIONS, applyBatch, status, purge, _load: load };

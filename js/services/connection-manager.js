@@ -18,7 +18,7 @@
         }
         const id = operationId();
         const item = {
-            operationId: id, idempotencyKey: options.idempotencyKey || id, type,
+            contractVersion: 1, operationId: id, idempotencyKey: options.idempotencyKey || id, type,
             payload: JSON.parse(JSON.stringify(payload || {})),
             baseUpdatedAt: options.baseUpdatedAt || null,
             conflictPolicy: options.conflictPolicy || 'client_wins',

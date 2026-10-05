@@ -435,6 +435,7 @@
     <script src="js/gunter-avatar.js" defer></script>
     <script src="js/audio-trimmer.js" defer></script>
     <script src="js/audio-chunker.js" defer></script>
+    <script src="js/services/stt-provider.js" defer></script>
     <script src="js/audio-vault.js" defer></script>
     <script src="js/services/status-bus.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/connectivity-monitor.js?v66b-gunter-pixar-1783590000000" defer></script>
@@ -1403,20 +1404,9 @@ ${context}`;
                 formData.append('language', 'es');
                 formData.append('response_format', 'text');
 
-                const apiUrl = config.USE_PROXY
-                    ? config.PROXY_TRANSCRIBE_URL
-                    : config.OPENAI_WHISPER_URL;
+                const apiUrl = config.PROXY_TRANSCRIBE_URL || '/api/transcribe';
 
-                const response = await fetch(apiUrl || 'http://localhost:3001/api/transcribe', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    throw new Error('Error al transcribir el audio');
-                }
-
-                const transcription = await response.text();
+                const transcription = await window.GunterSTT.transcribe(formData, { url: apiUrl || '/api/transcribe' });
 
                 // Update transcription in UI and storage (Fase A.A2 — helper guard >200KB)
                 document.getElementById('transcription-text').textContent = transcription;

@@ -20,6 +20,37 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await page.waitForLoadState('load');
     await expect(page.locator('#gday-quickbar-input')).toBeVisible();
     await page.waitForFunction(() => !!window.GunterDayController && !!window.GunterPipeline);
+    const hybrid = await page.evaluate(async () => {
+        const initial = await (await fetch('/api/control/hybrid/status')).json();
+        const changed = await (await fetch('/api/control/hybrid/mode', { method: 'POST',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'LOCAL', privacy: 'LOCAL_ONLY' }) })).json();
+        const blocked = {};
+        for (const endpoint of ['chat', 'transcribe', 'tts', 'embeddings', 'gemini-text']) {
+            const response = await fetch(`/api/${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: [{ role: 'user', content: 'prueba' }] }) });
+            blocked[endpoint] = { status: response.status, body: await response.json() };
+        }
+        const restored = await (await fetch('/api/control/hybrid/mode', { method: 'POST',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'AUTO', privacy: 'STANDARD' }) })).json();
+        const runtime = await window.GunterRuntimeState.refresh();
+        const cloudResponse = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: [{ role: 'user', content: 'prueba' }] }) });
+        const cloudBody = await cloudResponse.json();
+        return { initial, changed, blocked, restored, cloudBody, runtime };
+    });
+    expect(hybrid.initial.data.mode).toBe('AUTO');
+    expect(hybrid.changed.success).toBe(true);
+    for (const result of Object.values(hybrid.blocked)) {
+        expect(result.status).toBe(503);
+        expect(result.body.code).toBe('LOCAL_PROVIDER_NOT_INSTALLED');
+    }
+    expect(hybrid.restored.data.mode).toBe('AUTO');
+    expect(hybrid.cloudBody.code).not.toBe('LOCAL_PROVIDER_NOT_INSTALLED');
+    expect(hybrid.runtime.mode).toBe('AUTO');
+    expect(hybrid.runtime.localBrainAvailable).toBe(false);
+    expect(hybrid.runtime.localSTTAvailable).toBe(false);
+    expect(hybrid.runtime.localTTSAvailable).toBe(false);
+    expect(hybrid.runtime.backendAvailable).toBe(true);
     const greetings = await page.evaluate(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').filter(item => /Prueba E2E/.test(item.text)).map(item => item.text));
     expect(greetings).toHaveLength(1);
     expect(greetings[0]).toMatch(/Buen(?:os días|as tardes|as noches).*Prueba E2E.*Son las/);
@@ -57,8 +88,7 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await expect(page.locator('#pref-entry-greeting')).toBeChecked();
     const preferencesTab = page.locator('#config-tab-preferences');
     await expect(preferencesTab).toBeVisible();
-    await preferencesTab.focus();
-    await page.keyboard.press('ArrowRight');
+    await preferencesTab.press('ArrowRight');
     await expect(page.locator('#config-tab-data')).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('#config-panel-data')).toBeVisible();
     await expect(page.locator('#status-fcm')).not.toContainText('Servidor no responde');

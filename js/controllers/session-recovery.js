@@ -207,10 +207,7 @@
         form.append('model', (window.GUNTER_CONFIG?.WHISPER_MODEL) || 'whisper-1');
         form.append('language', 'es');
         form.append('response_format', 'json');
-        const r = await fetch(url, { method: 'POST', body: form });
-        if (!r.ok) throw new Error(`Whisper HTTP ${r.status}`);
-        const raw = await r.text();
-        try { return (JSON.parse(raw).text || '').trim(); } catch { return raw.trim(); }
+        return (await window.GunterSTT.transcribe(form, { url })).trim();
     }
 
     async function discard(host, meta) {

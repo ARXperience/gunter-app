@@ -12,6 +12,7 @@
     "test:assistant": "node test/assistant-core.js",
     "test:jobs": "node test/jobs-core.js",
     "test:control": "node test/control-plane-core.js",
+    "test:hybrid": "node test/hybrid-foundation.js && node test/hybrid-browser.js",
     "test:smoke": "node scripts/test.js --smoke-only",
     "test:node": "node test/gunter-node.js",
     "test:mobile": "node test/mobile-runtime.js",

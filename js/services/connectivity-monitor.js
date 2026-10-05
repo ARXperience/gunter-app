@@ -153,4 +153,36 @@
         getState: () => ({ ...STATE }),
         forceCheck: () => { renderBanner(); }
     };
+
+    // One observable runtime snapshot. The server is authoritative for the
+    // per-user mode; navigator.onLine alone cannot prove provider readiness.
+    let hybrid = { mode: 'AUTO', privacy: 'STANDARD', providers: null, loaded: false };
+    async function refreshHybrid() {
+        const response = await fetch('/api/control/hybrid/status', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`hybrid status HTTP ${response.status}`);
+        const result = await response.json();
+        hybrid = { ...result.data, loaded: true };
+        window.dispatchEvent(new CustomEvent('gunter-hybrid-state', { detail: runtimeSnapshot() }));
+        return runtimeSnapshot();
+    }
+    function runtimeSnapshot() {
+        const configured = kind => hybrid.providers?.[kind]?.cloud?.configured === true;
+        const cloudAllowed = STATE.online && STATE.apiHealthy && hybrid.privacy !== 'LOCAL_ONLY' && hybrid.mode !== 'LOCAL';
+        return { networkAvailable: STATE.online, backendAvailable: STATE.apiHealthy,
+            ...hybrid, effectiveCloud: cloudAllowed,
+            cloudBrainAvailable: cloudAllowed && configured('chat'), localBrainAvailable: false,
+            cloudSTTAvailable: cloudAllowed && configured('stt'), localSTTAvailable: false,
+            cloudTTSAvailable: cloudAllowed && configured('tts'), localTTSAvailable: false,
+            cloudEmbeddingAvailable: cloudAllowed && configured('embeddings'), localEmbeddingAvailable: false,
+            syncAvailable: STATE.online && STATE.apiHealthy && hybrid.loaded && !!hybrid.sync };
+    }
+    async function setHybridMode(mode, privacy = hybrid.privacy) {
+        const response = await fetch('/api/control/hybrid/mode', { method: 'POST',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, privacy }) });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw Object.assign(new Error(result.error || 'hybrid_mode_failed'), { code: result.error });
+        return refreshHybrid();
+    }
+    window.GunterRuntimeState = { getState: runtimeSnapshot, refresh: refreshHybrid, setMode: setHybridMode };
+    window.GunterAuth?.onReady?.(() => refreshHybrid().catch(() => {}));
 })();

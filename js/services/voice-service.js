@@ -114,6 +114,11 @@
 
     // ---------- OpenAI TTS path ----------
     async function synthesizeOpenAI(text, { voice, speed }, signal) {
+        const hybrid = window.GunterRuntimeState?.getState?.();
+        if (hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL') {
+            const code = hybrid.privacy === 'LOCAL_ONLY' ? 'LOCAL_PROVIDER_NOT_INSTALLED' : 'LOCAL_MODEL_NOT_INSTALLED';
+            throw Object.assign(new Error(code), { code });
+        }
         const cacheKey = `${voice}:${speed}:${text}`;
         if (audioCache.has(cacheKey)) {
             return audioCache.get(cacheKey);
@@ -125,6 +130,11 @@
             body: JSON.stringify({ text, voice, speed, model: 'tts-1-hd' })
         });
         if (!resp.ok) {
+            if (resp.status === 503) {
+                const data = await resp.clone().json().catch(() => ({}));
+                if (['LOCAL_PROVIDER_NOT_INSTALLED', 'LOCAL_MODEL_NOT_INSTALLED'].includes(data.code))
+                    throw Object.assign(new Error(data.code), { code: data.code });
+            }
             throw new Error(`TTS HTTP ${resp.status}`);
         }
         const blob = await resp.blob();
@@ -307,6 +317,12 @@
             if (token === generation) notifyVoiceState('speaking', { context: next.opts.context || 'chat' });
         } catch (err) {
             if (token !== generation) return;
+            if (err.code === 'LOCAL_PROVIDER_NOT_INSTALLED' || err.code === 'LOCAL_MODEL_NOT_INSTALLED') {
+                speaking = false;
+                notifyVoiceState('unavailable', { code: err.code });
+                processQueue();
+                return;
+            }
             // Fallback al synthesizer del navegador
             console.warn('[voice] OpenAI TTS failed, fallback:', err.message);
             speakFallback(next.text, next.sv, token);
@@ -374,6 +390,11 @@
     // ---------- Public ----------
     window.GunterVoice = {
         speak, cancel, shouldSpeak, getStyleConfig,
+        providers: {
+            CloudTTS: { status: 'CURRENT_PROVIDER', synthesize: synthesizeOpenAI },
+            BrowserFallback: { status: 'CURRENT_BROWSER_FALLBACK', speak: speakFallback },
+            LocalTTS: { status: 'NOT_INSTALLED', synthesize: async () => { throw Object.assign(new Error('LOCAL_PROVIDER_NOT_INSTALLED'), { code: 'LOCAL_PROVIDER_NOT_INSTALLED' }); } }
+        },
         // Fase E.E2/E3
         setMeetingActive, isMeetingActive, shortenForSpeech,
         // Conversación continua / barge-in

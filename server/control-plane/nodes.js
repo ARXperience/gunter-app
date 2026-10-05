@@ -334,8 +334,8 @@ function queueCommand(userId, input = {}, actor = {}) {
     if (!idempotencyKey) return { ok: false, error: 'idempotency_key_required' };
     const duplicate = data.commands.find(command => command.idempotencyKey === idempotencyKey && command.userId === userId);
     if (duplicate) return { ok: true, duplicate: true, command: publicCommand(duplicate) };
-    const authorization = skills.authorize({
-        userId, actor, skillName: input.skill, node: publicNode(node),
+    const authorization = skills.authorizeProposal({
+        userId, actor, skillName: input.skill, node: publicNode(node), payload: input.payload || {},
         autonomy: input.autonomy || 'L3', confirmed: input.confirmed === true
     });
     if (!authorization.ok) return authorization;

@@ -413,6 +413,25 @@ const handleRequest = async (req, res) => {
         return;
     }
 
+    // Foundation-only privacy gate. All existing cloud implementations remain
+    // untouched in AUTO/CLOUD; LOCAL and LOCAL_ONLY fail before request bodies
+    // are consumed, so a prohibited cloud call cannot accidentally fall through.
+    if (req.method === 'POST' && controlPlane) {
+        const hybridKind = ({ '/api/chat': 'chat', '/api/transcribe': 'stt', '/api/tts': 'tts', '/api/embeddings': 'embeddings',
+            '/api/gemini-text': 'chat', '/api/gemini-image': 'chat', '/api/document-extract': 'chat',
+            '/api/premium-intel': 'chat', '/api/premium-intel/actions': 'chat',
+            '/api/style-mirror': 'chat', '/api/forecast': 'chat', '/api/tutor': 'chat' })[parsedUrl.pathname];
+        if (hybridKind) {
+            const decision = controlPlane.modelRouter.resolveHybrid(hybridKind,
+                controlPlane.settings.hybridStatus(userContext.currentUserId()));
+            if (!decision.ok) {
+                res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                return res.end(JSON.stringify({ success: false, error: decision.code, code: decision.code,
+                    message: 'El proveedor local aún no está instalado. Cambia a AUTO/CLOUD o instala uno en una fase posterior.' }));
+            }
+        }
+    }
+
     if (parsedUrl.pathname === '/api/location/reverse' && req.method === 'POST') {
         let body = '';
         req.on('data', chunk => { body += chunk.toString(); });
