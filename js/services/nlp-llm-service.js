@@ -118,14 +118,12 @@ ${p.focusCoach ? '- Actúa también como coach de enfoque.' : ''}`);
 
     async function complete(prompt, opts = {}) {
         if (opts.signal?.aborted) throw new DOMException('Interrupted', 'AbortError');
-        const localOnly = window.GunterRuntimeState?.getState?.();
-        if (localOnly?.privacy === 'LOCAL_ONLY' || localOnly?.mode === 'LOCAL') {
-            const code = localOnly.privacy === 'LOCAL_ONLY' ? 'LOCAL_PROVIDER_NOT_INSTALLED' : 'LOCAL_MODEL_NOT_INSTALLED';
-            throw Object.assign(new Error(code), { code });
-        }
         const pp = personalityPreamble(prompt);
-        const key = JSON.stringify({ p: prompt, o: { ...opts, signal: undefined }, personality: pp });
-        if (cache.has(key)) return cache.get(key);
+        const runtime = window.GunterRuntimeState?.getState?.() || {};
+        const localSelected = runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY';
+        const key = JSON.stringify({ p: prompt, o: { ...opts, signal: undefined }, personality: pp,
+            mode: runtime.mode || 'AUTO', privacy: runtime.privacy || 'STANDARD' });
+        if (!localSelected && cache.has(key)) return cache.get(key);
 
         const baseSystem = opts.system || 'Eres un asistente conciso en español latinoamericano (es-419) que responde ÚNICAMENTE lo pedido.';
 
@@ -169,12 +167,13 @@ ${p.focusCoach ? '- Actúa también como coach de enfoque.' : ''}`);
         const headers = { 'Content-Type': 'application/json' };
         const resp = await fetch(chatUrl(), { method: 'POST', headers, body: JSON.stringify(body), signal: opts.signal });
         if (!resp.ok) {
-            const t = await resp.text().catch(() => '');
-            throw new Error(`LLM HTTP ${resp.status}: ${t.slice(0, 200)}`);
+            const errorBody = await resp.json().catch(() => ({}));
+            const code = errorBody.code || errorBody.error || 'PROVIDER_UNAVAILABLE';
+            throw Object.assign(new Error(`LLM HTTP ${resp.status}: ${code}`), { code });
         }
         const data = await resp.json();
         const text = data?.choices?.[0]?.message?.content || '';
-        cache.set(key, text);
+        if (!localSelected) cache.set(key, text);
         if (cache.size > 40) {
             const first = cache.keys().next().value;
             cache.delete(first);
@@ -209,16 +208,49 @@ Proyecto activo: ${userContext.currentProject?.name || 'ninguno'}
         stream: async function* (prompt, options) { yield await complete(prompt, options); },
         health: () => ({ installed: true, status: 'CURRENT_PROVIDER' }),
         cancel: controller => controller?.abort?.() });
-    const LocalBrain = Object.freeze({ id: 'local.stub', installed: false,
-        generate: async () => { throw Object.assign(new Error('LOCAL_MODEL_NOT_INSTALLED'), { code: 'LOCAL_MODEL_NOT_INSTALLED' }); },
-        stream: async function* () { throw Object.assign(new Error('LOCAL_MODEL_NOT_INSTALLED'), { code: 'LOCAL_MODEL_NOT_INSTALLED' }); },
-        health: () => ({ installed: false, status: 'NOT_INSTALLED' }), cancel: () => {} });
+    async function* streamLocal(prompt, opts = {}) {
+        const system = `${opts.system || 'Eres Gunter, asistente personal preciso y honesto.'}\n\n${personalityPreamble(prompt)}`;
+        const resp = await fetch(chatUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }],
+                temperature: opts.temperature ?? 0.2, max_tokens: opts.maxTokens ?? 400,
+                ...(opts.jsonMode ? { response_format: { type: 'json_object' } } : {}), stream: true }), signal: opts.signal });
+        if (!resp.ok) {
+            const body = await resp.json().catch(() => ({}));
+            const code = body.code || body.error || 'LOCAL_PROVIDER_UNAVAILABLE';
+            throw Object.assign(new Error(code), { code });
+        }
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        try {
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n'); buffer = lines.pop() || '';
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    if (line.slice(6).trim() === '[DONE]') return;
+                    const delta = JSON.parse(line.slice(6)).choices?.[0]?.delta?.content;
+                    if (delta) yield delta;
+                }
+            }
+        } finally { reader.releaseLock(); }
+    }
+    const LocalBrain = Object.freeze({ id: 'local.ministral-3-3b-instruct-2512',
+        get installed() { return this.health().installed; },
+        generate: complete, stream: streamLocal,
+        health: () => { const state = window.GunterRuntimeState?.getState?.() || {};
+            return { installed: state.localBrainInstalled === true, ready: state.localBrainReady === true,
+                status: state.localBrainReady === true ? 'READY' : state.localBrainInstalled === true ? 'INSTALLED_NOT_READY' : 'NOT_INSTALLED',
+                model: state.localBrainModel || null, error: state.localBrainError || null }; },
+        cancel: controller => controller?.abort?.() });
     function selectedBrain() { const state = window.GunterRuntimeState?.getState?.() || {}; return state.mode === 'LOCAL' || state.privacy === 'LOCAL_ONLY' ? LocalBrain : CloudBrain; }
     const BrainRouter = Object.freeze({
         generate: (prompt, options) => selectedBrain().generate(prompt, options),
         stream: (prompt, options) => selectedBrain().stream(prompt, options),
         health: () => ({ cloud: CloudBrain.health(), local: LocalBrain.health() }),
-        cancel: CloudBrain.cancel, providers: { CloudBrain, LocalBrain }
+        cancel: controller => controller?.abort?.(), providers: { CloudBrain, LocalBrain }
     });
     window.GunterBrainRouter = BrainRouter;
     window.GunterNlpLlm = { complete: BrainRouter.generate, answerQuery, clearCache };

@@ -77,6 +77,7 @@ catch (e) { console.warn('⚠️  Mobile push scheduler not available:', e.messa
 let controlPlane = null;
 try { controlPlane = require('./server/control-plane'); }
 catch (e) { console.warn('⚠️  Control Plane module not available:', e.message); }
+const localBrain = require('./server/local-brain');
 
 // Etapa 3 — Actions dispatcher (control unificado de features)
 let actions = null;
@@ -423,12 +424,18 @@ const handleRequest = async (req, res) => {
             '/api/style-mirror': 'chat', '/api/forecast': 'chat', '/api/tutor': 'chat' })[parsedUrl.pathname];
         if (hybridKind) {
             const decision = controlPlane.modelRouter.resolveHybrid(hybridKind,
-                controlPlane.settings.hybridStatus(userContext.currentUserId()));
+                controlPlane.settings.hybridStatus(userContext.currentUserId()),
+                { ...req.gunterUser, userId: userContext.currentUserId() });
             if (!decision.ok) {
                 res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
                 return res.end(JSON.stringify({ success: false, error: decision.code, code: decision.code,
                     message: 'El proveedor local aún no está instalado. Cambia a AUTO/CLOUD o instala uno en una fase posterior.' }));
             }
+            if (decision.provider === 'local' && parsedUrl.pathname !== '/api/chat') {
+                res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                return res.end(JSON.stringify({ success: false, error: 'LOCAL_ONLY_MODE', code: 'LOCAL_ONLY_MODE' }));
+            }
+            if (hybridKind === 'chat') req.gunterBrainProvider = decision.provider;
         }
     }
 
@@ -1603,6 +1610,44 @@ const handleRequest = async (req, res) => {
                 'X-Gunter-Context-Id': prepared.envelope.context_id,
                 'X-Gunter-Trace-Id': prepared.envelope.trace_id
             } : {};
+            if (req.gunterBrainProvider === 'local') {
+                const controller = new AbortController();
+                res.once('close', () => { if (!res.writableEnded) controller.abort(); });
+                const localMessages = payload.messages;
+                const invalidMessages = localMessages.length > 24 || localMessages.some(message =>
+                    !['system', 'user', 'assistant'].includes(message?.role) ||
+                    typeof message.content !== 'string' || message.content.length > 8000);
+                const format = payload.response_format;
+                const invalidFormat = format && (!['json_object', 'json_schema'].includes(format.type) ||
+                    JSON.stringify(format).length > 8192);
+                if (invalidMessages || invalidFormat) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ success: false, code: 'LOCAL_TEXT_OR_SCHEMA_INVALID' }));
+                }
+                const localPayload = { messages: localMessages, temperature: payload.temperature ?? 0.2,
+                    max_tokens: payload.max_tokens ?? 400, ...(format ? { response_format: format } : {}) };
+                try {
+                    if (payload.stream === true) {
+                        const { response: upstream, cleanup } = await localBrain.stream(localPayload, controller.signal);
+                        res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', ...contextHeaders });
+                        try {
+                            for await (const chunk of upstream.body) {
+                                if (controller.signal.aborted) break;
+                                res.write(chunk);
+                            }
+                            return res.end();
+                        } finally { cleanup(); }
+                    }
+                    const answer = await localBrain.generate(localPayload, controller.signal);
+                    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...contextHeaders });
+                    return res.end(JSON.stringify(answer));
+                } catch (error) {
+                    if (res.headersSent || res.destroyed) return res.end();
+                    const code = error.code || 'LOCAL_PROVIDER_UNAVAILABLE';
+                    res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                    return res.end(JSON.stringify({ success: false, code, error: code, reason: error.cause || error.message }));
+                }
+            }
             // v42 — Sin OpenAI: el chat corre sobre Gemini devolviendo el
             // mismo shape de OpenAI (choices[0].message.content) para que
             // ningún cliente cambie.

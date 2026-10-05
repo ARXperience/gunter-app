@@ -15,6 +15,7 @@ const missions = require('./missions');
 const attention = require('./attention');
 const evolution = require('./evolution');
 const modelRouter = require('./model-router');
+const localBrain = require('../local-brain');
 const observability = require('./observability');
 const operations = require('./operations');
 const capabilities = require('./capabilities');
@@ -42,11 +43,21 @@ async function handle(req, res, pathname, query = {}) {
         if (req.method === 'GET' && route === 'health') return send(res, 200, { success: true, data: healthSnapshot(actor) });
         if (req.method === 'GET' && route === 'hybrid/status') {
             const userId = targetUser(actor, query.userId);
+            const local = await localBrain.health();
             return send(res, 200, { success: true, data: {
                 ...settings.hybridStatus(userId), providers: modelRouter.hybridInventory(),
+                ...local,
                 flags: Object.fromEntries(['ai.local', 'stt.local', 'tts.local', 'embeddings.local', 'hybrid.routing'].map(key => [key, flags.evaluate(key, { ...actor, userId }).enabled])),
                 sync: sync.status(userId), storage: { web: 'CURRENT_STORES', sqlite: 'NOT_CONFIGURED' }
             } });
+        }
+        if (req.method === 'POST' && ['local-brain/start', 'local-brain/stop', 'local-brain/restart'].includes(route)) {
+            if (!isAdmin(actor)) return forbidden(res);
+            const action = route.slice('local-brain/'.length);
+            if (action !== 'stop' && !flags.evaluate('ai.local', actor).enabled)
+                return send(res, 403, { success: false, error: 'LOCAL_PROVIDER_UNAVAILABLE' });
+            const result = action === 'start' ? await localBrain.start() : action === 'restart' ? await localBrain.restart() : localBrain.stop();
+            return send(res, 200, { success: true, data: result });
         }
         if (req.method === 'POST' && route === 'hybrid/mode') {
             const body = await readBody(req);
@@ -86,6 +97,7 @@ async function handle(req, res, pathname, query = {}) {
             if (!isAdmin(actor)) return forbidden(res);
             const body = await readBody(req);
             const result = flags.set(body.key, body, actor.userId || actor.kind);
+            if (result.ok && body.key === 'ai.local' && body.state === 'off') localBrain.stop();
             return sendResult(res, result);
         }
 

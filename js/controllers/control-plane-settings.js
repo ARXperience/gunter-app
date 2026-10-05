@@ -21,14 +21,15 @@
                 <span class="cp-live" id="cp-settings-live"><i></i> Comprobando</span>
             </header>
             <div class="cp-plan" id="cp-plan-summary" aria-live="polite"></div>
+            <div class="cp-hybrid-block" id="cp-hybrid-block" aria-live="polite"><p class="cp-empty">Comprobando el modo de inteligencia…</p></div>
             <div class="cp-capabilities" id="cp-capabilities"><p class="cp-empty">Cargando capacidades…</p></div>
             <div class="cp-nodes-block">
-                <div class="cp-section-title"><div><span>02</span><h3>Dispositivos activos</h3></div><div class="cp-node-actions"><button type="button" class="cp-link" id="cp-refresh-nodes">Actualizar</button><button type="button" class="cp-pair-action" id="cp-pair-desktop">Vincular este PC</button><button type="button" class="cp-pair-action" id="cp-pair-android">Vincular Android</button><button type="button" class="cp-pair-action" id="cp-pair-ios">Vincular iPhone</button></div></div>
+                <div class="cp-section-title"><div><span>03</span><h3>Dispositivos activos</h3></div><div class="cp-node-actions"><button type="button" class="cp-link" id="cp-refresh-nodes">Actualizar</button><button type="button" class="cp-pair-action" id="cp-pair-desktop">Vincular este PC</button><button type="button" class="cp-pair-action" id="cp-pair-android">Vincular Android</button><button type="button" class="cp-pair-action" id="cp-pair-ios">Vincular iPhone</button></div></div>
                 <p class="cp-section-help">Gunter Node mantiene las credenciales y acciones del sistema en tu propio equipo. Puedes revocar el acceso cuando quieras.</p>
                 <div id="cp-user-nodes"><p class="cp-empty">Comprobando nodos…</p></div>
             </div>
             <div class="cp-functional-block">
-                <div class="cp-section-title"><div><span>03</span><h3>Mapa funcional de Gunter</h3></div><small id="cp-functional-count">Comprobando cobertura…</small></div>
+                <div class="cp-section-title"><div><span>04</span><h3>Mapa funcional de Gunter</h3></div><small id="cp-functional-count">Comprobando cobertura…</small></div>
                 <p class="cp-section-help">Una vista honesta de lo que ya funciona, lo que está protegido y lo que necesita una aplicación nativa o proveedor externo.</p>
                 <div id="cp-functional-map"><p class="cp-empty">Cargando mapa funcional…</p></div>
             </div>`;
@@ -43,12 +44,14 @@
         const live = document.getElementById('cp-settings-live');
         try {
             await window.GunterControlPlane.ensureWebNode().catch(() => null);
-            const [health, entitlementData, settingsData, nodesData, capabilityData] = await Promise.all([
+            const [health, entitlementData, settingsData, nodesData, capabilityData, hybridData] = await Promise.all([
                 window.GunterControlPlane.health(), window.GunterControlPlane.entitlements(),
-                window.GunterControlPlane.settings(), window.GunterControlPlane.nodes(), window.GunterControlPlane.capabilities()
+                window.GunterControlPlane.settings(), window.GunterControlPlane.nodes(), window.GunterControlPlane.capabilities(),
+                window.GunterControlPlane.hybridStatus()
             ]);
             if (live) { live.className = `cp-live ${health.status === 'ok' ? 'is-ok' : 'is-warn'}`; live.innerHTML = `<i></i> ${health.status === 'ok' ? 'En línea' : 'Degradado'}`; }
             renderPlan(entitlementData);
+            renderHybrid(hybridData);
             renderCapabilities(settingsData.items || []);
             renderNodes(nodesData.items || []);
             renderFunctionalMap(capabilityData);
@@ -57,6 +60,29 @@
             const list = document.getElementById('cp-capabilities');
             if (list) list.innerHTML = `<p class="cp-empty">No pude cargar el Control Plane: ${escapeHtml(error.message)}</p>`;
         }
+    }
+
+    function renderHybrid(data) {
+        const root = document.getElementById('cp-hybrid-block');
+        if (!root) return;
+        const installed = data.localBrainInstalled && data.localBrainRuntimeAvailable;
+        const active = !!data.flags?.['ai.local'];
+        const ready = !!data.localBrainReady;
+        const status = ready ? 'Listo para responder' : installed ? 'Instalado, detenido' : 'Modelo o motor no instalado';
+        root.innerHTML = `<div class="cp-section-title"><div><span>01</span><h3>Modo de inteligencia</h3></div><small>${escapeHtml(status)}</small></div>
+            <p class="cp-section-help">AUTO y CLOUD conservan el proveedor actual. LOCAL usa el modelo instalado solo para el chat. Privacidad LOCAL_ONLY bloquea los servicios de IA en nube; voz, transcripción y otras funciones sin proveedor local mostrarán que no están disponibles.</p>
+            <div class="cp-hybrid-controls">
+                <label>Proveedor de chat<select id="cp-hybrid-mode"><option value="AUTO">Automático (actual)</option><option value="CLOUD">Nube</option><option value="LOCAL" ${installed ? '' : 'disabled'}>Local · Ministral 3 3B</option></select></label>
+                <label>Privacidad<select id="cp-hybrid-privacy"><option value="STANDARD">Estándar</option><option value="LOCAL_ONLY">Solo local · sin nube</option></select></label>
+                <button type="button" class="cp-save" id="cp-hybrid-save">Guardar modo</button>
+            </div>
+            <div class="cp-hybrid-runtime"><span>Motor local: <strong>${escapeHtml(status)}</strong>${data.localBrainError ? ` · ${escapeHtml(data.localBrainError)}` : ''}</span>
+                <button type="button" class="cp-link" id="cp-hybrid-flag" ${installed ? '' : 'disabled'}>${active ? 'Desactivar modelo local' : 'Activar modelo local'}</button>
+                ${active ? `<button type="button" class="cp-link" id="cp-hybrid-runtime">${ready ? 'Detener motor' : 'Iniciar motor'}</button>` : ''}
+            </div>
+            <p class="cp-section-help">Activar o detener el motor requiere una cuenta administradora. No instala ni descarga modelos desde esta pantalla.</p>`;
+        root.querySelector('#cp-hybrid-mode').value = data.mode || 'AUTO';
+        root.querySelector('#cp-hybrid-privacy').value = data.privacy || 'STANDARD';
     }
 
     function renderPlan(data) {
@@ -75,7 +101,7 @@
         const ready = items.filter(item => item.available);
         const future = items.filter(item => !item.available);
         root.innerHTML = `
-            <div class="cp-section-title"><div><span>01</span><h3>Permisos del asistente</h3></div><small>${ready.length} disponibles · ${future.length} protegidos</small></div>
+            <div class="cp-section-title"><div><span>02</span><h3>Permisos del asistente</h3></div><small>${ready.length} disponibles · ${future.length} protegidos</small></div>
             <p class="cp-section-help">Estos permisos son el límite de seguridad. Los ajustes de cada función aparecen después, en el catálogo del asistente.</p>
             <div class="cp-capability-list cp-capability-list--ready">${ready.map(capabilityRow).join('')}</div>
             ${future.length ? `<details class="cp-future"><summary>Próximas capacidades <span>${future.length}</span></summary><p>Requieren un plan compatible y un despliegue aprobado por el administrador.</p><div class="cp-capability-list">${future.map(capabilityRow).join('')}</div></details>` : ''}`;
@@ -153,6 +179,44 @@
     }
 
     async function onClick(event) {
+        const hybridSave = event.target.closest('#cp-hybrid-save');
+        if (hybridSave) {
+            hybridSave.disabled = true;
+            try {
+                await window.GunterControlPlane.updateHybridMode({
+                    mode: document.getElementById('cp-hybrid-mode').value,
+                    privacy: document.getElementById('cp-hybrid-privacy').value
+                });
+                renderHybrid(await window.GunterControlPlane.hybridStatus());
+                announce('Modo de inteligencia actualizado.');
+            } catch (error) { announce(error.message, true); }
+            finally { hybridSave.disabled = false; }
+            return;
+        }
+        const hybridFlag = event.target.closest('#cp-hybrid-flag');
+        if (hybridFlag) {
+            hybridFlag.disabled = true;
+            try {
+                const active = (await window.GunterControlPlane.hybridStatus()).flags?.['ai.local'];
+                await window.GunterControlPlane.updateFlag({ key: 'ai.local', state: active ? 'off' : 'on' });
+                renderHybrid(await window.GunterControlPlane.hybridStatus());
+                announce(active ? 'Modelo local desactivado y detenido.' : 'Modelo local habilitado.');
+            } catch (error) { announce(error.status === 403 ? 'Solo un administrador puede cambiar este permiso.' : error.message, true); }
+            finally { hybridFlag.disabled = false; }
+            return;
+        }
+        const hybridRuntime = event.target.closest('#cp-hybrid-runtime');
+        if (hybridRuntime) {
+            hybridRuntime.disabled = true;
+            try {
+                const ready = (await window.GunterControlPlane.hybridStatus()).localBrainReady;
+                await window.GunterControlPlane.localBrainAction(ready ? 'stop' : 'start');
+                renderHybrid(await window.GunterControlPlane.hybridStatus());
+                announce(ready ? 'Motor local detenido.' : 'Motor local listo.');
+            } catch (error) { announce(error.status === 403 ? 'Solo un administrador puede controlar el motor local.' : error.message, true); }
+            finally { hybridRuntime.disabled = false; }
+            return;
+        }
         const save = event.target.closest('[data-save-setting]');
         if (save) {
             const article = save.closest('[data-setting]');

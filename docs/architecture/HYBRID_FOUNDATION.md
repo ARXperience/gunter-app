@@ -1,5 +1,7 @@
 # Base híbrida reversible — 2026-10-04
 
+> Fase posterior (2026-10-05): [LOCAL_BRAIN.md](LOCAL_BRAIN.md) integra únicamente chat de texto local tras superar gates; este documento conserva el estado histórico de la fundación. AUTO/CLOUD no se alteran y STT/TTS/embeddings continúan como stubs locales.
+
 Estado: **fundación, no migración de motores ni datos**. La ruta por defecto `AUTO/STANDARD` sigue usando los endpoints y proveedores existentes. Ningún modelo local, SQLite, sincronización general ni shell nuevo se instala o activa con esta fase.
 
 ## Punto de restauración

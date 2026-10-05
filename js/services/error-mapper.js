@@ -19,6 +19,7 @@
         SYNC_UNAVAILABLE: { user: 'La sincronización no está disponible ahora.', hint: 'Los cambios admitidos quedan en la cola local.' },
         LOCAL_MODEL_NOT_INSTALLED: { user: 'El modelo local todavía no está instalado.', hint: 'Usa AUTO/CLOUD mientras se prepara el proveedor local.' },
         LOCAL_PROVIDER_NOT_INSTALLED: { user: 'El proveedor local para esta función todavía no está instalado.', hint: 'LOCAL_ONLY mantiene bloqueada la nube; vuelve a STANDARD si quieres usar el proveedor actual.' },
+        LOCAL_PROVIDER_UNAVAILABLE: { user: 'El cerebro local no está disponible ahora.', hint: 'Comprueba el modelo y el runtime, o vuelve a AUTO/CLOUD si quieres usar la nube.' },
         SQLITE_NOT_CONFIGURED: { user: 'La base SQLite aún no está configurada.', hint: 'Los datos web permanecen en su almacenamiento actual.' },
         // Network / connectivity
         offline:           { user: 'Sin conexión a internet. Verifica tu red.', hint: 'Tus datos locales siguen seguros.' },

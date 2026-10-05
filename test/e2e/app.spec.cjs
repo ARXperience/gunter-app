@@ -76,6 +76,16 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     }, taskTitle), { timeout: 15_000 }).toBe('done');
 
     await page.goto('/config.html#preferences');
+    await page.locator('#config-tab-premium').click();
+    await expect(page.locator('#cp-hybrid-mode')).toBeVisible();
+    await expect(page.locator('#cp-hybrid-mode option[value="LOCAL"]')).toHaveAttribute('disabled', '');
+    await page.locator('#cp-hybrid-mode').selectOption('CLOUD');
+    await page.locator('#cp-hybrid-save').click();
+    await expect.poll(async () => (await (await page.request.get('/api/control/hybrid/status')).json()).data.mode).toBe('CLOUD');
+    await page.locator('#cp-hybrid-mode').selectOption('AUTO');
+    await page.locator('#cp-hybrid-save').click();
+    await expect.poll(async () => (await (await page.request.get('/api/control/hybrid/status')).json()).data.mode).toBe('AUTO');
+    await page.locator('#config-tab-preferences').click();
     await page.locator('#pref-city').fill('Cali');
     await page.locator('#pref-city').press('Tab');
     await page.locator('#pref-timezone').fill('America/Bogota');

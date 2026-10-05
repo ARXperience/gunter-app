@@ -21,6 +21,7 @@ _backups/
 
 # Output de herramientas / binarios grandes (ffmpeg, etc.)
 output/video-reference/tools/
+test/validation/results/
 
 # WhatsApp — session credentials + message log (contain private data)
 whatsapp-session/

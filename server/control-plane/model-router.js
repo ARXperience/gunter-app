@@ -1,11 +1,12 @@
 /* Provider-neutral routing decision. Execution remains in the existing provider clients. */
 const flags = require('./feature-flags');
 const entitlements = require('./entitlements');
+const localBrain = require('../local-brain');
 
 function inventory() {
     return [
         // An URL or enabled flag is not proof of an installed/verified model.
-        provider('local.fast', false, 'local', ['classify','chat','embeddings'], 1, 0, true),
+        provider('local.fast', localBrain.snapshot().localBrainReady, 'local', ['classify','chat'], 1, 0, true),
         provider('openai.cloud', !!process.env.OPENAI_API_KEY, 'cloud', ['chat','reasoning','transcribe','tts','embeddings','vision'], 3, 3, false),
         provider('gemini.cloud', !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY), 'cloud', ['chat','reasoning','vision','image'], 3, 2, false),
         provider('fallback.cloud', !!(process.env.GROQ_API_KEY || process.env.OPENROUTER_API_KEY || process.env.MISTRAL_API_KEY), 'cloud', ['chat','classify'], 2, 1, false),
@@ -33,16 +34,20 @@ function route(userId, input = {}, actor = {}) {
 function provider(id, available, location, capabilities, quality, cost, privateByDefault) { return { id, available, location, capabilities, quality, cost, privateByDefault }; }
 const HYBRID_CAPABILITIES = Object.freeze(['chat', 'stt', 'tts', 'embeddings']);
 const HYBRID_ERRORS = Object.freeze(['PROVIDER_UNAVAILABLE', 'LOCAL_MODEL_NOT_INSTALLED', 'NETWORK_UNAVAILABLE',
-    'PERMISSION_DENIED', 'CONFIRMATION_REQUIRED', 'LOCAL_ONLY_MODE', 'SYNC_UNAVAILABLE', 'LOCAL_PROVIDER_NOT_INSTALLED']);
+    'PERMISSION_DENIED', 'CONFIRMATION_REQUIRED', 'LOCAL_ONLY_MODE', 'SYNC_UNAVAILABLE', 'LOCAL_PROVIDER_NOT_INSTALLED', 'LOCAL_PROVIDER_UNAVAILABLE']);
 function normalizeHybridError(code) {
     const raw = String(code || 'PROVIDER_UNAVAILABLE').toUpperCase();
     return HYBRID_ERRORS.includes(raw) ? raw : ({ provider_unavailable: 'PROVIDER_UNAVAILABLE',
         confirmation_required: 'CONFIRMATION_REQUIRED', permission_denied: 'PERMISSION_DENIED' })[String(code || '').toLowerCase()] || 'PROVIDER_UNAVAILABLE';
 }
-function resolveHybrid(kind, preferences = {}) {
+function resolveHybrid(kind, preferences = {}, actor = {}) {
     if (!HYBRID_CAPABILITIES.includes(kind)) return { ok: false, code: 'PROVIDER_NOT_SUPPORTED' };
-    if (preferences.privacy === 'LOCAL_ONLY') return { ok: false, code: 'LOCAL_PROVIDER_NOT_INSTALLED', provider: 'local', kind };
-    if (preferences.mode === 'LOCAL') return { ok: false, code: 'LOCAL_MODEL_NOT_INSTALLED', provider: 'local', kind };
+    if (preferences.privacy === 'LOCAL_ONLY' || preferences.mode === 'LOCAL') {
+        if (kind !== 'chat') return { ok: false, code: 'LOCAL_PROVIDER_NOT_INSTALLED', provider: 'local', kind };
+        if (!localBrain.installed()) return { ok: false, code: preferences.privacy === 'LOCAL_ONLY' ? 'LOCAL_PROVIDER_NOT_INSTALLED' : 'LOCAL_MODEL_NOT_INSTALLED', provider: 'local', kind };
+        if (!flags.evaluate('ai.local', actor).enabled) return { ok: false, code: 'LOCAL_PROVIDER_UNAVAILABLE', provider: 'local', kind };
+        return { ok: true, provider: 'local', kind, mode: preferences.mode || 'AUTO' };
+    }
     return { ok: true, provider: 'cloud', kind, mode: preferences.mode || 'AUTO' };
 }
 function hybridInventory() {
@@ -52,7 +57,11 @@ function hybridInventory() {
         cloud: { installed: true, status: 'CURRENT_PROVIDER', configured: kind === 'embeddings' ? openai
             : kind === 'stt' || kind === 'tts' ? openai || gemini
                 : inventory().some(p => p.location === 'cloud' && p.available && p.capabilities.includes('chat')) },
-        local: { installed: false, status: 'NOT_INSTALLED' },
+        local: kind === 'chat' ? { installed: localBrain.snapshot().localBrainInstalled,
+            status: localBrain.snapshot().localBrainReady ? 'READY' : localBrain.installed() ? 'INSTALLED_NOT_READY' : 'NOT_INSTALLED',
+            runtimeAvailable: localBrain.snapshot().localBrainRuntimeAvailable,
+            model: localBrain.snapshot().localBrainModel,
+            error: localBrain.snapshot().localBrainError } : { installed: false, status: 'NOT_INSTALLED' },
         ...(kind === 'tts' ? { browserFallback: { installed: true, status: 'CURRENT_BROWSER_FALLBACK' } } : {})
     }]));
 }

@@ -19,6 +19,8 @@ const context = {
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options?.detail; } },
     fetch: async (url) => {
         requests.push(url);
+        if (url.includes('/api/chat') && state.mode === 'LOCAL') return { ok: false, status: 503,
+            json: async () => ({ code: 'LOCAL_MODEL_NOT_INSTALLED' }) };
         if (url.includes('embeddings')) return { ok: true, json: async () => ({ data: [{ embedding: [1, 0, 0] }] }) };
         if (url.includes('transcribe')) return { ok: true, text: async () => 'voz transcrita' };
         return { ok: true, json: async () => ({ choices: [{ message: { content: 'respuesta cloud' } }] }) };
@@ -54,5 +56,5 @@ function load(file) { vm.runInContext(fs.readFileSync(path.join(root, file), 'ut
     assert.equal(context.GunterAdapters.voice.providerStatus.cloud, 'CURRENT_PROVIDER');
     assert.equal(context.GunterAdapters.voice.providerStatus.browser, 'CURRENT_BROWSER_FALLBACK');
     assert.equal(context.GunterAdapters.voice.providerStatus.local, 'NOT_INSTALLED');
-    console.log('HYBRID BROWSER PROVIDERS: cloud and local-stub routing ✓');
+    console.log('HYBRID BROWSER PROVIDERS: cloud and local-proxy routing ✓');
 })().catch(error => { console.error(error); process.exitCode = 1; });
