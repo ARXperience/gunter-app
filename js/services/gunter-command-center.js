@@ -226,7 +226,7 @@
         const home = el('section', 'gunter-console', `
             <header class="gunter-console__topbar">
                 <h1 id="gunter-home-title">GUNTER <span>// ASISTENTE PERSONAL</span></h1>
-                <div class="gunter-console__clock"><span>BOGOTÁ</span><time id="gunter-home-clock" datetime="">--:--</time></div>
+                <div class="gunter-console__clock"><span id="gunter-home-city">HORA LOCAL</span><time id="gunter-home-clock" datetime="">--:--</time></div>
             </header>
             <div class="gunter-console__workspace">
                 <aside class="gunter-console__panel gunter-console__day" aria-label="Resumen del día">
@@ -323,10 +323,13 @@
             const now = new Date();
             clock.dateTime = now.toISOString();
             clock.textContent = new Intl.DateTimeFormat('es-CO', {
-                timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hour12: true
+                timeZone: window.GunterPresence?.timezone?.() || Intl.DateTimeFormat().resolvedOptions().timeZone, hour: '2-digit', minute: '2-digit', hour12: true
             }).format(now).toLocaleLowerCase('es-CO');
+            const city = home.querySelector('#gunter-home-city');
+            if (city) city.textContent = window.GunterPresence?.preferences?.().city || 'Hora local';
         };
         updateClock();
+        window.addEventListener('gunter-location-change', updateClock);
         window.setInterval(updateClock, 30_000);
         window.GunterParticles?.mount?.(home);
 

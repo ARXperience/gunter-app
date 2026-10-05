@@ -6,7 +6,7 @@
   --gf-surface-low: var(--gd-surface-lo, #EAF1F3);
   --gf-ink: var(--gd-ink, #10232B);
   --gf-muted: var(--gd-on-surface-var, #435C66);
-  --gf-accent: var(--gd-primary, #006F78);
+  --gf-accent: var(--gd-primary, #00677F);
   width: min(1100px, 100%);
   margin: 0 auto clamp(42px, 6vw, 76px);
   color: var(--gf-ink);
@@ -71,7 +71,7 @@
   pointer-events: none;
 }
 .gunter-feature--intent::before {
-  background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--gd-primary, #006F78) 30%, var(--gf-surface)) 0%, color-mix(in srgb, var(--gd-primary, #006F78) 15%, var(--gf-surface)) 34%, var(--gf-surface) 72%);
+  background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--gd-primary, #00677F) 30%, var(--gf-surface)) 0%, color-mix(in srgb, var(--gd-primary, #00677F) 15%, var(--gf-surface)) 34%, var(--gf-surface) 72%);
 }
 .gunter-feature--control::before {
   background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--gd-secondary, #356D82) 30%, var(--gf-surface)) 0%, color-mix(in srgb, var(--gd-secondary, #356D82) 15%, var(--gf-surface)) 34%, var(--gf-surface) 72%);

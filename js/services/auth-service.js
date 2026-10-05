@@ -17,6 +17,7 @@
     const isPublic = PUBLIC_PAGES.includes(page);
 
     let _user = null;
+    let _verified = false;
     const _readyCallbacks = [];
 
     // Cache de sessionStorage para pintar el chip sin esperar la red
@@ -33,6 +34,7 @@
             const resp = await fetch('/api/auth/me', { cache: 'no-store' });
             if (resp.status === 401) {
                 sessionStorage.removeItem('gunter_auth_user');
+                sessionStorage.removeItem('gunter_entry_greeting');
                 if (!isPublic) _goLogin('');
                 return null;
             }
@@ -58,6 +60,7 @@
             }
             localStorage.setItem('gunter_device_user', u.id);
             _user = u;
+            _verified = true;
             try { sessionStorage.setItem('gunter_auth_user', JSON.stringify(u)); } catch { }
             document.dispatchEvent(new CustomEvent('gunter-auth-ready', { detail: { user: u } }));
             _readyCallbacks.splice(0).forEach(cb => { try { cb(u); } catch { } });
@@ -74,6 +77,7 @@
     async function logout() {
         try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { }
         sessionStorage.removeItem('gunter_auth_user');
+        sessionStorage.removeItem('gunter_entry_greeting');
         location.replace('login.html');
     }
 
@@ -254,6 +258,7 @@
     // ---------- API pública ----------
     window.GunterAuth = {
         getUser: () => _user,
+        isVerified: () => _verified,
         isAdmin: () => _user?.role === 'admin',
         // Tutor 📚: privilegio del admin o concedido explícitamente por él
         canTutor: () => !!(_user && (_user.role === 'admin' || _user.tutorAccess)),

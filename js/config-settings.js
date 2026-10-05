@@ -137,7 +137,7 @@
     function readPrefs() {
         try { return JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); } catch { return {}; }
     }
-    function writePrefs(p) { localStorage.setItem(PREF_KEY, JSON.stringify(p)); }
+    function writePrefs(p) { localStorage.setItem(PREF_KEY, JSON.stringify({ ...readPrefs(), ...p })); }
 
     function loadPreferences() {
         const prefs = readPrefs();
@@ -163,7 +163,7 @@
         const lang = document.getElementById('pref-language');
         if (lang) {
             lang.value = prefs.language || 'es-MX';
-            lang.onchange = () => { prefs.language = lang.value; writePrefs(prefs); };
+            lang.onchange = () => { prefs.language = lang.value; writePrefs({ language: prefs.language }); };
         }
 
         // Reduce motion
@@ -172,7 +172,7 @@
             rm.checked = !!prefs.reduceMotion;
             rm.onchange = () => {
                 prefs.reduceMotion = rm.checked;
-                writePrefs(prefs);
+                writePrefs({ reduceMotion: prefs.reduceMotion });
                 document.documentElement.classList.toggle('reduce-motion', rm.checked);
             };
             if (rm.checked) document.documentElement.classList.add('reduce-motion');
@@ -182,7 +182,7 @@
         const fx = document.getElementById('pref-click-fx');
         if (fx) {
             fx.checked = prefs.clickFx !== false;
-            fx.onchange = () => { prefs.clickFx = fx.checked; writePrefs(prefs); };
+            fx.onchange = () => { prefs.clickFx = fx.checked; writePrefs({ clickFx: prefs.clickFx }); };
         }
     }
 

@@ -193,6 +193,25 @@ async function testActionsDispatch() {
                 : ko(`"${phrase}"`, `esperaba ${expected}, obtuvo ${feat || json?.data?.intent}`);
         } catch (e) { ko(`"${phrase}"`, e.message); }
     }
+
+    const settingsCases = [
+        ['cambia modo de voz a solo con wake word', 'voiceMode', 'wake_word_only'],
+        ['cambia personalidad a suave', 'personalityIntensity', 'soft'],
+        ['cambia modo de escucha a continuo', 'wakeWordListeningMode', 'continuous'],
+        ['cambia la palabra de activación personalizada a Computer', 'wakeWord', 'Computer'],
+        ['cambia el tiempo de escucha a 30 segundos', 'wakeWordAutoStopSeconds', 30],
+        ['desactiva modo sabio', 'tutorMode', false]
+    ];
+    for (const [phrase, expectedFeature, expectedValue] of settingsCases) {
+        try {
+            await jpost('/api/actions', { op: 'dispatch', text: 'no' });
+            const { json } = await jpost('/api/actions', { op: 'dispatch', text: phrase });
+            const result = json?.data;
+            result?.intent === 'applied' && result.feature === expectedFeature && result.value === expectedValue
+                ? ok(`"${phrase}" → ${result.feature}=${result.value}`)
+                : ko(`"${phrase}"`, `esperaba ${expectedFeature}=${expectedValue}, obtuvo ${result?.feature}=${result?.value} (${result?.intent})`);
+        } catch (e) { ko(`"${phrase}"`, e.message); }
+    }
 }
 
 async function testTutorSage() {
@@ -280,6 +299,13 @@ async function testAuth() {
         const { status } = await jpost('/api/actions', { op: 'get_state' }, null);
         status === 401 ? ok('guard: /api/* sin sesión → 401') : ko('guard sin sesión', `status=${status}`);
     } catch (e) { ko('guard sin sesión', e.message); }
+
+    try {
+        const denied = await jpost('/api/location/reverse', { latitude: 0, longitude: 0 }, null);
+        denied.status === 401 ? ok('ubicación exige sesión aprobada') : ko('ubicación protegida', `status=${denied.status}`);
+        const invalid = await jpost('/api/location/reverse', { latitude: 91, longitude: 0 });
+        invalid.status === 400 ? ok('ubicación rechaza coordenadas inválidas sin consultar proveedores') : ko('ubicación válida', `status=${invalid.status}`);
+    } catch (e) { ko('ubicación segura', e.message); }
 
     // Público: setup-status responde sin auth
     try {
@@ -434,6 +460,7 @@ async function testAssets() {
         '/js/services/gunter-rules-service.js',
         '/js/core/temporal-context.js', '/js/core/wake-invocation.js',
         '/js/core/conversation-state.js', '/js/core/assistant-tools.js',
+        '/js/core/assistant-presence.js', '/js/controllers/presence-settings.js',
         '/js/core/workflow-orchestrator.js',
         '/js/services/jobs-service.js', '/js/services/voice-activity-service.js',
         '/styles/gunter-cinematic.css', '/js/services/gunter-cinematic-shell.js',

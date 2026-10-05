@@ -53,9 +53,9 @@ const FEATURES = [
   },
   {
     flag: 'voiceStyle',
-    aliases: ['estilo de voz', 'como hablo', 'tono de voz'],
+    aliases: ['estilo de voz', 'como hablo', 'personalidad al hablar'],
     kind: 'enum',
-    enumValues: ['professional', 'warm', 'chaotic_scientist', 'energetic_cartoon', 'minimal_penguin', 'executive', 'focus_coach', 'tutor'],
+    enumValues: ['professional', 'warm', 'chaotic_scientist', 'energetic_cartoon', 'minimal_penguin', 'executive', 'focus_coach'],
     enumAliases: {
       professional: ['profesional', 'ejecutivo'],
       warm: ['cálido', 'calido', 'cercano', 'amigable'],
@@ -64,7 +64,6 @@ const FEATURES = [
       minimal_penguin: ['minimalista', 'pingüino', 'pinguino'],
       executive: ['ejecutivo', 'corporativo'],
       focus_coach: ['coach de enfoque', 'coach', 'concentración'],
-      tutor: ['tutor', 'profesor', 'maestro', 'profe', 'docente']
     },
     risk: 'safe',
     shortDesc: 'Estilo del carácter cuando hablo'
@@ -297,13 +296,13 @@ const FEATURES = [
   // ─────────────────────────────────────────────
   {
     flag: 'personalityIntensity',
-    aliases: ['intensidad de personalidad', 'que tan intenso', 'nivel de personalidad'],
+    aliases: ['intensidad de personalidad', 'que tan intenso', 'nivel de personalidad', 'personalidad'],
     kind: 'enum',
-    enumValues: ['subtle', 'balanced', 'strong'],
+    enumValues: ['soft', 'normal', 'intense'],
     enumAliases: {
-      subtle: ['sutil', 'suave', 'discreto'],
-      balanced: ['balanceado', 'medio', 'equilibrado'],
-      strong: ['fuerte', 'marcado', 'intenso']
+      soft: ['sutil', 'suave', 'discreto'],
+      normal: ['normal', 'balanceado', 'medio', 'equilibrado'],
+      intense: ['fuerte', 'marcado', 'intenso']
     },
     risk: 'safe',
     shortDesc: 'Qué tan marcado es el modo actual',
@@ -338,16 +337,16 @@ const FEATURES = [
     flag: 'voiceMode',
     aliases: ['modo de voz', 'como responde la voz'],
     kind: 'enum',
-    enumValues: ['text_only', 'voice_optional', 'live_voice', 'voice_first'],
+    enumValues: ['text_only', 'notifications_only', 'live_voice', 'wake_word_only'],
     enumAliases: {
-      text_only:      ['solo texto', 'text only', 'sin voz'],
-      voice_optional: ['voz opcional', 'texto y voz', 'ambos'],
-      live_voice:     ['voz en vivo', 'live voice', 'voz siempre'],
-      voice_first:    ['primero voz', 'voice first', 'voz principal']
+      text_only:         ['solo texto', 'text only', 'sin voz'],
+      notifications_only:['solo notificaciones', 'notificaciones'],
+      live_voice:        ['voz en vivo', 'live voice', 'voz siempre'],
+      wake_word_only:    ['solo con wake word', 'solo tras la palabra de activación', 'después de hi gunter', 'voz al invocarme']
     },
     risk: 'safe',
     shortDesc: 'Cómo se activa la voz',
-    longDesc: 'Modo de voz. text_only = solo lee, live_voice = habla siempre, voice_optional = a demanda.'
+    longDesc: 'Modo de voz. text_only = solo texto, notifications_only = solo avisos, live_voice = voz en conversación, wake_word_only = habla solo después de que la invoques.'
   },
   {
     flag: 'voiceSpeed',
@@ -378,11 +377,10 @@ const FEATURES = [
     flag: 'wakeWordListeningMode',
     aliases: ['modo de escucha', 'modo del wake word', 'como escucha el wake'],
     kind: 'enum',
-    enumValues: ['always_on', 'meetings_only', 'off'],
+    enumValues: ['manual', 'continuous'],
     enumAliases: {
-      always_on: ['siempre encendido', 'always on', 'todo el tiempo'],
-      meetings_only: ['solo en reuniones', 'meetings only'],
-      off: ['apagado', 'off']
+      manual: ['manual', 'a demanda', 'cuando yo la active'],
+      continuous: ['continuo', 'continuamente', 'siempre escuchando', 'siempre activa']
     },
     risk: 'safe',
     shortDesc: 'Cuándo escucha "Hi Gunter"',
@@ -394,10 +392,52 @@ const FEATURES = [
   // ─────────────────────────────────────────────
   {
     flag: 'tutorMode',
-    aliases: ['modo tutor', 'tutor', 'enseñame', 'ensename', 'clases', 'maestro', 'profe', 'profesor'],
+    aliases: ['modo sabio', 'sabio', 'tutor', 'modo tutor', 'enseñame', 'ensename', 'clases', 'maestro', 'profe', 'profesor', 'biblioteca sabia'],
     kind: 'boolean', risk: 'safe',
-    shortDesc: 'Gunter enseña sobre biblioteca curada',
-    longDesc: 'Modo Tutor: Gunter cambia a voz profesor + accede a una biblioteca curada (por defecto Grinberg-Zylberbaum, 33 obras). Puede explicar temas, sugerir un curriculum, hacer preguntas socráticas y trackear tu progreso por libro.'
+    shortDesc: 'Activa o desactiva el modo Sabio y su biblioteca curada',
+    longDesc: 'Modo Sabio: Gunter accede a una biblioteca curada y puede explicar sus obras, sugerir rutas de estudio, hacer preguntas socráticas y seguir tu progreso. Al desactivarlo, esa biblioteca no se consulta; el conocimiento general de Gunter sigue disponible.'
+  },
+  {
+    flag: 'voiceTone',
+    aliases: ['tono de voz', 'tono al hablar'],
+    kind: 'enum',
+    enumValues: ['calm', 'neutral', 'expressive', 'intense'],
+    enumAliases: {
+      calm: ['calmado', 'tranquilo', 'sereno'],
+      neutral: ['neutral'],
+      expressive: ['expresivo', 'expresiva'],
+      intense: ['intenso', 'enérgico', 'energetico']
+    },
+    risk: 'safe',
+    shortDesc: 'Ajusta la expresividad de la voz'
+  },
+  {
+    flag: 'wakeWordResponseMode',
+    aliases: ['respuesta al invocarme', 'modo de respuesta al llamado', 'respuesta hablada al llamado', 'respuesta de hi gunter', 'respuesta wake word'],
+    kind: 'enum',
+    enumValues: ['voice', 'text'],
+    enumAliases: { voice: ['con voz', 'hablada'], text: ['solo texto', 'escrita'] },
+    risk: 'safe',
+    shortDesc: 'Elige si Gunter confirma la invocación hablando o solo en texto'
+  },
+  {
+    flag: 'wakeWord',
+    aliases: ['palabra de activación personalizada', 'wake word personalizada', 'nombre para invocarte'],
+    kind: 'text', risk: 'safe',
+    shortDesc: 'Cambia la frase que activa a Gunter',
+    longDesc: 'Frase personalizada para invocar a Gunter. Los llamados “Hi Gunter”, “Hola Gunter” y “Gunter” siguen disponibles.'
+  },
+  {
+    flag: 'wakeWordAutoStopSeconds',
+    aliases: ['tiempo de escucha', 'duración de escucha', 'tiempo para responder por voz'],
+    kind: 'number', risk: 'safe',
+    shortDesc: 'Cuánto espera Gunter una orden después de invocarlo'
+  },
+  {
+    flag: 'voiceOnlyAfterWakeWord',
+    aliases: ['voz solo después de invocarte', 'hablar solo después de hi gunter'],
+    kind: 'boolean', risk: 'safe',
+    shortDesc: 'Limita la voz conversacional a las respuestas después de invocar a Gunter'
   }
 ];
 
@@ -504,33 +544,57 @@ function classifyActionIntent(text) {
   // PRIORIDAD ENUM: si el texto contiene un valor de enum (ej. "warm", "divertido"),
   // priorizamos la feature enum que lo contiene por encima de matches simples de alias.
   const verbEnum = /\b(cambia|cambiar|ponte|pon|setea|set|hazte|se)\b/.test(norm);
-  for (const f of FEATURES) {
-    if (f.kind !== 'enum') continue;
-    const val = extractEnumValue(f, text);
-    if (val) {
-      // Si además el alias del feature está presente o hay verbo enum → alta confianza
-      const aliasPresent = f.aliases.some(a => norm.includes(_normalized(a)));
-      if (verbEnum || aliasPresent) {
-        return {
-          intent: 'set_enum',
-          feature: { ...f, matchedAlias: aliasPresent ? f.aliases[0] : val },
-          value: val,
-          confidence: 0.85
-        };
-      }
+  const enumMatches = FEATURES
+    .filter(f => f.kind === 'enum')
+    .map(feature => ({ feature, value: extractEnumValue(feature, text) }))
+    .filter(match => match.value);
+  if (verbEnum && enumMatches.length) {
+    // No cambiar una preferencia por coincidir solo con un valor ambiguo
+    // (p. ej. "suave" puede ser intensidad o agresividad del pulso).
+    const explicit = enumMatches.find(({ feature }) =>
+      feature.aliases.some(alias => norm.includes(_normalized(alias)))
+    );
+    const selected = explicit || (enumMatches.length === 1 ? enumMatches[0] : null);
+    if (selected) {
+      return {
+        intent: 'set_enum',
+        feature: selected.feature,
+        value: selected.value,
+        confidence: 0.85,
+        matchedAlias: selected.feature.aliases.find(alias => norm.includes(_normalized(alias))) || selected.value
+      };
     }
   }
 
   const feat = findFeature(text);
   if (!feat) return null;
 
-  // Detectar verbo del intent
   const isOn  = /\b(activa|activar|prende|prender|enciende|encender|habilita|habilitar|conecta|conectar|on|activate|enable)\b/.test(norm);
   const isOff = /\b(desactiva|desactivar|apaga|apagar|deshabilita|deshabilitar|desconecta|desconectar|quita|quitar|off|deactivate|disable)\b/.test(norm);
   const isQuery = /^(que|cual|como|donde|para que|explica|dime)\b/.test(norm)
                || /\?$/.test(text.trim())
                || /\b(esta|está)\s+(activo|activa|encendido|encendida|on|off)/.test(norm);
 
+  if (feat.kind === 'text') {
+    const setter = /\b(cambia|cambiar|pon|establece|setea|set)\b/.test(norm);
+    const rawValue = setter ? String(text).match(/\b(?:a|por)\s+["'“]?(.+?)["'”]?\s*[.!?]*$/i)?.[1]?.trim() : '';
+    if (!rawValue) return { intent: 'query', feature: feat, confidence: feat.score, matchedAlias: feat.matchedAlias };
+    const value = rawValue.replace(/["'“”]/g, '').trim();
+    if (value.length < 2 || value.length > 30 || !/^[\p{L}\p{N}][\p{L}\p{N} \-’']*$/u.test(value)) return null;
+    return { intent: 'set_text', feature: feat, value, confidence: feat.score, matchedAlias: feat.matchedAlias };
+  }
+
+  if (feat.kind === 'number') {
+    const match = norm.match(/\b(\d{1,2})\s*(?:segundos?|s)\b/);
+    if (!match || !/\b(cambia|cambiar|pon|establece|setea|set)\b/.test(norm)) {
+      return { intent: 'query', feature: feat, confidence: feat.score, matchedAlias: feat.matchedAlias };
+    }
+    const value = Number(match[1]);
+    if (value < 5 || value > 60 || value % 5 !== 0) return null;
+    return { intent: 'set_number', feature: feat, value, confidence: feat.score, matchedAlias: feat.matchedAlias };
+  }
+
+  // Detectar verbo del intent
   // enum: "cambia tu voz a warm" o "ponte más divertido"
   if (feat.kind === 'enum') {
     const val = extractEnumValue(feat, text);

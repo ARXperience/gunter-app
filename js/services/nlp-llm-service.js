@@ -40,24 +40,11 @@
 
         const blocks = [];
 
-        // 0. Identidad Gunter (Adventure Time) — SIEMPRE ACTIVA
-        blocks.push(`IDENTIDAD: eres GUNTER, el pingüino de Adventure Time. Imprudente, seco, cínico, ligeramente amargado. Ayudás bien pero con actitud. NO sos un chatbot corporativo.
-
-PERSONALIDAD BASE (siempre presente, incluso si otros estilos se activan encima):
-- Directo, sin muletillas ("estoy aquí para ayudarte", "espero que te sirva", "¡qué genial pregunta!" — prohibidos).
-- **Humor negro seco y ocasional (1 cada 3-6 mensajes máx)**: comentarios mordaces sobre la situación, corporate-speak, deadlines, burocracia, o vos mismo (autodesprecio helado). Nunca cruel con el usuario. Nunca sobre suicidio, autolesión, salud mental, grupos vulnerables, raza, género. Si el usuario está frustrado o triste, el humor se apaga y va a modo útil-directo.
-- Imprudencia AT: soltás verdades incómodas con calma. "Esa reunión no debió existir." "Ese deadline lo puso alguien que no va a trabajar sábado."
-- "wenk" o "🐧" muy ocasionalmente (1 de cada 10 respuestas máx, cuando encaje).
-- Prohibido: cascadas de emojis, "😊✨🎉", triples exclamaciones, "¡qué genial pregunta!", "por supuesto que sí", "espero haberte ayudado".
-
-IDIOMA: español neutro latinoamericano (es-419).
-- Evita modismos de España: NO uses "vale", "venga", "tío/tía", "molar", "guay", "vosotros", "joder", "currar", "ordenador" (di "computadora"), "móvil" (di "celular"), "coche" (di "carro" o "auto"), "aparcar" (di "estacionar"), "ahora mismo" suena duro → usa "ya" o "ahorita".
-- Usa formas naturales latinas: "ya quedó", "listo", "dale", "va", "te aviso", "te paso", "agendado", "anotado", "te lo recuerdo", "por si acaso".
-- Conjugación con "tú" (no "vos" ni "vosotros") salvo que el usuario use "vos".
-- Cero anglicismos forzados ("performar", "agendar reunión" sí pero "schedulear" no).`);
+        // La elección del usuario aplica por igual al texto y a la voz.
+        blocks.push(window.GunterPresence?.personalityPrompt?.() || 'Eres Gunter, un asistente personal atento, amigable y preciso. Habla en español neutro latinoamericano.');
 
         // 2. Voice style → jerga y longitud (con sabor latino)
-        if (premium && premium.isEnabled('voiceEnabled')) {
+        if (premium) {
             const style = premium.get('voiceStyle');
             const VOICE_JERGA = {
                 professional: `Habla con calma, claridad y precisión ejecutiva latina. Frases cortas, sin adornos.
@@ -130,11 +117,12 @@ ${p.focusCoach ? '- Actúa también como coach de enfoque.' : ''}`);
     }
 
     async function complete(prompt, opts = {}) {
-        const key = JSON.stringify({ p: prompt, o: opts });
+        if (opts.signal?.aborted) throw new DOMException('Interrupted', 'AbortError');
+        const pp = personalityPreamble(prompt);
+        const key = JSON.stringify({ p: prompt, o: { ...opts, signal: undefined }, personality: pp });
         if (cache.has(key)) return cache.get(key);
 
         const baseSystem = opts.system || 'Eres un asistente conciso en español latinoamericano (es-419) que responde ÚNICAMENTE lo pedido.';
-        const pp = personalityPreamble(prompt);
 
         // v2 (F1) — Recall semántico de turnos pasados.
         // Skipear en jsonMode (clasificadores/extractores) y cuando opts.skipMemory=true.
@@ -174,7 +162,7 @@ ${p.focusCoach ? '- Actúa también como coach de enfoque.' : ''}`);
         // Fase 1 (blindaje): solo proxy. NO añadimos Authorization aquí —
         // el server.js inyecta el Bearer con OPENAI_API_KEY desde su .env.
         const headers = { 'Content-Type': 'application/json' };
-        const resp = await fetch(chatUrl(), { method: 'POST', headers, body: JSON.stringify(body) });
+        const resp = await fetch(chatUrl(), { method: 'POST', headers, body: JSON.stringify(body), signal: opts.signal });
         if (!resp.ok) {
             const t = await resp.text().catch(() => '');
             throw new Error(`LLM HTTP ${resp.status}: ${t.slice(0, 200)}`);

@@ -12,6 +12,9 @@ const REGISTRY = Object.freeze([
     skill('follow_up.schedule', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'automation.basic', 'external_write', 'L4', ['jobs.write']),
     skill('procedure.execute', ['WEB'], 'automation.procedures', 'external_write', 'L3', ['procedures.execute']),
     skill('desktop.apps.open', ['DESKTOP'], 'desktop.apps', 'local_device_action', 'L3', ['desktop.apps.open']),
+    skill('desktop.browser.open', ['DESKTOP'], 'desktop.apps', 'local_device_action', 'L3', ['desktop.browser.control']),
+    skill('desktop.browser.search', ['DESKTOP'], 'desktop.apps', 'local_device_action', 'L3', ['desktop.browser.control']),
+    skill('desktop.browser.youtube.play', ['DESKTOP'], 'desktop.apps', 'local_device_action', 'L3', ['desktop.browser.control']),
     skill('desktop.apps.discover', ['DESKTOP'], 'desktop.apps', 'read', 'L4', ['desktop.apps.read']),
     skill('desktop.permissions.update', ['DESKTOP'], 'desktop.node', 'security', 'L2', ['desktop.permissions.write']),
     skill('desktop.files.open', ['DESKTOP'], 'desktop.files', 'local_device_action', 'L3', ['desktop.files.read']),
@@ -52,7 +55,7 @@ function skill(name, supportedNodes, entitlement, risk, autonomyMax, permissions
     return {
         name, version: '1.0.0', inputSchema: { type: 'object' }, outputSchema: { type: 'object' },
         supportedNodes, entitlement, risk, permissions, autonomyMax,
-        timeoutMs: risk === 'read' ? 10000 : 30000, retryPolicy: { maxAttempts: risk === 'destructive' ? 1 : 3 }
+        timeoutMs: name.startsWith('desktop.browser.') ? 90000 : risk === 'read' ? 10000 : 30000, retryPolicy: { maxAttempts: risk === 'destructive' || name.startsWith('desktop.browser.') ? 1 : 3 }
     };
 }
 
@@ -83,6 +86,8 @@ function verify(skillName, result = {}) {
     let verified = false;
     let limitation = null;
     if (skillName.startsWith('mobile.media.')) verified = evidence.playbackStateChanged === true || evidence.playbackStateObserved === true;
+    else if (skillName === 'desktop.browser.youtube.play') verified = evidence.pageObserved === true && evidence.playbackObserved === true && evidence.mediaAdvanced === true && !!evidence.urlHash;
+    else if (skillName.startsWith('desktop.browser.')) verified = evidence.pageObserved === true && !!evidence.urlHash;
     else if (skillName === 'desktop.apps.open') verified = evidence.processVisible === true || evidence.windowVisible === true || (evidence.processStarted === true && evidence.executableAllowed === true && !!evidence.executableHash);
     else if (skillName === 'mobile.open_app') verified = evidence.appOpened === true;
     else if (skillName === 'desktop.files.open') verified = evidence.pathOpened === true && !!evidence.pathHash;

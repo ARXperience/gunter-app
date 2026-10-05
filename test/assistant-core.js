@@ -11,6 +11,7 @@ const conversationState = require(path.join(root, 'js', 'core', 'conversation-st
 const assistantToolsModule = require(path.join(root, 'js', 'core', 'assistant-tools.js'));
 const workflowOrchestratorModule = require(path.join(root, 'js', 'core', 'workflow-orchestrator.js'));
 const voiceActivity = require(path.join(root, 'js', 'services', 'voice-activity-service.js'));
+const actionVocabulary = require(path.join(root, 'server', 'actions', 'vocabulary.js'));
 
 let passed = 0;
 function test(name, fn) {
@@ -53,12 +54,34 @@ function browserModule(relativePath, windowOverrides = {}) {
     await test('tolera transcripción fonética "Gonter"', () => {
         assert.equal(invocation.detect('Hey Gonter crea una tarea').type, 'hi_gunter');
     });
+    await test('reconoce una palabra de activación personalizada y conserva la orden', () => {
+        const result = invocation.detect('Computer, abre mi agenda', { wakeWord: 'Computer' });
+        assert.equal(result.type, 'custom_wake_word');
+        assert.equal(result.command, 'abre mi agenda');
+        assert.equal(invocation.detect('Hola Gunter', { wakeWord: 'Computer' }).type, 'hola_gunter');
+    });
     await test('cada familia de llamado responde distinto', () => {
         const hi = invocation.responseFor('hi_gunter', { index: 0 });
         const hola = invocation.responseFor('hola_gunter', { index: 0 });
         const solo = invocation.responseFor('solo_gunter', { index: 0 });
         assert.equal(new Set([hi, hola, solo]).size, 3);
         assert.notEqual(invocation.responseFor('hi_gunter', { index: 0 }), invocation.responseFor('hi_gunter', { index: 1 }));
+    });
+    await test('los ajustes de voz usan únicamente valores válidos de configuración', () => {
+        assert.equal(actionVocabulary.classifyActionIntent('cambia modo de voz a solo con wake word').value, 'wake_word_only');
+        assert.equal(actionVocabulary.classifyActionIntent('cambia personalidad a suave').value, 'soft');
+        assert.equal(actionVocabulary.classifyActionIntent('cambia personalidad a intenso').value, 'intense');
+        assert.equal(actionVocabulary.classifyActionIntent('cambia modo de escucha a continuo').value, 'continuous');
+        assert.equal(actionVocabulary.classifyActionIntent('activa modo sabio').feature.flag, 'tutorMode');
+        assert.equal(actionVocabulary.classifyActionIntent('desactiva modo sabio').intent, 'toggle_off');
+        const customWake = actionVocabulary.classifyActionIntent('cambia la palabra de activación personalizada a Computer');
+        assert.equal(customWake.intent, 'set_text');
+        assert.equal(customWake.feature.flag, 'wakeWord');
+        assert.equal(customWake.value, 'Computer');
+        const timeout = actionVocabulary.classifyActionIntent('cambia el tiempo de escucha a 30 segundos');
+        assert.equal(timeout.intent, 'set_number');
+        assert.equal(timeout.feature.flag, 'wakeWordAutoStopSeconds');
+        assert.equal(timeout.value, 30);
     });
 
     const fixedNow = new Date('2026-08-28T15:45:30.000Z');
@@ -138,7 +161,7 @@ function browserModule(relativePath, windowOverrides = {}) {
         assert.ok(speech.rms > speech.threshold);
     });
 
-    function makeAssistantTools() {
+    function makeAssistantTools(controlOverrides = {}) {
         const tasks = [];
         const events = [];
         const jobs = [];
@@ -185,18 +208,25 @@ function browserModule(relativePath, windowOverrides = {}) {
         const toolset = assistantToolsModule.create({
             root: {
                 GunterConversationState: state,
+                location: controlOverrides.location,
+                localStorage: controlOverrides.localStorage,
+                document: controlOverrides.document,
                 GunterControlPlane: {
                     procedures: async () => ({ items: [{ id: 'proc_weekly', name: 'Completar reporte semanal', state: 'APPROVED', steps: [{ order: 1 }] }] }),
                     conversations: async () => ({ items: [{ id: 'whatsapp:ana', provider: 'whatsapp', peerId: '57300123', peerName: 'Ana' }] }),
                     sendConversationMessage: async value => { sentMessages.push(value); return { ok: true, sentAt: '2026-08-30T18:00:00.000Z' }; },
-                    nodes: async () => ({ items: [
+                    planTask: controlOverrides.planTask,
+                    settings: controlOverrides.settings || (async () => ({ items: [] })),
+                    updateSetting: controlOverrides.updateSetting || (async value => ({ setting: value })),
+                    nodes: controlOverrides.nodes || (async () => ({ items: [
                         { nodeId: 'node_pc', nodeType: 'DESKTOP', state: 'ONLINE' },
                         { nodeId: 'node_android', nodeType: 'ANDROID', state: 'ONLINE' }
-                    ] }),
+                    ] })),
                     queueCommand: async value => { desktopCommands.push(value); return { command: { id: `cmd_${desktopCommands.length}` } }; },
-                    waitForCommand: async id => {
+                    waitForCommand: controlOverrides.waitForCommand || (async id => {
                         const request = desktopCommands[Number(id.split('_')[1]) - 1];
-                        const evidence = request.skill === 'mobile.open_app' ? { appOpened: true }
+                        const evidence = request.skill === 'desktop.permissions.update' ? { permissionsUpdated: true, filesystemScope: request.payload.filesystemScope, programScope: request.payload.programScope }
+                            : request.skill === 'mobile.open_app' ? { appOpened: true }
                             : request.skill.startsWith('mobile.media.') ? { playbackStateObserved: true }
                                 : request.skill === 'mobile.files.list' ? { folderRead: true }
                                     : request.skill === 'mobile.files.search' ? { searchCompleted: true }
@@ -220,7 +250,7 @@ function browserModule(relativePath, windowOverrides = {}) {
                                     : request.skill.startsWith('desktop.ui.') ? { window: request.payload.app, target: request.payload.target?.name }
                                         : { name: request.payload.app || request.payload.path };
                         return { id, state: 'VERIFIED', result, evidence };
-                    }
+                    })
                 },
                 GunterProcedureRecorder: { execute: async id => { executedProcedures.push(id); return { ok: true, executed: [1] }; } }
             },
@@ -229,7 +259,7 @@ function browserModule(relativePath, windowOverrides = {}) {
             jobsService,
             now: () => fixedNow,
             timezone: () => 'America/Bogota',
-            timeParser: {
+            timeParser: controlOverrides.timeParser || {
                 parse: async text => /mañana|manana/i.test(text)
                     ? { iso: '2026-08-29T10:00:00-05:00', kind: 'instant' }
                     : null
@@ -238,10 +268,71 @@ function browserModule(relativePath, windowOverrides = {}) {
         return { toolset, tasks, events, jobs, sentMessages, desktopCommands, executedProcedures, stateTransitions };
     }
 
+    await test('órdenes de Brave y YouTube se resuelven antes de navegación o multimedia genérica', async () => {
+        const { toolset } = makeAssistantTools();
+        for (const phrase of ['entra al navegador de Brave y pon un mix en youtube de ACDC', 'entra al navegador de Brave y por un mix en youtube de ACDC', 'reproduce ACDC en YouTube usando Brave', 'Hi Gunter, pon un mix de ACDC en YouTube con Brave']) {
+            const detected = toolset.detect(phrase);
+            assert.equal(detected.toolId, 'desktop.browser.youtube.play', phrase);
+            assert.equal(detected.args.browser, 'brave', phrase); assert.equal(detected.args.query, 'ACDC', phrase);
+        }
+        assert.equal(toolset.detect('entra al navegador de Brave').args.app, 'Brave');
+        assert.equal(toolset.detect('abre https://example.org en Brave').toolId, 'desktop.browser.open');
+        const unverified = await toolset.dispatch('pon ACDC en YouTube con Brave');
+        assert.equal(unverified.status, 'error'); assert.doesNotMatch(unverified.reply, /Está reproduciéndose/);
+        const realPolicyPath = makeAssistantTools({ planTask: async () => { throw Object.assign(new Error('wrong autonomy'), { code: 'autonomy_exceeds_skill_policy' }); },
+            waitForCommand: async () => ({ state: 'VERIFIED', result: { title: 'AC/DC', browser: 'brave', playing: true }, evidence: { pageObserved: true, playbackObserved: true, mediaAdvanced: true, urlHash: 'observed' } }) });
+        assert.equal((await realPolicyPath.toolset.dispatch('pon ACDC en YouTube con Brave')).status, 'complete');
+        assert.equal(realPolicyPath.desktopCommands[0].autonomy, 'L3');
+    });
+
+    await test('preguntar por un mix o por búsquedas no da permiso para controlar el navegador', () => {
+        const { toolset } = makeAssistantTools();
+        for (const phrase of ['¿Qué es un mix de YouTube?', 'Hola Gunter, ¿cómo puedo reproducir un mix en YouTube?', 'Explícame cómo buscar en Brave']) {
+            assert.equal(toolset.detect(phrase), null, phrase);
+        }
+        assert.equal(toolset.detect('¿Puedes reproducir ACDC en YouTube?').toolId, 'desktop.browser.youtube.play');
+    });
+
+    await test('una tarea sin fecha no consulta al LLM temporal ni inventa ambigüedad', async () => {
+        const { toolset, tasks } = makeAssistantTools({ timeParser: { parse: () => { throw new Error('must not parse an undated task'); } } });
+        const result = await toolset.dispatch('Crea una tarea para revisar el flujo 1791137540089');
+        assert.equal(result.status, 'complete'); assert.equal(tasks.length, 1); assert.equal(tasks[0].dueAt, null);
+    });
+
+    await test('control completo del PC amplía alcance con confirmación y puede limitarse sin invertir la intención', async () => {
+        const { toolset, desktopCommands } = makeAssistantTools();
+        for (const phrase of ['Gunter, activa el control total del computador', 'activa el control completo del PC', 'concede acceso amplio al equipo']) {
+            const match = toolset.detect(phrase);
+            assert.equal(match.toolId, 'desktop.permissions.update', phrase);
+            assert.equal(match.args.scope, 'all', phrase);
+        }
+        for (const phrase of ['desactiva el control total del computador', 'quita el acceso completo del PC', 'no actives el acceso general al PC']) {
+            assert.equal(toolset.detect(phrase).args.scope, 'standard', phrase);
+        }
+        for (const phrase of ['¿Por qué no tienes control total del PC?', '¿Tienes control completo del computador?', 'activa el control completo del celular']) {
+            assert.notEqual(toolset.detect(phrase)?.toolId, 'desktop.permissions.update', phrase);
+        }
+        const proposed = await toolset.dispatch('activa el control completo del PC');
+        assert.equal(proposed.status, 'awaiting_confirmation');
+        assert.equal(desktopCommands.length, 0);
+        assert.match(proposed.reply, /no concede permisos de administrador/i);
+        await toolset.dispatch('no');
+        assert.equal(desktopCommands.length, 0);
+    });
+
+    await test('saludo y ciudad se configuran sin pasar por interpretación de fechas', async () => {
+        const prefs = new Map();
+        const { toolset } = makeAssistantTools({ localStorage: { getItem: key => prefs.get(key) || null, setItem: (key, value) => prefs.set(key, value) }, timeParser: { parse: () => { throw new Error('must not parse settings'); } } });
+        assert.equal((await toolset.dispatch('desactiva el saludo al entrar')).status, 'complete');
+        assert.equal((await toolset.dispatch('mi ciudad es Cali')).status, 'complete');
+        assert.equal((await toolset.dispatch('cambia la zona horaria a America/Bogota')).status, 'complete');
+        assert.equal(toolset.detect('¿Qué es el saludo de entrada?'), null);
+    });
+
     await test('registro expone solo herramientas allowlist', () => {
         const { toolset } = makeAssistantTools();
         assert.deepEqual(toolset.listTools().map(tool => tool.id), [
-            'social.send', 'procedure.execute', 'desktop.apps.open', 'mobile.open_app', 'mobile.files.list', 'mobile.files.search', 'mobile.files.open', 'mobile.media.play_pause', 'mobile.media.next',
+            'social.send', 'app.navigate', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update', 'procedure.execute', 'desktop.apps.open', 'desktop.browser.open', 'desktop.browser.search', 'desktop.browser.youtube.play', 'mobile.open_app', 'mobile.files.list', 'mobile.files.search', 'mobile.files.open', 'mobile.media.play_pause', 'mobile.media.next',
             'desktop.files.open', 'desktop.files.list', 'desktop.files.search',
             'desktop.media.play_pause', 'desktop.media.next', 'desktop.media.previous', 'desktop.media.stop',
             'desktop.media.volume_up', 'desktop.media.volume_down', 'desktop.media.mute',
@@ -250,6 +341,104 @@ function browserModule(relativePath, windowOverrides = {}) {
             'agenda.list', 'jobs.list', 'reminder.schedule', 'follow_up.schedule',
             'jobs.cancel', 'tasks.create', 'calendar.create'
         ]);
+    });
+
+    await test('Gunter aclara acciones ambiguas y no atribuye capacidades no registradas', () => {
+        const { toolset } = makeAssistantTools();
+        const upload = toolset.clarifyRequest('Quiero subir el último archivo a Instagram');
+        assert.ok(upload);
+        assert.equal(upload.status, 'needs_input');
+        assert.match(upload.reply, /no tengo una herramienta de publicación\/subida/i);
+        assert.match(upload.reply, /Conversaciones/);
+        assert.match(upload.reply, /¿Qué resultado buscas exactamente/);
+
+        const app = toolset.clarifyRequest('Necesito trabajar con una aplicación');
+        assert.ok(app);
+        assert.match(app.reply, /aplicación o dispositivo/);
+        const discovery = toolset.clarifyRequest('¿Qué herramienta sirve para publicar una foto en Instagram?');
+        assert.ok(discovery);
+        assert.match(discovery.reply, /no tengo una herramienta de publicación\/subida/i);
+        assert.equal(toolset.clarifyRequest('¿Qué es la herramienta de tareas?'), null);
+        assert.equal(toolset.clarifyRequest('¿Qué es la fotosíntesis?'), null);
+    });
+
+    await test('Gunter navega a páginas y subapartados permitidos', async () => {
+        const visited = [];
+        const { toolset } = makeAssistantTools({ location: { assign: target => visited.push(target) } });
+        const result = await toolset.dispatch('Gunter, llévame a las conversaciones');
+        assert.equal(result.status, 'complete');
+        assert.deepEqual(visited, ['day.html#conversations']);
+        const settings = await toolset.dispatch('abre las opciones avanzadas');
+        assert.equal(settings.status, 'complete');
+        assert.deepEqual(visited, ['day.html#conversations', 'config.html#premium']);
+    });
+
+    await test('Gunter cambia preferencias de apariencia y accesibilidad en la misma sesión', async () => {
+        const values = new Map();
+        const classes = new Set();
+        const localStorage = { getItem: key => values.get(key) || null, setItem: (key, value) => values.set(key, String(value)) };
+        const document = { body: { classList: { remove: (...names) => names.forEach(name => classes.delete(name)), add: name => classes.add(name) } }, documentElement: { classList: { toggle: (name, active) => active ? classes.add(name) : classes.delete(name) } } };
+        const { toolset } = makeAssistantTools({ localStorage, document });
+        const theme = await toolset.dispatch('Gunter, desactiva el modo oscuro');
+        assert.equal(theme.status, 'complete');
+        assert.equal(values.get('gunter_color_mode'), 'light');
+        assert.equal(classes.has('at-light'), true);
+        const motion = await toolset.dispatch('Gunter, activa el movimiento reducido');
+        assert.equal(motion.status, 'complete');
+        assert.equal(JSON.parse(values.get('gunter_prefs')).reduceMotion, true);
+        assert.equal(classes.has('reduce-motion'), true);
+    });
+
+    await test('los cambios de alcance real del PC esperan confirmación y resultado verificado', async () => {
+        const { toolset, desktopCommands } = makeAssistantTools();
+        const proposal = await toolset.dispatch('Gunter, permite acceso completo a archivos y programas en mi PC');
+        assert.equal(proposal.status, 'awaiting_confirmation');
+        assert.equal(desktopCommands.length, 0);
+        const applied = await toolset.dispatch('confirmo');
+        assert.equal(applied.status, 'complete');
+        assert.equal(desktopCommands[0].skill, 'desktop.permissions.update');
+        assert.equal(desktopCommands[0].autonomy, 'L2');
+        assert.equal(desktopCommands[0].payload.filesystemScope, 'all');
+        assert.match(applied.reply, /verificados/i);
+    });
+
+    await test('Gunter cambia toggles y campos avanzados, pide confirmación y verifica el guardado', async () => {
+        const values = [
+            { key: 'voice.continuous', label: 'Voz continua', available: true, enabled: false, requestedEnabled: false, advancedFields: ['wakeWord', 'vad'], advanced: { wakeWord: 'Gunter', vad: true }, updatedAt: 'v1' },
+            { key: 'memory.cortex', label: 'Memoria', available: true, enabled: true, requestedEnabled: true, advancedFields: ['memoryTypes'], advanced: { memoryTypes: ['conversation'] }, updatedAt: 'v2a' },
+            { key: 'memory.semantic', label: 'Memoria semántica', available: true, enabled: true, requestedEnabled: true, advancedFields: ['retentionDays', 'confidenceThreshold'], advanced: { retentionDays: 14, confidenceThreshold: 0.6 }, updatedAt: 'v2' },
+            { key: 'mobile.control', label: 'Control del móvil', available: true, enabled: true, requestedEnabled: true, advancedFields: ['messaging', 'files'], advanced: { messaging: true, files: true }, updatedAt: 'v3' }
+        ];
+        const settings = async () => ({ items: JSON.parse(JSON.stringify(values)) });
+        const updateSetting = async update => {
+            const current = values.find(item => item.key === update.key);
+            if (update.enabled !== undefined) current.enabled = current.requestedEnabled = update.enabled;
+            if (update.advanced) current.advanced = { ...current.advanced, ...update.advanced };
+            return { setting: current };
+        };
+        const { toolset } = makeAssistantTools({ settings, updateSetting });
+        const queried = await toolset.dispatch('Gunter, lista las opciones avanzadas de Memoria semántica');
+        assert.equal(queried.status, 'complete');
+        assert.match(queried.reply, /confidenceThreshold/);
+        const toggle = await toolset.dispatch('Gunter, activa la voz continua');
+        assert.equal(toggle.status, 'awaiting_confirmation');
+        assert.equal(values[0].enabled, false);
+        const activated = await toolset.dispatch('sí');
+        assert.equal(activated.status, 'complete');
+        assert.equal(values[0].enabled, true);
+        assert.match(activated.reply, /verificado/i);
+        const advanced = await toolset.dispatch('Gunter, cambia los días de retención de la memoria semántica a 30 días');
+        assert.equal(advanced.status, 'awaiting_confirmation');
+        assert.equal(values[2].advanced.retentionDays, 14);
+        const saved = await toolset.dispatch('sí');
+        assert.equal(saved.status, 'complete');
+        assert.equal(values[2].advanced.retentionDays, 30);
+        assert.match(saved.reply, /verificado/i);
+        const subOption = await toolset.dispatch('Gunter, desactiva la mensajería del control del móvil');
+        assert.equal(subOption.status, 'awaiting_confirmation');
+        const subSaved = await toolset.dispatch('sí');
+        assert.equal(subSaved.status, 'complete');
+        assert.equal(values[3].advanced.messaging, false);
     });
 
     await test('una ruta aprobada se localiza por nombre y exige confirmación', async () => {
@@ -350,6 +539,36 @@ function browserModule(relativePath, windowOverrides = {}) {
         assert.equal(folder.status, 'complete');
         assert.equal(desktopCommands[2].skill, 'desktop.files.list');
         assert.equal(desktopCommands[2].payload.path, 'C:\\Datos');
+    });
+
+    await test('si el PC no está conectado, Gunter explica la causa y cómo vincularlo', async () => {
+        const { toolset } = makeAssistantTools({ nodes: async () => ({ items: [] }) });
+        const result = await toolset.dispatch('Gunter, abre la calculadora');
+        assert.equal(result.status, 'error');
+        assert.equal(result.verified, false);
+        assert.match(result.reply, /No hay un PC con Gunter Node conectado/i);
+        assert.match(result.reply, /vincúlalo desde Configuración/i);
+    });
+
+    await test('un fallo de permiso indica el motivo y una alternativa, sin exponer códigos crudos', () => {
+        const reply = assistantToolsModule.explainFailure(
+            Object.assign(new Error(assistantToolsModule.desktopErrorMessage('desktop_program_full_access_required')), { code: 'desktop_program_full_access_required' }),
+            { id: 'desktop.apps.open' }
+        );
+        assert.match(reply, /acceso a programas limitado/i);
+        assert.match(reply, /requiere tu confirmación/i);
+        assert.match(reply, /lista permitida/i);
+        assert.doesNotMatch(assistantToolsModule.desktopErrorMessage('some_unknown_internal_code'), /some_unknown_internal_code/);
+    });
+
+    await test('ante un tiempo de espera, Gunter avisa que el resultado es incierto y no aconseja repetir a ciegas', () => {
+        const reply = assistantToolsModule.explainFailure(
+            Object.assign(new Error(assistantToolsModule.desktopErrorMessage('desktop_ui_timeout')), { code: 'desktop_ui_timeout' }),
+            { id: 'desktop.ui.click' }
+        );
+        assert.match(reply, /resultado puede ser incierto/i);
+        assert.match(reply, /antes de reintentar/i);
+        assert.match(reply, /evitamos duplicarlo/i);
     });
 
     await test('mensaje social se prepara y solo se envía tras confirmación', async () => {

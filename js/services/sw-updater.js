@@ -9,6 +9,7 @@
     if (!('serviceWorker' in navigator)) return;
 
     const CURRENT_APP_VERSION = "v66b-gunter-pixar-1783590000000";
+    const hadControllerOnLoad = !!navigator.serviceWorker.controller;
 
     // Al cargar la página, verifica si hay update del SW
     navigator.serviceWorker.getRegistration()
@@ -33,6 +34,8 @@
     // Cuando el nuevo SW toma control, recargar para que aplique
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
+        // First install must not interrupt the entry greeting or an active form.
+        if (!hadControllerOnLoad) return;
         if (refreshing) return;
         refreshing = true;
         console.log('[sw-updater] SW cambió, recargando⬦');
@@ -44,7 +47,9 @@
     const KEY = 'gunter_app_version';
     try {
         const savedVer = localStorage.getItem(KEY);
-        if (savedVer !== CURRENT_APP_VERSION) {
+        if (!savedVer) {
+            localStorage.setItem(KEY, CURRENT_APP_VERSION);
+        } else if (savedVer !== CURRENT_APP_VERSION) {
             console.log('[sw-updater] Versión app cambió:', savedVer, '� ', CURRENT_APP_VERSION);
             navigator.serviceWorker.getRegistrations().then(regs => {
                 for (const r of regs) r.unregister().catch(() => {});

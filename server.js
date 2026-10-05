@@ -413,6 +413,22 @@ const handleRequest = async (req, res) => {
         return;
     }
 
+    if (parsedUrl.pathname === '/api/location/reverse' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', async () => {
+            try {
+                const result = await require('./server/location').reverse(JSON.parse(body));
+                res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify(result));
+            } catch (error) {
+                res.writeHead(error instanceof SyntaxError ? 400 : error.status || 503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ error: error.status === 400 ? 'invalid_coordinates' : 'location_unavailable' }));
+            }
+        });
+        return;
+    }
+
     // Transcription endpoint
     if (parsedUrl.pathname === '/api/transcribe' && req.method === 'POST') {
         try {

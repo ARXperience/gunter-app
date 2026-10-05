@@ -41,6 +41,8 @@
     let ttsAvailable = null;   // se detecta primera vez
     let lastSpokenText = '';
     let speechStartedAt = 0;
+    let generation = 0;
+    let synthesisController = null;
 
     function notifyVoiceState(state, detail = {}) {
         try {
@@ -111,7 +113,7 @@
     }
 
     // ---------- OpenAI TTS path ----------
-    async function synthesizeOpenAI(text, { voice, speed }) {
+    async function synthesizeOpenAI(text, { voice, speed }, signal) {
         const cacheKey = `${voice}:${speed}:${text}`;
         if (audioCache.has(cacheKey)) {
             return audioCache.get(cacheKey);
@@ -119,6 +121,7 @@
         const resp = await fetch('/api/tts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal,
             body: JSON.stringify({ text, voice, speed, model: 'tts-1-hd' })
         });
         if (!resp.ok) {
@@ -150,8 +153,9 @@
         );
     }
 
-    function speakFallback(text, sv) {
-        if (!('speechSynthesis' in window)) return;
+    function speakFallback(text, sv, token = generation) {
+        if (token !== generation) return;
+        if (!('speechSynthesis' in window)) { speaking = false; processQueue(); return; }
         const u = new SpeechSynthesisUtterance(String(text).slice(0, 800));
         u.lang = 'es-MX';
         u.rate = sv.speed;
@@ -163,6 +167,7 @@
         }
         currentUtterance = u;
         u.onend = u.onerror = () => {
+            if (token !== generation) return;
             currentUtterance = null;
             speaking = false;
             processQueue();
@@ -267,40 +272,64 @@
             return;
         }
         speaking = true;
+        const token = generation;
         lastSpokenText = next.text;
         speechStartedAt = Date.now();
-        notifyVoiceState('speaking', { context: next.opts.context || 'chat' });
+        notifyVoiceState('preparing', { context: next.opts.context || 'chat' });
+
+        const controller = new AbortController();
+        synthesisController = controller;
+        const synthesisDeadline = setTimeout(() => controller.abort(), 2000);
 
         try {
             await checkTtsAvailable();
+            if (token !== generation) return;
             // Try OpenAI first
-            const url = await synthesizeOpenAI(next.text, next.sv);
+            const url = await synthesizeOpenAI(next.text, next.sv, controller.signal);
+            clearTimeout(synthesisDeadline);
+            if (token !== generation) return;
             const audio = new Audio(url);
             audio.volume = next.opts.volume ?? 1;
             currentAudio = audio;
             audio.onended = audio.onerror = () => {
+                if (token !== generation) return;
                 currentAudio = null;
                 speaking = false;
                 processQueue();
             };
             await audio.play().catch(err => {
+                if (token !== generation) return;
+                audio.onended = audio.onerror = null;
+                currentAudio = null;
                 console.warn('[voice] audio.play() failed, fallback:', err);
-                speakFallback(next.text, next.sv);
+                speakFallback(next.text, next.sv, token);
             });
+            if (token === generation) notifyVoiceState('speaking', { context: next.opts.context || 'chat' });
         } catch (err) {
+            if (token !== generation) return;
             // Fallback al synthesizer del navegador
             console.warn('[voice] OpenAI TTS failed, fallback:', err.message);
-            speakFallback(next.text, next.sv);
+            speakFallback(next.text, next.sv, token);
+            notifyVoiceState('speaking', { context: next.opts.context || 'chat' });
+        } finally {
+            clearTimeout(synthesisDeadline);
+            if (synthesisController === controller) synthesisController = null;
         }
     }
 
     function cancel(reason = 'cancelled') {
+        generation += 1;
+        synthesisController?.abort();
+        synthesisController = null;
         queue = [];
         speaking = false;
         if (currentAudio) {
+            currentAudio.onended = currentAudio.onerror = null;
             try { currentAudio.pause(); currentAudio.currentTime = 0; } catch {}
             currentAudio = null;
         }
+        if (currentUtterance) currentUtterance.onend = currentUtterance.onerror = null;
+        currentUtterance = null;
         try { speechSynthesis.cancel(); } catch {}
         notifyVoiceState('idle', { reason });
     }
@@ -313,7 +342,7 @@
     // una interrupción del usuario. Se compara la transcripción reciente
     // con el texto que está reproduciendo el TTS.
     function isLikelyEcho(transcript) {
-        if (!speaking || !transcript || !lastSpokenText) return false;
+        if (!speaking || (!currentAudio && !currentUtterance) || !transcript || !lastSpokenText) return false;
         if (Date.now() - speechStartedAt > 60_000) return false;
         const clean = value => String(value || '').toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '')

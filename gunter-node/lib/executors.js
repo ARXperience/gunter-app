@@ -21,6 +21,7 @@ const UI_SHORTCUTS = Object.freeze(new Set([
 ]));
 
 async function execute(command, context = {}) {
+    if (command.skill.startsWith('desktop.browser.')) return require('./browser-control').executeBrowser(command.skill, command.payload || {}, context);
     if (command.skill === 'desktop.apps.open') return openApp(command.payload || {}, context);
     if (command.skill === 'desktop.apps.discover') return discoverPrograms(command.payload || {}, context);
     if (command.skill === 'desktop.permissions.update') return context.updatePermissions ? context.updatePermissions(command.payload || {}) : unavailable('permission_runtime_unavailable');
@@ -135,6 +136,7 @@ function openApp(payload, context = {}) {
     const configured = { ...WINDOWS_APPS, ...(context.allowedApps || {}) }[name];
     const requestedPath = payload.programPath || payload.path || (/^[a-zA-Z]:[\\/]/.test(String(payload.app || '')) ? payload.app : null);
     let executable = configured;
+    if (!executable && ['brave', 'chrome', 'edge'].includes(name)) executable = require('./browser-control').resolveBrowser(name, context).executablePath;
     if (requestedPath) {
         if (context.fullProgramAccess !== true) throw coded('desktop_program_full_access_required');
         executable = path.resolve(String(requestedPath));

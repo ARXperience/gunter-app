@@ -1,22 +1,19 @@
 /* Localized Gunter hologram: original Stitch geometry, camera and orbital interaction.
- * Three.js r125 is vendored locally. Nothing is drawn on the page background. */
+ * Three.js r125 is vendored locally as an ES module. Nothing is drawn on the page background. */
 (function () {
     'use strict';
     if (window.GunterParticles) return;
     const sourceURL = document.currentScript?.src || new URL('js/services/gunter-particles.js', location.href).href;
-    const libraryURL = new URL('../../assets/vendor/three-r125.min.js', sourceURL).href;
+    const libraryURL = new URL('../../assets/vendor/three-r125.module.js', sourceURL).href;
     const records = new Map(), pending = new WeakSet();
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
     let libraryPromise, raf = 0, lastFrame = 0, disposed = false;
 
     function loadThree() {
         if (window.THREE?.WebGLRenderer) return Promise.resolve(window.THREE);
-        if (!libraryPromise) libraryPromise = new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = libraryURL; script.async = true;
-            script.onload = () => window.THREE?.WebGLRenderer ? resolve(window.THREE) : reject(new Error('Renderer unavailable'));
-            script.onerror = () => reject(new Error('Renderer unavailable'));
-            document.head.appendChild(script);
+        if (!libraryPromise) libraryPromise = import(libraryURL).then(THREE => {
+            window.THREE = THREE;
+            return THREE;
         });
         return libraryPromise;
     }
@@ -32,8 +29,9 @@
 
     function buildGeometry(THREE, variant) {
         const hero = variant === 'hero', penguinCount = hero ? 2400 : variant === 'chat' ? 1200 : 800;
-        const cyan = new THREE.Color(0x55c6d5), deep = new THREE.Color(0x268da9);
+        const cyan = new THREE.Color(0x55c6d5), deep = new THREE.Color(0x102d3d);
         const turquoise = new THREE.Color(0x2dd4bf), electric = new THREE.Color(0x95edee), white = new THREE.Color(0xffffff);
+        const belly = new THREE.Color(0xeaf5ef), beak = new THREE.Color(0xf5a136), feet = new THREE.Color(0xd9842a), eye = new THREE.Color(0x111923);
         const rings = [
             { radius: 3.8, y: 1.2, count: 420, speed: .65, color: white, ticks: true, tiltX: .1, tiltZ: -.05 },
             { radius: 5.6, y: 0, count: 680, speed: -.45, color: electric, ticks: true, tiltX: -.15, tiltZ: .12 },
@@ -49,6 +47,8 @@
         let index = 0;
         function add(x, y, z, color, speed = 0) {
             const p = index * 3;
+            const figureScale = hero && index < penguinCount ? 1.32 : 1;
+            x *= figureScale; y *= figureScale; z *= figureScale;
             positions[p] = base[p] = x; positions[p + 1] = base[p + 1] = y; positions[p + 2] = base[p + 2] = z;
             colors[p] = baseColors[p] = color.r; colors[p + 1] = baseColors[p + 1] = color.g; colors[p + 2] = baseColors[p + 2] = color.b;
             speeds[index] = speed; index++;
@@ -60,21 +60,30 @@
                 const theta = Math.random() * Math.PI * 2, phi = Math.acos(Math.random() * 2 - 1);
                 x = 2.1 * Math.sin(phi) * Math.cos(theta) * (.85 + .15 * Math.random());
                 y = 3.5 * Math.cos(phi) - .2; z = 1.6 * Math.sin(phi) * Math.sin(theta) * (.85 + .15 * Math.random());
-                color = Math.random() > .4 ? cyan : white;
+                color = z > .18 ? (Math.random() > .13 ? belly : cyan) : deep;
             } else if (part < .68) {
-                const theta = Math.random() * Math.PI * 2, phi = Math.acos(Math.random() * 2 - 1), radius = 1.5 * (.88 + .12 * Math.random());
-                x = radius * Math.sin(phi) * Math.cos(theta) * .92;
-                y = 3.3 + radius * Math.cos(phi) * .95; z = radius * Math.sin(phi) * Math.sin(theta) * .88;
-                color = Math.random() > .5 ? white : electric;
+                if (Math.random() < .28) {
+                    const side = i % 2 ? -1 : 1, pupil = Math.random() < .55, angle = Math.random() * Math.PI * 2;
+                    const radius = pupil ? Math.sqrt(Math.random()) * .115 : .2 + Math.random() * .09;
+                    x = side * .57 + Math.cos(angle) * radius;
+                    y = 3.48 + Math.sin(angle) * radius * 1.14;
+                    z = 1.205 + (pupil ? .045 : 0);
+                    color = pupil ? eye : white;
+                } else {
+                    const theta = Math.random() * Math.PI * 2, phi = Math.acos(Math.random() * 2 - 1), radius = 1.5 * (.88 + .12 * Math.random());
+                    x = radius * Math.sin(phi) * Math.cos(theta) * .92;
+                    y = 3.3 + radius * Math.cos(phi) * .95; z = radius * Math.sin(phi) * Math.sin(theta) * .88;
+                    color = z > .2 ? (Math.random() > .16 ? belly : electric) : deep;
+                }
             } else if (part < .88) {
                 const side = Math.random() > .5 ? 1 : -1, t = Math.random();
-                x = side * (1.9 + t * 1.5 + (Math.random() - .5) * .3); y = 1.9 - t * 3.8; z = (Math.random() - .5) * .5; color = turquoise;
+                x = side * (1.9 + t * 1.5 + (Math.random() - .5) * .3); y = 1.9 - t * 3.8; z = (Math.random() - .5) * .5; color = deep;
             } else if (part < .94) {
                 const t = Math.random();
-                x = (Math.random() - .5) * .4 * (1 - t); y = 3.2 - t * .45; z = 1.35 + t * 1.5; color = white;
+                x = (Math.random() - .5) * .4 * (1 - t); y = 3.2 - t * .45; z = 1.35 + t * 1.5; color = beak;
             } else {
                 const side = Math.random() > .5 ? 1 : -1;
-                x = side * (1 + Math.random() * .7); y = -3.8 + (Math.random() - .5) * .4; z = Math.random() - .5; color = deep;
+                x = side * (1 + Math.random() * .7); y = -3.8 + (Math.random() - .5) * .4; z = Math.random() - .5; color = feet;
             }
             add(x, y, z, color);
         }
@@ -167,7 +176,7 @@
         camera.zoom = variant === 'hero' ? 1 : variant === 'chat' ? 1.75 : 2.15;
         const group = new THREE.Group(); group.rotation.set(.52, -.42, 0); scene.add(group);
         const figure = buildGeometry(THREE, variant), texture = makeTexture(THREE);
-        const material = new THREE.PointsMaterial({ size: variant === 'hero' ? .36 : .43, vertexColors: true,
+        const material = new THREE.PointsMaterial({ size: variant === 'hero' ? .46 : .43, vertexColors: true,
             map: texture, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
         const points = new THREE.Points(figure.geometry, material); points.frustumCulled = false; group.add(points);
         const record = { el, THREE, variant, canvas, renderer, scene, camera, group, figure, texture, material, visible: !visibilityObserver,
@@ -285,7 +294,10 @@
             pending.add(el);
             loadThree().then(THREE => {
                 if (!disposed && el.isConnected && !records.has(el) && !createRecord(el, THREE)) el.dataset.particlesReady = 'unavailable';
-            }).catch(() => { el.dataset.particlesReady = 'unavailable'; }).finally(() => pending.delete(el));
+            }).catch(error => {
+                el.dataset.particlesReady = 'unavailable';
+                console.warn('[Gunter hologram] No se pudo cargar el renderer local.', error);
+            }).finally(() => pending.delete(el));
         }
     }
     function replaceLegacyDashboardMascot() {
