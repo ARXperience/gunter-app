@@ -336,7 +336,8 @@ function queueCommand(userId, input = {}, actor = {}) {
     if (duplicate) return { ok: true, duplicate: true, command: publicCommand(duplicate) };
     const authorization = skills.authorizeProposal({
         userId, actor, skillName: input.skill, node: publicNode(node), payload: input.payload || {},
-        autonomy: input.autonomy || 'L3', confirmed: input.confirmed === true
+        autonomy: input.autonomy || 'L3', confirmed: input.confirmed === true,
+        inputSource: input.inputSource === 'voice' ? 'voice' : 'text'
     });
     if (!authorization.ok) return authorization;
     const payload = sanitizePayload(input.payload);
@@ -346,7 +347,8 @@ function queueCommand(userId, input = {}, actor = {}) {
         traceId: input.traceId || observability.newTraceId(), userId, nodeId: node.nodeId,
         skill: authorization.skill.name, skillVersion: authorization.skill.version,
         payload, payloadHash: store.hash(JSON.stringify(payload)), idempotencyKey,
-        autonomy: input.autonomy || 'L3', state: 'QUEUED', requestedAt: now, updatedAt: now,
+        autonomy: input.autonomy || 'L3', inputSource: input.inputSource === 'voice' ? 'voice' : 'text',
+        state: 'QUEUED', requestedAt: now, updatedAt: now,
         pushWakeup: ['ANDROID', 'IOS'].includes(node.nodeType) && node.mobilePush?.encryptedToken ? newPushWakeup(now) : null,
         expiresAt: new Date(Date.now() + Math.max(30_000, Math.min(Number(input.ttlMs) || 300_000, 86_400_000))).toISOString(),
         result: null, evidence: null, verification: null, error: null
@@ -544,6 +546,7 @@ function publicCommand(command) {
         id: command.id, traceId: command.traceId, userId: command.userId, nodeId: command.nodeId,
         skill: command.skill, skillVersion: command.skillVersion, payload: command.payload,
         payloadHash: command.payloadHash, idempotencyKey: command.idempotencyKey, autonomy: command.autonomy,
+        inputSource: command.inputSource || 'text',
         state: command.state, requestedAt: command.requestedAt, receivedAt: command.receivedAt || null,
         pushWakeup: command.pushWakeup ? publicPushWakeup(command.pushWakeup) : null,
         completedAt: command.completedAt || null, expiresAt: command.expiresAt,

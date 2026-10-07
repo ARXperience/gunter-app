@@ -602,6 +602,7 @@
     }
 
     async function handleUserMessage(text, messageOptions = {}) {
+        const voiceInput = messageOptions.inputSource === 'voice';
         interrupt();
         const turnId = STATE.turnId;
         const controller = new AbortController();
@@ -636,13 +637,13 @@
             // al registro allowlist; interceptores históricos pueden interpretar
             // "memoria semántica" como una pregunta sobre memoria conversacional.
             const earlyIntent = window.GunterAssistantTools?.detect?.(text);
-            if (/\b(personalidad|estilo de voz|modo de personalidad|intensidad|ponte|comportamiento)\b/i.test(text) && window.GunterActions?.dispatch) {
+            if (!voiceInput && /\b(personalidad|estilo de voz|modo de personalidad|intensidad|ponte|comportamiento)\b/i.test(text) && window.GunterActions?.dispatch) {
                 const styleResult = await window.GunterActions.dispatch(text);
                 if (turnId !== STATE.turnId) return;
                 if (styleResult?.reply) { clearTimeout(safetyTimer); finishTyping(); reply(styleResult.reply); return; }
             }
             if (earlyIntent && ['app.navigate', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update'].includes(earlyIntent.toolId)) {
-                const earlyResult = await withTimeout(window.GunterAssistantTools.dispatch(text), 8000, 'assistant-settings-timeout');
+                const earlyResult = await withTimeout(window.GunterAssistantTools.dispatch(text, { inputSource: voiceInput ? 'voice' : 'text' }), 8000, 'assistant-settings-timeout');
                 if (turnId !== STATE.turnId) return;
                 if (earlyResult?.handled) {
                     clearTimeout(safetyTimer);
@@ -657,7 +658,7 @@
             }
 
             // 0. Client intercepts (logs, service status, diagnosis) — antes del server
-            const clientResp = tryClientIntercepts(text);
+            const clientResp = voiceInput ? null : tryClientIntercepts(text);
             if (clientResp) {
                 // Algunas responses son async (ej. tutor catalog)
                 if (clientResp.__asyncPromise) {
@@ -681,7 +682,7 @@
 
             // 0.2. Planes multipaso durables. Solo intercepta cuando detecta
             // dos o más habilidades Web permitidas y siempre propone antes de actuar.
-            if (window.GunterWorkflowOrchestrator?.dispatch) {
+            if (!voiceInput && window.GunterWorkflowOrchestrator?.dispatch) {
                 try {
                     const workflowResponse = await withTimeout(
                         window.GunterWorkflowOrchestrator.dispatch(text),
@@ -714,7 +715,7 @@
             if (window.GunterAssistantTools?.dispatch) {
                 try {
                     const toolResponse = await withTimeout(
-                        window.GunterAssistantTools.dispatch(text),
+                        window.GunterAssistantTools.dispatch(text, { inputSource: voiceInput ? 'voice' : 'text' }),
                         toolTimeout,
                         'assistant-tools-timeout'
                     );
@@ -758,7 +759,7 @@
 
             // 1. Intentar action dispatcher (toggle, query, list) con timeout
             let response = null;
-            if (window.GunterActions?.dispatch) {
+            if (!voiceInput && window.GunterActions?.dispatch) {
                 try {
                     response = await withTimeout(
                         window.GunterActions.dispatch(resolvedText),
@@ -793,7 +794,7 @@
             // 1.5. LLM classifier bridge — si el regex no matcheó nada, preguntamos
             //      al LLM si es realmente un intent de feature (typos, phrasing raro).
             //      Solo si tenemos NLP + tiempo.
-            if (window.GunterNlpLlm?.complete && window.GunterActions?.dispatch && text.length < 200 && /\b(feature|funci[oó]n|herramienta|configuraci[oó]n|opci[oó]n|ajuste|modo|personalidad|activa|desactiva|habilita|enciende|apaga|prende)\b/i.test(text)) {
+            if (!voiceInput && window.GunterNlpLlm?.complete && window.GunterActions?.dispatch && text.length < 200 && /\b(feature|funci[oó]n|herramienta|configuraci[oó]n|opci[oó]n|ajuste|modo|personalidad|activa|desactiva|habilita|enciende|apaga|prende)\b/i.test(text)) {
                 if (turnId !== STATE.turnId) return;
                 try {
                     const classifier = await withTimeout(
@@ -1454,7 +1455,7 @@ Gunter:`;
         __handleFromWake: (text) => {
             if (!STATE.mounted) mount();
             expand();
-            return handleUserMessage(text, { voiceContext: 'wake-word-response', wakeWordResponse: true });
+            return handleUserMessage(text, { voiceContext: 'wake-word-response', wakeWordResponse: true, inputSource: 'voice' });
         }
     };
 

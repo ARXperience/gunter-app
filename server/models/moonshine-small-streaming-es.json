@@ -1,0 +1,28 @@
+{
+  "id": "moonshine-small-streaming-es-quantized-26-08-24",
+  "family": "Moonshine Voice Spanish Small Streaming",
+  "version": "0.1.5",
+  "source": "https://download.moonshine.ai/model/small-streaming-es/quantized_26_08_24",
+  "revision": "quantized_26_08_24",
+  "modelArch": 4,
+  "files": {
+    "adapter.ort": { "size": 2869296, "sha256": "04b54114c8aab534222922640f7ca0882948ff9f6ed76777f6e184e55a8e8b15" },
+    "cross_kv.ort": { "size": 5358752, "sha256": "4bfd0a641d72ccdae22751f86bbb2e25ff70c1fba4f81213f2415a1accff9618" },
+    "decoder_kv.ort": { "size": 61314512, "sha256": "5b77c3d6baf801ef925a5bc54d7eb3db0c35ebbb86f8eaf5390d7f5bb42fef37" },
+    "encoder.ort": { "size": 44358376, "sha256": "a9b8d6d5d9348d0e319cceffdb0196ef622df8e4e9f3fb4797dcd8dfafd50857" },
+    "frontend.model.ort": { "size": 26776, "sha256": "69c76287f49db365aa278d4908ec450e69ca1b4bfb7e836159d963d623ee0c13" },
+    "frontend.weights.ort": { "size": 7769280, "sha256": "2f5a0eb5f3004c9447810d74274a352746319a32144e31d95ef410f425b84dda" },
+    "streaming_config.json": { "size": 512, "sha256": "12d16c7f5ea6734d197b79baf47914ea7e996d6fca8d303a19aca10d0617cecc" },
+    "tokenizer.bin": { "size": 102888, "sha256": "5fbb7d4314dcb18e03c5f975609e4a4cd572b22b01d2b2accb1b3e6830696f36" }
+  },
+  "size": 121800392,
+  "license": "MIT (streaming STT); PACKAGING_LICENSE_WARNING_PENDING_VENDOR_CLARIFICATION",
+  "languages": ["es"],
+  "runtime": "Moonshine Voice v0.1.5 native C++/ONNX Runtime Windows x64 sidecar",
+  "runtimeFiles": {
+    "transcriber.exe": "4081c29bd30e40208904691deaeb3d8279253c9333e9286fa4236227a9dc0083",
+    "onnxruntime.dll": "dec964ab1ee36cc9b0ae247d13b376627992fc57dec0454354017ab8fd84f1ea"
+  },
+  "capabilities": ["transcribe", "streaming_vad"],
+  "approval": "APPROVED_FOR_TRANSCRIPTION_ONLY"
+}

@@ -130,7 +130,7 @@
         host.querySelector('#gsr-later').addEventListener('click', () => host.innerHTML = '');
     }
 
-    /** Reenvía cada chunk persistido a Whisper y construye un transcript. */
+    /** Reenvía cada chunk persistido al proveedor STT seleccionado y construye un transcript. */
     async function recover(host, meta) {
         const banner = host.querySelector('.gsr-banner');
         const actions = host.querySelector('#gsr-actions');
@@ -157,7 +157,7 @@
                 } else {
                     // reintentar
                     try {
-                        const text = await sendChunkToWhisper(c.blob, i, url);
+                        const text = await sendChunkToSTT(c.blob, i, url);
                         transcripts.push(text);
                     } catch (e) {
                         console.warn(`[session-recovery] chunk ${i} failed:`, e.message);
@@ -201,7 +201,7 @@
         }
     }
 
-    async function sendChunkToWhisper(blob, index, url) {
+    async function sendChunkToSTT(blob, index, url) {
         const form = new FormData();
         form.append('file', blob, `recover_${index}.webm`);
         form.append('model', (window.GUNTER_CONFIG?.WHISPER_MODEL) || 'whisper-1');

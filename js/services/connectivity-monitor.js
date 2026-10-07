@@ -177,7 +177,13 @@
             localBrainReady: hybrid.localBrainReady === true,
             localBrainModel: hybrid.localBrainModel || null,
             localBrainError: hybrid.localBrainError || null,
-            cloudSTTAvailable: cloudAllowed && configured('stt'), localSTTAvailable: false,
+            cloudSTTAvailable: cloudAllowed && configured('stt'),
+            localSTTAvailable: hybrid.localSTTReady === true && hybrid.flags?.['stt.local'] === true,
+            localSTTInstalled: hybrid.localSTTInstalled === true,
+            localSTTRuntimeAvailable: hybrid.localSTTRuntimeAvailable === true,
+            localSTTReady: hybrid.localSTTReady === true,
+            localSTTModel: hybrid.localSTTModel || null,
+            localSTTError: hybrid.localSTTError || null,
             cloudTTSAvailable: cloudAllowed && configured('tts'), localTTSAvailable: false,
             cloudEmbeddingAvailable: cloudAllowed && configured('embeddings'), localEmbeddingAvailable: false,
             syncAvailable: STATE.online && STATE.apiHealthy && hybrid.loaded && !!hybrid.sync };
@@ -187,6 +193,8 @@
             headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, privacy }) });
         const result = await response.json();
         if (!response.ok || !result.success) throw Object.assign(new Error(result.error || 'hybrid_mode_failed'), { code: result.error });
+        hybrid = { ...hybrid, ...(result.data || {}), mode, privacy, loaded: true };
+        window.dispatchEvent(new CustomEvent('gunter-hybrid-state', { detail: runtimeSnapshot() }));
         return refreshHybrid();
     }
     window.GunterRuntimeState = { getState: runtimeSnapshot, refresh: refreshHybrid, setMode: setHybridMode };

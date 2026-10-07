@@ -268,6 +268,36 @@ function browserModule(relativePath, windowOverrides = {}) {
         return { toolset, tasks, events, jobs, sentMessages, desktopCommands, executedProcedures, stateTransitions };
     }
 
+    await test('voz: acciones con efecto lateral conservan transcripción y exigen confirmación escrita', async () => {
+        const { toolset, tasks, sentMessages, desktopCommands } = makeAssistantTools();
+        const created = await toolset.dispatch('crea una tarea para revisar seguridad', { inputSource: 'voice' });
+        assert.equal(created.status, 'awaiting_confirmation');
+        assert.match(created.reply, /crea una tarea para revisar seguridad/i);
+        assert.equal(tasks.length, 0);
+        const spokenYes = await toolset.dispatch('sí', { inputSource: 'voice' });
+        assert.equal(spokenYes.status, 'awaiting_confirmation');
+        assert.equal(tasks.length, 0);
+        await toolset.dispatch('no', { inputSource: 'voice' });
+        const send = await toolset.dispatch('Envía a Ana por WhatsApp el mensaje hola', { inputSource: 'voice' });
+        assert.equal(send.status, 'awaiting_confirmation');
+        assert.equal(sentMessages.length, 0);
+        await toolset.dispatch('no', { inputSource: 'voice' });
+        const mismatch = await toolset.dispatch('pone música', { inputSource: 'voice' });
+        assert.notEqual(mismatch.status, 'complete');
+        assert.equal(desktopCommands.length, 0);
+        const open = await toolset.dispatch('abre calculadora', { inputSource: 'voice' });
+        assert.equal(open.status, 'awaiting_confirmation');
+        await toolset.dispatch('sí', { inputSource: 'text' });
+        assert.equal(desktopCommands[0]?.inputSource, 'voice');
+    });
+
+    await test('voz: consulta de agenda es de solo lectura y no pide confirmación', async () => {
+        const { toolset } = makeAssistantTools();
+        const result = await toolset.dispatch('¿Qué tengo hoy en mi agenda?', { inputSource: 'voice' });
+        assert.equal(result.status, 'complete');
+        assert.notEqual(result.requiresConfirmation, true);
+    });
+
     await test('órdenes de Brave y YouTube se resuelven antes de navegación o multimedia genérica', async () => {
         const { toolset } = makeAssistantTools();
         for (const phrase of ['entra al navegador de Brave y pon un mix en youtube de ACDC', 'entra al navegador de Brave y por un mix en youtube de ACDC', 'reproduce ACDC en YouTube usando Brave', 'Hi Gunter, pon un mix de ACDC en YouTube con Brave']) {
@@ -581,7 +611,7 @@ function browserModule(relativePath, windowOverrides = {}) {
         assert.equal(confirmed.status, 'complete');
         assert.equal(sentMessages.length, 1);
         assert.equal(sentMessages[0].text, 'llego a las cinco');
-        assert.equal(sentMessages[0].source, 'user_voice_confirmed');
+        assert.equal(sentMessages[0].source, 'user_text_confirmed');
     });
 
     await test('programa un recordatorio durable y verifica su persistencia', async () => {

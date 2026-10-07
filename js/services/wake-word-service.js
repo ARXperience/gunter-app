@@ -185,6 +185,14 @@
     }
 
     async function start(fromUserGesture = false) {
+        const hybrid = window.GunterRuntimeState?.getState?.() || {};
+        if (hybrid.loaded !== true) return;
+        if (hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY') {
+            // Browser SpeechRecognition may use a remote service. Never enable it
+            // while the user has selected an exclusively local STT route.
+            window.GunterNotificationsService?.showToast?.('En modo local usa el botón Hablar: pulsa para grabar y vuelve a pulsar para transcribir con Moonshine.', { variant: 'info' });
+            return;
+        }
         const cfg = getConfig();
         if (!cfg.enabled) { setIndicator('off', ''); return; }
         if (running) return;
@@ -460,6 +468,14 @@
             return;
         }
 
+        // Fail closed: legacy fallbacks below do not preserve voice provenance
+        // through every settings/action path. They must never turn STT output
+        // into an implicit authorization when the guarded companion is absent.
+        ensureAssistantOpen();
+        window.GunterVoice?.speak?.('El chat seguro no está disponible en esta página. Abre el asistente y vuelve a intentarlo.',
+            { context: 'wake-word-response' });
+        return;
+
         const voiceDestination = resolveVoiceNavigation(text);
         if (voiceDestination) {
             const context = window.GunterVoice?.isMeetingActive?.() ? 'meeting' : 'wake-word-response';
@@ -683,6 +699,10 @@
 
     window.addEventListener('gunterPremiumFeaturesChange', (e) => {
         if (e.detail?.key === 'wakeWordEnabled' || e.detail?.key === null) refresh();
+    });
+    window.addEventListener('gunter-hybrid-state', event => {
+        const hybrid = event.detail || {};
+        if (hybrid.loaded !== true || hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY') stop();
     });
 
     window.addEventListener('gunter-vad-state', event => {

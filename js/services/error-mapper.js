@@ -20,6 +20,11 @@
         LOCAL_MODEL_NOT_INSTALLED: { user: 'El modelo local todavía no está instalado.', hint: 'Usa AUTO/CLOUD mientras se prepara el proveedor local.' },
         LOCAL_PROVIDER_NOT_INSTALLED: { user: 'El proveedor local para esta función todavía no está instalado.', hint: 'LOCAL_ONLY mantiene bloqueada la nube; vuelve a STANDARD si quieres usar el proveedor actual.' },
         LOCAL_PROVIDER_UNAVAILABLE: { user: 'El cerebro local no está disponible ahora.', hint: 'Comprueba el modelo y el runtime, o vuelve a AUTO/CLOUD si quieres usar la nube.' },
+        LOCAL_STT_NOT_INSTALLED: { user: 'Moonshine local no está instalado.', hint: 'Instala el modelo español verificado o usa AUTO/CLOUD para transcribir en la nube.' },
+        LOCAL_STT_UNAVAILABLE: { user: 'Moonshine local no pudo transcribir.', hint: 'Revisa el modelo, el motor y sus hashes. LOCAL_ONLY no enviará el audio a la nube.' },
+        LOCAL_STT_INVALID_AUDIO: { user: 'No pude leer ese audio.', hint: 'Usa un formato de audio admitido y comprueba que la grabación no esté vacía.' },
+        LOCAL_STT_AUDIO_TOO_LARGE: { user: 'El audio excede el límite local de 120 segundos o 30 MB.', hint: 'Divídelo en fragmentos más cortos.' },
+        LOCAL_STT_BUSY: { user: 'Moonshine está transcribiendo otro audio.', hint: 'Espera a que termine antes de enviar otro fragmento.' },
         SQLITE_NOT_CONFIGURED: { user: 'La base SQLite aún no está configurada.', hint: 'Los datos web permanecen en su almacenamiento actual.' },
         // Network / connectivity
         offline:           { user: 'Sin conexión a internet. Verifica tu red.', hint: 'Tus datos locales siguen seguros.' },
@@ -164,6 +169,8 @@
         for (const code of ['PROVIDER_UNAVAILABLE', 'NETWORK_UNAVAILABLE', 'PERMISSION_DENIED', 'CONFIRMATION_REQUIRED', 'LOCAL_ONLY_MODE', 'SYNC_UNAVAILABLE'])
             if (message.includes(code)) return code;
         if (/LOCAL_PROVIDER_NOT_INSTALLED/.test(message)) return 'LOCAL_PROVIDER_NOT_INSTALLED';
+        for (const code of ['LOCAL_STT_NOT_INSTALLED', 'LOCAL_STT_UNAVAILABLE', 'LOCAL_STT_INVALID_AUDIO', 'LOCAL_STT_AUDIO_TOO_LARGE', 'LOCAL_STT_BUSY'])
+            if (message.includes(code)) return code;
         if (/LOCAL_MODEL_NOT_INSTALLED/.test(message)) return 'LOCAL_MODEL_NOT_INSTALLED';
         if (/SQLITE_NOT_CONFIGURED/.test(message)) return 'SQLITE_NOT_CONFIGURED';
 

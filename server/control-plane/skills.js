@@ -95,7 +95,7 @@ function authorizeProposal(input = {}) {
     return { ...result, impact: result.skill.impact };
 }
 
-function authorize({ userId, actor = {}, skillName, node, autonomy = 'L3', confirmed = false } = {}) {
+function authorize({ userId, actor = {}, skillName, node, autonomy = 'L3', confirmed = false, inputSource = 'text' } = {}) {
     const entry = get(skillName);
     if (!entry) return { ok: false, error: 'skill_not_found' };
     const nodeType = node?.nodeType || node?.node_type || 'WEB';
@@ -107,6 +107,8 @@ function authorize({ userId, actor = {}, skillName, node, autonomy = 'L3', confi
     const requestedIndex = AUTONOMY.indexOf(autonomy);
     const maxIndex = AUTONOMY.indexOf(entry.autonomyMax);
     if (requestedIndex < 0 || requestedIndex > maxIndex) return { ok: false, error: 'autonomy_exceeds_skill_policy' };
+    if (inputSource === 'voice' && entry.risk !== 'read' && !confirmed)
+        return { ok: false, error: 'confirmation_required', requiresConfirmation: true };
     const trustedRoutine = ['external_write', 'local_device_action'].includes(entry.risk) && requestedIndex >= AUTONOMY.indexOf('L4') && maxIndex >= AUTONOMY.indexOf('L4');
     if (['external_write', 'sensitive', 'destructive', 'financial', 'security'].includes(entry.risk) && autonomy !== 'L2' && !trustedRoutine && !confirmed) {
         return { ok: false, error: 'confirmation_required', requiresConfirmation: true };

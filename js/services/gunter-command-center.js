@@ -135,6 +135,18 @@
             const voiceToggle = event.target.closest('[data-gunter-voice-toggle]');
             if (voiceToggle) {
                 event.preventDefault();
+                const hybrid = window.GunterRuntimeState?.getState?.() || {};
+                if (hybrid.loaded !== true) {
+                    window.GunterNotificationsService?.showToast?.('Espera a que se verifique el modo de privacidad antes de abrir el micrófono.', { variant: 'info' });
+                    return;
+                }
+                if (hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY') {
+                    const ptt = window.GunterSTT?.pushToTalk;
+                    if (!ptt) window.GunterNotificationsService?.showToast?.('La captura local de voz no está disponible en esta página.', { variant: 'warn' });
+                    else if (ptt.isActive()) ptt.stop();
+                    else ptt.start().catch(error => window.GunterNotificationsService?.showToast?.(`No pude abrir el micrófono: ${error.code || error.message}`, { variant: 'warn' }));
+                    return;
+                }
                 const wakeWord = window.GunterWakeWord;
                 if (!wakeWord) {
                     window.GunterNotificationsService?.showToast?.('La función de voz todavía no está disponible.', { variant: 'warn', duration: 4000, silent: true });
@@ -194,6 +206,7 @@
             });
         };
         window.addEventListener('wake-word-state', event => syncVoice(event.detail));
+        window.addEventListener('gunter-push-to-talk-state', event => syncVoice(event.detail));
         syncVoice(window.GunterWakeWord?.getState?.());
         return nav;
     }
@@ -254,7 +267,7 @@
                         </svg>
                         <div class="gunter-console__mascot" data-gunter-particles="hero" role="img" aria-label="Holograma interactivo de Gunter en partículas"></div>
                     </div>
-                    <div class="gunter-console__core-bottom"><span class="gunter-console__led" aria-hidden="true"></span><span data-console-voice>Voz en reposo</span><button class="gunter-home__focus" type="button">${icon('message')} Escribir</button></div>
+                    <div class="gunter-console__core-bottom"><span class="gunter-console__led" aria-hidden="true"></span><span data-console-voice>Voz en reposo</span><button class="gunter-home__focus" type="button">${icon('message')} Escribir</button><button class="gunter-home__focus gunter-home__voice" type="button" aria-pressed="false">${icon('microphone')} Hablar</button></div>
                 </div>
                 <aside class="gunter-console__panel gunter-console__tools" aria-label="Herramientas de Gunter">
                     <h2>${icon('organize')} Tus herramientas</h2>
@@ -288,6 +301,21 @@
             window.setTimeout(() => home.classList.remove('is-command-focused'), 900);
         };
         home.querySelector('.gunter-home__focus')?.addEventListener('click', focusCommand);
+        home.querySelector('.gunter-home__voice')?.addEventListener('click', () => {
+            const hybrid = window.GunterRuntimeState?.getState?.() || {};
+            if (hybrid.loaded !== true) {
+                window.GunterNotificationsService?.showToast?.('Espera a que se verifique el modo de privacidad antes de abrir el micrófono.', { variant: 'info' });
+                return;
+            }
+            if (hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY') {
+                const ptt = window.GunterSTT?.pushToTalk;
+                if (ptt?.isActive()) ptt.stop();
+                else ptt?.start()?.catch(error => window.GunterNotificationsService?.showToast?.(`No pude abrir el micrófono: ${error.code || error.message}`, { variant: 'warn' }));
+                return;
+            }
+            if (window.GunterWakeWord?.isActive?.()) window.GunterWakeWord.stop();
+            else window.GunterWakeWord?.start?.(true);
+        });
         home.addEventListener('keydown', event => {
             if (event.key === 'Escape') {
                 home.classList.remove('is-command-open');
@@ -314,8 +342,10 @@
             const active = !!(event?.detail?.active ?? window.GunterWakeWord?.isActive?.());
             home.querySelectorAll('[data-console-voice]').forEach(node => { node.textContent = active ? 'Escuchando' : 'Voz en reposo'; });
             home.classList.toggle('is-listening', active);
+            home.querySelector('.gunter-home__voice')?.setAttribute('aria-pressed', String(active));
         };
         window.addEventListener('wake-word-state', syncConsoleVoice);
+        window.addEventListener('gunter-push-to-talk-state', syncConsoleVoice);
         syncConsoleVoice();
         const clock = home.querySelector('#gunter-home-clock');
         const updateClock = () => {

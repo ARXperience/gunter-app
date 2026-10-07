@@ -1,5 +1,7 @@
 # Base híbrida reversible — 2026-10-04
 
+> Fase posterior (2026-10-06): [LOCAL_STT.md](LOCAL_STT.md) integra Moonshine solo para transcripción en Windows. El mapa y el texto histórico de esta fundación describen su estado anterior: STT ya no es un stub si modelo/runtime están instalados y `stt.local` está activo. AUTO/CLOUD y el rollback de la fundación permanecen intactos.
+
 > Fase posterior (2026-10-05): [LOCAL_BRAIN.md](LOCAL_BRAIN.md) integra únicamente chat de texto local tras superar gates; este documento conserva el estado histórico de la fundación. AUTO/CLOUD no se alteran y STT/TTS/embeddings continúan como stubs locales.
 
 Estado: **fundación, no migración de motores ni datos**. La ruta por defecto `AUTO/STANDARD` sigue usando los endpoints y proveedores existentes. Ningún modelo local, SQLite, sincronización general ni shell nuevo se instala o activa con esta fase.

@@ -131,6 +131,15 @@
             this.liveEntries = [];             // Web Speech finals
             this.authoritativeEntries = [];    // Whisper finals
             this.pendingUploads = 0;
+            this._onHybridState = event => {
+                const hybrid = event.detail || {};
+                if (hybrid.loaded !== true || hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY') {
+                    try { this.recognition?.abort(); } catch { }
+                    this.recognition = null;
+                    this.webSpeechAlive = false;
+                }
+            };
+            window.addEventListener('gunter-hybrid-state', this._onHybridState);
         }
 
         static isSupported() {
@@ -226,6 +235,7 @@
         }
 
         async destroy(deletePersistence = false) {
+            window.removeEventListener('gunter-hybrid-state', this._onHybridState);
             try { await this.stop(); } catch { }
             try { this.stream?.getTracks().forEach(t => t.stop()); } catch { }
             try { if (this.audioContext && this.audioContext.state !== 'closed') await this.audioContext.close(); } catch { }
@@ -390,20 +400,8 @@
             form.append('language', (this.options.language || 'es').split('-')[0]);
             form.append('response_format', 'json');
 
-            if (window.GunterSTT?.transcribe) return window.GunterSTT.transcribe(form, { url: this.options.whisperUrl });
-            const resp = await fetch(this.options.whisperUrl, { method: 'POST', body: form });
-            if (!resp.ok) {
-                const txt = await resp.text().catch(() => '');
-                throw new Error(`Whisper HTTP ${resp.status}: ${txt.slice(0, 200)}`);
-            }
-            // Proxy may return text/plain containing JSON — be tolerant
-            const raw = await resp.text();
-            try {
-                const json = JSON.parse(raw);
-                return json.text || json.transcript || '';
-            } catch {
-                return raw;
-            }
+            if (!window.GunterSTT?.transcribe) throw new Error('El proveedor de transcripción no está disponible en esta página.');
+            return window.GunterSTT.transcribe(form, { url: this.options.whisperUrl });
         }
 
         async _waitForUploads(timeoutMs) {
@@ -415,6 +413,13 @@
 
         // ---------- Web Speech (fast live feedback) ----------
         _startWebSpeech() {
+            const hybrid = window.GunterRuntimeState?.getState?.() || {};
+            if (hybrid.loaded !== true || hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY') {
+                // Web Speech may use a remote browser service. Chunks still flow
+                // through GunterSTT/Moonshine; no live cloud feedback in local mode.
+                this.options.onBackupStatus({ webSpeech: 'disabled_local_mode' });
+                return;
+            }
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SR) {
                 this.options.onBackupStatus({ webSpeech: 'unsupported' });
@@ -469,7 +474,11 @@
                     if (!this.isRunning || this.isPaused) return;
                     // Exponential-ish backoff capped at 2s
                     const delay = Math.min(2000, 250 * Math.pow(2, Math.min(3, this.webSpeechRetries++)));
-                    setTimeout(() => { try { r.start(); } catch { } }, delay);
+                    setTimeout(() => {
+                        const hybrid = window.GunterRuntimeState?.getState?.() || {};
+                        if (hybrid.loaded !== true || hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY') return;
+                        try { r.start(); } catch { }
+                    }, delay);
                 };
 
                 this.recognition = r;

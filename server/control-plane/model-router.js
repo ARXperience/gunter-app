@@ -2,6 +2,7 @@
 const flags = require('./feature-flags');
 const entitlements = require('./entitlements');
 const localBrain = require('../local-brain');
+const localSTT = require('../local-stt');
 
 function inventory() {
     return [
@@ -34,7 +35,7 @@ function route(userId, input = {}, actor = {}) {
 function provider(id, available, location, capabilities, quality, cost, privateByDefault) { return { id, available, location, capabilities, quality, cost, privateByDefault }; }
 const HYBRID_CAPABILITIES = Object.freeze(['chat', 'stt', 'tts', 'embeddings']);
 const HYBRID_ERRORS = Object.freeze(['PROVIDER_UNAVAILABLE', 'LOCAL_MODEL_NOT_INSTALLED', 'NETWORK_UNAVAILABLE',
-    'PERMISSION_DENIED', 'CONFIRMATION_REQUIRED', 'LOCAL_ONLY_MODE', 'SYNC_UNAVAILABLE', 'LOCAL_PROVIDER_NOT_INSTALLED', 'LOCAL_PROVIDER_UNAVAILABLE']);
+    'PERMISSION_DENIED', 'CONFIRMATION_REQUIRED', 'LOCAL_ONLY_MODE', 'SYNC_UNAVAILABLE', 'LOCAL_PROVIDER_NOT_INSTALLED', 'LOCAL_PROVIDER_UNAVAILABLE', 'LOCAL_STT_NOT_INSTALLED', 'LOCAL_STT_UNAVAILABLE']);
 function normalizeHybridError(code) {
     const raw = String(code || 'PROVIDER_UNAVAILABLE').toUpperCase();
     return HYBRID_ERRORS.includes(raw) ? raw : ({ provider_unavailable: 'PROVIDER_UNAVAILABLE',
@@ -43,6 +44,12 @@ function normalizeHybridError(code) {
 function resolveHybrid(kind, preferences = {}, actor = {}) {
     if (!HYBRID_CAPABILITIES.includes(kind)) return { ok: false, code: 'PROVIDER_NOT_SUPPORTED' };
     if (preferences.privacy === 'LOCAL_ONLY' || preferences.mode === 'LOCAL') {
+        if (kind === 'stt') {
+            if (!localSTT.installed()) return { ok: false, code: 'LOCAL_STT_NOT_INSTALLED', provider: 'local', kind };
+            if (!flags.evaluate('stt.local', actor).enabled || !localSTT.snapshot().localSTTRuntimeAvailable)
+                return { ok: false, code: 'LOCAL_STT_UNAVAILABLE', provider: 'local', kind };
+            return { ok: true, provider: 'local', kind, mode: preferences.mode || 'AUTO' };
+        }
         if (kind !== 'chat') return { ok: false, code: 'LOCAL_PROVIDER_NOT_INSTALLED', provider: 'local', kind };
         if (!localBrain.installed()) return { ok: false, code: preferences.privacy === 'LOCAL_ONLY' ? 'LOCAL_PROVIDER_NOT_INSTALLED' : 'LOCAL_MODEL_NOT_INSTALLED', provider: 'local', kind };
         if (!flags.evaluate('ai.local', actor).enabled) return { ok: false, code: 'LOCAL_PROVIDER_UNAVAILABLE', provider: 'local', kind };
@@ -61,7 +68,13 @@ function hybridInventory() {
             status: localBrain.snapshot().localBrainReady ? 'READY' : localBrain.installed() ? 'INSTALLED_NOT_READY' : 'NOT_INSTALLED',
             runtimeAvailable: localBrain.snapshot().localBrainRuntimeAvailable,
             model: localBrain.snapshot().localBrainModel,
-            error: localBrain.snapshot().localBrainError } : { installed: false, status: 'NOT_INSTALLED' },
+            error: localBrain.snapshot().localBrainError } : kind === 'stt' ? {
+                installed: localSTT.snapshot().localSTTInstalled,
+                status: localSTT.snapshot().localSTTReady ? 'READY' : localSTT.installed() ? 'INSTALLED_NOT_READY' : 'NOT_INSTALLED',
+                runtimeAvailable: localSTT.snapshot().localSTTRuntimeAvailable,
+                model: localSTT.snapshot().localSTTModel,
+                error: localSTT.snapshot().localSTTError
+            } : { installed: false, status: 'NOT_INSTALLED' },
         ...(kind === 'tts' ? { browserFallback: { installed: true, status: 'CURRENT_BROWSER_FALLBACK' } } : {})
     }]));
 }

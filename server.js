@@ -78,6 +78,7 @@ let controlPlane = null;
 try { controlPlane = require('./server/control-plane'); }
 catch (e) { console.warn('⚠️  Control Plane module not available:', e.message); }
 const localBrain = require('./server/local-brain');
+const localSTT = require('./server/local-stt');
 
 // Etapa 3 — Actions dispatcher (control unificado de features)
 let actions = null;
@@ -431,11 +432,12 @@ const handleRequest = async (req, res) => {
                 return res.end(JSON.stringify({ success: false, error: decision.code, code: decision.code,
                     message: 'El proveedor local aún no está instalado. Cambia a AUTO/CLOUD o instala uno en una fase posterior.' }));
             }
-            if (decision.provider === 'local' && parsedUrl.pathname !== '/api/chat') {
+            if (decision.provider === 'local' && !['/api/chat', '/api/transcribe'].includes(parsedUrl.pathname)) {
                 res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
                 return res.end(JSON.stringify({ success: false, error: 'LOCAL_ONLY_MODE', code: 'LOCAL_ONLY_MODE' }));
             }
             if (hybridKind === 'chat') req.gunterBrainProvider = decision.provider;
+            if (hybridKind === 'stt') req.gunterSTTProvider = decision.provider;
         }
     }
 
@@ -461,28 +463,55 @@ const handleRequest = async (req, res) => {
             let body = [];
             let totalSize = 0;
 
+            const maxSize = req.gunterSTTProvider === 'local' ? 31 * 1024 * 1024 : MAX_BODY_SIZE;
             req.on('data', chunk => {
                 totalSize += chunk.length;
 
                 // Check if size exceeds limit
-                if (totalSize > MAX_BODY_SIZE) {
-                    req.connection.destroy();
+                if (totalSize > maxSize) {
+                    if (req.gunterSTTProvider === 'local') body = [];
+                    else req.connection.destroy();
                     return;
                 }
 
                 body.push(chunk);
             });
 
-            req.on('end', () => {
-                if (totalSize > MAX_BODY_SIZE) {
+            req.on('end', async () => {
+                if (totalSize > maxSize) {
                     res.writeHead(413, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({
-                        error: `File too large. Maximum size is ${MAX_BODY_SIZE / (1024 * 1024)} MB. Received ${(totalSize / (1024 * 1024)).toFixed(2)} MB.`
+                        ...(req.gunterSTTProvider === 'local'
+                            ? { error: 'AUDIO_TOO_LARGE', code: 'LOCAL_STT_AUDIO_TOO_LARGE' }
+                            : { error: `File too large. Maximum size is ${MAX_BODY_SIZE / (1024 * 1024)} MB. Received ${(totalSize / (1024 * 1024)).toFixed(2)} MB.` })
                     }));
                     return;
                 }
 
                 body = Buffer.concat(body);
+
+                if (req.gunterSTTProvider === 'local') {
+                    const parsed = extractMultipartFile(body, req.headers['content-type']);
+                    if (!parsed?.file?.data?.length) {
+                        res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                        return res.end(JSON.stringify({ error: 'LOCAL_STT_INVALID_AUDIO', code: 'LOCAL_STT_INVALID_AUDIO' }));
+                    }
+                    const controller = new AbortController();
+                    res.once('close', () => { if (!res.writableEnded) controller.abort(); });
+                    try {
+                        const text = await localSTT.transcribeAudio(parsed.file.data, parsed.file.mime, { signal: controller.signal });
+                        if (res.destroyed) return;
+                        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                        return res.end(JSON.stringify({ text, provider: 'moonshine.local', inputSource: 'voice' }));
+                    } catch (error) {
+                        if (res.destroyed) return;
+                        const code = error.code || 'LOCAL_STT_UNAVAILABLE';
+                        const status = code === 'LOCAL_STT_INVALID_AUDIO' ? 400 : code === 'LOCAL_STT_AUDIO_TOO_LARGE' ? 413
+                            : code === 'LOCAL_STT_BUSY' ? 429 : 503;
+                        res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                        return res.end(JSON.stringify({ error: code, code, detail: error.cause || null }));
+                    }
+                }
 
                 // v42 — Sin OpenAI: transcripción via Gemini (mismo shape {text} de Whisper)
                 if (!OPENAI_API_KEY) {

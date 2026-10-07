@@ -16,6 +16,7 @@ const attention = require('./attention');
 const evolution = require('./evolution');
 const modelRouter = require('./model-router');
 const localBrain = require('../local-brain');
+const localSTT = require('../local-stt');
 const observability = require('./observability');
 const operations = require('./operations');
 const capabilities = require('./capabilities');
@@ -44,9 +45,10 @@ async function handle(req, res, pathname, query = {}) {
         if (req.method === 'GET' && route === 'hybrid/status') {
             const userId = targetUser(actor, query.userId);
             const local = await localBrain.health();
+            const stt = await localSTT.health();
             return send(res, 200, { success: true, data: {
                 ...settings.hybridStatus(userId), providers: modelRouter.hybridInventory(),
-                ...local,
+                ...local, ...stt,
                 flags: Object.fromEntries(['ai.local', 'stt.local', 'tts.local', 'embeddings.local', 'hybrid.routing'].map(key => [key, flags.evaluate(key, { ...actor, userId }).enabled])),
                 sync: sync.status(userId), storage: { web: 'CURRENT_STORES', sqlite: 'NOT_CONFIGURED' }
             } });
@@ -57,6 +59,14 @@ async function handle(req, res, pathname, query = {}) {
             if (action !== 'stop' && !flags.evaluate('ai.local', actor).enabled)
                 return send(res, 403, { success: false, error: 'LOCAL_PROVIDER_UNAVAILABLE' });
             const result = action === 'start' ? await localBrain.start() : action === 'restart' ? await localBrain.restart() : localBrain.stop();
+            return send(res, 200, { success: true, data: result });
+        }
+        if (req.method === 'POST' && ['local-stt/start', 'local-stt/stop', 'local-stt/restart'].includes(route)) {
+            if (!isAdmin(actor)) return forbidden(res);
+            const action = route.slice('local-stt/'.length);
+            if (action !== 'stop' && !flags.evaluate('stt.local', actor).enabled)
+                return send(res, 403, { success: false, error: 'LOCAL_STT_UNAVAILABLE' });
+            const result = action === 'stop' ? localSTT.stop() : action === 'restart' ? await localSTT.restart() : await localSTT.health();
             return send(res, 200, { success: true, data: result });
         }
         if (req.method === 'POST' && route === 'hybrid/mode') {

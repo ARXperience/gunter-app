@@ -40,9 +40,9 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     });
     expect(hybrid.initial.data.mode).toBe('AUTO');
     expect(hybrid.changed.success).toBe(true);
-    for (const result of Object.values(hybrid.blocked)) {
+    for (const [endpoint, result] of Object.entries(hybrid.blocked)) {
         expect(result.status).toBe(503);
-        expect(result.body.code).toBe('LOCAL_PROVIDER_NOT_INSTALLED');
+        expect(result.body.code).toBe(endpoint === 'transcribe' ? 'LOCAL_STT_NOT_INSTALLED' : 'LOCAL_PROVIDER_NOT_INSTALLED');
     }
     expect(hybrid.restored.data.mode).toBe('AUTO');
     expect(hybrid.cloudBody.code).not.toBe('LOCAL_PROVIDER_NOT_INSTALLED');
@@ -93,8 +93,14 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await page.locator('#pref-language').selectOption('es-MX');
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gunter_prefs')).city)).toBe('Cali');
     await page.evaluate(() => window.GunterCompanion.__handleFromWake('desactiva el saludo al entrar'));
+    await expect(page.locator('#pref-entry-greeting')).toBeChecked();
+    await page.evaluate(() => window.GunterCompanion.__handleFromWake('sí'));
+    await expect(page.locator('#pref-entry-greeting')).toBeChecked();
+    await page.evaluate(() => window.GunterAssistantTools.dispatch('sí', { inputSource: 'text' }));
     await expect(page.locator('#pref-entry-greeting')).not.toBeChecked();
     await page.evaluate(() => window.GunterCompanion.__handleFromWake('activa el saludo al entrar'));
+    await expect(page.locator('#pref-entry-greeting')).not.toBeChecked();
+    await page.evaluate(() => window.GunterAssistantTools.dispatch('sí', { inputSource: 'text' }));
     await expect(page.locator('#pref-entry-greeting')).toBeChecked();
     const preferencesTab = page.locator('#config-tab-preferences');
     await expect(preferencesTab).toBeVisible();

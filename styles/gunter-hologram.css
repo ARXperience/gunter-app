@@ -107,6 +107,7 @@ html body.gunter-page-day .gunter-console .gday__chip { display: flex; flex-wrap
 .gunter-console__inner-ring { color: var(--console-ink); opacity: .65; }
 .gunter-console__mascot { position: absolute; inset: -4%; width: 108%; height: 108%; touch-action: pan-y; cursor: crosshair; }
 .gunter-console__core-bottom { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; color: var(--console-accent); font: 500 9px/1.4 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: .06em; }
+body.gunter-page-day .gunter-console__core-bottom .gunter-home__voice { display: inline-flex; min-height: 32px; margin: 0; padding: 0 12px; }
 .gunter-console__led { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--console-muted); }
 .gunter-console.is-listening .gunter-console__led { background: var(--console-accent); box-shadow: 0 0 10px var(--console-accent); }
 .gunter-console .gunter-home__focus { display: none; }

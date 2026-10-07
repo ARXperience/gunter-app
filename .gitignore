@@ -29,6 +29,8 @@ whatsapp-data/
 
 # Dependencies
 node_modules/
+native/moonshine/*.exe
+native/moonshine/*.dll
 
 # Logs
 *.log

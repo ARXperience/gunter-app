@@ -13,6 +13,8 @@
 })(typeof window !== 'undefined' ? window : null, function (root) {
     const PENDING_KEY = 'gunter_pending_tool_v1';
     const PENDING_TTL_MS = 5 * 60 * 1000;
+    const VOICE_READ_ONLY_TOOLS = new Set(['app.navigate', 'settings.list', 'agenda.list', 'jobs.list',
+        'desktop.files.list', 'desktop.files.search', 'desktop.ui.inspect', 'mobile.files.list', 'mobile.files.search']);
 
     function normalize(value) {
         return String(value || '')
@@ -167,14 +169,14 @@
             try { runtime.dispatchEvent(new runtime.CustomEvent('gunter-tool-execution', { detail })); } catch { /* opcional */ }
         }
 
-        async function executeDesktopSkill(skill, payload = {}) {
+        async function executeDesktopSkill(skill, payload = {}, inputSource = 'text') {
             const control = runtime.GunterControlPlane;
             if (!control?.nodes || !control?.queueCommand || !control?.waitForCommand) throw new Error('Gunter Node no está disponible en esta pantalla.');
             const nodeData = await control.nodes();
             const node = (nodeData.items || []).find(item => item.nodeType === 'DESKTOP' && ['ONLINE', 'DEGRADED', 'SYNCING'].includes(item.state));
             if (!node) throw new Error('No hay un PC con Gunter Node conectado. Vincúlalo desde Configuración.');
             const queued = await control.queueCommand({
-                nodeId: node.nodeId, skill, payload, autonomy: 'L3', confirmed: true,
+                nodeId: node.nodeId, skill, payload, autonomy: 'L3', confirmed: true, inputSource,
                 idempotencyKey: `assistant:${skill}:${Date.now()}:${Math.random().toString(36).slice(2, 9)}`,
                 ttlMs: 120000
             });
@@ -188,14 +190,14 @@
             return { ...(command.result || {}), commandId: command.id, evidence: command.evidence || {} };
         }
 
-        async function executeMobileSkill(skill, payload = {}) {
+        async function executeMobileSkill(skill, payload = {}, inputSource = 'text') {
             const control = runtime.GunterControlPlane;
             if (!control?.nodes || !control?.queueCommand || !control?.waitForCommand) throw new Error('Gunter móvil no está disponible en esta pantalla.');
             const nodeData = await control.nodes();
             const node = (nodeData.items || []).find(item => ['ANDROID', 'IOS'].includes(item.nodeType) && ['ONLINE', 'DEGRADED', 'SYNCING'].includes(item.state));
             if (!node) throw new Error('No hay un móvil con Gunter conectado. Vincúlalo desde Configuración y abre su acompañante.');
             const queued = await control.queueCommand({
-                nodeId: node.nodeId, skill, payload, autonomy: 'L3', confirmed: true,
+                nodeId: node.nodeId, skill, payload, autonomy: 'L3', confirmed: true, inputSource,
                 idempotencyKey: `assistant:${skill}:${Date.now()}:${Math.random().toString(36).slice(2, 9)}`,
                 ttlMs: 120000
             });
@@ -223,8 +225,9 @@
                     skill: tool.id,
                     intent: match.args?.rawText || tool.id,
                     priority: match.args?.priority || 'normal',
-                    autonomy: tool.confirm === 'never' ? 'L4' : 'L3',
-                    confirmed: confirmed || tool.confirm === 'never'
+                    autonomy: tool.confirm === 'never' && match.args?.inputSource !== 'voice' ? 'L4' : 'L3',
+                    confirmed: confirmed || (tool.confirm === 'never' && match.args?.inputSource !== 'voice'),
+                    inputSource: match.args?.inputSource || 'text'
                 });
                 return planned?.run || null;
             } catch (error) {
@@ -555,12 +558,16 @@
                 };
             }
 
-            if (tool.confirm === 'always' && !confirmed) {
-                const prompt = tool.confirmation(match.args);
-                savePending({ toolId: tool.id, args: match.args, prompt });
+            const voiceSideEffect = match.args?.inputSource === 'voice' && !VOICE_READ_ONLY_TOOLS.has(tool.id);
+            if ((tool.confirm === 'always' || voiceSideEffect) && !confirmed) {
+                const prompt = tool.confirmation?.(match.args) || `¿Confirmas que realice ${tool.description || tool.id}?`;
+                const visiblePrompt = voiceSideEffect
+                    ? `He entendido: “${String(match.args.voiceTranscript || match.args.rawText || '').slice(0, 500)}”.\n${prompt}\nConfirma por escrito o en pantalla; una respuesta de voz no autoriza esta acción.`
+                    : prompt;
+                savePending({ toolId: tool.id, args: match.args, prompt: visiblePrompt, inputSource: match.args.inputSource || 'text' });
                 state('awaiting_confirmation', 'tool-confirmation-required', { toolId: tool.id });
                 notify({ phase: 'awaiting_confirmation', toolId: tool.id, args: match.args });
-                return { handled: true, intent: tool.id, status: 'awaiting_confirmation', requiresConfirmation: true, reply: prompt };
+                return { handled: true, intent: tool.id, status: 'awaiting_confirmation', requiresConfirmation: true, reply: visiblePrompt };
             }
 
             state('thinking', 'tool-executing', { toolId: tool.id });
@@ -627,11 +634,14 @@
             return { result, evidence, reply };
         }
 
-        async function dispatch(text) {
+        async function dispatch(text, options = {}) {
             try { await runtime.GunterContextProvider?.enrich?.(text, { channel: 'tool' }); } catch { /* local-first */ }
             const normalized = normalize(text);
             const pending = getPending();
             if (pending && isAffirmative(normalized)) {
+                if (options.inputSource === 'voice') return { handled: true, intent: pending.toolId,
+                    status: 'awaiting_confirmation', requiresConfirmation: true,
+                    reply: 'He oído una confirmación, pero por seguridad confirma por escrito o en pantalla.' };
                 savePending(null);
                 return execute({ toolId: pending.toolId, args: pending.args }, true);
             }
@@ -645,6 +655,7 @@
             const detected = detect(text);
             if (!detected) return { handled: false };
             const prepared = await prepare(detected);
+            if (options.inputSource === 'voice') prepared.args = { ...prepared.args, inputSource: 'voice', voiceTranscript: String(text || '') };
             return execute(prepared, false);
         }
 
@@ -665,7 +676,8 @@
             async execute(args) {
                 const control = runtime.GunterControlPlane;
                 if (!control?.sendConversationMessage) throw new Error('El centro de conversaciones no está disponible.');
-                return control.sendConversationMessage({ provider: args.target.provider, peerId: args.target.peerId, text: args.message, confirmed: true, source: 'user_voice_confirmed' });
+                return control.sendConversationMessage({ provider: args.target.provider, peerId: args.target.peerId, text: args.message, confirmed: true,
+                    source: args.inputSource === 'voice' ? 'user_voice_confirmed' : 'user_text_confirmed', inputSource: args.inputSource || 'text' });
             },
             verify(result) { return result?.ok === true && Boolean(result.sentAt); },
             formatResult(result, args) { return `Mensaje enviado y verificado a ${args.target.peerName} por ${args.target.provider}.`; }
@@ -741,6 +753,7 @@
                 if (!node) throw new Error('No hay un PC de escritorio vinculado y conectado. Abre Configuración → Asistente IA → Dispositivos para vincularlo.');
                 const queued = await control.queueCommand({ nodeId: node.nodeId, skill: 'desktop.permissions.update',
                     payload: { filesystemScope: args.scope, programScope: args.scope, confirmed: true }, autonomy: 'L2', confirmed: true,
+                    inputSource: args.inputSource || 'text',
                     idempotencyKey: `assistant:permissions:${node.nodeId}:${args.scope}:${Date.now()}`, ttlMs: 120000 });
                 const command = await control.waitForCommand(queued.command.id, { timeoutMs: 60000 });
                 if (command.state !== 'VERIFIED') throw new Error(command.error || command.result?.error || 'El PC no verificó el cambio de permisos.');
@@ -835,7 +848,7 @@
             description: 'Abre una aplicación permitida en el PC conectado.',
             confirm: 'never', reversible: true,
             validate(args) { return args.app || args.programPath ? { ok: true } : { ok: false, reply: '¿Qué programa quieres abrir?' }; },
-            execute(args) { return executeDesktopSkill('desktop.apps.open', { app: args.app, programPath: args.programPath }); },
+            execute(args) { return executeDesktopSkill('desktop.apps.open', { app: args.app, programPath: args.programPath }, args.inputSource); },
             verify(result) { return result?.evidence?.processStarted === true; },
             formatResult(result, args) { return `Abrí ${args.app || args.programPath} en tu PC.`; }
         });
@@ -848,7 +861,7 @@
                 if (args.url) { try { const url = new URL(args.url); if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error(); } catch { return { ok: false, reply: 'Necesito una dirección HTTP o HTTPS válida.' }; } }
                 return { ok: true };
             },
-            execute(args) { return executeDesktopSkill(id, args); },
+            execute(args) { return executeDesktopSkill(id, args, args.inputSource); },
             verify(result) { return result.evidence?.pageObserved === true && (id !== 'desktop.browser.youtube.play' || result.evidence?.playbackObserved === true && result.evidence?.mediaAdvanced === true); },
             formatResult(result) { return id === 'desktop.browser.youtube.play' ? `Está reproduciéndose en ${result.browser === 'default' ? 'el navegador' : result.browser}: ${result.title || result.query}.` : `Abrí ${result.url} en ${result.browser === 'default' ? 'el navegador' : result.browser}.`; }
         });
@@ -858,14 +871,14 @@
             description: 'Abre una aplicación o enlace permitido en el móvil conectado.',
             confirm: 'never', reversible: true,
             validate(args) { return args.app || args.programPath ? { ok: true } : { ok: false, reply: '¿Qué aplicación quieres abrir en el móvil?' }; },
-            execute(args) { return executeMobileSkill('mobile.open_app', { app: args.app, deepLink: args.deepLink }); },
+            execute(args) { return executeMobileSkill('mobile.open_app', { app: args.app, deepLink: args.deepLink }, args.inputSource); },
             verify(result) { return result?.evidence?.appOpened === true; },
             formatResult(result, args) { return `Abrí ${args.app || result.opened || 'la aplicación solicitada'} en el móvil.`; }
         });
 
         register({
             id: 'mobile.files.list', description: 'Lista la carpeta autorizada en el móvil conectado.', confirm: 'never', reversible: true,
-            execute() { return executeMobileSkill('mobile.files.list'); },
+            execute(args) { return executeMobileSkill('mobile.files.list', {}, args.inputSource); },
             verify(result) { return result?.evidence?.folderRead === true; },
             formatResult(result) {
                 const items = result.items || [];
@@ -877,7 +890,7 @@
         register({
             id: 'mobile.files.search', description: 'Busca nombres dentro de la carpeta autorizada del móvil.', confirm: 'never', reversible: true,
             validate(args) { return args.query ? { ok: true } : { ok: false, reply: '¿Qué nombre debo buscar en la carpeta autorizada del móvil?' }; },
-            execute(args) { return executeMobileSkill('mobile.files.search', { query: args.query }); },
+            execute(args) { return executeMobileSkill('mobile.files.search', { query: args.query }, args.inputSource); },
             verify(result) { return result?.evidence?.searchCompleted === true; },
             formatResult(result, args) {
                 const items = result.items || [];
@@ -889,14 +902,14 @@
         register({
             id: 'mobile.files.open', description: 'Abre un archivo por nombre dentro de la carpeta autorizada del móvil.', confirm: 'never', reversible: true,
             validate(args) { return args.fileName ? { ok: true } : { ok: false, reply: '¿Qué archivo debo abrir dentro de la carpeta autorizada del móvil?' }; },
-            execute(args) { return executeMobileSkill('mobile.files.open', { fileName: args.fileName }); },
+            execute(args) { return executeMobileSkill('mobile.files.open', { fileName: args.fileName }, args.inputSource); },
             verify(result) { return result?.evidence?.fileOpened === true; },
             formatResult(result) { return `Abrí ${result.file || 'el archivo solicitado'} en el móvil.`; }
         });
 
         [['play_pause', 'Actualiza la reproducción del móvil.', 'Actualicé la reproducción del móvil.'], ['next', 'Avanza a la siguiente pista en el móvil.', 'Pasé a la siguiente pista en el móvil.']].forEach(([action, description, reply]) => register({
             id: `mobile.media.${action}`, description, confirm: 'never', reversible: true,
-            execute() { return executeMobileSkill(`mobile.media.${action}`); },
+            execute(args) { return executeMobileSkill(`mobile.media.${action}`, {}, args.inputSource); },
             verify(result) { return result?.evidence?.playbackStateChanged === true || result?.evidence?.playbackStateObserved === true; },
             formatResult() { return reply; }
         }));
@@ -906,7 +919,7 @@
             description: 'Abre un archivo o carpeta por su ruta completa en el PC conectado.',
             confirm: 'never', reversible: true,
             validate(args) { return args.path ? { ok: true } : { ok: false, reply: 'Dime la ruta completa del archivo o carpeta.' }; },
-            execute(args) { return executeDesktopSkill('desktop.files.open', { path: args.path }); },
+            execute(args) { return executeDesktopSkill('desktop.files.open', { path: args.path }, args.inputSource); },
             verify(result) { return result?.evidence?.pathOpened === true; },
             formatResult(result) { return `Abrí ${result.name || 'la ruta solicitada'} en tu PC.`; }
         });
@@ -916,7 +929,7 @@
             description: 'Lista el contenido de cualquier carpeta autorizada del PC.',
             confirm: 'never', reversible: true,
             validate(args) { return args.path ? { ok: true } : { ok: false, reply: 'Dime qué carpeta quieres revisar usando su ruta completa.' }; },
-            execute(args) { return executeDesktopSkill('desktop.files.list', { path: args.path, limit: 100 }); },
+            execute(args) { return executeDesktopSkill('desktop.files.list', { path: args.path, limit: 100 }, args.inputSource); },
             verify(result) { return result?.evidence?.pathRead === true; },
             formatResult(result) {
                 const items = result.items || [];
@@ -934,7 +947,7 @@
                 if (!args.root) return { ok: false, reply: '¿Desde qué carpeta o disco debo buscar? Dime la ruta completa.' };
                 return { ok: true };
             },
-            execute(args) { return executeDesktopSkill('desktop.files.search', { root: args.root, query: args.query, limit: 50, maxDepth: 8 }); },
+            execute(args) { return executeDesktopSkill('desktop.files.search', { root: args.root, query: args.query, limit: 50, maxDepth: 8 }, args.inputSource); },
             verify(result) { return result?.evidence?.searchCompleted === true; },
             formatResult(result, args) {
                 const items = result.items || [];
@@ -955,7 +968,7 @@
             id: `desktop.media.${action}`,
             description,
             confirm: 'never', reversible: true,
-            execute() { return executeDesktopSkill(`desktop.media.${action}`); },
+            execute(args) { return executeDesktopSkill(`desktop.media.${action}`, {}, args.inputSource); },
             verify(result) { return result?.evidence?.mediaCommandSent === true; },
             formatResult() { return reply; }
         }));
@@ -965,7 +978,7 @@
             description: 'Enumera controles accesibles de una aplicación sin leer el contenido escrito.',
             confirm: 'never', reversible: true,
             validate(args) { return args.app || args.window ? { ok: true } : { ok: false, reply: '¿Qué aplicación o ventana quieres revisar?' }; },
-            execute(args) { return executeDesktopSkill('desktop.ui.inspect', { app: args.app, window: args.window, limit: 120 }); },
+            execute(args) { return executeDesktopSkill('desktop.ui.inspect', { app: args.app, window: args.window, limit: 120 }, args.inputSource); },
             verify(result) { return result?.evidence?.controlsInspected === true; },
             formatResult(result) {
                 const controls = result.controls || [];
@@ -979,7 +992,7 @@
             description: 'Lleva una aplicación o control accesible al frente.',
             confirm: 'never', reversible: true,
             validate(args) { return args.app || args.window ? { ok: true } : { ok: false, reply: '¿Qué aplicación o ventana quieres enfocar?' }; },
-            execute(args) { return executeDesktopSkill('desktop.ui.focus', { app: args.app, window: args.window, target: args.target }); },
+            execute(args) { return executeDesktopSkill('desktop.ui.focus', { app: args.app, window: args.window, target: args.target }, args.inputSource); },
             verify(result) { return result?.evidence?.windowFocused === true; },
             formatResult(result) { return `Enfoqué ${result.window || 'la aplicación solicitada'}.`; }
         });
@@ -993,7 +1006,7 @@
                 return args.target?.name || args.target?.automationId ? { ok: true } : { ok: false, reply: '¿Qué botón o control debo pulsar?' };
             },
             confirmation(args) { return `¿Confirmas que pulse “${args.target.name || args.target.automationId}” en ${args.app || args.window}?`; },
-            execute(args) { return executeDesktopSkill('desktop.ui.click', { app: args.app, window: args.window, target: args.target }); },
+            execute(args) { return executeDesktopSkill('desktop.ui.click', { app: args.app, window: args.window, target: args.target }, args.inputSource); },
             verify(result) { return result?.evidence?.controlInvoked === true; },
             formatResult(result) { return `Pulsé “${result.target || 'el control solicitado'}” y el PC confirmó la acción.`; }
         });
@@ -1009,7 +1022,7 @@
                 return args.target?.name || args.target?.automationId ? { ok: true } : { ok: false, reply: '¿En qué campo debo escribir?' };
             },
             confirmation(args) { return `¿Confirmas que escriba “${args.text}” en el campo “${args.target.name || args.target.automationId}” de ${args.app || args.window}?`; },
-            execute(args) { return executeDesktopSkill('desktop.ui.type', { app: args.app, window: args.window, target: args.target, text: args.text }); },
+            execute(args) { return executeDesktopSkill('desktop.ui.type', { app: args.app, window: args.window, target: args.target, text: args.text }, args.inputSource); },
             verify(result) { return result?.evidence?.valueSet === true; },
             formatResult(result) { return `Escribí en “${result.target || 'el campo solicitado'}” y el PC verificó el cambio.`; }
         });
@@ -1022,7 +1035,7 @@
                 if (!args.app && !args.window) return { ok: false, reply: '¿En qué aplicación debo esperar?' };
                 return args.target?.name || args.target?.automationId ? { ok: true } : { ok: false, reply: '¿Qué control debe aparecer?' };
             },
-            execute(args) { return executeDesktopSkill('desktop.ui.wait', { app: args.app, window: args.window, target: args.target, timeoutMs: args.timeoutMs || 10000 }); },
+            execute(args) { return executeDesktopSkill('desktop.ui.wait', { app: args.app, window: args.window, target: args.target, timeoutMs: args.timeoutMs || 10000 }, args.inputSource); },
             verify(result) { return result?.evidence?.targetObserved === true; },
             formatResult(result) { return `Ya está disponible “${result.target || 'el control solicitado'}”.`; }
         });
@@ -1032,7 +1045,7 @@
             description: 'Desplaza un panel accesible en una dirección y verifica el cambio.',
             confirm: 'never', reversible: true,
             validate(args) { return args.app || args.window ? { ok: true } : { ok: false, reply: '¿En qué aplicación debo desplazarme?' }; },
-            execute(args) { return executeDesktopSkill('desktop.ui.scroll', { app: args.app, window: args.window, target: args.target, direction: args.direction, amount: args.amount || 3 }); },
+            execute(args) { return executeDesktopSkill('desktop.ui.scroll', { app: args.app, window: args.window, target: args.target, direction: args.direction, amount: args.amount || 3 }, args.inputSource); },
             verify(result) { return result?.evidence?.scrollChanged === true; },
             formatResult(result) { return `Desplacé ${result.direction || 'el contenido'} y verifiqué el movimiento.`; }
         });
@@ -1046,7 +1059,7 @@
                 return args.app || args.window ? { ok: true } : { ok: false, reply: '¿En qué aplicación debo usar el atajo?' };
             },
             confirmation(args) { return `¿Confirmas que use ${args.shortcut} en ${args.app || args.window}?`; },
-            execute(args) { return executeDesktopSkill('desktop.ui.hotkey', { app: args.app, window: args.window, shortcut: args.shortcut }); },
+            execute(args) { return executeDesktopSkill('desktop.ui.hotkey', { app: args.app, window: args.window, shortcut: args.shortcut }, args.inputSource); },
             verify(result) { return result?.evidence?.shortcutSent === true; },
             formatResult(result) { return `Usé ${result.shortcut || 'el atajo'} en ${result.window || 'la aplicación'} y el PC confirmó el envío.`; }
         });
@@ -1060,7 +1073,7 @@
                 return args.app || args.window ? { ok: true } : { ok: false, reply: '¿En qué aplicación está abierto el selector de archivos?' };
             },
             confirmation(args) { return `¿Confirmas que seleccione “${args.filePath}” en ${args.app || args.window}? La aplicación podría comenzar a subirlo.`; },
-            execute(args) { return executeDesktopSkill('desktop.ui.select_file', { app: args.app, window: args.window, filePath: args.filePath }); },
+            execute(args) { return executeDesktopSkill('desktop.ui.select_file', { app: args.app, window: args.window, filePath: args.filePath }, args.inputSource); },
             verify(result) { return result?.evidence?.fileSelected === true; },
             formatResult(result) { return `Seleccioné “${result.fileName || 'el archivo'}” y el diálogo confirmó la acción.`; }
         });

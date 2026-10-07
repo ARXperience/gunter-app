@@ -22,7 +22,9 @@ const context = {
         if (url.includes('/api/chat') && state.mode === 'LOCAL') return { ok: false, status: 503,
             json: async () => ({ code: 'LOCAL_MODEL_NOT_INSTALLED' }) };
         if (url.includes('embeddings')) return { ok: true, json: async () => ({ data: [{ embedding: [1, 0, 0] }] }) };
-        if (url.includes('transcribe')) return { ok: true, text: async () => 'voz transcrita' };
+        if (url.includes('transcribe')) return state.privacy === 'LOCAL_ONLY' || state.mode === 'LOCAL'
+            ? { ok: false, status: 503, text: async () => JSON.stringify({ code: 'LOCAL_STT_NOT_INSTALLED' }) }
+            : { ok: true, text: async () => 'voz transcrita' };
         return { ok: true, json: async () => ({ choices: [{ message: { content: 'respuesta cloud' } }] }) };
     },
     GunterRuntimeState: { getState: () => ({ ...state }) }
@@ -42,8 +44,8 @@ function load(file) { vm.runInContext(fs.readFileSync(path.join(root, file), 'ut
     assert.equal(await context.GunterSTT.transcribe(new FormData()), 'voz transcrita');
     state.privacy = 'LOCAL_ONLY';
     const before = requests.length;
-    await assert.rejects(context.GunterSTT.transcribe(new FormData()), error => error.code === 'LOCAL_PROVIDER_NOT_INSTALLED');
-    assert.equal(requests.length, before);
+    await assert.rejects(context.GunterSTT.transcribe(new FormData()), error => error.code === 'LOCAL_STT_NOT_INSTALLED');
+    assert.equal(requests.length, before + 1); // server-authoritative route, never client cloud fallback
     state.privacy = 'STANDARD';
     load('js/services/embedding-service.js');
     const vector = await context.GunterEmbeddings.embed('texto de prueba');

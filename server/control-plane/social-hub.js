@@ -9,7 +9,7 @@ const PROVIDERS = Object.freeze({
     instagram: { label: 'Instagram', env: [], runtime: 'beeper_node' },
     messenger: { label: 'Messenger', env: [], runtime: 'beeper_node' }
 });
-const SEND_SOURCES = new Set(['user_click', 'manual', 'user_voice_confirmed']);
+const SEND_SOURCES = new Set(['user_click', 'manual', 'user_voice_confirmed', 'user_text_confirmed']);
 const STOPWORDS = new Set('para como esta este esto eso con por una uno unos unas que del las los quien donde cuando pero porque desde hasta sobre hola buenas gracias mensaje tengo tiene hacer puede puedes quiero queremos'.split(' '));
 
 function fileFor(userId) { return path.join(userStore.userDir(userId), 'social-hub.json'); }

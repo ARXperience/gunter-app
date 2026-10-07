@@ -21,7 +21,8 @@ try {
     assert.equal(router.inventory().find(provider => provider.id === 'local.fast').available, false);
     assert.equal(settings.patchHybrid(user, { mode: 'LOCAL', privacy: 'LOCAL_ONLY' }).ok, true);
     for (const kind of router.HYBRID_CAPABILITIES) {
-        assert.equal(router.resolveHybrid(kind, settings.hybridStatus(user)).code, 'LOCAL_PROVIDER_NOT_INSTALLED');
+        assert.equal(router.resolveHybrid(kind, settings.hybridStatus(user)).code,
+            kind === 'stt' ? 'LOCAL_STT_NOT_INSTALLED' : 'LOCAL_PROVIDER_NOT_INSTALLED');
         assert.equal(router.hybridInventory()[kind].local.status, 'NOT_INSTALLED');
     }
     assert.equal(settings.patchHybrid(user, { mode: 'INVALID' }).error, 'INVALID_HYBRID_MODE');

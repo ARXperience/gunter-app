@@ -69,8 +69,12 @@
         const active = !!data.flags?.['ai.local'];
         const ready = !!data.localBrainReady;
         const status = ready ? 'Listo para responder' : installed ? 'Instalado, detenido' : 'Modelo o motor no instalado';
+        const stt = data.providers?.stt || {};
+        const sttInstalled = !!(data.localSTTInstalled && data.localSTTRuntimeAvailable);
+        const sttActive = !!data.flags?.['stt.local'];
+        const sttStatus = data.localSTTReady ? 'Listo para transcribir' : sttInstalled ? 'Instalado, no listo' : 'No instalado';
         root.innerHTML = `<div class="cp-section-title"><div><span>01</span><h3>Modo de inteligencia</h3></div><small>${escapeHtml(status)}</small></div>
-            <p class="cp-section-help">AUTO y CLOUD conservan el proveedor actual. LOCAL usa el modelo instalado solo para el chat. Privacidad LOCAL_ONLY bloquea los servicios de IA en nube; voz, transcripción y otras funciones sin proveedor local mostrarán que no están disponibles.</p>
+            <p class="cp-section-help">AUTO y CLOUD conservan la transcripción en nube. LOCAL usa Ministral para chat y Moonshine para transcripción si ambos están instalados y habilitados. LOCAL_ONLY bloquea la nube; las funciones sin proveedor local siguen sin estar disponibles.</p>
             <div class="cp-hybrid-controls">
                 <label>Proveedor de chat<select id="cp-hybrid-mode"><option value="AUTO">Automático (actual)</option><option value="CLOUD">Nube</option><option value="LOCAL" ${installed ? '' : 'disabled'}>Local · Ministral 3 3B</option></select></label>
                 <label>Privacidad<select id="cp-hybrid-privacy"><option value="STANDARD">Estándar</option><option value="LOCAL_ONLY">Solo local · sin nube</option></select></label>
@@ -79,6 +83,9 @@
             <div class="cp-hybrid-runtime"><span>Motor local: <strong>${escapeHtml(status)}</strong>${data.localBrainError ? ` · ${escapeHtml(data.localBrainError)}` : ''}</span>
                 <button type="button" class="cp-link" id="cp-hybrid-flag" ${installed ? '' : 'disabled'}>${active ? 'Desactivar modelo local' : 'Activar modelo local'}</button>
                 ${active ? `<button type="button" class="cp-link" id="cp-hybrid-runtime">${ready ? 'Detener motor' : 'Iniciar motor'}</button>` : ''}
+            </div>
+            <div class="cp-hybrid-runtime"><span>STT nube: <strong>${stt.cloud?.configured ? 'Configurado' : 'No configurado'}</strong> · STT local: <strong>${escapeHtml(sttStatus)}</strong> · Modelo: ${escapeHtml(data.localSTTModel || stt.local?.model || 'Moonshine Spanish Small Streaming')}${data.localSTTError ? ` · ${escapeHtml(data.localSTTError)}` : ''}</span>
+                <button type="button" class="cp-link" id="cp-stt-flag" ${sttInstalled ? '' : 'disabled'}>${sttActive ? 'Desactivar STT local' : 'Activar STT local'}</button>
             </div>
             <p class="cp-section-help">Activar o detener el motor requiere una cuenta administradora. No instala ni descarga modelos desde esta pantalla.</p>`;
         root.querySelector('#cp-hybrid-mode').value = data.mode || 'AUTO';
@@ -183,10 +190,13 @@
         if (hybridSave) {
             hybridSave.disabled = true;
             try {
-                await window.GunterControlPlane.updateHybridMode({
-                    mode: document.getElementById('cp-hybrid-mode').value,
-                    privacy: document.getElementById('cp-hybrid-privacy').value
-                });
+                const mode = document.getElementById('cp-hybrid-mode').value;
+                const privacy = document.getElementById('cp-hybrid-privacy').value;
+                if (window.GunterRuntimeState?.setMode) await window.GunterRuntimeState.setMode(mode, privacy);
+                else {
+                    await window.GunterControlPlane.updateHybridMode({ mode, privacy });
+                    await window.GunterRuntimeState?.refresh?.();
+                }
                 renderHybrid(await window.GunterControlPlane.hybridStatus());
                 announce('Modo de inteligencia actualizado.');
             } catch (error) { announce(error.message, true); }
@@ -215,6 +225,19 @@
                 announce(ready ? 'Motor local detenido.' : 'Motor local listo.');
             } catch (error) { announce(error.status === 403 ? 'Solo un administrador puede controlar el motor local.' : error.message, true); }
             finally { hybridRuntime.disabled = false; }
+            return;
+        }
+        const sttFlag = event.target.closest('#cp-stt-flag');
+        if (sttFlag) {
+            sttFlag.disabled = true;
+            try {
+                const active = (await window.GunterControlPlane.hybridStatus()).flags?.['stt.local'];
+                await window.GunterControlPlane.updateFlag({ key: 'stt.local', state: active ? 'off' : 'on' });
+                renderHybrid(await window.GunterControlPlane.hybridStatus());
+                window.GunterRuntimeState?.refresh?.().catch(() => {});
+                announce(active ? 'Transcripción local desactivada.' : 'Transcripción local habilitada. Solo transcribe; las acciones por voz requieren confirmación.');
+            } catch (error) { announce(error.status === 403 ? 'Solo un administrador puede cambiar este permiso.' : error.message, true); }
+            finally { sttFlag.disabled = false; }
             return;
         }
         const save = event.target.closest('[data-save-setting]');

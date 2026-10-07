@@ -246,6 +246,16 @@ async function test(name, fn) {
         assert.equal(entitlements.verifyLease({ ...lease, node_id: 'altered' }).ok, false);
     });
 
+    await test('Permission Gate distingue origen de voz y exige confirmación para efectos', () => {
+        const base = { userId, actor: admin, skillName: 'desktop.media.play_pause',
+            node: { nodeType: 'DESKTOP' }, payload: {}, autonomy: 'L3', inputSource: 'voice' };
+        assert.equal(skills.authorizeProposal({ ...base, confirmed: false }).error, 'confirmation_required');
+        assert.equal(skills.authorizeProposal({ ...base, confirmed: true }).ok, true);
+        const read = { ...base, skillName: 'desktop.ui.inspect', inputSource: 'voice', confirmed: false };
+        const readDecision = skills.authorizeProposal(read);
+        assert.equal(readDecision.ok, true, JSON.stringify(readDecision));
+    });
+
     await test('comando idempotente exige skill, permiso y confirmación', () => {
         const queued = nodes.queueCommand(userId, {
             nodeId, skill: 'desktop.apps.open', payload: { app: 'notepad' },

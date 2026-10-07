@@ -1,5 +1,7 @@
 # Validación técnica del stack local/offline de Gunter
 
+> Actualización 2026-10-06: Moonshine Spanish Small Streaming pasó el mini-gate del runtime nativo y se integró **solo para transcripción** en rama separada, con flag desactivado por defecto y confirmación de cualquier efecto originado por voz. Véase [LOCAL_STT.md](LOCAL_STT.md). Los resultados provisionales de 2026-10-04/05 no describen este estado nuevo. TTS, wake word local y móvil continúan pendientes.
+
 > Actualización 2026-10-05: Ministral 3 3B Q4_K_M **sí** pasó la suite completa directamente sobre llama.cpp b11399 y se integró solo como LocalBrain de texto en una rama separada. Resultado: 109/120 exactos, 120/120 JSON, 120/120 selección de herramienta, 0 acciones no autorizadas. Véase [LOCAL_BRAIN.md](LOCAL_BRAIN.md) para el ensayo, parámetros, hash, mediciones, offline y límites. Las conclusiones provisionales de este documento describen la fase anterior y no sustituyen la decisión nueva para LLM de texto. STT/TTS/wake/mobile siguen sin integrar.
 
 Fecha: 2026-10-04. Estado: **PoC aislada completada en Windows; decisión de integración pendiente**. Esta validación no cambia proveedores, rutas, datos ni dependencias de la aplicación. Las mediciones son una muestra pequeña, no una garantía de calidad ni de rendimiento en otros equipos. **La sección «Cierre de gates» al final actualiza y prevalece sobre los candidatos provisionales y gates pendientes de la validación inicial.**

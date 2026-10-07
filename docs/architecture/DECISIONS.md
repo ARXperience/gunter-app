@@ -1,5 +1,9 @@
 # Registro de decisiones de arquitectura
 
+## ADR-004 — STT local solo para transcripción (2026-10-06)
+
+**Decisión:** integrar experimentalmente Moonshine Spanish Small Streaming v0.1.5 mediante sidecar C++ Windows x64, detrás de `stt.local` off por defecto. AUTO/CLOUD siguen cloud; LOCAL/LOCAL_ONLY no tienen fallback cloud. El mini-gate nativo mantuvo el comportamiento de la PoC y la seguridad exige confirmación escrita/en pantalla para acciones de voz. Estado **APPROVED_FOR_TRANSCRIPTION_ONLY**, no comandos autónomos. Persisten `USER_VOICE_PENDING`, `HUMAN_NEGATION_COMMANDS_PENDING` y `PACKAGING_LICENSE_WARNING_PENDING_VENDOR_CLARIFICATION`; ffmpeg-static añade una obligación GPL por revisar antes de distribuir. Detalles en [LOCAL_STT.md](LOCAL_STT.md). ADR-001/002 siguen pendientes para TTS, wake word, móvil y datos.
+
 ## ADR-003 — Local Brain de texto (2026-10-05)
 
 **Decisión:** aprobar Ministral 3 3B Instruct 2512 Q4_K_M sobre llama.cpp b11399 únicamente para cerebro local de texto en Windows, detrás de la fundación híbrida reversible. El gate aislado fue 109/120 exactos, 120/120 JSON y 120/120 selección de herramienta; 0 acciones no autorizadas ejecutadas. El informe reproducible, hash, recursos, seguridad y límites están en [LOCAL_BRAIN.md](LOCAL_BRAIN.md). Esta decisión actualiza solo LLM de texto; los estados STT/TTS/wake/mobile/SQLite de ADR-001/002 permanecen pendientes. AUTO/CLOUD siguen igual; `ai.local` off por defecto y LOCAL/LOCAL_ONLY nunca caen silenciosamente a nube. No se concede autonomía para ejecutar herramientas.
