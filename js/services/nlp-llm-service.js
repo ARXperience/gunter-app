@@ -253,5 +253,5 @@ Proyecto activo: ${userContext.currentProject?.name || 'ninguno'}
         cancel: controller => controller?.abort?.(), providers: { CloudBrain, LocalBrain }
     });
     window.GunterBrainRouter = BrainRouter;
-    window.GunterNlpLlm = { complete: BrainRouter.generate, answerQuery, clearCache };
+    window.GunterNlpLlm = { complete: BrainRouter.generate, stream: BrainRouter.stream, answerQuery, clearCache };
 })();

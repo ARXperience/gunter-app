@@ -1,9 +1,8 @@
 /* =============================================
    GUNTER SERVICE - Voice v2 (Humanized TTS)
    -------------------------------------------------
-   Motor principal: OpenAI TTS (tts-1-hd) — voces
-   humanizadas con carácter real.
-   Fallback: speechSynthesis del navegador.
+   Motor preferido: Supertonic 3 M1 local (si está instalado).
+   Fallback en AUTO/CLOUD: proveedor anterior y voz del navegador.
 
    Cada voiceStyle mapea a una voz OpenAI + ajustes
    de velocidad para emular la personalidad:
@@ -36,13 +35,21 @@
     // Queue de reproducción
     let queue = [];
     let currentAudio = null;
+    let currentAudioUrl = null;
     let currentUtterance = null;
     let speaking = false;
-    let ttsAvailable = null;   // se detecta primera vez
     let lastSpokenText = '';
     let speechStartedAt = 0;
     let generation = 0;
     let synthesisController = null;
+    let prefetched = null;
+    let warnedFallback = false;
+
+    function voiceMetric(name, detail = {}) {
+        try { window.dispatchEvent(new CustomEvent('gunter-voice-metric', {
+            detail: { name, at: performance.now(), ...detail }
+        })); } catch { /* optional telemetry */ }
+    }
 
     function notifyVoiceState(state, detail = {}) {
         try {
@@ -50,14 +57,6 @@
                 detail: { state, speaking, text: lastSpokenText, startedAt: speechStartedAt, ...detail }
             }));
         } catch { /* entorno sin CustomEvent */ }
-    }
-
-    async function checkTtsAvailable() {
-        if (ttsAvailable !== null) return ttsAvailable;
-        // Probar llamando al endpoint con un ping mínimo no hace sentido porque gasta tokens.
-        // Simplemente asumimos disponible si hay proxy configurado. El primer fallo caerá a fallback.
-        ttsAvailable = !!(window.GUNTER_CONFIG?.PROXY_CHAT_URL || true);
-        return ttsAvailable;
     }
 
     // ---------- Detector global de reunión activa (Fase E.E2) ----------
@@ -108,18 +107,15 @@
             style: cfg.style,
             voice: baseSv.voice,
             speed,
+            localSpeed: { slow: 0.9, normal: 1.05, fast: 1.2 }[cfg.speed] || 1.05,
             mode: cfg.mode
         };
     }
 
-    // ---------- OpenAI TTS path ----------
-    async function synthesizeOpenAI(text, { voice, speed }, signal) {
+    // ---------- Preferred TTS endpoint (server routes local before cloud) ----------
+    async function synthesizeTts(text, { voice, speed, localSpeed }, signal) {
         const hybrid = window.GunterRuntimeState?.getState?.();
-        if (hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL') {
-            const code = hybrid.privacy === 'LOCAL_ONLY' ? 'LOCAL_PROVIDER_NOT_INSTALLED' : 'LOCAL_MODEL_NOT_INSTALLED';
-            throw Object.assign(new Error(code), { code });
-        }
-        const cacheKey = `${voice}:${speed}:${text}`;
+        const cacheKey = `${hybrid?.mode || 'AUTO'}:${hybrid?.privacy || 'STANDARD'}:${hybrid?.localTTSAvailable ? 'local' : 'legacy'}:${localSpeed}:${text}`;
         if (audioCache.has(cacheKey)) {
             return audioCache.get(cacheKey);
         }
@@ -127,26 +123,28 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             signal,
-            body: JSON.stringify({ text, voice, speed, model: 'tts-1-hd' })
+            body: JSON.stringify({ text, voice, speed, localSpeed, model: 'tts-1-hd' })
         });
         if (!resp.ok) {
             if (resp.status === 503) {
                 const data = await resp.clone().json().catch(() => ({}));
-                if (['LOCAL_PROVIDER_NOT_INSTALLED', 'LOCAL_MODEL_NOT_INSTALLED'].includes(data.code))
+                if (data.code)
                     throw Object.assign(new Error(data.code), { code: data.code });
             }
             throw new Error(`TTS HTTP ${resp.status}`);
         }
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
-        // Guardar cacheado (limitar tamaño)
-        if (audioCache.size >= MAX_CACHE) {
-            const firstKey = audioCache.keys().next().value;
-            const firstUrl = audioCache.get(firstKey);
-            URL.revokeObjectURL(firstUrl);
-            audioCache.delete(firstKey);
+        // Never replay a cloud voice from cache after switching to local mode.
+        if (resp.headers?.get?.('X-Gunter-TTS-Provider') === 'supertonic3.local') {
+            if (audioCache.size >= MAX_CACHE) {
+                const firstKey = audioCache.keys().next().value;
+                const firstUrl = audioCache.get(firstKey);
+                URL.revokeObjectURL(firstUrl);
+                audioCache.delete(firstKey);
+            }
+            audioCache.set(cacheKey, url);
         }
-        audioCache.set(cacheKey, url);
         return url;
     }
 
@@ -183,6 +181,43 @@
             processQueue();
         };
         speechSynthesis.speak(u);
+    }
+
+    function releaseAudioUrl(url) {
+        if (url && ![...audioCache.values()].includes(url)) URL.revokeObjectURL(url);
+    }
+
+    // Short utterances keep the first answer conversational. Later segments are
+    // generated while the current one plays, without changing Gunter's M1 voice.
+    function splitForPlayback(text) {
+        const parts = [];
+        let current = '';
+        for (const word of String(text).split(/\s+/).filter(Boolean)) {
+            const joined = current ? `${current} ${word}` : word;
+            if (current && joined.length > 90) { parts.push(current); current = word; }
+            else current = joined;
+            if (current.length >= 40 && /[.!?…]["'»]?$/u.test(word)) {
+                parts.push(current); current = '';
+            }
+        }
+        if (current) parts.push(current);
+        return parts;
+    }
+
+    function prefetchNext() {
+        if (!queue.length || prefetched) return;
+        const item = queue[0];
+        const controller = new AbortController();
+        const deadline = setTimeout(() => controller.abort(), 5000);
+        const entry = { item, controller, promise: null, claimed: false };
+        entry.promise = synthesizeTts(item.text, item.sv, controller.signal)
+            .then(url => {
+                if (prefetched !== entry && !entry.claimed) releaseAudioUrl(url);
+                return { url };
+            })
+            .catch(error => ({ error }))
+            .finally(() => clearTimeout(deadline));
+        prefetched = entry;
     }
 
     // ---------- Speak ----------
@@ -270,8 +305,58 @@
             if (stripped.length > max) stripped = _truncate(stripped, max);
         }
 
-        queue.push({ text: stripped, sv, opts });
+        for (const part of splitForPlayback(stripped)) queue.push({ text: part, sv, opts });
         if (!speaking) processQueue();
+    }
+
+    // Feed complete words from a streaming LLM into the existing ordered audio
+    // queue. A punctuation boundary wins; if none arrives, use a word boundary
+    // before 120 characters. No artificial acknowledgement is inserted.
+    function beginStream(opts = {}) {
+        const token = generation;
+        const context = opts.context || 'chat';
+        const enabled = opts.force || shouldSpeak(context);
+        const sv = getStyleConfig();
+        let pending = '';
+        let closed = false;
+        function enqueue(text) {
+            const cleaned = stripMarkdown(text);
+            if (!cleaned || token !== generation || !enabled) return;
+            queue.push({ text: cleaned, sv, opts });
+            if (!speaking) processQueue();
+        }
+        function drain(force = false) {
+            while (pending) {
+                const max = Math.min(pending.length, 120);
+                const sample = pending.slice(0, max);
+                const candidates = [...sample.matchAll(/[.!?;:,](?=\s|$)/g)]
+                    .map(match => match.index + 1).filter(index => index >= 30);
+                let end = candidates.length ? candidates[0] : 0;
+                if (!end && pending.length >= 120) end = sample.lastIndexOf(' ', 119);
+                if (!end && force) end = pending.length;
+                if (!end) break;
+                const part = pending.slice(0, end).trim();
+                pending = pending.slice(end).trimStart();
+                if (part) {
+                    voiceMetric('firstSpeakable', { chars: part.length });
+                    enqueue(part);
+                }
+            }
+        }
+        return {
+            append(delta) {
+                if (closed || token !== generation || !enabled) return;
+                pending += String(delta || '');
+                drain();
+            },
+            finish() {
+                if (closed || token !== generation) return;
+                closed = true;
+                drain(true);
+            },
+            cancel() { closed = true; pending = ''; },
+            get enabled() { return !!enabled; }
+        };
     }
 
     async function processQueue() {
@@ -287,46 +372,74 @@
         speechStartedAt = Date.now();
         notifyVoiceState('preparing', { context: next.opts.context || 'chat' });
 
-        const controller = new AbortController();
+        const ready = prefetched?.item === next ? prefetched : null;
+        if (ready) { ready.claimed = true; prefetched = null; }
+        const controller = ready?.controller || new AbortController();
         synthesisController = controller;
-        const synthesisDeadline = setTimeout(() => controller.abort(), 2000);
+        const synthesisDeadline = ready ? null : setTimeout(() => controller.abort(), 5000);
 
         try {
-            await checkTtsAvailable();
             if (token !== generation) return;
-            // Try OpenAI first
-            const url = await synthesizeOpenAI(next.text, next.sv, controller.signal);
+            voiceMetric('ttsStart', { chars: next.text.length });
+            const prepared = ready ? await ready.promise : { url: await synthesizeTts(next.text, next.sv, controller.signal) };
+            if (prepared.error) throw prepared.error;
+            const url = prepared.url;
             clearTimeout(synthesisDeadline);
-            if (token !== generation) return;
+            if (token !== generation) { releaseAudioUrl(url); return; }
+            voiceMetric('audioReady', { chars: next.text.length });
             const audio = new Audio(url);
             audio.volume = next.opts.volume ?? 1;
             currentAudio = audio;
+            currentAudioUrl = url;
+            audio.addEventListener('playing', () => {
+                if (token === generation) voiceMetric('playbackStart', { chars: next.text.length });
+            }, { once: true });
             audio.onended = audio.onerror = () => {
                 if (token !== generation) return;
                 currentAudio = null;
+                currentAudioUrl = null;
+                releaseAudioUrl(url);
                 speaking = false;
                 processQueue();
             };
-            await audio.play().catch(err => {
+            let played = false;
+            await audio.play().then(() => { played = true; }).catch(err => {
                 if (token !== generation) return;
                 audio.onended = audio.onerror = null;
                 currentAudio = null;
+                currentAudioUrl = null;
+                releaseAudioUrl(url);
                 console.warn('[voice] audio.play() failed, fallback:', err);
-                speakFallback(next.text, next.sv, token);
+                const hybrid = window.GunterRuntimeState?.getState?.();
+                if (hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL') {
+                    speaking = false;
+                    notifyVoiceState('unavailable', { code: 'LOCAL_TTS_PLAYBACK_FAILED' });
+                    window.GunterNotificationsService?.showToast?.('No pude reproducir la voz local; la respuesta sigue escrita en pantalla.', { variant: 'warn', silent: true });
+                    processQueue();
+                } else speakFallback(next.text, next.sv, token);
             });
-            if (token === generation) notifyVoiceState('speaking', { context: next.opts.context || 'chat' });
+            if (played && token === generation) {
+                notifyVoiceState('speaking', { context: next.opts.context || 'chat' });
+                prefetchNext();
+            }
         } catch (err) {
             if (token !== generation) return;
-            if (err.code === 'LOCAL_PROVIDER_NOT_INSTALLED' || err.code === 'LOCAL_MODEL_NOT_INSTALLED') {
+            const hybrid = window.GunterRuntimeState?.getState?.();
+            if (hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL') {
                 speaking = false;
-                notifyVoiceState('unavailable', { code: err.code });
+                notifyVoiceState('unavailable', { code: err.code || 'LOCAL_TTS_UNAVAILABLE' });
+                window.GunterErrors?.toast?.(err, { context: 'audio', silent: true });
                 processQueue();
                 return;
             }
             // Fallback al synthesizer del navegador
-            console.warn('[voice] OpenAI TTS failed, fallback:', err.message);
+            console.warn('[voice] TTS failed, browser fallback:', err.message);
+            if (!warnedFallback) {
+                warnedFallback = true;
+                window.GunterNotificationsService?.showToast?.('La voz local no respondió; usaré temporalmente la voz del navegador.', { variant: 'warn', silent: true });
+            }
             speakFallback(next.text, next.sv, token);
-            notifyVoiceState('speaking', { context: next.opts.context || 'chat' });
+            notifyVoiceState('fallback', { context: next.opts.context || 'chat', code: err.code || 'TTS_UNAVAILABLE' });
         } finally {
             clearTimeout(synthesisDeadline);
             if (synthesisController === controller) synthesisController = null;
@@ -337,12 +450,16 @@
         generation += 1;
         synthesisController?.abort();
         synthesisController = null;
+        prefetched?.controller.abort();
+        prefetched = null;
         queue = [];
         speaking = false;
         if (currentAudio) {
             currentAudio.onended = currentAudio.onerror = null;
             try { currentAudio.pause(); currentAudio.currentTime = 0; } catch {}
             currentAudio = null;
+            releaseAudioUrl(currentAudioUrl);
+            currentAudioUrl = null;
         }
         if (currentUtterance) currentUtterance.onend = currentUtterance.onerror = null;
         currentUtterance = null;
@@ -389,11 +506,11 @@
 
     // ---------- Public ----------
     window.GunterVoice = {
-        speak, cancel, shouldSpeak, getStyleConfig,
+        speak, beginStream, cancel, shouldSpeak, getStyleConfig,
         providers: {
-            CloudTTS: { status: 'CURRENT_PROVIDER', synthesize: synthesizeOpenAI },
+            CloudTTS: { status: 'FALLBACK_PROVIDER', synthesize: synthesizeTts },
             BrowserFallback: { status: 'CURRENT_BROWSER_FALLBACK', speak: speakFallback },
-            LocalTTS: { status: 'NOT_INSTALLED', synthesize: async () => { throw Object.assign(new Error('LOCAL_PROVIDER_NOT_INSTALLED'), { code: 'LOCAL_PROVIDER_NOT_INSTALLED' }); } }
+            LocalTTS: { status: 'PREFERRED_WHEN_AVAILABLE', synthesize: synthesizeTts }
         },
         // Fase E.E2/E3
         setMeetingActive, isMeetingActive, shortenForSpeech,

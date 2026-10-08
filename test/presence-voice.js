@@ -11,16 +11,18 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 function runtime() {
     return { localStorage: storage(), sessionStorage: storage(), navigator: {}, dispatchEvent() {}, CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init?.detail; } } };
 }
-function voiceRuntime(fetcher) {
+function voiceRuntime(fetcher, hybrid = null) {
     const audios = [], utterances = [], events = [];
     const window = {
         PremiumFeaturesService: { getVoiceConfig: () => ({ enabled: true, mode: 'live_voice', style: 'warm', speed: 'normal' }) },
         dispatchEvent: event => events.push(event), addEventListener() {}
     };
+    if (hybrid) window.GunterRuntimeState = { getState: () => hybrid };
     const speechSynthesis = { getVoices: () => [], speak: u => utterances.push(u), cancel() {} };
     window.speechSynthesis = speechSynthesis;
     class Audio {
         constructor(url) { this.url = url; this.played = false; this.paused = false; audios.push(this); }
+        addEventListener() {}
         async play() { this.played = true; }
         pause() { this.paused = true; }
     }
@@ -116,6 +118,26 @@ function voiceRuntime(fetcher) {
         setup.voice.speak('Hola Andrea'); await tick(); assert.equal(setup.utterances[0].text, 'Hola Andrea');
         assert.equal(setup.voice.isLikelyEcho('Hola Andrea'), true);
         setup.voice.cancel(); assert.equal(setup.utterances[0].onend, null); assert.equal(setup.voice.isSpeaking(), false);
+    });
+    await test('respuesta larga inicia con un segmento breve y prepara el siguiente mientras habla', async () => {
+        const requests = [];
+        const setup = voiceRuntime(async (url, options) => {
+            requests.push({ text: JSON.parse(options.body).text, signal: options.signal });
+            return { ok: true, blob: async () => ({}) };
+        });
+        setup.voice.speak('Buenos días. Revisé tu agenda y encontré tres asuntos importantes para hoy. La reunión empieza a las diez y media. Después podemos organizar un plan breve para terminar las tareas prioritarias.');
+        await tick(); await tick(); await tick();
+        assert.ok(requests.length >= 2);
+        assert.ok(requests[0].text.length <= 90);
+        assert.equal(setup.audios.length, 1);
+        setup.voice.cancel();
+        assert.equal(requests[1].signal.aborted, true);
+    });
+    await test('LOCAL_ONLY no cambia en silencio a una voz de respaldo', async () => {
+        const setup = voiceRuntime(async () => { throw new Error('offline'); }, { mode: 'AUTO', privacy: 'LOCAL_ONLY' });
+        setup.voice.speak('Hola Andrea'); await tick();
+        assert.equal(setup.utterances.length, 0);
+        assert.equal(setup.voice.isSpeaking(), false);
     });
     console.log(`═══ PRESENCE / VOICE: ${passed} ✓ · 0 ✗ ═══`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

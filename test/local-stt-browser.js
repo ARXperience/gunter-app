@@ -6,12 +6,12 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 (async () => {
-    const requests = [], turns = [], events = [];
+    const requests = [], turns = [], events = [], sequence = [];
     let tracksStopped = 0;
     class Recorder {
         static isTypeSupported(value) { return value === 'audio/webm;codecs=opus'; }
         constructor() { this.mimeType = 'audio/webm;codecs=opus'; this.state = 'inactive'; }
-        start() { this.state = 'recording'; }
+        start() { sequence.push('recorder-start'); this.state = 'recording'; }
         stop() {
             this.state = 'inactive';
             this.ondataavailable?.({ data: new Blob(['fake microphone bytes'], { type: 'audio/webm' }) });
@@ -23,6 +23,7 @@ const vm = require('node:vm');
     }, MediaRecorder: Recorder,
         navigator: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop: () => { tracksStopped++; } }] }) } },
         GunterRuntimeState: { getState: () => ({ mode: 'LOCAL', privacy: 'LOCAL_ONLY' }) },
+        GunterVoice: { cancel: reason => sequence.push(`tts-cancel:${reason}`) },
         GunterCompanion: { __handleFromWake: async value => turns.push(value) },
         dispatchEvent: event => events.push(event),
         fetch: async (url, options) => {
@@ -34,6 +35,7 @@ const vm = require('node:vm');
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js/services/stt-provider.js'), 'utf8'), context);
     await context.GunterSTT.pushToTalk.start();
     assert.equal(context.GunterSTT.pushToTalk.isActive(), true);
+    assert.deepEqual(sequence, ['tts-cancel:push-to-talk', 'recorder-start']);
     context.GunterSTT.pushToTalk.stop();
     await new Promise(resolve => setTimeout(resolve, 30));
     assert.equal(context.GunterSTT.pushToTalk.isActive(), false);

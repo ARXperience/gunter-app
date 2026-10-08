@@ -610,7 +610,9 @@
         const toolHint = window.GunterAssistantTools?.detect?.(text) || window.GunterAssistantTools?.getPending?.();
         const toolTimeout = toolHint?.toolId?.startsWith('desktop.browser.') ? 95000 : toolHint?.toolId?.startsWith('desktop.') ? 65000 : 8000;
         const finishTyping = () => { if (turnId === STATE.turnId) setTyping(false); };
-        const reply = message => { if (turnId === STATE.turnId) addMessage('assistant', message, messageOptions); };
+        const reply = (message, extra = {}) => {
+            if (turnId === STATE.turnId) addMessage('assistant', message, { ...messageOptions, ...extra });
+        };
         addMessage('user', text);
         setTyping(true);
 
@@ -835,6 +837,46 @@
                 const prompt = await buildLLMPrompt(text);
                 if (turnId !== STATE.turnId) return;
                 try {
+                    const runtime = window.GunterRuntimeState?.getState?.() || {};
+                    const local = runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY';
+                    if (local && window.GunterNlpLlm.stream && window.GunterVoice?.beginStream) {
+                        const voice = window.GunterVoice.beginStream({
+                            context: messageOptions.voiceContext || 'chat',
+                            full: messageOptions.fullVoice === true,
+                            force: messageOptions.forceVoice === true
+                        });
+                        let raw = '';
+                        let firstToken = true;
+                        const deadline = setTimeout(() => controller.abort(), SAFETY_TIMEOUT_MS);
+                        try {
+                            window.dispatchEvent(new CustomEvent('gunter-voice-metric', {
+                                detail: { name: 'llmRequest', at: performance.now() }
+                            }));
+                            for await (const delta of window.GunterNlpLlm.stream(prompt, {
+                                temperature: 0.6, maxTokens: 260, skipMemory: true, signal: controller.signal
+                            })) {
+                                if (turnId !== STATE.turnId || controller.signal.aborted) return;
+                                if (firstToken) {
+                                    firstToken = false;
+                                    window.dispatchEvent(new CustomEvent('gunter-voice-metric', {
+                                        detail: { name: 'llmFirstToken', at: performance.now() }
+                                    }));
+                                }
+                                raw += delta;
+                                voice.append(delta);
+                            }
+                            if (turnId !== STATE.turnId || controller.signal.aborted) return;
+                            voice.finish();
+                            clearTimeout(safetyTimer);
+                            finishTyping();
+                            reply(raw.trim() || 'No supe responder eso, prueba de otra forma.', { skipVoice: voice.enabled });
+                            return;
+                        } catch (streamError) {
+                            voice.cancel();
+                            if (turnId === STATE.turnId) window.GunterVoice.cancel('stream-failed');
+                            throw streamError;
+                        } finally { clearTimeout(deadline); }
+                    }
                     const raw = await withTimeout(
                         window.GunterNlpLlm.complete(prompt, {
                             temperature: 0.6,
@@ -850,6 +892,7 @@
                     reply(raw?.trim() || 'No supe responder eso, prueba de otra forma.');
                     return;
                 } catch (llmErr) {
+                    if (turnId !== STATE.turnId || controller.signal.aborted && llmErr.name === 'AbortError') return;
                     console.warn('[companion] LLM error:', llmErr.message);
                     clearTimeout(safetyTimer);
                     finishTyping();
@@ -1209,7 +1252,7 @@ Gunter:`;
         } catch (e) { console.warn('[companion] remember fail:', e.message); }
 
         // Voz (habla el mensaje completo, no por chunks)
-        if (window.GunterVoice?.speak) {
+        if (!options.skipVoice && window.GunterVoice?.speak) {
             try {
                 if (options.wakeWordResponse && window.PremiumFeaturesService?.getWakeWordConfig?.().responseMode !== 'voice') {
                     setMascotState('default');

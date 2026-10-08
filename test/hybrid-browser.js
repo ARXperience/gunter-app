@@ -55,8 +55,8 @@ function load(file) { vm.runInContext(fs.readFileSync(path.join(root, file), 'ut
     state.mode = 'AUTO';
     load('js/services/voice-service.js');
     load('js/adapters/voice-adapter.js');
-    assert.equal(context.GunterAdapters.voice.providerStatus.cloud, 'CURRENT_PROVIDER');
+    assert.equal(context.GunterAdapters.voice.providerStatus.cloud, 'FALLBACK_PROVIDER');
     assert.equal(context.GunterAdapters.voice.providerStatus.browser, 'CURRENT_BROWSER_FALLBACK');
-    assert.equal(context.GunterAdapters.voice.providerStatus.local, 'NOT_INSTALLED');
+    assert.equal(context.GunterAdapters.voice.providerStatus.local, 'UNKNOWN');
     console.log('HYBRID BROWSER PROVIDERS: cloud and local-proxy routing ✓');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -30,6 +30,11 @@
     let recorder = null;
     let captureStream = null;
     let captureTimer = null;
+    function metric(name) {
+        try { root.dispatchEvent(new CustomEvent('gunter-voice-metric', {
+            detail: { name, at: performance.now() }
+        })); } catch { /* optional telemetry */ }
+    }
     function captureState(active) {
         try { root.dispatchEvent(new CustomEvent('gunter-push-to-talk-state', { detail: { active } })); } catch {}
     }
@@ -39,6 +44,7 @@
             if (recorder) return;
             if (!root.GunterCompanion?.__handleFromWake) throw unavailable('LOCAL_STT_UNAVAILABLE');
             if (!navigator.mediaDevices?.getUserMedia || !root.MediaRecorder) throw unavailable('LOCAL_STT_UNAVAILABLE');
+            root.dispatchEvent(new CustomEvent('gunter-barge-in'));
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             captureStream = stream;
             const allowed = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg'];
@@ -62,12 +68,16 @@
                         const form = new FormData();
                         form.append('file', blob, type === 'audio/ogg' ? 'voice.ogg' : 'voice.webm');
                         const transcript = (await root.GunterSTT.transcribe(form)).trim();
+                        metric('sttFinal');
                         if (transcript) await root.GunterCompanion.__handleFromWake(transcript);
                         else root.GunterNotificationsService?.showToast?.('No detecté voz. Inténtalo de nuevo.', { variant: 'info' });
                     } catch (error) {
                         root.GunterNotificationsService?.showToast?.(`No pude transcribir: ${error.code || error.message}`, { variant: 'warn' });
                     }
                 };
+                // A deliberate Hablar press interrupts output before recording,
+                // so Moonshine hears the user rather than Gunter's own TTS.
+                root.GunterVoice?.cancel?.('push-to-talk');
                 current.start(500);
                 captureTimer = setTimeout(() => pushToTalk.stop(), 25000);
                 captureState(true);
@@ -79,7 +89,7 @@
         },
         stop() {
             clearTimeout(captureTimer);
-            if (recorder?.state === 'recording') recorder.stop();
+            if (recorder?.state === 'recording') { metric('userAudioEnd'); recorder.stop(); }
             else if (captureStream) { captureStream.getTracks().forEach(track => track.stop()); captureStream = null; }
         }
     };

@@ -11,7 +11,7 @@
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = "v104-native-apns-20260925";
+const SW_VERSION = "v106-supertonic3-native-20261007";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;

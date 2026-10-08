@@ -17,6 +17,7 @@ const evolution = require('./evolution');
 const modelRouter = require('./model-router');
 const localBrain = require('../local-brain');
 const localSTT = require('../local-stt');
+const localTTS = require('../local-tts');
 const observability = require('./observability');
 const operations = require('./operations');
 const capabilities = require('./capabilities');
@@ -108,6 +109,10 @@ async function handle(req, res, pathname, query = {}) {
             const body = await readBody(req);
             const result = flags.set(body.key, body, actor.userId || actor.kind);
             if (result.ok && body.key === 'ai.local' && body.state === 'off') localBrain.stop();
+            if (result.ok && body.key === 'tts.local') {
+                if (body.state === 'off') localTTS.stop();
+                if (body.state === 'on') localTTS.warm().catch(() => {});
+            }
             return sendResult(res, result);
         }
 

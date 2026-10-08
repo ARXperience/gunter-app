@@ -2,6 +2,7 @@
 (function () {
     let mounted = false;
     let pairingPoll = null;
+    let hybridDirty = false;
 
     async function mount(target = '#premium-panel') {
         if (mounted) return;
@@ -65,6 +66,8 @@
     function renderHybrid(data) {
         const root = document.getElementById('cp-hybrid-block');
         if (!root) return;
+        const pendingMode = hybridDirty ? root.querySelector('#cp-hybrid-mode')?.value : null;
+        const pendingPrivacy = hybridDirty ? root.querySelector('#cp-hybrid-privacy')?.value : null;
         const installed = data.localBrainInstalled && data.localBrainRuntimeAvailable;
         const active = !!data.flags?.['ai.local'];
         const ready = !!data.localBrainReady;
@@ -73,6 +76,10 @@
         const sttInstalled = !!(data.localSTTInstalled && data.localSTTRuntimeAvailable);
         const sttActive = !!data.flags?.['stt.local'];
         const sttStatus = data.localSTTReady ? 'Listo para transcribir' : sttInstalled ? 'Instalado, no listo' : 'No instalado';
+        const tts = data.providers?.tts?.local || {};
+        const ttsInstalled = !!tts.installed;
+        const ttsActive = !!data.flags?.['tts.local'];
+        const ttsStatus = tts.status === 'READY' ? 'Listo para hablar' : ttsInstalled ? 'Instalado, no listo' : 'No instalado';
         root.innerHTML = `<div class="cp-section-title"><div><span>01</span><h3>Modo de inteligencia</h3></div><small>${escapeHtml(status)}</small></div>
             <p class="cp-section-help">AUTO y CLOUD conservan la transcripción en nube. LOCAL usa Ministral para chat y Moonshine para transcripción si ambos están instalados y habilitados. LOCAL_ONLY bloquea la nube; las funciones sin proveedor local siguen sin estar disponibles.</p>
             <div class="cp-hybrid-controls">
@@ -87,9 +94,12 @@
             <div class="cp-hybrid-runtime"><span>STT nube: <strong>${stt.cloud?.configured ? 'Configurado' : 'No configurado'}</strong> · STT local: <strong>${escapeHtml(sttStatus)}</strong> · Modelo: ${escapeHtml(data.localSTTModel || stt.local?.model || 'Moonshine Spanish Small Streaming')}${data.localSTTError ? ` · ${escapeHtml(data.localSTTError)}` : ''}</span>
                 <button type="button" class="cp-link" id="cp-stt-flag" ${sttInstalled ? '' : 'disabled'}>${sttActive ? 'Desactivar STT local' : 'Activar STT local'}</button>
             </div>
+            <div class="cp-hybrid-runtime"><span>Voz local: <strong>${escapeHtml(ttsStatus)}</strong> · Supertonic 3 M1${tts.error ? ` · ${escapeHtml(tts.error)}` : ''}</span>
+                <button type="button" class="cp-link" id="cp-tts-flag" ${ttsInstalled ? '' : 'disabled'}>${ttsActive ? 'Desactivar voz local' : 'Activar voz local'}</button>
+            </div>
             <p class="cp-section-help">Activar o detener el motor requiere una cuenta administradora. No instala ni descarga modelos desde esta pantalla.</p>`;
-        root.querySelector('#cp-hybrid-mode').value = data.mode || 'AUTO';
-        root.querySelector('#cp-hybrid-privacy').value = data.privacy || 'STANDARD';
+        root.querySelector('#cp-hybrid-mode').value = pendingMode || data.mode || 'AUTO';
+        root.querySelector('#cp-hybrid-privacy').value = pendingPrivacy || data.privacy || 'STANDARD';
     }
 
     function renderPlan(data) {
@@ -171,6 +181,10 @@
     }
 
     async function onChange(event) {
+        if (event.target.matches?.('#cp-hybrid-mode, #cp-hybrid-privacy')) {
+            hybridDirty = true;
+            return;
+        }
         const toggle = event.target.closest('[data-setting-toggle]');
         if (!toggle) return;
         toggle.disabled = true;
@@ -197,6 +211,7 @@
                     await window.GunterControlPlane.updateHybridMode({ mode, privacy });
                     await window.GunterRuntimeState?.refresh?.();
                 }
+                hybridDirty = false;
                 renderHybrid(await window.GunterControlPlane.hybridStatus());
                 announce('Modo de inteligencia actualizado.');
             } catch (error) { announce(error.message, true); }
@@ -238,6 +253,19 @@
                 announce(active ? 'Transcripción local desactivada.' : 'Transcripción local habilitada. Solo transcribe; las acciones por voz requieren confirmación.');
             } catch (error) { announce(error.status === 403 ? 'Solo un administrador puede cambiar este permiso.' : error.message, true); }
             finally { sttFlag.disabled = false; }
+            return;
+        }
+        const ttsFlag = event.target.closest('#cp-tts-flag');
+        if (ttsFlag) {
+            ttsFlag.disabled = true;
+            try {
+                const active = (await window.GunterControlPlane.hybridStatus()).flags?.['tts.local'];
+                await window.GunterControlPlane.updateFlag({ key: 'tts.local', state: active ? 'off' : 'on' });
+                renderHybrid(await window.GunterControlPlane.hybridStatus());
+                window.GunterRuntimeState?.refresh?.().catch(() => {});
+                announce(active ? 'Voz local desactivada.' : 'Voz local activada. Gunter está cargando Supertonic 3 M1.');
+            } catch (error) { announce(error.status === 403 ? 'Solo un administrador puede cambiar este permiso.' : error.message, true); }
+            finally { ttsFlag.disabled = false; }
             return;
         }
         const save = event.target.closest('[data-save-setting]');

@@ -42,7 +42,8 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     expect(hybrid.changed.success).toBe(true);
     for (const [endpoint, result] of Object.entries(hybrid.blocked)) {
         expect(result.status).toBe(503);
-        expect(result.body.code).toBe(endpoint === 'transcribe' ? 'LOCAL_STT_NOT_INSTALLED' : 'LOCAL_PROVIDER_NOT_INSTALLED');
+        expect(result.body.code).toBe(endpoint === 'transcribe' ? 'LOCAL_STT_NOT_INSTALLED'
+            : endpoint === 'tts' ? 'LOCAL_TTS_NOT_INSTALLED' : 'LOCAL_PROVIDER_NOT_INSTALLED');
     }
     expect(hybrid.restored.data.mode).toBe('AUTO');
     expect(hybrid.cloudBody.code).not.toBe('LOCAL_PROVIDER_NOT_INSTALLED');
