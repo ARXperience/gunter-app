@@ -4,15 +4,21 @@
    ============================================= */
 
 (function () {
-    const TABS = ['premium', 'preferences', 'data', 'trash'];
+    const TABS = ['premium', 'voice', 'conversations', 'actions', 'connections', 'preferences', 'data', 'diagnostics'];
+    const ADVANCED_TABS = new Set(['premium', 'voice', 'conversations', 'actions', 'connections']);
     const TITLES = {
-        'premium':     { t: 'Asistente IA', s: 'Configura cómo Gunter piensa, escucha, recuerda y se anticipa.' },
-        'preferences': { t: 'Preferencias', s: 'Personaliza apariencia, idioma y accesibilidad.' },
-        'trash':       { t: 'Papelera',       s: 'Proyectos eliminados. Restaura o elimina definitivamente.' },
-        'data':        { t: 'Datos y conexiones', s: 'Gestiona respaldos, memoria, integraciones y privacidad.' }
+        premium: { t: 'Asistente e IA', s: 'Personalidad, conocimiento y decisiones con controles claros.' },
+        voice: { t: 'Voz y escucha', s: 'Micrófono, activación y dictado local con estados verificables.' },
+        conversations: { t: 'Conversaciones y memoria', s: 'Tus recuerdos e historial bajo tu control.' },
+        actions: { t: 'Acciones y permisos', s: 'Herramientas, automatizaciones y autorizaciones.' },
+        connections: { t: 'Conexiones y dispositivos', s: 'Servicios externos y capacidades de tus dispositivos.' },
+        preferences: { t: 'Apariencia y accesibilidad', s: 'Ambiente visual y ajustes de comodidad.' },
+        data: { t: 'Datos y privacidad', s: 'Respaldos, almacenamiento y eliminación segura.' },
+        diagnostics: { t: 'Diagnóstico', s: 'Comprobaciones reales, sin revelar registros privados.' }
     };
 
     function activateTab(name) {
+        if (name === 'trash') name = 'data';
         if (!TABS.includes(name)) name = 'premium';
 
         document.querySelectorAll('.config-tab').forEach(btn => {
@@ -24,6 +30,15 @@
         document.querySelectorAll('.config-tab-panel').forEach(p => {
             p.hidden = p.dataset.panel !== name;
         });
+        // El catálogo avanzado es un único componente compartido: se mueve al
+        // panel activo para evitar dos tabpanels visibles y controles duplicados.
+        if (ADVANCED_TABS.has(name)) {
+            const section = document.getElementById(`config-panel-${name}`);
+            const catalog = document.getElementById('premium-panel');
+            if (section && catalog && catalog.parentElement !== section) section.prepend(catalog);
+        }
+        const assistantOnly = document.querySelector('#config-panel-premium > .settings-card');
+        if (assistantOnly) assistantOnly.hidden = name !== 'premium';
 
         const titleEl = document.getElementById('config-header-title');
         const subEl = document.getElementById('config-header-subtitle');
@@ -34,10 +49,11 @@
         try { history.replaceState(null, '', '#' + name); } catch {}
 
         // Lazy-load the panel data
-        if (name === 'trash') renderTrash();
-        if (name === 'preferences') loadPreferences();
-        if (name === 'data') loadDataStatus();
-        if (name === 'premium') mountPremium();
+        if (name === 'data') renderTrash();
+        if (['premium', 'voice', 'preferences'].includes(name)) loadPreferences();
+        if (name === 'connections') loadDataStatus();
+        if (ADVANCED_TABS.has(name)) { mountPremium(); window.GunterAdvancedSettings?.setCategory?.(name); }
+        if (name === 'voice') updateVoiceDependencies();
     }
 
     let premiumMounted = false;
@@ -47,6 +63,8 @@
             window.GunterAdvancedSettings.mount('#premium-panel');
             premiumMounted = true;
             window.GunterControlPlaneSettings?.mount?.('#premium-panel');
+            const plane = document.querySelector('#premium-panel > .cp-settings');
+            if (plane) plane.hidden = !['premium'].includes((location.hash || '#premium').slice(1));
         } else {
             const el = document.getElementById('premium-panel');
             if (el) el.innerHTML = '<p class="settings-empty">Cargando módulo premium…</p>';
@@ -75,6 +93,82 @@
         // sincronizamos panel, pestaña y URL también en ese caso.
         window.addEventListener('hashchange', () => {
             activateTab((location.hash || '').replace(/^#/, '') || 'premium');
+        });
+    }
+
+    function arrangeExistingControls() {
+        const move = (selector, panel, heading = false) => {
+            const node = document.querySelector(selector);
+            const destination = document.getElementById(`config-panel-${panel}`);
+            if (!node || !destination) return;
+            const card = node.closest('.settings-card') || node;
+            if (heading && card.previousElementSibling?.matches('h4.data-section-title')) destination.appendChild(card.previousElementSibling);
+            destination.appendChild(card);
+        };
+        move('#pref-entry-greeting', 'premium');
+        move('#pref-language', 'voice');
+        move('#push-settings-card', 'actions');
+        move('#status-openai', 'connections', true);
+        move('#social-settings-panel', 'connections');
+        move('#personal-memory-card', 'conversations', true);
+        move('#conv-memory-card', 'conversations', true);
+        const trashCard = document.querySelector('#trash-list')?.closest('.settings-card');
+        const dangerHeading = document.querySelector('#config-panel-data .data-section-title--danger');
+        if (trashCard && dangerHeading) dangerHeading.before(trashCard);
+        const intro = document.querySelector('#config-panel-data .data-section-intro p');
+        if (intro) intro.innerHTML = 'Aquí gestionas respaldos, almacenamiento y privacidad. <strong>Las acciones de borrado requieren confirmación.</strong>';
+    }
+
+    function updateVoiceDependencies() {
+        const el = document.getElementById('voice-test-dependency');
+        if (!el) return;
+        const runtime = window.GunterRuntimeState?.getState?.() || {};
+        const capture = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+        el.textContent = !capture ? 'Este navegador no permite capturar audio. Usa el chat de texto.'
+            : runtime.loaded !== true ? 'Comprobando el estado de Moonshine y del servidor…'
+                : runtime.localSTTAvailable ? 'Moonshine local listo. La grabación queda en este dispositivo hasta el envío al servidor local.'
+                    : 'Moonshine no está listo. En LOCAL_ONLY la transcripción no usará cloud; revisa el modelo y runtime local.';
+    }
+
+    function initVoiceTest() {
+        const button = document.getElementById('voice-test-button');
+        const label = document.getElementById('voice-test-state');
+        const max = document.getElementById('voice-max-seconds');
+        const silence = document.getElementById('voice-silence-seconds');
+        if (!button || !label) return;
+        const prefs = readPrefs();
+        max.value = prefs.voiceDictationMaxSeconds || 90;
+        silence.value = prefs.voiceDictationSilenceSeconds || 12;
+        for (const [input, key, min, maxValue] of [[max, 'voiceDictationMaxSeconds', 30, 120], [silence, 'voiceDictationSilenceSeconds', 5, 30]]) {
+            input.addEventListener('change', () => {
+                const value = Math.min(maxValue, Math.max(min, Number(input.value) || (key === 'voiceDictationMaxSeconds' ? 90 : 12)));
+                input.value = value;
+                writePrefs({ [key]: value });
+            });
+        }
+        button.addEventListener('click', async () => {
+            try {
+                if (window.GunterSTT?.pushToTalk?.isActive?.()) window.GunterSTT.pushToTalk.stop();
+                else await window.GunterSTT.pushToTalk.start();
+            } catch (error) {
+                label.textContent = `Error: ${error.code || error.name || 'captura no disponible'}`;
+            }
+        });
+        window.addEventListener('gunter-push-to-talk-state', event => {
+            const state = event.detail || {};
+            const names = { off: 'Desactivado', permission_pending: 'Permiso pendiente', recording: 'Grabando', transcribing: 'Transcribiendo', review: 'Texto reconocido: revisa el chat', error: 'Error' };
+            label.textContent = `${names[state.phase] || state.phase}${state.phase === 'recording' ? ` · ${state.elapsedSeconds || 0} s` : ''}`;
+            button.textContent = state.active ? 'Finalizar prueba' : 'Iniciar prueba';
+        });
+        window.addEventListener('gunter-hybrid-state', updateVoiceDependencies);
+        updateVoiceDependencies();
+    }
+
+    function initDiagnostics() {
+        document.getElementById('config-diagnostics-run')?.addEventListener('click', async () => {
+            const result = document.getElementById('config-diagnostics-result');
+            result.textContent = 'Comprobando…';
+            result.textContent = await window.GunterDiagnostics?.answer?.('Revisa tus errores') || 'Diagnóstico no disponible en esta página.';
         });
     }
 
@@ -432,10 +526,14 @@
 
     // ---------- Boot ----------
     function boot() {
+        document.getElementById('config-open-assistant')?.addEventListener('click', () => window.GunterCompanion?.expand?.());
+        arrangeExistingControls();
         initTabs();
         initTrash();
         initData();
         initGoogleCalendar();
+        initVoiceTest();
+        initDiagnostics();
     }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', boot);

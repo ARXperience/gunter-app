@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="styles/animations.css">
     <link rel="stylesheet" href="styles/pages/config.css">
     <link rel="stylesheet" href="styles/pages/config-polish.css">
-    <link rel="stylesheet" href="styles/pages/config-settings.css?v3-backup">
+    <link rel="stylesheet" href="styles/pages/config-settings.css?v7-eight-sections">
     <link rel="stylesheet" href="styles/pages/advanced-settings.css?v85d-final">
     <!-- (audio-trimmer.css eliminado: pertenecía al flujo Nuevo Proyecto) -->
 
@@ -47,22 +47,22 @@
 
     <!-- Medieval Futuristic Theme -->
     <link rel="stylesheet" href="styles/gunter-mascot.css?v66b-gunter-pixar-1783590000000">
-    <link rel="stylesheet" href="styles/gunter-companion.css?v70-particles">
+    <link rel="stylesheet" href="styles/gunter-companion.css?v120-dictation">
 <link rel="stylesheet" href="styles/gunter-design-system.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-prism.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-cinematic.css?v83-static-polar">
     <script src="js/services/gunter-cinematic-shell.js?v81-static-polar" defer></script>
-    <link rel="stylesheet" href="styles/gunter-command-center.css?v115-mobile-no-header">
+    <link rel="stylesheet" href="styles/gunter-command-center.css?v117-responsive-config">
     <link rel="stylesheet" href="styles/pages/control-plane.css?v95-device-access">
     <link rel="stylesheet" href="styles/pages/social-settings.css?v103-device-runtime">
     <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
     <script src="js/services/gunter-particles.js?v10-stitch-figure" defer></script>
-    <script src="js/services/gunter-command-center.js?v115-local-clock" defer></script>
+    <script src="js/services/gunter-command-center.js?v120-voice-ui" defer></script>
     <script src="js/services/gunter-icon-system.js?v3-unified-icons" defer></script>
 </head>
 
-<body class="at-dark">
+<body class="at-dark gunter-config-page">
     <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
     <!-- Neural Mesh Background -->
     <div class="neural-mesh-bg"></div>
@@ -80,14 +80,19 @@
             <p class="config-header__subtitle" id="config-header-subtitle">
                 Administra tus proyectos, preferencias y datos desde un solo lugar.
             </p>
+            <button type="button" class="btn btn--secondary config-header__ask" id="config-open-assistant">Preguntar a Gunter</button>
         </header>
 
         <!-- Tabs (Nuevo Proyecto vive en dashboard.html, no aquí) -->
         <nav class="config-tabs" role="tablist" aria-label="Secciones de configuración">
-            <button class="config-tab" id="config-tab-premium" role="tab" data-tab="premium" aria-controls="config-panel-premium" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="brain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18V5a3 3 0 0 0-5.8-1A4 4 0 0 0 4 11a4 4 0 0 0 2 7h6ZM12 18V5a3 3 0 0 1 5.8-1A4 4 0 0 1 20 11a4 4 0 0 1-2 7h-6Z"/><path d="M8 8a2 2 0 0 0 0 4m8-5a2 2 0 0 1 0 4"/></svg><span>Asistente IA</span></button>
-            <button class="config-tab" id="config-tab-preferences" role="tab" data-tab="preferences" aria-controls="config-panel-preferences" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.7 1l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.7-1l-1.7.6-1.4-2.4 1.4-1.1a7 7 0 0 1 0-2l-1.4-1.1 1.4-2.4 1.7.6a8 8 0 0 1 1.7-1l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.7 1l1.7-.6 1.4 2.4-1.4 1.1a7 7 0 0 1-.1 1.9z" transform="translate(-1 -1)"/></svg><span>Preferencias</span></button>
-            <button class="config-tab" id="config-tab-data" role="tab" data-tab="data" aria-controls="config-panel-data" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l2-2A5 5 0 0 0 12 3.9l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1"/></svg><span>Datos y conexiones</span></button>
-            <button class="config-tab" id="config-tab-trash" role="tab" data-tab="trash" aria-controls="config-panel-trash" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18m-2 0-.9 14H5.9L5 6m4 0V4h6v2m-5 4v6m4-6v6"/></svg><span>Papelera</span></button>
+            <button class="config-tab" id="config-tab-premium" role="tab" data-tab="premium" aria-controls="config-panel-premium" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="brain" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 18V5a3 3 0 0 0-5.8-1A4 4 0 0 0 4 11a4 4 0 0 0 2 7h6Zm0 0V5a3 3 0 0 1 5.8-1A4 4 0 0 1 20 11a4 4 0 0 1-2 7h-6Z"/></svg> Asistente e IA</button>
+            <button class="config-tab" id="config-tab-voice" role="tab" data-tab="voice" aria-controls="config-panel-voice" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="microphone" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5m-4 0h8"/></svg> Voz y escucha</button>
+            <button class="config-tab" id="config-tab-conversations" role="tab" data-tab="conversations" aria-controls="config-panel-conversations" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="message" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 1 1 16.1-3.8Z"/></svg> Conversaciones y memoria</button>
+            <button class="config-tab" id="config-tab-actions" role="tab" data-tab="actions" aria-controls="config-panel-actions" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="shield" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></svg> Acciones y permisos</button>
+            <button class="config-tab" id="config-tab-connections" role="tab" data-tab="connections" aria-controls="config-panel-connections" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="link" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l2-2A5 5 0 0 0 12 3.9l-1.1 1.1M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1"/></svg> Conexiones y dispositivos</button>
+            <button class="config-tab" id="config-tab-preferences" role="tab" data-tab="preferences" aria-controls="config-panel-preferences" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="palette" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 1.7-3.1 1 1 0 0 1 .8-1.5H18a3 3 0 0 0 3-3A10 10 0 0 0 12 3Z"/></svg> Apariencia y accesibilidad</button>
+            <button class="config-tab" id="config-tab-data" role="tab" data-tab="data" aria-controls="config-panel-data" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3"/></svg> Datos y privacidad</button>
+            <button class="config-tab" id="config-tab-diagnostics" role="tab" data-tab="diagnostics" aria-controls="config-panel-diagnostics" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="activity" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg> Diagnóstico</button>
         </nav>
 
 
@@ -96,6 +101,20 @@
         <section class="config-tab-panel" id="config-panel-premium" role="tabpanel" aria-labelledby="config-tab-premium" tabindex="0" data-panel="premium" hidden>
             <div id="premium-panel"></div>
         </section>
+
+        <section class="config-tab-panel" id="config-panel-voice" role="tabpanel" aria-labelledby="config-tab-voice" tabindex="0" data-panel="voice" hidden>
+            <div class="settings-card">
+                <h3>Prueba de micrófono y transcripción</h3>
+                <p class="settings-card__hint">Graba una frase. El texto aparecerá como borrador editable en el chat; ninguna orden se ejecuta antes de enviarla.</p>
+                <div class="settings-row"><button type="button" class="btn btn--primary" id="voice-test-button">Iniciar prueba</button><span id="voice-test-state" role="status" aria-live="polite">Desactivado</span></div>
+                <div class="settings-row"><label for="voice-max-seconds">Duración máxima (30–120 s)</label><input id="voice-max-seconds" type="number" min="30" max="120" class="form-input"></div>
+                <div class="settings-row"><label for="voice-silence-seconds">Finalizar tras silencio (5–30 s)</label><input id="voice-silence-seconds" type="number" min="5" max="30" class="form-input"></div>
+                <p id="voice-test-dependency" class="settings-card__hint" role="status"></p>
+            </div>
+        </section>
+        <section class="config-tab-panel" id="config-panel-conversations" role="tabpanel" aria-labelledby="config-tab-conversations" tabindex="0" data-panel="conversations" hidden></section>
+        <section class="config-tab-panel" id="config-panel-actions" role="tabpanel" aria-labelledby="config-tab-actions" tabindex="0" data-panel="actions" hidden></section>
+        <section class="config-tab-panel" id="config-panel-connections" role="tabpanel" aria-labelledby="config-tab-connections" tabindex="0" data-panel="connections" hidden></section>
 
 
         <!-- TAB: PREFERENCES -->
@@ -136,7 +155,7 @@
 
             <div class="settings-card">
                 <h3>Idioma de transcripción</h3>
-                <p class="settings-card__hint">Idioma que recibe Whisper y Web Speech durante la reunión.</p>
+                <p class="settings-card__hint">Idioma usado por la transcripción de reuniones y el proveedor disponible.</p>
                 <div class="settings-row">
                     <label for="pref-language">Idioma</label>
                     <select id="pref-language" class="form-input">
@@ -335,6 +354,14 @@
         </section>
         <!-- /TABS -->
 
+        <section class="config-tab-panel" id="config-panel-diagnostics" role="tabpanel" aria-labelledby="config-tab-diagnostics" tabindex="0" data-panel="diagnostics" hidden>
+            <div class="settings-card"><h3>Estado comprobado de Gunter</h3>
+                <p class="settings-card__hint">Solo lectura. No comparte registros privados con servicios cloud ni cambia tus ajustes.</p>
+                <button type="button" class="btn btn--secondary" id="config-diagnostics-run">Revisar ahora</button>
+                <pre id="config-diagnostics-result" class="config-diagnostics-result" role="status" aria-live="polite">Todavía no he comprobado este dispositivo.</pre>
+            </div>
+        </section>
+
         <!-- (Audio Trimmer overlay eliminado: pertenecía al flujo Nuevo Proyecto) -->
     </main>
 
@@ -347,7 +374,7 @@
     <script src="js/services/calendar-service.js" defer></script>
     <script src="js/services/status-bus.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/connectivity-monitor.js?v116-supertonic3" defer></script>
-    <script src="js/services/stt-provider.js?v117-supertonic3-native" defer></script>
+    <script src="js/services/stt-provider.js?v120-dictation" defer></script>
     <script src="js/services/notifications-service.js?v102-background-push" defer></script>
     <script src="js/services/transcript-store.js" defer></script>
     <script src="js/services/local-data-maintenance-service.js" defer></script>
@@ -360,11 +387,11 @@
     <script src="js/core/conversation-state.js?v73-assistant" defer></script>
     <script src="js/core/time-parser.js?v71-assistant" defer></script>
     <script src="js/services/jobs-service.js?v73-assistant" defer></script>
-    <script src="js/services/voice-activity-service.js?v73-assistant" defer></script>
-    <script src="js/core/assistant-tools.js?v119-task-cancel" defer></script>
+    <script src="js/services/voice-activity-service.js?v120-shared-mic" defer></script>
+    <script src="js/core/assistant-tools.js?v120-context" defer></script>
     <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
     <script src="js/services/voice-service.js?v116-supertonic3" defer></script>
-    <script src="js/services/wake-word-service.js?v115-interrupt" defer></script>
+    <script src="js/services/wake-word-service.js?v120-local-wake" defer></script>
 
     <!-- Adapters (Fase 7) -->
     <script src="js/adapters/storage-adapter.js" defer></script>
@@ -374,8 +401,8 @@
     <script src="js/adapters/voice-adapter.js?v116-supertonic3" defer></script>
     <script src="js/adapters/index.js" defer></script>
 
-    <script src="js/premium-features-service.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/advanced-settings.js?v117-supertonic3-native" defer></script>
+    <script src="js/premium-features-service.js?v120-local-wake" defer></script>
+    <script src="js/advanced-settings.js?v119-categories" defer></script>
     <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
     <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
     <script src="js/services/connection-manager.js?v87-context-sync" defer></script>
@@ -389,7 +416,7 @@
     <script src="js/controllers/conversation-memory-panel.js" defer></script>
     <script src="js/controllers/personal-memory-panel.js?v2-backup" defer></script>
 
-    <script src="js/config-settings.js?v115-preserve-prefs" defer></script>
+    <script src="js/config-settings.js?v118-eight-sections" defer></script>
     <script src="js/controllers/presence-settings.js?v115-presence" defer></script>
     <!-- (ai-analysis, cache-service, audio-chunker, audio-trimmer eliminados:
          pertenecían al flujo Nuevo Proyecto que ahora vive en dashboard.html) -->
@@ -663,7 +690,8 @@
 
 
 
-    <script src="js/services/gunter-companion.js?v117-personal-context" defer></script>
+    <script src="js/services/diagnostics-service.js?v2-admin-stats" defer></script>
+    <script src="js/services/gunter-companion.js?v120-private-diagnostics" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-onboarding.js?v67-security-20260828" defer></script>
 </body>

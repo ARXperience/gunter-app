@@ -34,16 +34,16 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="assets/gunter/gunter_transparent_default_1769134184933.png">
     <link rel="stylesheet" href="styles/gunter-mascot.css?v66b-gunter-pixar-1783590000000">
-    <link rel="stylesheet" href="styles/gunter-companion.css?v70-particles">
+    <link rel="stylesheet" href="styles/gunter-companion.css?v120-dictation">
 <link rel="stylesheet" href="styles/gunter-design-system.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-prism.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-cinematic.css?v83-static-polar">
     <script src="js/services/gunter-cinematic-shell.js?v81-static-polar" defer></script>
-    <link rel="stylesheet" href="styles/gunter-command-center.css?v115-mobile-no-header">
-    <link rel="stylesheet" href="styles/gunter-hologram.css?v7-stitch-mobile-final">
+    <link rel="stylesheet" href="styles/gunter-command-center.css?v117-responsive-config">
+    <link rel="stylesheet" href="styles/gunter-hologram.css?v9-readable-panels">
     <script src="js/services/gunter-particles.js?v10-stitch-figure" defer></script>
-    <script src="js/services/gunter-command-center.js?v115-local-clock" defer></script>
+    <script src="js/services/gunter-command-center.js?v120-voice-ui" defer></script>
     <script src="js/services/gunter-icon-system.js?v3-unified-icons" defer></script>
     <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
     <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
@@ -163,7 +163,7 @@
                             <input type="text" id="gday-quickbar-input"
                                 placeholder='"recuérdame llamar a Ana mañana", "agenda reunión viernes 3pm", o arrastra una factura'
                                 aria-label="Escribe una tarea, evento, recordatorio o consulta para Gunter" autocomplete="off">
-                            <button type="submit">➤ Enviar</button>
+                            <button type="submit" aria-label="Enviar comando a Gunter">➤</button>
                         </form>
                         <p class="gday__quickbar-hint">Lenguaje natural en español · Tareas, eventos, recordatorios, facturas</p>
                     </div>
@@ -317,7 +317,7 @@
 
     <!-- ========== SCRIPTS ========== -->
     <script src="js/config.js?v103-api-base"></script>
-    <script src="js/premium-features-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/premium-features-service.js?v120-local-wake" defer></script>
 
     <!-- Avatar (neutral, no theme) -->
     <script src="js/gunter-avatar.js" defer></script>
@@ -326,7 +326,7 @@
     <!-- Core -->
     <script src="js/core/models.js" defer></script>
     <script src="js/core/trace-logger.js" defer></script>
-    <script src="js/core/context-provider.js?v115-presence-stability" defer></script>
+    <script src="js/core/context-provider.js?v120-owner-context" defer></script>
     <script src="js/core/date-service.js" defer></script>
     <script src="js/services/nlp-llm-service.js?v117-personal-context" defer></script>
     <script src="js/services/tasks-service.js?v74-task-cancel" defer></script>
@@ -336,7 +336,7 @@
     <script src="js/services/events-service.js" defer></script>
     <script src="js/services/status-bus.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/connectivity-monitor.js?v116-supertonic3" defer></script>
-    <script src="js/services/stt-provider.js?v117-supertonic3-native" defer></script>
+    <script src="js/services/stt-provider.js?v120-dictation" defer></script>
     <script src="js/services/notifications-service.js?v102-background-push" defer></script>
     <script src="js/services/transcript-store.js" defer></script>
     <script src="js/services/error-mapper.js?v116-supertonic3" defer></script>
@@ -352,9 +352,9 @@
     <script src="js/core/temporal-context.js?v70-assistant" defer></script>
     <script src="js/core/wake-invocation.js?v110-wake-chat" defer></script>
     <script src="js/core/conversation-state.js?v73-assistant" defer></script>
-    <script src="js/services/voice-activity-service.js?v73-assistant" defer></script>
+    <script src="js/services/voice-activity-service.js?v120-shared-mic" defer></script>
     <script src="js/services/voice-service.js?v116-supertonic3" defer></script>
-    <script src="js/services/wake-word-service.js?v115-interrupt" defer></script>
+    <script src="js/services/wake-word-service.js?v120-local-wake" defer></script>
 
     <!-- Adapters (Fase 7) — capa de indirección para futuro backend -->
     <script src="js/adapters/storage-adapter.js" defer></script>
@@ -366,13 +366,13 @@
 
     <script src="js/core/time-parser.js?v68-assistant" defer></script>
     <script src="js/services/jobs-service.js?v73-assistant" defer></script>
-    <script src="js/core/assistant-tools.js?v119-task-cancel" defer></script>
+    <script src="js/core/assistant-tools.js?v120-context" defer></script>
     <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
     <script src="js/core/intent-engine.js" defer></script>
     <script src="js/core/entity-extractor.js?v68-assistant" defer></script>
     <script src="js/core/decision-engine.js" defer></script>
     <script src="js/core/action-engine.js" defer></script>
-    <script src="js/core/pipeline.js?v117-personal-context" defer></script>
+    <script src="js/core/pipeline.js?v120-diagnostics" defer></script>
 
     <!-- Widgets existentes (el today-widget se estiliza con overrides) -->
     <script src="js/controllers/today-widget.js" defer></script>
@@ -421,7 +421,7 @@
     <script src="js/controllers/day-whatsapp-tab.js" defer></script>
     <script src="js/controllers/day-secondary-tabs.js" defer></script>
     <script src="js/controllers/activity-panel.js?v88-workflows" defer></script>
-    <script src="js/controllers/conversations-panel.js?v101-attachments" defer></script>
+    <script src="js/controllers/conversations-panel.js?v120-connections" defer></script>
 
     <!-- Tab router (debe ir antes del day-controller) -->
     <script src="js/controllers/day-tabs.js?v96-nav-hash" defer></script>
@@ -437,7 +437,8 @@
     <script src="js/services/gunter-mood-service.js?v66b-gunter-pixar-1783590000000" defer></script>
 
 
-    <script src="js/services/gunter-companion.js?v117-personal-context" defer></script>
+    <script src="js/services/diagnostics-service.js?v2-admin-stats" defer></script>
+    <script src="js/services/gunter-companion.js?v120-private-diagnostics" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-onboarding.js?v67-security-20260828" defer></script>
 </body>

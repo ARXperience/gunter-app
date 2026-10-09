@@ -323,6 +323,19 @@
     // ---------- Core render ----------
     let rootEl = null;
     let hybridListenerBound = false;
+    let activeCategory = 'premium';
+    const FEATURE_CATEGORIES = {
+        voiceEnabled: 'voice', wakeWordEnabled: 'voice', conversationMemory: 'conversations',
+        meetingMemory: 'conversations', googleCalendarSync: 'connections', whatsappAssistant: 'connections',
+        documentSync: 'connections', productivityPanel: 'actions', smartDocuments: 'actions',
+        dailyPlanner: 'actions', weeklyPlanner: 'actions', projectAutoFollowUp: 'actions',
+        meetingSmartFollowUp: 'actions', urgencyRanking: 'actions', smartWhatsappAlerts: 'actions',
+        delegationMode: 'actions', commitmentTracker: 'actions', proactivePulse: 'actions'
+    };
+    function setCategory(category) {
+        activeCategory = category || 'premium';
+        if (rootEl) render();
+    }
 
     function mount(selector = '#premium-panel') {
         rootEl = typeof selector === 'string' ? document.querySelector(selector) : selector;
@@ -339,6 +352,7 @@
 
     function render() {
         if (!rootEl) return;
+        rootEl.dataset.category = activeCategory;
 
         // Bug fix (config lockout): snapshot de qué cards están expandidas
         // ANTES de regenerar el innerHTML. Después de re-render, se restauran.
@@ -361,7 +375,7 @@
         const cards = FEATURE_MAP.filter(f => {
             // Tutor 📚 (v50): solo visible para admin o usuarios con permiso concedido
             if (f.id === 'tutorMode' && window.GunterAuth && !window.GunterAuth.canTutor()) return false;
-            return true;
+            return (FEATURE_CATEGORIES[f.id] || 'premium') === activeCategory;
         }).map(f => {
             const sec = f.section || 'core';
             let prefix = '';
@@ -396,9 +410,8 @@
             <div class="gps__intro">
                 <span class="gps__intro-icon">✨</span>
                 <div>
-                    <h3>Funciones Premium de Gunter</h3>
-                    <p>Activa módulos avanzados según lo que necesites. Todo se guarda localmente.
-                       Las funciones que requieren cuenta externa muestran instrucciones al activarse.</p>
+                    <h3>${({ premium: 'Asistente e IA', voice: 'Voz y escucha', conversations: 'Conversaciones y memoria', actions: 'Acciones y permisos', connections: 'Conexiones y dispositivos' })[activeCategory] || 'Funciones de Gunter'}</h3>
+                    <p>Los cambios se guardan con tus preferencias. Revisa los requisitos de cada módulo antes de activarlo.</p>
                 </div>
                 <div class="gps__intro-actions">
                     <button class="gps-inline-btn" id="gps-reset">Restablecer</button>
@@ -407,19 +420,22 @@
             </div>
 
             <!-- Fase F.F2 — Dashboard "Estado actual de Gunter" -->
-            ${renderStatusBoard()}
+            ${activeCategory === 'premium' ? renderStatusBoard() : ''}
 
             <!-- Fase F.F6 — Resumen funciones premium activas -->
-            ${renderActiveSummary()}
+            ${activeCategory === 'premium' ? renderActiveSummary() : ''}
 
             <details class="gps__catalog" ${catalogOpen ? 'open' : ''}>
-                <summary><span>Catálogo de funciones</span><small>${FEATURE_MAP.length} módulos · abre para activar o configurar</small></summary>
+                <summary><span>Módulos de esta sección</span><small>${FEATURE_MAP.filter(f => (FEATURE_CATEGORIES[f.id] || 'premium') === activeCategory).length} opciones · abre para configurar</small></summary>
                 <div class="gps__grid" id="gps-grid">
                     ${cards}
                 </div>
             </details>
         `;
-        if (controlPlanePanel) rootEl.prepend(controlPlanePanel);
+        if (controlPlanePanel) {
+            rootEl.prepend(controlPlanePanel);
+            controlPlanePanel.hidden = activeCategory !== 'premium';
+        }
         wireMaster();
         wireStatusBoard();
 
@@ -456,10 +472,12 @@
             : { label: 'Activa · ' + (voiceCfg.mode || 'live'), cls: 'on' };
 
         // Wake state
-        const wakeSupported = typeof window.SpeechRecognition !== 'undefined' || typeof window.webkitSpeechRecognition !== 'undefined';
+        const wakeSupported = wakeCfg.supported;
+        const liveWake = window.GunterWakeWord?.getState?.() || {};
         const wakeState = !wakeSupported ? { label: 'No compatible', cls: 'off' }
             : !wakeCfg.enabled ? { label: 'Desactivado', cls: 'off' }
-            : { label: 'Escuchando "' + (wakeCfg.wakeWord || 'Hi Gunter') + '"', cls: 'on' };
+            : liveWake.active ? { label: liveWake.label || 'Esperando activación', cls: 'on' }
+                : { label: liveWake.phase === 'error' ? 'Error de escucha' : 'Permiso pendiente', cls: 'warn' };
 
         // WhatsApp
         let waState = { label: 'Sin asistente', cls: 'off' };
@@ -1004,7 +1022,8 @@
                     <button class="gps-card__toggle-cfg" aria-expanded="false" data-toggle-cfg="${feature.id}">Configurar</button>
                 </div>
                 <div class="gps-card__details" data-details="${feature.id}">
-                    ${cfg.supported ? '' : `<div class="gps-warning gps-warning--error">Este navegador no soporta <code>SpeechRecognition</code>. Usa Chrome, Edge o Safari.</div>`}
+                    ${cfg.supported ? '' : `<div class="gps-warning gps-warning--error">Este navegador no permite captura local de micrófono ni reconocimiento compatible. Puedes usar el chat de texto.</div>`}
+                    <div class="gps-warning">En LOCAL/LOCAL_ONLY, Moonshine transcribe solo fragmentos con voz detectada. Requiere modelo instalado, runtime y la página en primer plano; el navegador no permite activación fiable con la pantalla apagada.</div>
 
                     <div class="gps-sub">
                         <div>
@@ -1381,7 +1400,7 @@
         }
         // Ya activo
         if (WW.isActive?.()) {
-            NS?.showToast('Wake word ya está activo. Di "Hi Gunter".', { variant: 'info', duration: 3000, silent: true });
+            NS?.showToast('La captura está activa. Di "Hi Gunter".', { variant: 'info', duration: 3000, silent: true });
             return;
         }
         try {
@@ -1389,7 +1408,8 @@
             const perm = await WW.requestPermission?.();
             if (perm === 'granted') {
                 await WW.start?.(true);
-                NS?.showToast('✓ Wake word activo. Di "Hi Gunter" para probar.', { variant: 'success', duration: 4000, silent: true });
+                const state = WW.getState?.();
+                NS?.showToast(state?.active ? 'Captura activa. Di "Hi Gunter" para probar.' : (state?.error || 'No se pudo abrir la captura.'), { variant: state?.active ? 'success' : 'warn', duration: 4500, silent: true });
             } else if (perm === 'denied') {
                 const msg = WW.humanError ? WW.humanError('rejected') : 'Permiso de micrófono rechazado. Revisa los permisos del navegador.';
                 NS?.showToast(msg, { variant: 'warn', duration: 5000, silent: true });
@@ -1438,5 +1458,5 @@
         return ({ calm: 'Calmada', neutral: 'Neutral', expressive: 'Expresiva', intense: 'Intensa' })[t] || t;
     }
 
-    window.GunterAdvancedSettings = { mount };
+    window.GunterAdvancedSettings = { mount, setCategory };
 })();

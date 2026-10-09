@@ -735,14 +735,38 @@ body.gunter-command-center .gday__main { min-width: 0; }
 /* Última capa de precedencia: el shell de mando se carga después del tema
    común, así que aquí se fijan los controles visibles de Configuración. */
 body.gunter-command-center.gunter-page-config .config-tabs {
-  border-radius: 7px !important;
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px !important;
+  position: relative;
+  top: auto;
+  overflow: visible;
+  border-radius: 12px !important;
   border-color: var(--gd-border) !important;
   background: var(--gd-surface) !important;
   box-shadow: none !important;
 }
 html body.gunter-command-center.gunter-page-config .config-tabs .config-tab {
-  border-radius: 4px !important;
+  display: block !important;
+  flex: initial !important;
+  min-width: 0;
+  min-height: 52px;
+  border-radius: 8px !important;
   color: var(--gd-on-surface-var) !important;
+  white-space: normal;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  text-align: left;
+}
+html body.gunter-command-center.gunter-page-config .config-tab span {
+  display: inline-block;
+  flex: none;
+  min-width: 18px;
+  white-space: nowrap;
+  margin-right: 8px;
+}
+@media (max-width: 820px) {
+  body.gunter-command-center.gunter-page-config .config-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
 }
 body.gunter-command-center.gunter-page-config .config-tab.is-active {
   color: var(--gd-on-primary) !important;

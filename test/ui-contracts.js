@@ -57,8 +57,8 @@ assert.match(read('styles/gunter-cinematic.css'), /\.gunter-cinematic-stage \{ d
 assert.match(read('styles/gunter-cinematic.css'), /\.prism-hero::before \{ content: none !important; display: none !important; \}/, 'the hero has no oversized Gunter watermark behind its content');
 
 const config = read('config.html');
-assert.equal((config.match(/class="gunter-icon" data-gunter-icon=/g) || []).length, 4, 'configuration tabs use the shared outline icon treatment');
-for (const id of ['premium', 'preferences', 'data', 'trash']) {
+assert.equal((config.match(/class="gunter-icon" data-gunter-icon=/g) || []).length, 8, 'all configuration tabs use the shared outline icon treatment');
+for (const id of ['premium', 'voice', 'conversations', 'actions', 'connections', 'preferences', 'data', 'diagnostics']) {
     assert.match(config, new RegExp(`id="config-tab-${id}"[^>]*aria-controls="config-panel-${id}"`));
     assert.match(config, new RegExp(`id="config-panel-${id}"[^>]*role="tabpanel"[^>]*aria-labelledby="config-tab-${id}"`));
 }

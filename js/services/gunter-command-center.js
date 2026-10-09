@@ -103,7 +103,7 @@
                     </div>
                 </details>
                 ${navLink('Resultados', 'results.html', PAGE === 'results.html')}
-                ${navLink('Conexiones', 'config.html#data', PAGE === 'config.html' && location.hash === '#data')}
+                ${navLink('Conexiones', 'config.html#connections', PAGE === 'config.html' && location.hash === '#connections')}
             </div>
             <a class="gunter-command-nav__action" href="new-project.html" aria-label="Preparar una nueva reunión">${icon('plus')}<span>Nueva reunión</span></a>
             <a class="gunter-command-nav__settings ${meta.active === 'config' ? 'is-active' : ''}" href="config.html#preferences" aria-label="Configuración" title="Configuración">${icon('settings')}</a>
@@ -120,7 +120,7 @@
                     ${navLink('Actividad', 'day.html#activity', false)}
                     ${navLink('Resultados', 'results.html', PAGE === 'results.html')}
                     ${navLink('Nueva reunión', 'new-project.html', false)}
-                    ${navLink('Conexiones', 'config.html#data', false)}
+                    ${navLink('Conexiones', 'config.html#connections', false)}
                     ${navLink('Configuración', 'config.html#preferences', meta.active === 'config')}
                 </div>
             </details>
@@ -195,14 +195,21 @@
             nav.querySelector('[data-open-mobile-menu]')?.setAttribute('aria-expanded', 'false');
         });
         const syncVoice = state => {
-            const active = !!(state?.active ?? window.GunterWakeWord?.isActive?.());
+            const current = state || window.GunterSTT?.pushToTalk?.getState?.() || window.GunterWakeWord?.getState?.() || {};
+            const active = !!current.active;
+            const labels = { permission_pending: 'Permiso pendiente', waiting_activation: 'Esperando activación',
+                recording: 'Grabando', transcribing: 'Transcribiendo', processing: 'Procesando',
+                responding: 'Respondiendo', review: 'Revisar texto', error: 'Error', off: 'Hablar' };
+            const elapsed = current.phase === 'recording' && Number.isFinite(current.elapsedSeconds)
+                ? ` · ${Math.floor(current.elapsedSeconds / 60)}:${String(current.elapsedSeconds % 60).padStart(2, '0')}` : '';
+            const labelText = (labels[current.phase] || (active ? 'Grabando' : 'Hablar')) + elapsed;
             nav.querySelectorAll('[data-gunter-voice-toggle]').forEach(button => {
                 button.setAttribute('aria-pressed', String(active));
-                button.setAttribute('aria-label', active ? 'Pausar escucha de voz' : 'Activar escucha de voz');
-                button.title = active ? 'Pausar escucha de voz' : 'Activar escucha de voz';
+                button.setAttribute('aria-label', labelText);
+                button.title = labelText;
                 button.classList.toggle('is-listening', active);
                 const label = button.querySelector('span');
-                if (label) label.textContent = active ? 'Escuchando' : 'Hablar';
+                if (label) label.textContent = labelText;
             });
         };
         window.addEventListener('wake-word-state', event => syncVoice(event.detail));
@@ -267,13 +274,13 @@
                         </svg>
                         <div class="gunter-console__mascot" data-gunter-particles="hero" role="img" aria-label="Holograma interactivo de Gunter en partículas"></div>
                     </div>
-                    <div class="gunter-console__core-bottom"><span class="gunter-console__led" aria-hidden="true"></span><span data-console-voice>Voz en reposo</span><button class="gunter-home__focus" type="button">${icon('message')} Escribir</button><button class="gunter-home__focus gunter-home__voice" type="button" aria-pressed="false">${icon('microphone')} Hablar</button></div>
+                    <div class="gunter-console__core-bottom"><span class="gunter-console__led" aria-hidden="true"></span><span data-console-voice>Voz en reposo</span><meter class="gunter-console__mic-level" min="0" max="1" value="0" aria-label="Nivel del micrófono" hidden></meter><button class="gunter-home__focus" type="button">${icon('message')} Escribir</button><button class="gunter-home__focus gunter-home__voice" type="button" aria-pressed="false">${icon('microphone')} Hablar</button></div>
                 </div>
                 <aside class="gunter-console__panel gunter-console__tools" aria-label="Herramientas de Gunter">
                     <h2>${icon('organize')} Tus herramientas</h2>
                     <a href="day.html#conversations">${icon('message')}<span>Conversaciones<small>Tus canales en un lugar</small></span></a>
                     <a href="day.html#events">${icon('calendar')}<span>Agenda<small>Próximos compromisos</small></span></a>
-                    <a href="config.html#data">${icon('link')}<span>Conexiones<small>Cuentas y dispositivos</small></span></a>
+                    <a href="config.html#connections">${icon('link')}<span>Conexiones<small>Cuentas y dispositivos</small></span></a>
                     <a href="new-project.html" class="gunter-console__text-link">Preparar reunión ${icon('plus')}</a>
                 </aside>
             </div>
@@ -339,8 +346,16 @@
         window.addEventListener('hashchange', syncHome);
         syncHome();
         const syncConsoleVoice = event => {
-            const active = !!(event?.detail?.active ?? window.GunterWakeWord?.isActive?.());
-            home.querySelectorAll('[data-console-voice]').forEach(node => { node.textContent = active ? 'Escuchando' : 'Voz en reposo'; });
+            const state = event?.detail || window.GunterSTT?.pushToTalk?.getState?.() || window.GunterWakeWord?.getState?.() || {};
+            const active = !!state.active;
+            const labels = { permission_pending: 'Permiso pendiente', waiting_activation: 'Esperando activación',
+                recording: 'Grabando', transcribing: 'Transcribiendo', processing: 'Procesando',
+                responding: 'Respondiendo', review: 'Revisa el texto', error: 'Error de voz', off: 'Voz en reposo' };
+            const elapsed = state.phase === 'recording' && Number.isFinite(state.elapsedSeconds)
+                ? ` · ${Math.floor(state.elapsedSeconds / 60)}:${String(state.elapsedSeconds % 60).padStart(2, '0')}` : '';
+            home.querySelectorAll('[data-console-voice]').forEach(node => { node.textContent = (labels[state.phase] || (active ? 'Grabando' : 'Voz en reposo')) + elapsed; });
+            const meter = home.querySelector('.gunter-console__mic-level');
+            if (meter) { meter.hidden = state.phase !== 'recording' || !Number.isFinite(state.level); meter.value = Math.min(1, Math.max(0, Number(state.level || 0) * 8)); }
             home.classList.toggle('is-listening', active);
             home.querySelector('.gunter-home__voice')?.setAttribute('aria-pressed', String(active));
         };

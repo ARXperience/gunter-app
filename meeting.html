@@ -42,16 +42,16 @@
 
     <!-- Medieval Futuristic Theme -->
     <link rel="stylesheet" href="styles/gunter-mascot.css?v66b-gunter-pixar-1783590000000">
-    <link rel="stylesheet" href="styles/gunter-companion.css?v70-particles">
+    <link rel="stylesheet" href="styles/gunter-companion.css?v120-dictation">
 <link rel="stylesheet" href="styles/gunter-design-system.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-prism.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-cinematic.css?v83-static-polar">
     <script src="js/services/gunter-cinematic-shell.js?v81-static-polar" defer></script>
-    <link rel="stylesheet" href="styles/gunter-command-center.css?v115-mobile-no-header">
+    <link rel="stylesheet" href="styles/gunter-command-center.css?v117-responsive-config">
     <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
     <script src="js/services/gunter-particles.js?v10-stitch-figure" defer></script>
-    <script src="js/services/gunter-command-center.js?v115-local-clock" defer></script>
+    <script src="js/services/gunter-command-center.js?v120-voice-ui" defer></script>
     <script src="js/services/gunter-icon-system.js?v3-unified-icons" defer></script>
     <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
     <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
@@ -310,7 +310,7 @@
 
     <!-- Scripts -->
     <script src="js/config.js"></script>
-    <script src="js/premium-features-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/premium-features-service.js?v120-local-wake" defer></script>
     <script src="js/theme-manager.js?v67-security-20260828" defer></script>
     <script src="js/theme-backgrounds.js" defer></script>
     <!-- Hooks premium (no ejecutan nada salvo que el flag esté activo):
@@ -329,7 +329,7 @@
     <script src="js/audio-recorder.js" defer></script>
     <script src="js/ai-service.js" defer></script>
     <script src="js/ai-analysis.js" defer></script>
-    <script src="js/services/stt-provider.js?v117-supertonic3-native" defer></script>
+    <script src="js/services/stt-provider.js?v120-dictation" defer></script>
     <script src="js/transcription-service.js" defer></script>
     <script src="js/audio-chunker.js" defer></script>
     <script src="js/services/status-bus.js?v66b-gunter-pixar-1783590000000" defer></script>
@@ -354,9 +354,9 @@
     <script src="js/core/temporal-context.js?v70-assistant" defer></script>
     <script src="js/core/wake-invocation.js?v110-wake-chat" defer></script>
     <script src="js/core/conversation-state.js?v73-assistant" defer></script>
-    <script src="js/services/voice-activity-service.js?v73-assistant" defer></script>
+    <script src="js/services/voice-activity-service.js?v120-shared-mic" defer></script>
     <script src="js/services/voice-service.js?v116-supertonic3" defer></script>
-    <script src="js/services/wake-word-service.js?v115-interrupt" defer></script>
+    <script src="js/services/wake-word-service.js?v120-local-wake" defer></script>
 
     <!-- v2 — Memoria conversacional cross-sesión (F1) — necesaria para que
          climate-service.refineWithLLM no inyecte memoria pesada (skipMemory:true) -->    <script src="js/services/embedding-service.js?v66b-gunter-pixar-1783590000000" defer></script>
@@ -376,16 +376,16 @@
     <script src="js/core/models.js" defer></script>
     <script src="js/core/trace-logger.js" defer></script>
     <script src="js/core/date-service.js" defer></script>
-    <script src="js/core/context-provider.js?v115-presence-stability" defer></script>
+    <script src="js/core/context-provider.js?v120-owner-context" defer></script>
     <script src="js/core/time-parser.js?v68-assistant" defer></script>
     <script src="js/services/jobs-service.js?v73-assistant" defer></script>
-    <script src="js/core/assistant-tools.js?v119-task-cancel" defer></script>
+    <script src="js/core/assistant-tools.js?v120-context" defer></script>
     <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
     <script src="js/core/intent-engine.js" defer></script>
     <script src="js/core/entity-extractor.js?v68-assistant" defer></script>
     <script src="js/core/decision-engine.js" defer></script>
     <script src="js/core/action-engine.js" defer></script>
-    <script src="js/core/pipeline.js?v117-personal-context" defer></script>
+    <script src="js/core/pipeline.js?v120-diagnostics" defer></script>
     <!-- ============== /Fase A.A1 ============== -->
 
     <script src="js/controllers/session-recovery.js" defer></script>
@@ -1167,7 +1167,8 @@ TRANSCRIPCIÓN ACTUAL:
 
 
 
-    <script src="js/services/gunter-companion.js?v117-personal-context" defer></script>
+    <script src="js/services/diagnostics-service.js?v2-admin-stats" defer></script>
+    <script src="js/services/gunter-companion.js?v120-private-diagnostics" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-onboarding.js?v67-security-20260828" defer></script>
 </body>

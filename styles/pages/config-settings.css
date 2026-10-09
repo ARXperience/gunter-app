@@ -4,8 +4,9 @@
    ============================================= */
 
 .config-tabs {
-    display: flex;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
     margin: 24px 0 32px;
     padding: 6px;
     background: color-mix(in srgb, var(--bg-deep-navy) 78%, transparent);
@@ -13,12 +14,15 @@
     border-radius: 12px;
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    overflow-x: auto;
+    overflow: visible;
 }
 .config-tab {
-    flex: 1;
-    min-width: 160px;
-    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    min-height: 52px;
+    padding: 10px 14px;
     background: transparent;
     border: none;
     border-radius: 8px;
@@ -29,8 +33,12 @@
     letter-spacing: 0.3px;
     cursor: pointer;
     transition: background 200ms ease, color 200ms ease, transform 150ms ease;
-    white-space: nowrap;
+    white-space: normal;
+    text-align: left;
+    overflow-wrap: anywhere;
 }
+.config-tab .gunter-icon { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.config-tab:focus-visible, .settings-card button:focus-visible, .settings-card input:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 3px; }
 .config-tab:hover {
     color: var(--text-primary);
     background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
@@ -42,10 +50,15 @@
 }
 
 .config-tab-panel[hidden] { display: none !important; }
+.settings-card[hidden] { display: none !important; }
 
 .config-tab-panel {
     animation: cfgTabIn 350ms cubic-bezier(.22,.61,.36,1) both;
 }
+#premium-panel:not([data-category="actions"]):not([data-category="connections"]) > .cp-settings { display: none; }
+.config-diagnostics-result { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-primary); background: color-mix(in srgb, var(--bg-deep-navy) 90%, transparent); border: 1px solid var(--glass-border); border-radius: 10px; padding: 16px; line-height: 1.7; font: 500 13px/1.7 ui-monospace, monospace; }
+@media (max-width: 820px) { .config-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .config-tabs { grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; } .config-tab { font-size: 12px; min-height: 56px; padding: 8px 10px; } .settings-card { padding: 18px; } .settings-row select, .settings-row input:not([type="checkbox"]) { max-width: 100%; width: 100%; } }
 @keyframes cfgTabIn {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -262,3 +275,9 @@
 .personal-memory-backup h4 { margin: 0 0 8px; color: var(--text-primary); }
 .personal-memory-backup input[type="file"] { max-width: 100%; color: var(--text-primary); }
 .personal-memory-backup .personal-memory-actions { align-items: center; flex-wrap: wrap; }
+
+.gps > .cp-settings[hidden] { display: none !important; }
+
+/* El acceso al chat vive en el encabezado: evita un launcher fijo sobre campos. */
+body.gunter-config-page .gn-comp:not(.is-expanded) { display: none !important; }
+.config-header__ask { margin-top: 14px; }
