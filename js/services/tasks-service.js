@@ -136,8 +136,10 @@
         } catch { /* noop */ }
         return merged;
     }
-    async function reopen(id, ownerId) { return update(id, { status: 'pending', completedAt: null },
-        ownerId ? { ownerId, statuses: ['done'] } : {}); }
+    async function reopen(id, ownerId) { return update(id, { status: 'pending', completedAt: null, cancelledAt: null },
+        ownerId ? { ownerId, statuses: ['done', 'cancelled'] } : {}); }
+    async function cancel(id, ownerId) { return update(id, { status: 'cancelled', cancelledAt: new Date().toISOString() },
+        ownerId ? { ownerId, statuses: ['pending', 'doing'] } : {}); }
 
     async function remove(id) {
         const db = await openDB();
@@ -210,6 +212,6 @@
     }
 
     window.GunterTasksService = {
-        create, update, complete, reopen, remove, list, listForToday, listOverdue, listBySource
+        create, update, complete, reopen, cancel, remove, list, listForToday, listOverdue, listBySource
     };
 })();

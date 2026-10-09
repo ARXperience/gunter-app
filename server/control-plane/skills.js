@@ -11,6 +11,7 @@ const REGISTRY = Object.freeze([
     skill('tasks.create', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.tasks', 'external_write', 'L4', ['tasks.write']),
     skill('tasks.complete', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.tasks', 'external_write', 'L3', ['tasks.write']),
     skill('tasks.reopen', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.tasks', 'external_write', 'L3', ['tasks.write']),
+    skill('tasks.cancel', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.tasks', 'external_write', 'L3', ['tasks.write']),
     skill('tasks.update', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.tasks', 'external_write', 'L3', ['tasks.write']),
     skill('calendar.read', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.calendar', 'read', 'L4', ['calendar.read']),
     skill('calendar.create', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.calendar', 'external_write', 'L3', ['calendar.write']),

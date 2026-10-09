@@ -417,6 +417,10 @@
                 return { toolId: 'tasks.complete', args: { rawText: text } };
             }
             if (!/^(que|como|por que|para que|puedo|podria)\b/.test(questionText)
+                && /\b(cancela|cancelar)\b.*\b(tarea|pendiente)\b/.test(t)) {
+                return { toolId: 'tasks.cancel', args: { rawText: text } };
+            }
+            if (!/^(que|como|por que|para que|puedo|podria)\b/.test(questionText)
                 && /\b(reprograma|reprogramar|reagenda|reagendar|mueve|mover|pospone|posponer|renombra|renombrar|edita|editar|cambia|cambiar)\b.*\b(tarea|pendiente)\b/.test(t)) {
                 return { toolId: 'tasks.update', args: { rawText: text } };
             }
@@ -470,7 +474,7 @@
             if (isApp) add(['desktop.apps.open', 'mobile.open_app'], 'Aplicaciones: abrir una aplicación en un dispositivo conectado.');
             if (isAutomation) add(['procedure.execute'], 'Rutas guardadas: ejecutar procedimientos disponibles y aprobados.');
             if (isSettings) add(['settings.list', 'settings.update', 'preferences.update'], 'Configuración: consultar opciones y cambiar ajustes permitidos.');
-            if (/\b(reunion|evento|cita|agenda|recordatorio|tarea)\b/.test(normalized)) add(['calendar.create', 'agenda.list', 'reminder.schedule', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.update'], 'Organización: agenda, reuniones, recordatorios y tareas.');
+            if (/\b(reunion|evento|cita|agenda|recordatorio|tarea)\b/.test(normalized)) add(['calendar.create', 'agenda.list', 'reminder.schedule', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update'], 'Organización: agenda, reuniones, recordatorios y tareas.');
             if (!suggestions.length) {
                 add(['app.navigate'], 'Navegación por las secciones de Gunter.');
                 add(['desktop.apps.open', 'mobile.open_app'], 'Abrir aplicaciones conectadas.');
@@ -532,14 +536,14 @@
                     || (active.length === 1 ? active[0] : null);
                 return { ...match, args: { ...match.args, title, targetId: target?.id || null, target: target || null } };
             }
-            if (['tasks.complete', 'tasks.reopen', 'tasks.update'].includes(match.toolId)) {
+            if (['tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update'].includes(match.toolId)) {
                 const service = options.tasksService || runtime.GunterTasksService;
                 const ownerId = taskOwnerId();
                 const edit = match.toolId === 'tasks.update' ? parseTaskEdit(match.args.rawText) : null;
                 const reference = edit ? edit.reference : extractTaskReference(match.args.rawText);
                 const all = ownerId && service?.list ? await service.list() : [];
                 const eligible = all.filter(item => item.ownerId === ownerId &&
-                    (match.toolId === 'tasks.reopen' ? item.status === 'done' : ['pending', 'doing'].includes(item.status)));
+                    (match.toolId === 'tasks.reopen' ? ['done', 'cancelled'].includes(item.status) : ['pending', 'doing'].includes(item.status)));
                 const needle = normalize(reference);
                 const exact = needle ? eligible.filter(item => normalize(item.title) === needle || item.id === reference) : [];
                 const candidates = exact.length ? exact : match.toolId === 'tasks.update' ? [] : needle.length >= 3
@@ -1283,27 +1287,29 @@
             }
         });
 
-        [['tasks.complete', 'done', 'complete'], ['tasks.reopen', 'pending', 'reopen']].forEach(([id, status, action]) => register({
+        [['tasks.complete', 'done', 'complete'], ['tasks.reopen', 'pending', 'reopen'],
+            ['tasks.cancel', 'cancelled', 'cancel']].forEach(([id, status, action]) => register({
             id,
-            description: action === 'complete' ? 'Marca una tarea existente como completada.' : 'Reabre una tarea completada.',
+            description: action === 'complete' ? 'Marca una tarea existente como completada.'
+                : action === 'cancel' ? 'Cancela una tarea sin borrarla.' : 'Reactiva una tarea completada o cancelada.',
             confirm: 'always', reversible: true,
             validate(args) {
                 if (!args.ownerId || taskOwnerId() !== args.ownerId)
                     return { ok: false, reply: 'Inicia sesión para cambiar tareas de tu cuenta.' };
                 if (!args.reference) return { ok: false, reply: 'Dime el nombre de la tarea.' };
                 if (args.ambiguous) return { ok: false, reply: 'Hay varias tareas con ese nombre. Abre Tareas y elige la correcta, o dime su identificador.' };
-                if (!args.targetId) return { ok: false, reply: action === 'complete'
-                    ? `No encontré una tarea pendiente de esta cuenta que coincida con “${args.reference}”.`
-                    : `No encontré una tarea completada de esta cuenta que coincida con “${args.reference}”.` };
+                if (!args.targetId) return { ok: false, reply: action === 'reopen'
+                    ? `No encontré una tarea completada o cancelada de esta cuenta que coincida con “${args.reference}”.`
+                    : `No encontré una tarea activa de esta cuenta que coincida con “${args.reference}”.` };
                 return { ok: true };
             },
-            confirmation(args) { return `¿Confirmas que ${action === 'complete' ? 'marque como completada' : 'reabra'} la tarea “${args.targetTitle}”?`; },
+            confirmation(args) { return `¿Confirmas que ${action === 'complete' ? 'marque como completada' : action === 'cancel' ? 'cancele' : 'reactive'} la tarea “${args.targetTitle}”?${action === 'cancel' ? ' No la borraré; podrás reactivarla.' : ''}`; },
             async execute(args) {
                 const service = options.tasksService || runtime.GunterTasksService;
                 if (taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué la tarea.');
                 if (!service?.list || !service[action]) throw new Error('El servicio de tareas no está disponible.');
                 const current = (await service.list()).find(item => item.id === args.targetId && item.ownerId === args.ownerId);
-                if (!current || (action === 'complete' ? !['pending', 'doing'].includes(current.status) : current.status !== 'done'))
+                if (!current || (action === 'reopen' ? !['done', 'cancelled'].includes(current.status) : !['pending', 'doing'].includes(current.status)))
                     throw new Error('La tarea cambió o ya no pertenece a esta cuenta. Revísala antes de repetir la orden.');
                 return service[action](args.targetId, args.ownerId);
             },
@@ -1314,7 +1320,8 @@
             },
             formatResult(result) { return action === 'complete'
                 ? `Tarea completada y verificada: “${result.title}”.`
-                : `Tarea reabierta y verificada: “${result.title}”.`; }
+                : action === 'cancel' ? `Tarea cancelada y verificada: “${result.title}”. Puedes reactivarla cuando quieras.`
+                    : `Tarea reactivada y verificada: “${result.title}”.`; }
         }));
 
         register({
@@ -1481,7 +1488,7 @@
         if (quoted) return quoted.slice(0, 180);
         return raw
             .replace(/^(?:por favor\s+)?(?:marca|marcar|pon|poner)\s+(?:como\s+)?(?:hecha|terminada|completada)\s+(?:(?:la|el)\s+)?(?:tarea|pendiente)\s*(?:de\s+)?/i, '')
-            .replace(/^(?:por favor\s+)?(?:completa|completar|termina|terminar|finaliza|finalizar|reabre|reabrir|reactiva|reactivar|vuelve a abrir|marca|marcar)\s+(?:(?:la|el|una|un)\s+)?(?:tarea|pendiente)\s*(?:de\s+)?/i, '')
+            .replace(/^(?:por favor\s+)?(?:completa|completar|termina|terminar|finaliza|finalizar|reabre|reabrir|reactiva|reactivar|vuelve a abrir|marca|marcar|cancela|cancelar)\s+(?:(?:la|el|una|un)\s+)?(?:tarea|pendiente)\s*(?:de\s+)?/i, '')
             .replace(/\s+como\s+(?:hecha|terminada|completada)\s*$/i, '')
             .replace(/[.!?]+$/, '').trim().slice(0, 180);
     }

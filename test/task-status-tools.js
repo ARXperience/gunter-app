@@ -23,7 +23,8 @@ const tasksService = {
         return row;
     },
     complete: async (id, ownerId) => change(id, ownerId, ['pending', 'doing'], 'done'),
-    reopen: async (id, ownerId) => change(id, ownerId, ['done'], 'pending')
+    reopen: async (id, ownerId) => change(id, ownerId, ['done', 'cancelled'], 'pending'),
+    cancel: async (id, ownerId) => change(id, ownerId, ['pending', 'doing'], 'cancelled')
 };
 function change(id, ownerId, valid, status) {
     const row = rows.find(item => item.id === id);
@@ -40,10 +41,13 @@ const toolset = assistant.create({
 (async () => {
     assert.equal(skills.get('tasks.complete')?.autonomyMax, 'L3');
     assert.equal(skills.get('tasks.reopen')?.risk, 'external_write');
+    assert.equal(skills.get('tasks.cancel')?.autonomyMax, 'L3');
 
     assert.equal(toolset.detect('Gunter, completa la tarea Revisar informe')?.toolId, 'tasks.complete');
     assert.equal(toolset.detect('reabre la tarea Revisar informe')?.toolId, 'tasks.reopen');
+    assert.equal(toolset.detect('cancela la tarea Revisar informe')?.toolId, 'tasks.cancel');
     assert.equal(toolset.detect('¿Cómo puedo completar una tarea?'), null);
+    assert.equal(toolset.detect('¿Cómo puedo cancelar una tarea?'), null);
 
     let response = await toolset.dispatch('Gunter, completa la tarea Revisar informe');
     assert.equal(response.status, 'awaiting_confirmation');
@@ -66,10 +70,24 @@ const toolset = assistant.create({
     assert.equal((await toolset.dispatch('confirmo')).status, 'complete');
     assert.equal(rows[0].status, 'pending');
 
+    response = await toolset.dispatch('cancela la tarea Revisar informe', { inputSource: 'voice' });
+    assert.equal(response.status, 'awaiting_confirmation');
+    assert.match(response.reply, /No la borraré/i);
+    assert.equal((await toolset.dispatch('sí', { inputSource: 'voice' })).status, 'awaiting_confirmation');
+    assert.equal(rows[0].status, 'pending');
+    assert.equal((await toolset.dispatch('sí')).status, 'complete');
+    assert.equal(rows[0].status, 'cancelled');
+    assert.equal(rows[2].status, 'pending');
+    response = await toolset.dispatch('reactiva la tarea Revisar informe');
+    assert.equal(response.status, 'awaiting_confirmation');
+    assert.equal((await toolset.dispatch('confirmo')).status, 'complete');
+    assert.equal(rows[0].status, 'pending');
+
     response = await toolset.dispatch('completa la tarea Llamar a Ana');
     assert.equal(response.status, 'needs_input');
     assert.match(response.reply, /varias tareas/i);
-    assert.equal(changes.length, 2);
+    assert.equal(changes.length, 4);
+    assert.equal((await toolset.dispatch('cancela la tarea Llamar a Ana')).status, 'needs_input');
 
     response = await toolset.dispatch('completa la tarea Enviar propuesta');
     assert.equal(response.status, 'awaiting_confirmation');
@@ -82,7 +100,7 @@ const toolset = assistant.create({
     assert.equal(response.status, 'awaiting_confirmation');
     rows[1].status = 'done';
     assert.equal((await toolset.dispatch('sí')).status, 'error');
-    assert.equal(changes.length, 2);
+    assert.equal(changes.length, 4);
 
     trusted = false;
     response = await toolset.dispatch('reabre la tarea Enviar propuesta');
@@ -144,6 +162,11 @@ const toolset = assistant.create({
     await assert.rejects(service.update('task_guard', { title: 'Ajena' },
         { ownerId: 'bob', statuses: ['pending'] }), /TASK_OWNER_MISMATCH/);
     assert.equal(persisted.get('task_guard').title, 'Actualizada');
+    assert.equal((await service.cancel('task_guard', 'alice')).status, 'cancelled');
+    await assert.rejects(service.cancel('task_guard', 'alice'), /TASK_STATUS_CHANGED/);
+    assert.equal(persisted.get('task_guard').status, 'cancelled');
+    assert.equal((await service.reopen('task_guard', 'alice')).status, 'pending');
+    assert.equal(persisted.get('task_guard').cancelledAt, null);
 
     console.log('task-status-tools: PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });
