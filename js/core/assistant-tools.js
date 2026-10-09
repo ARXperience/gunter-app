@@ -152,6 +152,7 @@
     function create(options = {}) {
         const registry = new Map();
         let lastTaskReference = null;
+        let pendingReminderReference = null;
         const runtime = options.root || root || {};
         const memoryStorage = new Map();
         const storage = options.storage || safeStorage(runtime.sessionStorage, memoryStorage);
@@ -709,12 +710,22 @@
             let effectiveText = text;
             const taskFollowUp = /^(?:y\s+)?(?:hazlo|muevela|muevelo|reprogramala|reprogramalo|cambiala|cambialo|ponla|ponlo)\s+(?:para\s+|a\s+)?(.+)$/i.exec(normalized);
             const reminderFollowUp = /^(?:y\s+)?recuerdame\s+(?:eso|esa|esto|esta)(?:\s+tambien)?$/i.test(normalized);
+            const pendingReminder = pendingReminderReference;
+            pendingReminderReference = null;
+            const timeReply = /^(?:hoy|manana|pasado manana|el (?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)|a las?|en \d+|dentro de|\d{1,2}[:.]\d{2})\b/.test(normalized);
+            if (pendingReminder?.ownerId === taskOwnerId() && Date.now() - pendingReminder.at < 10 * 60 * 1000
+                && timeReply && !taskFollowUp && !reminderFollowUp) {
+                effectiveText = `Recuérdame ${pendingReminder.title.replace(/"/g, '')} ${text}`;
+            }
             if (taskFollowUp || reminderFollowUp) {
                 const target = lastTaskReference?.ownerId === taskOwnerId() && Date.now() - lastTaskReference.at < 10 * 60 * 1000
                     ? lastTaskReference : null;
                 if (!target?.title) return { handled: true, status: 'needs_input', reply: '¿A qué tarea te refieres? Dime su nombre para evitar cambiar otra.' };
-                if (reminderFollowUp) return { handled: true, status: 'needs_input',
-                    reply: `Puedo crear un recordatorio para “${target.title}”. ¿Cuándo quieres que te avise?` };
+                if (reminderFollowUp) {
+                    pendingReminderReference = { title: target.title, ownerId: target.ownerId, at: Date.now() };
+                    return { handled: true, status: 'needs_input',
+                        reply: `Puedo crear un recordatorio para “${target.title}”. ¿Cuándo quieres que te avise?` };
+                }
                 effectiveText = `Reprograma la tarea "${target.title.replace(/"/g, '')}" para ${taskFollowUp[1]}`;
             }
             const detected = detect(effectiveText);

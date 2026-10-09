@@ -14,6 +14,7 @@ const rows = [
 let userId = 'alice';
 let trusted = true;
 let writes = 0;
+const reminders = [];
 const service = {
     list: async () => rows.map(row => ({ ...row })),
     update: async (id, patch, guard) => {
@@ -28,6 +29,10 @@ const service = {
 const toolset = assistant.create({
     root: { GunterAuth: { canAccessLocalData: () => trusted, getUser: () => ({ id: userId }) } },
     tasksService: service,
+    jobsService: {
+        scheduleReminder: async args => { const row = { id: `reminder-${reminders.length + 1}`, ...args, status: 'scheduled' }; reminders.push(row); return row; },
+        get: async id => reminders.find(row => row.id === id)
+    },
     eventsService: { list: async () => [
         { id: 'own-event', ownerId: 'alice', title: 'Reunión propia', startAt: '2026-10-08T16:00:00-05:00' },
         { id: 'other-event', ownerId: 'bob', title: 'Reunión ajena', startAt: '2026-10-08T16:00:00-05:00' }
@@ -35,7 +40,7 @@ const toolset = assistant.create({
     now: () => now,
     timezone: () => 'America/Bogota',
     timeParser: { parse: async phrase => {
-        if (phrase === 'mañana a las 10') return { iso: dueAt, kind: 'instant' };
+        if (phrase.includes('mañana a las 10')) return { iso: dueAt, kind: 'instant' };
         if (phrase === 'ayer') return { iso: '2026-10-07T10:00:00-05:00', kind: 'instant' };
         if (phrase === 'el viernes') return { iso: dueAt, kind: 'instant', ambiguity: { reason: 'Viernes ambiguo' } };
         return { iso: null };
@@ -73,6 +78,17 @@ const toolset = assistant.create({
     assert.match(result.reply, /9 de octubre/i);
     assert.equal((await toolset.dispatch('confirmo')).status, 'complete');
     assert.equal(rows[0].dueAt, dueAt);
+
+    assert.equal((await toolset.dispatch('Y recuérdame eso también')).status, 'needs_input');
+    result = await toolset.dispatch('mañana a las 10');
+    assert.equal(result.status, 'complete');
+    assert.equal(reminders.length, 1);
+    assert.equal(reminders[0].title, 'Informe final');
+    assert.equal((await toolset.dispatch('Y recuérdame eso también')).status, 'needs_input');
+    userId = 'bob';
+    assert.equal((await toolset.dispatch('mañana a las 10')).handled, false);
+    assert.equal(reminders.length, 1, 'a follow-up cannot create a reminder for another account');
+    userId = 'alice';
 
     result = await toolset.dispatch('mi agenda');
     assert.equal(result.status, 'complete');
