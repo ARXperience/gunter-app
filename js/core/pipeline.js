@@ -28,6 +28,14 @@
         const state = window.GunterCoreModels.newPipelineState(text, ctx);
 
         try {
+            if (window.GunterDiagnostics?.recognizes?.(text)) {
+                const diagnostic = await window.GunterDiagnostics.answer(text);
+                state.intent = { primary: { type: 'diagnostic', confidence: 1 }, alternatives: [], multiIntent: false, method: 'read-only-local' };
+                state.execution = { executed: [], failed: [], pending: [], sideEffects: [],
+                    uiResponse: { speech: diagnostic, animation: 'think', panels: [] } };
+                window.GunterContextProvider.pushConversationTurn('assistant', diagnostic);
+                return { state, awaitingConfirmation: false, response: state.execution.uiResponse };
+            }
             // Los cambios/consultas de configuración deben funcionar por voz
             // igual que en el chat del companion, sin pasar por el clasificador.
             if (window.GunterActions?.dispatch) {
