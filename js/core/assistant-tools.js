@@ -159,6 +159,12 @@
             try { return runtime.GunterPresence?.timezone?.() || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; }
             catch { return 'UTC'; }
         });
+        function taskOwnerId() {
+            const auth = runtime.GunterAuth;
+            const trusted = auth?.canAccessLocalData?.() ?? auth?.isVerified?.();
+            const id = trusted && auth.getUser?.()?.id;
+            return typeof id === 'string' && id ? id : null;
+        }
 
         function state(next, reason, meta = {}) {
             try { runtime.GunterConversationState?.transition?.(next, { reason, ...meta }); } catch { /* opcional */ }
@@ -402,6 +408,15 @@
                 return { toolId: 'jobs.cancel', args: { rawText: text } };
             }
 
+            if (!/^(que|como|por que|para que|puedo|podria)\b/.test(questionText)
+                && /\b(reabre|reabrir|reactiva|reactivar|vuelve a abrir)\b.*\b(tarea|pendiente)\b/.test(t)) {
+                return { toolId: 'tasks.reopen', args: { rawText: text } };
+            }
+            if (!/^(que|como|por que|para que|puedo|podria)\b/.test(questionText)
+                && /\b(completa|completar|termina|terminar|finaliza|finalizar|marca|marcar)\b.*\b(tarea|pendiente)\b/.test(t)) {
+                return { toolId: 'tasks.complete', args: { rawText: text } };
+            }
+
             if (/\b(programa|programame|crea|haz|hacer)\b.*\b(seguimiento|follow up|follow-up)\b/.test(t)) {
                 return { toolId: 'follow_up.schedule', args: { rawText: text } };
             }
@@ -451,7 +466,7 @@
             if (isApp) add(['desktop.apps.open', 'mobile.open_app'], 'Aplicaciones: abrir una aplicación en un dispositivo conectado.');
             if (isAutomation) add(['procedure.execute'], 'Rutas guardadas: ejecutar procedimientos disponibles y aprobados.');
             if (isSettings) add(['settings.list', 'settings.update', 'preferences.update'], 'Configuración: consultar opciones y cambiar ajustes permitidos.');
-            if (/\b(reunion|evento|cita|agenda|recordatorio|tarea)\b/.test(normalized)) add(['calendar.create', 'agenda.list', 'reminder.schedule', 'tasks.create'], 'Organización: agenda, reuniones, recordatorios y tareas.');
+            if (/\b(reunion|evento|cita|agenda|recordatorio|tarea)\b/.test(normalized)) add(['calendar.create', 'agenda.list', 'reminder.schedule', 'tasks.create', 'tasks.complete', 'tasks.reopen'], 'Organización: agenda, reuniones, recordatorios y tareas.');
             if (!suggestions.length) {
                 add(['app.navigate'], 'Navegación por las secciones de Gunter.');
                 add(['desktop.apps.open', 'mobile.open_app'], 'Abrir aplicaciones conectadas.');
@@ -512,6 +527,22 @@
                     || active.find(job => normalize(job.title).includes(needle) || needle.includes(normalize(job.title)))
                     || (active.length === 1 ? active[0] : null);
                 return { ...match, args: { ...match.args, title, targetId: target?.id || null, target: target || null } };
+            }
+            if (match.toolId === 'tasks.complete' || match.toolId === 'tasks.reopen') {
+                const service = options.tasksService || runtime.GunterTasksService;
+                const ownerId = taskOwnerId();
+                const reference = extractTaskReference(match.args.rawText);
+                const all = ownerId && service?.list ? await service.list() : [];
+                const eligible = all.filter(item => item.ownerId === ownerId &&
+                    (match.toolId === 'tasks.complete' ? ['pending', 'doing'].includes(item.status) : item.status === 'done'));
+                const needle = normalize(reference);
+                const exact = needle ? eligible.filter(item => normalize(item.title) === needle || item.id === reference) : [];
+                const candidates = exact.length ? exact : needle.length >= 3
+                    ? eligible.filter(item => normalize(item.title).includes(needle)) : [];
+                const target = candidates.length === 1 ? candidates[0] : null;
+                return { ...match, args: { ...match.args, reference, ownerId,
+                    targetId: target?.id || null, targetTitle: target?.title || null,
+                    ambiguous: candidates.length > 1 } };
             }
             if (!['tasks.create', 'calendar.create', 'reminder.schedule', 'follow_up.schedule'].includes(match.toolId)) return match;
             // An undated task must not send its title to the temporal LLM, which
@@ -1223,7 +1254,10 @@
             async execute(args) {
                 const service = options.tasksService || runtime.GunterTasksService;
                 if (!service?.create) throw new Error('El servicio de tareas no está disponible.');
-                return service.create({ title: args.title, dueAt: args.dueAt, source: 'gunter-assistant' });
+                const ownerId = taskOwnerId();
+                if (runtime.GunterAuth && !ownerId) throw new Error('Inicia sesión para guardar tareas en tu cuenta.');
+                return service.create({ title: args.title, dueAt: args.dueAt,
+                    ownerId: ownerId || 'local-user', source: 'gunter-assistant' });
             },
             async verify(result) {
                 const service = options.tasksService || runtime.GunterTasksService;
@@ -1234,6 +1268,40 @@
                 return `Tarea creada y verificada: “${result.title}”${result.dueAt ? ` para ${withoutFinalPeriod(formatDateTime(result.dueAt, timezone()))}` : ''}.`;
             }
         });
+
+        [['tasks.complete', 'done', 'complete'], ['tasks.reopen', 'pending', 'reopen']].forEach(([id, status, action]) => register({
+            id,
+            description: action === 'complete' ? 'Marca una tarea existente como completada.' : 'Reabre una tarea completada.',
+            confirm: 'always', reversible: true,
+            validate(args) {
+                if (!args.ownerId || taskOwnerId() !== args.ownerId)
+                    return { ok: false, reply: 'Inicia sesión para cambiar tareas de tu cuenta.' };
+                if (!args.reference) return { ok: false, reply: 'Dime el nombre de la tarea.' };
+                if (args.ambiguous) return { ok: false, reply: 'Hay varias tareas con ese nombre. Abre Tareas y elige la correcta, o dime su identificador.' };
+                if (!args.targetId) return { ok: false, reply: action === 'complete'
+                    ? `No encontré una tarea pendiente de esta cuenta que coincida con “${args.reference}”.`
+                    : `No encontré una tarea completada de esta cuenta que coincida con “${args.reference}”.` };
+                return { ok: true };
+            },
+            confirmation(args) { return `¿Confirmas que ${action === 'complete' ? 'marque como completada' : 'reabra'} la tarea “${args.targetTitle}”?`; },
+            async execute(args) {
+                const service = options.tasksService || runtime.GunterTasksService;
+                if (taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué la tarea.');
+                if (!service?.list || !service[action]) throw new Error('El servicio de tareas no está disponible.');
+                const current = (await service.list()).find(item => item.id === args.targetId && item.ownerId === args.ownerId);
+                if (!current || (action === 'complete' ? !['pending', 'doing'].includes(current.status) : current.status !== 'done'))
+                    throw new Error('La tarea cambió o ya no pertenece a esta cuenta. Revísala antes de repetir la orden.');
+                return service[action](args.targetId, args.ownerId);
+            },
+            async verify(result, args) {
+                const service = options.tasksService || runtime.GunterTasksService;
+                const stored = (await service.list()).find(item => item.id === args.targetId);
+                return result?.id === args.targetId && stored?.ownerId === args.ownerId && stored.status === status;
+            },
+            formatResult(result) { return action === 'complete'
+                ? `Tarea completada y verificada: “${result.title}”.`
+                : `Tarea reabierta y verificada: “${result.title}”.`; }
+        }));
 
         register({
             id: 'calendar.create',
@@ -1333,6 +1401,18 @@
         title = title.replace(/\s+\b(?:pasado\s+mañana|pasado\s+manana|mañana|manana|hoy|el\s+(?:próximo\s+|proximo\s+|este\s+)?(?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)|\d{1,2}\s+de\s+[a-záéíóúñ]+|\d{1,2}\/\d{1,2})(?:\s+.*)?$/i, '').trim();
         title = title.replace(/\s+\b(?:a\s+las?|a\s+la|en)\s+(?:\d{1,2}|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce).*/i, '').trim();
         return title.replace(/^[,;:\-]+|[,;:\-]+$/g, '').trim();
+    }
+
+    function extractTaskReference(text) {
+        const raw = String(text || '').trim().replace(
+            /^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*[,;:!\-]*\s*/i, '');
+        const quoted = raw.match(/[“"']([^”"']+)[”"']/)?.[1]?.trim();
+        if (quoted) return quoted.slice(0, 180);
+        return raw
+            .replace(/^(?:por favor\s+)?(?:marca|marcar|pon|poner)\s+(?:como\s+)?(?:hecha|terminada|completada)\s+(?:(?:la|el)\s+)?(?:tarea|pendiente)\s*(?:de\s+)?/i, '')
+            .replace(/^(?:por favor\s+)?(?:completa|completar|termina|terminar|finaliza|finalizar|reabre|reabrir|reactiva|reactivar|vuelve a abrir|marca|marcar)\s+(?:(?:la|el|una|un)\s+)?(?:tarea|pendiente)\s*(?:de\s+)?/i, '')
+            .replace(/\s+como\s+(?:hecha|terminada|completada)\s*$/i, '')
+            .replace(/[.!?]+$/, '').trim().slice(0, 180);
     }
 
     function parseSocialSend(text) {
