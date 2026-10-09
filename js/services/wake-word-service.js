@@ -579,7 +579,8 @@
         }
 
         // v2 (F1) — registrar lo dicho al wake en LTM (canal 'wake')
-        if (window.GunterConversationMemory?.remember) {
+        if (window.GunterConversationMemory?.remember &&
+            window.GunterPersonalMemory?.parseCommand?.(text)?.action !== 'save') {
             try {
                 window.GunterConversationMemory.remember({
                     role: 'user',

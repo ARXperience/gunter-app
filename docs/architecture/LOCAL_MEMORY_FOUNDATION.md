@@ -35,3 +35,7 @@ El chat principal (`GunterCompanion`) usa `GunterMemory.rememberConversation` y 
 ## Verificación reproducible
 
 `npm run test:memory` cubre contrato de la fachada, aislamiento entre cuentas, cuarentena de turnos sin dueño, sesión local offline y ausencia de copias del turno en `records`. La comprobación en IndexedDB real se puede repetir con `node test/memory-fixture-server.js 55824` y la página local `http://127.0.0.1:55824/test/fixtures/memory.html`; esta fixture no sirve archivos privados ni usa cuentas reales. También pasaron `npm run test:hybrid` y `npm run test:smoke` (139/139). La prueba de navegador confirmó escritura, recarga, lectura, recuperación semántica y bloqueo de lectura tras cambiar la cuenta simulada.
+
+## Memoria personal explícita
+
+En Configuración → Datos, el usuario puede crear, buscar, editar y borrar `personal_fact` y `preference`. El chat y la voz comparten `GunterPersonalMemory.handleCommand`: «guarda en memoria que…», «guarda preferencia: …» y «¿qué recuerdas de mí?». El guardado exige una orden explícita; no convierte recordatorios ni reglas previas en recuerdos. Las entradas duplicadas no se vuelven a escribir. `GunterPersonalMemory` usa la fachada y el mismo store `records`, sin nueva base. Estas entradas se recuperan para el prompt solo en modo local o `LOCAL_ONLY`; las consultas cloud no las reciben automáticamente. Prueba específica: `npm run test:personal-memory`.

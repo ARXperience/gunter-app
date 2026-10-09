@@ -14,6 +14,7 @@
     "test:control": "node test/control-plane-core.js",
     "test:hybrid": "node test/hybrid-foundation.js && node test/hybrid-browser.js",
     "test:memory": "node test/memory-foundation.js",
+    "test:personal-memory": "node test/personal-memory.js",
     "test:local": "node test/local-brain-core.js",
     "test:local:live": "node test/local-brain-live.js",
     "test:local-stt": "node test/local-stt-core.js && node test/local-stt-browser.js",

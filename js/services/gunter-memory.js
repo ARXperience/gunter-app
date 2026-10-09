@@ -93,7 +93,8 @@
     }
     async function list(options = {}) {
         const limit = Math.min(Math.max(Number(options.limit) || 50, 1), MAX_LIMIT);
-        return (await matchingRecords(options)).slice(0, limit);
+        const offset = Math.max(0, Math.trunc(Number(options.offset) || 0));
+        return (await matchingRecords(options)).slice(offset, offset + limit);
     }
     async function search(query, options = {}) {
         const q = normalized(query);

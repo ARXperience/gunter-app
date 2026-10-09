@@ -5,7 +5,8 @@
     <script src="js/services/log-buffer.js?v66b-gunter-pixar-1783590000000"></script>
     <script src="js/services/auth-service.js?v115-verified-greeting"></script>
     <script src="js/services/data-repository.js?v2-memory" defer></script>
-    <script src="js/services/gunter-memory.js?v1" defer></script>
+    <script src="js/services/gunter-memory.js?v2-paging" defer></script>
+    <script src="js/services/personal-memory-service.js?v1" defer></script>
     <script src="js/core/assistant-presence.js?v115-presence" defer></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,7 +25,7 @@
     <link rel="stylesheet" href="styles/animations.css">
     <link rel="stylesheet" href="styles/pages/config.css">
     <link rel="stylesheet" href="styles/pages/config-polish.css">
-    <link rel="stylesheet" href="styles/pages/config-settings.css">
+    <link rel="stylesheet" href="styles/pages/config-settings.css?v2-personal-memory">
     <link rel="stylesheet" href="styles/pages/advanced-settings.css?v85d-final">
     <!-- (audio-trimmer.css eliminado: pertenecía al flujo Nuevo Proyecto) -->
 
@@ -255,13 +256,36 @@
 
             <div id="social-settings-panel"></div>
 
+            <h4 class="data-section-title">Memoria personal</h4>
+            <div class="settings-card" id="personal-memory-card">
+                <h3>Lo que quieres que Gunter sepa</h3>
+                <p class="settings-card__hint">Guarda hechos o preferencias de forma explícita. Permanecen en este dispositivo y Gunter solo los incorpora automáticamente al contexto del modelo local. No son recordatorios ni reglas.</p>
+                <form id="personal-memory-form" class="personal-memory-form">
+                    <label for="personal-memory-type">Tipo</label>
+                    <select id="personal-memory-type" name="type">
+                        <option value="personal_fact">Dato personal</option>
+                        <option value="preference">Preferencia</option>
+                    </select>
+                    <label for="personal-memory-content">Contenido</label>
+                    <textarea id="personal-memory-content" name="content" rows="3" maxlength="2000" required placeholder="Ejemplo: Prefiero respuestas breves y con ejemplos concretos."></textarea>
+                    <div class="personal-memory-actions">
+                        <button type="submit" class="btn btn--primary" id="personal-memory-save">Guardar recuerdo</button>
+                        <button type="button" class="btn btn--secondary" id="personal-memory-cancel" hidden>Cancelar edición</button>
+                    </div>
+                </form>
+                <p id="personal-memory-status" class="settings-card__hint" role="status" aria-live="polite"></p>
+                <label for="personal-memory-search">Buscar en mi memoria</label>
+                <input id="personal-memory-search" type="search" placeholder="Busca un hecho o preferencia" autocomplete="off">
+                <div id="personal-memory-list" class="personal-memory-list" aria-live="polite"></div>
+            </div>
+
             <!-- 3.5 Memoria conversacional (v2 — F1) -->
             <h4 class="data-section-title">🧬 Memoria conversacional</h4>
 
             <div class="settings-card" id="conv-memory-card" data-flag-required="conversationMemory">
-                <h3>🧠 Lo que Gunter recuerda de ti</h3>
+                <h3>🧠 Historial conversacional</h3>
                 <p class="settings-card__hint">
-                    Memoria de largo plazo de tus conversaciones (web, voz, WhatsApp). Gunter recupera lo relevante automáticamente al responderte. <strong>Solo se almacena en este navegador.</strong>
+                    Turnos de conversación guardados en este navegador cuando activas la función. Gunter recupera los relevantes al responder con el modelo local. Los datos personales que tú guardas explícitamente se gestionan arriba.
                 </p>
 
                 <div id="conv-memory-stats" style="margin-top: 12px; display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px;">
@@ -349,6 +373,7 @@
 
     <script src="js/services/conversation-memory-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/controllers/conversation-memory-panel.js" defer></script>
+    <script src="js/controllers/personal-memory-panel.js?v1" defer></script>
 
     <script src="js/config-settings.js?v115-preserve-prefs" defer></script>
     <script src="js/controllers/presence-settings.js?v115-presence" defer></script>
@@ -624,7 +649,7 @@
 
 
 
-    <script src="js/services/gunter-companion.js?v115-conversation-turns" defer></script>
+    <script src="js/services/gunter-companion.js?v116-personal-memory" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-onboarding.js?v67-security-20260828" defer></script>
 </body>
