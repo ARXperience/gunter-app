@@ -8,6 +8,7 @@
 
 (function () {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const localCaptureSupported = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
     // Fase E.E8 — Mensajes humanos
     const HUMAN_ERRORS = {
         unsupported: 'Tu navegador no soporta activación por voz.',
@@ -19,7 +20,7 @@
     };
     function humanError(code) { return HUMAN_ERRORS[code] || HUMAN_ERRORS.unknown; }
 
-    if (!SR) {
+    if (!SR && !localCaptureSupported) {
         window.GunterWakeWord = {
             supported: false,
             isActive: () => false,
@@ -40,10 +41,22 @@
     }
 
     let recognition = null;
+    let localStream = null;
+    let localRecorder = null;
+    let localUnsubscribe = null;
+    let localClipTimer = null;
+    let localEndTimer = null;
+    let localBusy = false;
+    let localSpeech = false;
+    let localClip = [];
+    let localPreRoll = [];
+    let localProvider = false;
+    let suspendedForCapture = false;
     let running = false;
     let mode = 'off';
+    let phase = 'off';
+    let indicatorLabel = '';
     let queryTimeout = null;
-    let indicator = null;
     let permissionGranted = false;
     let lastError = null;
     let lastHeard = '';
@@ -51,49 +64,14 @@
     let userWantsRunning = false;   // persistente: si el user lo apagó, no reiniciamos
     let lastInvocation = null;
 
-    function buildIndicator() {
-        if (indicator) return indicator;
-        indicator = document.createElement('div');
-        indicator.id = 'gunter-wake-ind';
-        indicator.style.cssText = `
-            position: fixed; bottom: 14px; left: 14px; z-index: 9998;
-            display: none; align-items: center; gap: 10px;
-            padding: 8px 14px; background: color-mix(in srgb, var(--bg-deep-navy, #0b0f16) 90%, transparent);
-            border: 1px solid var(--accent-primary, #00d4ff); border-radius: 999px;
-            font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text-primary, #fff);
-            backdrop-filter: blur(14px); cursor: pointer;
-            user-select: none;
-        `;
-        indicator.innerHTML = `
-            <span class="gww-dot" style="width:8px; height:8px; border-radius:50%; background: var(--accent-primary, #00d4ff); box-shadow: 0 0 8px currentColor;"></span>
-            <span class="gww-label">Escuchando…</span>
-        `;
-        document.body.appendChild(indicator);
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes gwwPulse { 0%,100% { opacity:0.5; transform:scale(1); } 50% { opacity:1; transform:scale(1.3); } }
-            #gunter-wake-ind.is-active { display:inline-flex; }
-            #gunter-wake-ind .gww-dot { animation: gwwPulse 1.4s ease-in-out infinite; }
-            #gunter-wake-ind.is-query { border-color: #22c55e; }
-            #gunter-wake-ind.is-query .gww-dot { background: #22c55e; }
-            #gunter-wake-ind.is-error { border-color: #ef4444; }
-            #gunter-wake-ind.is-error .gww-dot { background: #ef4444; animation: none; }
-        `;
-        document.head.appendChild(style);
-        indicator.addEventListener('click', () => {
-            if (running) { userWantsRunning = false; stop(); }
-            else { userWantsRunning = true; start(true); }
-        });
-        return indicator;
-    }
-
     function setIndicator(state, label) {
-        const el = buildIndicator();
-        el.classList.toggle('is-active', state !== 'off');
-        el.classList.toggle('is-query', state === 'query');
-        el.classList.toggle('is-error', state === 'error');
-        el.querySelector('.gww-label').textContent = label;
-        el.title = (state === 'off') ? 'Click para activar' : 'Click para pausar';
+        // The navigation and settings panel are the sole visible status surfaces.
+        // A second fixed badge used to overlap controls in the lower-left corner.
+        indicatorLabel = label || '';
+        if (state === 'error') phase = 'error';
+        else if (state === 'off') phase = 'off';
+        else if (!localBusy) phase = state === 'query' ? 'recording' : 'waiting_activation';
+        notifyState();
     }
 
     function getConfig() {
@@ -184,18 +162,128 @@
         }
     }
 
+    function usesLocalAudio() {
+        const hybrid = window.GunterRuntimeState?.getState?.() || {};
+        return hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY';
+    }
+
+    async function processLocalClip() {
+        if (localBusy || !localClip.length || !running) return;
+        const chunks = localClip.splice(0);
+        localBusy = true;
+        phase = 'transcribing';
+        notifyState();
+        try {
+            const mime = localRecorder?.mimeType?.split(';')[0] || 'audio/webm';
+            const blob = new Blob(chunks, { type: mime });
+            if (!blob.size || blob.size > 30 * 1024 * 1024) return;
+            const form = new FormData();
+            form.append('file', blob, mime === 'audio/ogg' ? 'wake.ogg' : 'wake.webm');
+            const transcript = String(await window.GunterSTT.transcribe(form)).trim();
+            if (!running || !transcript || window.GunterVoice?.isLikelyEcho?.(transcript)) return;
+            lastHeard = transcript;
+            const invocation = detectInvocation(transcript);
+            if (mode === 'wake' && invocation) enterQueryMode(invocation);
+            else if (mode === 'query') {
+                if (invocation && !invocation.command) enterQueryMode(invocation);
+                else await handleQuery(invocation?.command || transcript);
+            }
+        } catch (error) {
+            lastError = error.code || error.message;
+            phase = 'error';
+            notifyState();
+            window.GunterNotificationsService?.showToast?.(`Activación local no disponible: ${lastError}`, { variant: 'warn' });
+        } finally {
+            localBusy = false;
+            if (running) {
+                phase = mode === 'query' ? 'recording' : 'waiting_activation';
+                notifyState();
+            }
+        }
+    }
+
+    async function startLocal(fromUserGesture) {
+        const hybrid = window.GunterRuntimeState?.getState?.() || {};
+        if (!localCaptureSupported || !window.GunterVoiceActivity?.supported || !window.GunterSTT?.transcribe) {
+            lastError = 'La activación local no está disponible en este navegador. Usa Hablar para dictar.';
+            setIndicator('error', lastError);
+            return;
+        }
+        if (!hybrid.localSTTReady || hybrid.flags?.['stt.local'] !== true) {
+            lastError = 'Moonshine no está instalado o su runtime no está disponible. Usa texto hasta instalarlo.';
+            setIndicator('error', lastError);
+            return;
+        }
+        if (!permissionGranted && !fromUserGesture) {
+            phase = 'permission_pending'; notifyState();
+            return;
+        }
+        try {
+            phase = 'permission_pending'; notifyState();
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: {
+                echoCancellation: true, noiseSuppression: true, autoGainControl: true
+            } });
+            permissionGranted = true;
+            userWantsRunning = true;
+            localProvider = true;
+            const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg']
+                .find(value => window.MediaRecorder.isTypeSupported?.(value));
+            localRecorder = mime ? new MediaRecorder(localStream, { mimeType: mime }) : new MediaRecorder(localStream);
+            localRecorder.ondataavailable = event => {
+                if (!event.data?.size) return;
+                if (localSpeech) localClip.push(event.data);
+                else {
+                    localPreRoll.push(event.data);
+                    if (localPreRoll.length > 6) localPreRoll.shift();
+                }
+            };
+            localRecorder.onerror = event => {
+                lastError = event?.error?.message || 'Error de captura local';
+                stop(); setIndicator('error', lastError);
+            };
+            localRecorder.start(250);
+            running = true;
+            mode = 'wake';
+            setIndicator('wake', `Di "${getConfig().wakeWord}"`);
+            localUnsubscribe = window.GunterVoiceActivity.onChange(state => {
+                if (!running || localBusy) return;
+                if (state.reason === 'speech-started' && !window.GunterVoice?.isSpeaking?.()) {
+                    clearTimeout(localEndTimer);
+                    localSpeech = true;
+                    localClip = localPreRoll.splice(0);
+                    phase = 'recording'; notifyState();
+                    clearTimeout(localClipTimer);
+                    localClipTimer = setTimeout(() => {
+                        localSpeech = false;
+                        localRecorder?.requestData?.();
+                        localEndTimer = setTimeout(processLocalClip, 150);
+                    }, 12000);
+                } else if (state.reason === 'speech-ended' && localSpeech) {
+                    clearTimeout(localClipTimer);
+                    localEndTimer = setTimeout(() => {
+                        localSpeech = false;
+                        localRecorder?.requestData?.();
+                        setTimeout(processLocalClip, 150);
+                    }, 650);
+                }
+            });
+            const vad = await window.GunterVoiceActivity.start(localStream);
+            if (!vad.active) throw new Error(vad.error || 'VAD_NO_DISPONIBLE');
+            maybeShowAndroidWarning();
+        } catch (error) {
+            lastError = error.name === 'NotAllowedError' ? 'Permiso de micrófono rechazado' : error.message;
+            stop(); setIndicator('error', lastError);
+        }
+    }
+
     async function start(fromUserGesture = false) {
         const hybrid = window.GunterRuntimeState?.getState?.() || {};
         if (hybrid.loaded !== true) return;
-        if (hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY') {
-            // Browser SpeechRecognition may use a remote service. Never enable it
-            // while the user has selected an exclusively local STT route.
-            window.GunterNotificationsService?.showToast?.('En modo local usa el botón Hablar: pulsa para grabar y vuelve a pulsar para transcribir con Moonshine.', { variant: 'info' });
-            return;
-        }
         const cfg = getConfig();
         if (!cfg.enabled) { setIndicator('off', ''); return; }
         if (running) return;
+        if (usesLocalAudio()) return startLocal(fromUserGesture);
+        if (!SR) { lastError = humanError('unsupported'); setIndicator('error', lastError); return; }
 
         // Aviso Android una vez por sesión (no bloquea, solo informa)
         maybeShowAndroidWarning();
@@ -220,10 +308,8 @@
         userWantsRunning = true;
         lastError = null;
 
-        // VAD local: mantiene un umbral adaptativo de silencio/voz. El audio
-        // nunca sale del dispositivo y SpeechRecognition sigue siendo quien
-        // confirma el texto para evitar falsos barge-in por eco.
-        try { window.GunterVoiceActivity?.start?.().catch(() => {}); } catch {}
+        // SpeechRecognition owns the microphone in this mode. Starting a
+        // second VAD stream would compete with it on some devices.
 
         try {
             recognition = new SR();
@@ -234,6 +320,7 @@
 
             recognition.onstart = () => {
                 running = true;
+                localProvider = false;
                 mode = 'wake';
                 setIndicator('wake', `Di "${cfg.wakeWord}"`);
                 notifyState();
@@ -305,8 +392,8 @@
                 if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
                     permissionGranted = false;
                     userWantsRunning = false;
-                    setIndicator('error', 'Permiso de micrófono rechazado');
                     stop();
+                    setIndicator('error', 'Permiso de micrófono rechazado');
                     return;
                 }
                 // no-speech / aborted → no-op, onend se encarga
@@ -314,6 +401,7 @@
 
             recognition.onend = () => {
                 running = false;
+                phase = 'off';
                 notifyState();
                 console.log('[wake-word] onend (user quiere corriendo?', userWantsRunning, ')');
                 // Reconnect aggressively if user hasn't disabled it
@@ -345,12 +433,24 @@
         }
     }
 
-    function stop() {
-        userWantsRunning = false;
+    function stop(options = {}) {
+        if (!options.preserveIntent) userWantsRunning = false;
         if (queryTimeout) { clearTimeout(queryTimeout); queryTimeout = null; }
         if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
-        try { recognition?.abort(); } catch {}
-        try { window.GunterVoiceActivity?.stop?.('wake-stopped'); } catch {}
+        clearTimeout(localClipTimer); clearTimeout(localEndTimer);
+        localUnsubscribe?.(); localUnsubscribe = null;
+        try { localRecorder?.stop?.(); } catch {}
+        try { localStream?.getTracks?.().forEach(track => track.stop()); } catch {}
+        localRecorder = null; localStream = null;
+        localProvider = false;
+        localClip = []; localPreRoll = []; localSpeech = false; localBusy = false;
+        window.GunterVoiceActivity?.stop?.('wake-stopped');
+        if (recognition) {
+            recognition.onend = null;
+            recognition.onresult = null;
+            recognition.onerror = null;
+            try { recognition.abort(); } catch {}
+        }
         recognition = null;
         running = false;
         mode = 'off';
@@ -457,6 +557,7 @@
 
         const text = (transcript || '').trim();
         if (!text) return;
+        phase = 'processing'; notifyState();
         console.log('[wake-word] 💬 Procesando:', text);
         window.GunterConversationState?.transition?.('thinking', { reason: 'voice-query', transcript: text });
 
@@ -465,6 +566,7 @@
         if (window.GunterCompanion?.__handleFromWake) {
             ensureAssistantOpen();
             await window.GunterCompanion.__handleFromWake(text);
+            if (running && phase === 'processing') { phase = 'waiting_activation'; notifyState(); }
             return;
         }
 
@@ -651,7 +753,7 @@
             { label: 'Agenda', href: 'day.html#events', aliases: ['agenda', 'calendario', 'eventos'] },
             { label: 'Recordatorios', href: 'day.html#reminders', aliases: ['recordatorios'] },
             { label: 'Actividad', href: 'day.html#activity', aliases: ['actividad', 'historial'] },
-            { label: 'Conexiones', href: 'config.html#data', aliases: ['conexiones', 'redes sociales'] },
+            { label: 'Conexiones', href: 'config.html#connections', aliases: ['conexiones', 'redes sociales'] },
             { label: 'Preferencias', href: 'config.html#preferences', aliases: ['preferencias'] },
             { label: 'Configuración', href: 'config.html#preferences', aliases: ['configuracion', 'ajustes'] },
             { label: 'Inicio', href: 'day.html', aliases: ['inicio', 'principal', 'hoy'] }
@@ -673,7 +775,10 @@
         return {
             active: running,
             mode,
-            supported: true,
+            phase,
+            label: indicatorLabel,
+            provider: localProvider ? 'moonshine.local' : SR ? 'browser.speech-recognition' : 'none',
+            supported: !!(SR || localCaptureSupported),
             permission: permissionGranted ? 'granted' : 'unknown',
             error: lastError,
             lastHeard,
@@ -689,7 +794,22 @@
             start();
         } else if (!cfg.enabled && running) {
             stop();
+        } else if (cfg.enabled && !permissionGranted && !running) {
+            phase = 'permission_pending'; notifyState();
         }
+    }
+
+    function suspendForCapture() {
+        // PTT debe ser el único dueño del micrófono, también cuando la
+        // activación usa SpeechRecognition en vez de Moonshine local.
+        suspendedForCapture = running;
+        if (suspendedForCapture) stop();
+    }
+
+    function resumeAfterCapture() {
+        if (!suspendedForCapture) return;
+        suspendedForCapture = false;
+        if (getConfig().enabled && permissionGranted) start();
     }
 
     // Toggle debug mode with ?debug=wake
@@ -703,7 +823,15 @@
     });
     window.addEventListener('gunter-hybrid-state', event => {
         const hybrid = event.detail || {};
-        if (hybrid.loaded !== true || hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY') stop();
+        if (hybrid.loaded !== true || (running && localProvider !== (hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY'))) stop();
+    });
+
+    window.addEventListener('gunter-voice-state', event => {
+        if (!running) return;
+        if (event.detail?.state === 'speaking') { phase = 'responding'; notifyState(); }
+        else if (event.detail?.state === 'idle' && phase === 'responding') {
+            phase = mode === 'query' ? 'recording' : 'waiting_activation'; notifyState();
+        }
     });
 
     window.addEventListener('gunter-vad-state', event => {
@@ -725,6 +853,8 @@
         stop,
         refresh,
         requestPermission,
+        suspendForCapture,
+        resumeAfterCapture,
         getState,
         getLastHeard,
         onStateChange,

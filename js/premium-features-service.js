@@ -409,7 +409,8 @@
     }
     function speechRecognitionSupported() {
         return typeof window !== 'undefined'
-            && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+            && (('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+                || !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder && window.GunterVoiceActivity?.supported));
     }
 
     // ---------- Composite getters ----------

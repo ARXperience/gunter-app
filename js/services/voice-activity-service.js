@@ -23,6 +23,7 @@
 
     function create(options = {}) {
         let stream = null;
+        let ownsStream = false;
         let context = null;
         let analyser = null;
         let source = null;
@@ -89,14 +90,15 @@
             frameId = root.requestAnimationFrame(loop);
         }
 
-        async function start() {
+        async function start(sharedStream = null) {
             if (active) return snapshot();
             const AudioContextCtor = root?.AudioContext || root?.webkitAudioContext;
             if (!root?.navigator?.mediaDevices?.getUserMedia || !AudioContextCtor) {
                 return { active: false, activity: 'unsupported', supported: false };
             }
             try {
-                stream = await root.navigator.mediaDevices.getUserMedia({
+                ownsStream = !sharedStream;
+                stream = sharedStream || await root.navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                 });
                 context = new AudioContextCtor();
@@ -124,9 +126,10 @@
             if (frameId !== null && root?.cancelAnimationFrame) root.cancelAnimationFrame(frameId);
             frameId = null;
             try { source?.disconnect(); } catch { /* noop */ }
-            try { stream?.getTracks?.().forEach(track => track.stop()); } catch { /* noop */ }
+            if (ownsStream) try { stream?.getTracks?.().forEach(track => track.stop()); } catch { /* noop */ }
             try { context?.close?.(); } catch { /* noop */ }
             stream = null;
+            ownsStream = false;
             source = null;
             analyser = null;
             context = null;

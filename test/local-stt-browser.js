@@ -18,13 +18,13 @@ const vm = require('node:vm');
             this.onstop?.();
         }
     }
-    const context = { console, Blob, FormData, setTimeout, clearTimeout, CustomEvent: class {
-        constructor(name, options) { this.type = name; this.detail = options.detail; }
+    const context = { console, Blob, FormData, setTimeout, clearTimeout, setInterval, clearInterval, CustomEvent: class {
+        constructor(name, options = {}) { this.type = name; this.detail = options.detail; }
     }, MediaRecorder: Recorder,
         navigator: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop: () => { tracksStopped++; } }] }) } },
         GunterRuntimeState: { getState: () => ({ mode: 'LOCAL', privacy: 'LOCAL_ONLY' }) },
         GunterVoice: { cancel: reason => sequence.push(`tts-cancel:${reason}`) },
-        GunterCompanion: { __handleFromWake: async value => turns.push(value) },
+        GunterCompanion: { reviewTranscript: value => turns.push(value) },
         dispatchEvent: event => events.push(event),
         fetch: async (url, options) => {
             requests.push({ url, options });
@@ -43,6 +43,7 @@ const vm = require('node:vm');
     assert.equal(requests.length, 1);
     assert.equal(requests[0].url, '/api/transcribe');
     assert.deepEqual(turns, ['Crea una tarea para revisar seguridad']);
-    assert.deepEqual(events.map(event => event.detail.active), [true, false]);
-    console.log('LOCAL STT BROWSER: push-to-talk → shared route → voice companion ✓');
+    assert.deepEqual(events.filter(event => event.type === 'gunter-push-to-talk-state').map(event => event.detail.phase),
+        ['permission_pending', 'recording', 'transcribing', 'review']);
+    console.log('LOCAL STT BROWSER: push-to-talk → shared route → editable draft ✓');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -30,23 +30,57 @@
     let recorder = null;
     let captureStream = null;
     let captureTimer = null;
+    let elapsedTimer = null;
+    let silenceTimer = null;
+    let unsubscribeVAD = null;
+    let starting = false;
+    let startedAt = 0;
+    let phase = 'off';
+    function limits() {
+        let prefs = {};
+        try { prefs = JSON.parse(root.localStorage?.getItem('gunter_prefs') || '{}'); } catch {}
+        const clamp = (value, fallback, min, max) => Number.isFinite(Number(value))
+            ? Math.min(max, Math.max(min, Math.round(Number(value)))) : fallback;
+        return {
+            maxSeconds: clamp(prefs.voiceDictationMaxSeconds, 90, 30, 120),
+            silenceSeconds: clamp(prefs.voiceDictationSilenceSeconds, 12, 5, 30)
+        };
+    }
     function metric(name) {
         try { root.dispatchEvent(new CustomEvent('gunter-voice-metric', {
             detail: { name, at: performance.now() }
         })); } catch { /* optional telemetry */ }
     }
-    function captureState(active) {
-        try { root.dispatchEvent(new CustomEvent('gunter-push-to-talk-state', { detail: { active } })); } catch {}
+    function captureState(active, nextPhase, extra = {}) {
+        phase = nextPhase;
+        try { root.dispatchEvent(new CustomEvent('gunter-push-to-talk-state', {
+            detail: { active, phase, elapsedSeconds: startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0, ...extra }
+        })); } catch {}
     }
     const pushToTalk = {
         isActive: () => !!recorder && recorder.state === 'recording',
+        getState: () => ({ active: pushToTalk.isActive(), phase, elapsedSeconds: startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0, ...limits() }),
         async start() {
-            if (recorder) return;
-            if (!root.GunterCompanion?.__handleFromWake) throw unavailable('LOCAL_STT_UNAVAILABLE');
+            if (recorder || starting) return;
+            if (!root.GunterCompanion?.reviewTranscript) throw unavailable('LOCAL_STT_UNAVAILABLE');
             if (!navigator.mediaDevices?.getUserMedia || !root.MediaRecorder) throw unavailable('LOCAL_STT_UNAVAILABLE');
+            starting = true;
+            captureState(false, 'permission_pending');
             root.dispatchEvent(new CustomEvent('gunter-barge-in'));
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            root.GunterWakeWord?.suspendForCapture?.();
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: {
+                    echoCancellation: true, noiseSuppression: true, autoGainControl: true
+                } });
+            } catch (error) {
+                starting = false;
+                captureState(false, 'error', { error: error.name || error.message });
+                root.GunterWakeWord?.resumeAfterCapture?.();
+                throw error;
+            }
             captureStream = stream;
+            const settings = limits();
             const allowed = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg'];
             const mime = allowed.find(value => root.MediaRecorder.isTypeSupported?.(value));
             try {
@@ -54,13 +88,17 @@
                 const current = recorder;
                 const chunks = [];
                 current.ondataavailable = event => { if (event.data?.size) chunks.push(event.data); };
-                current.onerror = () => { captureState(false); };
+                current.onerror = event => { captureState(false, 'error', { error: event?.error?.message || 'RECORDER_ERROR' }); };
                 current.onstop = async () => {
                     clearTimeout(captureTimer);
+                    clearTimeout(silenceTimer);
+                    clearInterval(elapsedTimer);
+                    unsubscribeVAD?.(); unsubscribeVAD = null;
+                    root.GunterVoiceActivity?.stop?.('dictation-stopped');
                     recorder = null;
                     stream.getTracks().forEach(track => track.stop());
                     captureStream = null;
-                    captureState(false);
+                    captureState(false, 'transcribing');
                     try {
                         const type = current.mimeType.split(';')[0];
                         const blob = new Blob(chunks, { type });
@@ -69,26 +107,53 @@
                         form.append('file', blob, type === 'audio/ogg' ? 'voice.ogg' : 'voice.webm');
                         const transcript = (await root.GunterSTT.transcribe(form)).trim();
                         metric('sttFinal');
-                        if (transcript) await root.GunterCompanion.__handleFromWake(transcript);
-                        else root.GunterNotificationsService?.showToast?.('No detecté voz. Inténtalo de nuevo.', { variant: 'info' });
+                        if (transcript) {
+                            captureState(false, 'review', { transcript });
+                            root.GunterCompanion.reviewTranscript(transcript);
+                        } else {
+                            captureState(false, 'off');
+                            root.GunterNotificationsService?.showToast?.('No detecté voz. Inténtalo de nuevo.', { variant: 'info' });
+                        }
                     } catch (error) {
+                        captureState(false, 'error', { error: error.code || error.message });
                         root.GunterNotificationsService?.showToast?.(`No pude transcribir: ${error.code || error.message}`, { variant: 'warn' });
+                    } finally {
+                        root.GunterWakeWord?.resumeAfterCapture?.();
                     }
                 };
                 // A deliberate Hablar press interrupts output before recording,
                 // so Moonshine hears the user rather than Gunter's own TTS.
                 root.GunterVoice?.cancel?.('push-to-talk');
                 current.start(500);
-                captureTimer = setTimeout(() => pushToTalk.stop(), 25000);
-                captureState(true);
+                starting = false;
+                startedAt = Date.now();
+                captureState(true, 'recording', { maxSeconds: settings.maxSeconds });
+                elapsedTimer = setInterval(() => captureState(true, 'recording'), 1000);
+                captureTimer = setTimeout(() => pushToTalk.stop(), settings.maxSeconds * 1000);
+                if (root.GunterVoiceActivity?.start) {
+                    unsubscribeVAD = root.GunterVoiceActivity.onChange?.(state => {
+                        if (!pushToTalk.isActive()) return;
+                        if (state.activity === 'speech') clearTimeout(silenceTimer);
+                        if (state.reason === 'speech-ended') {
+                            clearTimeout(silenceTimer);
+                            silenceTimer = setTimeout(() => pushToTalk.stop(), settings.silenceSeconds * 1000);
+                        }
+                        if (state.reason === 'level') captureState(true, 'recording', { level: state.rms, threshold: state.threshold });
+                    });
+                    root.GunterVoiceActivity.start(stream).catch(() => {});
+                }
             } catch (error) {
                 stream.getTracks().forEach(track => track.stop());
-                captureStream = null; recorder = null;
+                captureStream = null; recorder = null; starting = false;
+                captureState(false, 'error', { error: error.code || error.message });
+                root.GunterWakeWord?.resumeAfterCapture?.();
                 throw error;
             }
         },
         stop() {
             clearTimeout(captureTimer);
+            clearTimeout(silenceTimer);
+            clearInterval(elapsedTimer);
             if (recorder?.state === 'recording') { metric('userAudioEnd'); recorder.stop(); }
             else if (captureStream) { captureStream.getTracks().forEach(track => track.stop()); captureStream = null; }
         }
