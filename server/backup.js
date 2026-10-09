@@ -12,6 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..');
 const BACKUP_DIR = path.resolve(process.env.GUNTER_BACKUP_DIR || path.join(ROOT, 'backups'));
@@ -76,4 +77,29 @@ function schedule() {
     console.log('💾 [backup] Programado: al arrancar (+3 min) y cada 12 h → backups/ (retención 14)');
 }
 
-module.exports = { schedule, runBackup, lastBackup };
+// Inventory only: never includes file contents or credentials. A browser-side
+// exporter remains future work and is not activated by this foundation.
+function inventory() {
+    return { version: 1,
+        browser: { indexedDB: ['gunter_daily', 'gunter_documents', 'gunter_transcription_db',
+            'gunter_audio_vault', 'gunter_transcript_archive', 'gunter_embeddings',
+            'gunter_semantic_index', 'gunter_conversation_memory'],
+            localStorage: ['gunter_control_outbox_v1', 'gunter_prefs', 'gunter_companion_log'],
+            status: 'BROWSER_EXPORT_NOT_CONFIGURED', exhaustive: false },
+        files: SOURCES.map(source => ({ name: source.name, exists: fs.existsSync(source.src),
+            format: 'JSON_OR_JSONL_DIRECTORY', backupEligible: true })),
+        backupDirectoryConfigured: !!BACKUP_DIR, lastBackup: lastBackup() };
+}
+function createTestManifest(entries) {
+    if (!Array.isArray(entries) || entries.some(entry => typeof entry.name !== 'string' || typeof entry.content !== 'string'))
+        throw new TypeError('test_entries_required');
+    return { schemaVersion: 1, kind: 'TEST_ONLY', createdAt: new Date().toISOString(),
+        entries: entries.map(entry => ({ name: entry.name, bytes: Buffer.byteLength(entry.content),
+            sha256: crypto.createHash('sha256').update(entry.content).digest('hex') })) };
+}
+function validateTestManifest(manifest, entries) {
+    if (manifest?.schemaVersion !== 1 || manifest.kind !== 'TEST_ONLY') return false;
+    const generated = createTestManifest(entries);
+    return JSON.stringify(generated.entries) === JSON.stringify(manifest.entries);
+}
+module.exports = { schedule, runBackup, lastBackup, inventory, createTestManifest, validateTestManifest };

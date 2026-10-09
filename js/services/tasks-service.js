@@ -84,26 +84,37 @@
         return task;
     }
 
-    async function update(id, patch) {
+    async function update(id, patch, guard = {}) {
         const db = await openDB();
-        const current = await new Promise((res, rej) => {
-            const r = db.transaction(STORE).objectStore(STORE).get(id);
-            r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
-        });
-        if (!current) { db.close(); throw new Error('Task no encontrada'); }
-        const merged = { ...current, ...patch, updatedAt: new Date().toISOString() };
-        await new Promise((res, rej) => {
-            const t = db.transaction(STORE, 'readwrite');
-            t.objectStore(STORE).put(merged);
-            t.oncomplete = res; t.onerror = () => rej(t.error);
-        });
-        db.close();
-        emit('tasks-changed', { op: 'update', id });
-        return merged;
+        try {
+            const merged = await new Promise((res, rej) => {
+                const t = db.transaction(STORE, 'readwrite');
+                const store = t.objectStore(STORE);
+                let next = null, failure = null;
+                const request = store.get(id);
+                request.onsuccess = () => {
+                    const current = request.result;
+                    if (!current) failure = new Error('Task no encontrada');
+                    else if (guard.ownerId && current.ownerId !== guard.ownerId) failure = new Error('TASK_OWNER_MISMATCH');
+                    else if (guard.statuses && !guard.statuses.includes(current.status)) failure = new Error('TASK_STATUS_CHANGED');
+                    else if (guard.expected && Object.entries(guard.expected).some(([key, value]) => (current[key] || null) !== (value || null)))
+                        failure = new Error('TASK_CHANGED');
+                    if (failure) { t.abort(); return; }
+                    next = { ...current, ...patch, updatedAt: new Date().toISOString() };
+                    store.put(next);
+                };
+                t.oncomplete = () => res(next);
+                t.onabort = () => rej(failure || t.error || new Error('TASK_UPDATE_ABORTED'));
+                t.onerror = () => { failure ||= t.error; };
+            });
+            emit('tasks-changed', { op: 'update', id });
+            return merged;
+        } finally { db.close(); }
     }
 
-    async function complete(id) {
-        const merged = await update(id, { status: 'done', completedAt: new Date().toISOString() });
+    async function complete(id, ownerId) {
+        const merged = await update(id, { status: 'done', completedAt: new Date().toISOString() },
+            ownerId ? { ownerId, statuses: ['pending', 'doing'] } : {});
         // v2 (F2) — auto-reconcile: ¿esta tarea cumple algún compromiso pendiente?
         try {
             if (window.GunterCommitmentsService?.reconcile) {
@@ -125,7 +136,10 @@
         } catch { /* noop */ }
         return merged;
     }
-    async function reopen(id) { return update(id, { status: 'pending', completedAt: null }); }
+    async function reopen(id, ownerId) { return update(id, { status: 'pending', completedAt: null, cancelledAt: null },
+        ownerId ? { ownerId, statuses: ['done', 'cancelled'] } : {}); }
+    async function cancel(id, ownerId) { return update(id, { status: 'cancelled', cancelledAt: new Date().toISOString() },
+        ownerId ? { ownerId, statuses: ['pending', 'doing'] } : {}); }
 
     async function remove(id) {
         const db = await openDB();
@@ -198,6 +212,6 @@
     }
 
     window.GunterTasksService = {
-        create, update, complete, reopen, remove, list, listForToday, listOverdue, listBySource
+        create, update, complete, reopen, cancel, remove, list, listForToday, listOverdue, listBySource
     };
 })();

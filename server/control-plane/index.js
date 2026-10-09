@@ -15,6 +15,9 @@ const missions = require('./missions');
 const attention = require('./attention');
 const evolution = require('./evolution');
 const modelRouter = require('./model-router');
+const localBrain = require('../local-brain');
+const localSTT = require('../local-stt');
+const localTTS = require('../local-tts');
 const observability = require('./observability');
 const operations = require('./operations');
 const capabilities = require('./capabilities');
@@ -40,6 +43,38 @@ async function handle(req, res, pathname, query = {}) {
     try {
         if (req.method === 'GET' && route === 'contracts') return send(res, 200, { success: true, data: contracts.catalog() });
         if (req.method === 'GET' && route === 'health') return send(res, 200, { success: true, data: healthSnapshot(actor) });
+        if (req.method === 'GET' && route === 'hybrid/status') {
+            const userId = targetUser(actor, query.userId);
+            const local = await localBrain.health();
+            const stt = await localSTT.health();
+            return send(res, 200, { success: true, data: {
+                ...settings.hybridStatus(userId), providers: modelRouter.hybridInventory(),
+                ...local, ...stt,
+                flags: Object.fromEntries(['ai.local', 'stt.local', 'tts.local', 'embeddings.local', 'hybrid.routing'].map(key => [key, flags.evaluate(key, { ...actor, userId }).enabled])),
+                sync: sync.status(userId), storage: { web: 'CURRENT_STORES', sqlite: 'NOT_CONFIGURED' }
+            } });
+        }
+        if (req.method === 'POST' && ['local-brain/start', 'local-brain/stop', 'local-brain/restart'].includes(route)) {
+            if (!isAdmin(actor)) return forbidden(res);
+            const action = route.slice('local-brain/'.length);
+            if (action !== 'stop' && !flags.evaluate('ai.local', actor).enabled)
+                return send(res, 403, { success: false, error: 'LOCAL_PROVIDER_UNAVAILABLE' });
+            const result = action === 'start' ? await localBrain.start() : action === 'restart' ? await localBrain.restart() : localBrain.stop();
+            return send(res, 200, { success: true, data: result });
+        }
+        if (req.method === 'POST' && ['local-stt/start', 'local-stt/stop', 'local-stt/restart'].includes(route)) {
+            if (!isAdmin(actor)) return forbidden(res);
+            const action = route.slice('local-stt/'.length);
+            if (action !== 'stop' && !flags.evaluate('stt.local', actor).enabled)
+                return send(res, 403, { success: false, error: 'LOCAL_STT_UNAVAILABLE' });
+            const result = action === 'stop' ? localSTT.stop() : action === 'restart' ? await localSTT.restart() : await localSTT.health();
+            return send(res, 200, { success: true, data: result });
+        }
+        if (req.method === 'POST' && route === 'hybrid/mode') {
+            const body = await readBody(req);
+            const userId = targetUser(actor, body.userId);
+            return sendResult(res, settings.patchHybrid(userId, body));
+        }
         if (req.method === 'GET' && route === 'capabilities') {
             const userId = targetUser(actor, query.userId);
             return send(res, 200, { success: true, data: capabilities.catalog(userId, { ...actor, userId }) });
@@ -73,6 +108,11 @@ async function handle(req, res, pathname, query = {}) {
             if (!isAdmin(actor)) return forbidden(res);
             const body = await readBody(req);
             const result = flags.set(body.key, body, actor.userId || actor.kind);
+            if (result.ok && body.key === 'ai.local' && body.state === 'off') localBrain.stop();
+            if (result.ok && body.key === 'tts.local') {
+                if (body.state === 'off') localTTS.stop();
+                if (body.state === 'on') localTTS.warm().catch(() => {});
+            }
             return sendResult(res, result);
         }
 
@@ -353,7 +393,7 @@ async function handle(req, res, pathname, query = {}) {
                         autonomy: 'L3', confirmed: true, ttlMs: 120000, traceId: req.gunterTraceId
                     }, { ...actor, userId });
                     if (!queued.ok) return sendResult(res, queued);
-                    const displayText = checked.text || `Archivo: ${path.basename(checked.attachmentPath)}`;
+                    const displayText = checked.text || `Archivo: ${path.win32.basename(checked.attachmentPath)}`;
                     socialHub.appendMessage(userId, { id: `pending:${queued.command.id}`, provider: checked.provider, peerId: checked.peerId, peerName: body.peerName || checked.peerId, direction: 'out', text: displayText, status: 'QUEUED' });
                     return send(res, 202, { success: true, data: { ok: true, queued: true, provider: checked.provider, commandId: queued.command.id, sentAt: null } });
                 }

@@ -7,6 +7,7 @@
    relevantes y se inyectan como contexto al LLM.
 
    Storage: IDB `gunter_conversation_memory` / store `turns`
+   The shared repository upgrades this DB in place and preserves existing turns.
      { id, role, text, vector, ts, channel, sessionId, projectId }
 
    API:
@@ -24,8 +25,6 @@
 (function () {
     if (window.GunterConversationMemory) return;
 
-    const DB_NAME = 'gunter_conversation_memory';
-    const DB_VERSION = 1;
     const STORE = 'turns';
     const MIN_TEXT_CHARS = 8;          // ignorar acks tipo "ok"
     const MAX_TEXT_CHARS = 2000;
@@ -33,29 +32,11 @@
     const DEFAULT_MIN_SCORE = 0.32;    // umbral cosine
     const RETENTION_DAYS = 180;        // purga automática silenciosa
 
-    let dbPromise = null;
-
     function flagOn() { return !!(window.PremiumFeaturesService?.isEnabled?.('conversationMemory')); }
 
     function openDb() {
-        if (dbPromise) return dbPromise;
-        dbPromise = new Promise((resolve, reject) => {
-            try {
-                const req = indexedDB.open(DB_NAME, DB_VERSION);
-                req.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains(STORE)) {
-                        const s = db.createObjectStore(STORE, { keyPath: 'id' });
-                        s.createIndex('ts', 'ts', { unique: false });
-                        s.createIndex('channel', 'channel', { unique: false });
-                        s.createIndex('projectId', 'projectId', { unique: false });
-                    }
-                };
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => reject(req.error);
-            } catch (err) { reject(err); }
-        });
-        return dbPromise;
+        const open = window.GunterDataRepository?.openMemoryDb;
+        return open ? open() : Promise.reject(new Error('MEMORY_REPOSITORY_UNAVAILABLE'));
     }
 
     function newId() {
@@ -64,6 +45,19 @@
 
     function normalize(text) {
         return String(text || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function currentOwner() {
+        const auth = window.GunterAuth;
+        return (auth?.canAccessLocalData?.() ?? auth?.isVerified?.()) ? auth.getUser?.()?.id || null : null;
+    }
+
+    function readable(turn, owner) {
+        if (!owner) return false;
+        if (turn.ownerId) return turn.ownerId === owner;
+        try { return localStorage.getItem('gunter_device_user') === owner &&
+            localStorage.getItem('gunter_memory_legacy_owner') === owner; }
+        catch { return false; }
     }
 
     async function idbPut(turn) {
@@ -77,11 +71,13 @@
     }
 
     async function idbAll() {
+        const owner = currentOwner();
+        if (!owner) return [];
         const db = await openDb();
         return new Promise((resolve) => {
             const tx = db.transaction(STORE, 'readonly');
             const req = tx.objectStore(STORE).getAll();
-            req.onsuccess = () => resolve(req.result || []);
+            req.onsuccess = () => resolve((req.result || []).filter(turn => readable(turn, owner)));
             req.onerror = () => resolve([]);
         });
     }
@@ -99,13 +95,8 @@
     }
 
     async function idbClear() {
-        const db = await openDb();
-        return new Promise((resolve) => {
-            const tx = db.transaction(STORE, 'readwrite');
-            tx.objectStore(STORE).clear();
-            tx.oncomplete = () => resolve(true);
-            tx.onerror = () => resolve(false);
-        });
+        const ids = (await idbAll()).map(turn => turn.id);
+        return (await idbDeleteIds(ids)) === ids.length;
     }
 
     /**
@@ -113,6 +104,8 @@
      */
     async function remember({ role, text, channel = 'chat', projectId = null, sessionId = null } = {}) {
         if (!flagOn()) return null;
+        const ownerId = currentOwner();
+        if (!ownerId) return null;
         const t = normalize(text);
         if (t.length < MIN_TEXT_CHARS) return null;
         if (!window.GunterEmbeddings?.embed) return null;
@@ -128,7 +121,8 @@
                 ts: Date.now(),
                 channel,
                 projectId,
-                sessionId
+                sessionId,
+                ownerId
             };
             await idbPut(turn);
             return turn;

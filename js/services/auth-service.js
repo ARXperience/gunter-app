@@ -17,6 +17,8 @@
     const isPublic = PUBLIC_PAGES.includes(page);
 
     let _user = null;
+    let _verified = false;
+    let _localTrusted = false;
     const _readyCallbacks = [];
 
     // Cache de sessionStorage para pintar el chip sin esperar la red
@@ -32,15 +34,26 @@
         try {
             const resp = await fetch('/api/auth/me', { cache: 'no-store' });
             if (resp.status === 401) {
+                _user = null;
+                _verified = false;
+                _localTrusted = false;
                 sessionStorage.removeItem('gunter_auth_user');
+                sessionStorage.removeItem('gunter_entry_greeting');
                 if (!isPublic) _goLogin('');
                 return null;
             }
             const json = await resp.json();
-            if (!json?.success || !json.user) { if (!isPublic) _goLogin(''); return null; }
+            if (!json?.success || !json.user) {
+                _verified = false;
+                _localTrusted = false;
+                if (!isPublic) _goLogin('');
+                return null;
+            }
             const u = json.user;
-            if (u.status === 'pending') { if (!isPublic) _goLogin('pending'); return null; }
+            if (u.status === 'pending') { _verified = false; _localTrusted = false; if (!isPublic) _goLogin('pending'); return null; }
             if (u.status === 'blocked') {
+                _verified = false;
+                _localTrusted = false;
                 sessionStorage.removeItem('gunter_auth_user');
                 if (!isPublic) _goLogin('blocked');
                 return null;
@@ -53,11 +66,21 @@
                 console.warn('[auth] Cambio de usuario detectado — limpiando datos locales del anterior');
                 await _wipeLocalData();
                 localStorage.setItem('gunter_device_user', u.id);
+                // Never re-assign surviving unowned turns if another tab
+                // blocked deletion of the old IndexedDB database.
+                localStorage.setItem('gunter_memory_legacy_owner', 'UNBOUND');
                 location.reload();
                 return null;
             }
+            // Los turnos v1 sin ownerId se vinculan solo si este navegador ya
+            // identificaba a la misma cuenta. Sin marcador previo, se aíslan.
+            if (!localStorage.getItem('gunter_memory_legacy_owner')) {
+                localStorage.setItem('gunter_memory_legacy_owner', prevUser === u.id ? u.id : 'UNBOUND');
+            }
             localStorage.setItem('gunter_device_user', u.id);
             _user = u;
+            _verified = true;
+            _localTrusted = true;
             try { sessionStorage.setItem('gunter_auth_user', JSON.stringify(u)); } catch { }
             document.dispatchEvent(new CustomEvent('gunter-auth-ready', { detail: { user: u } }));
             _readyCallbacks.splice(0).forEach(cb => { try { cb(u); } catch { } });
@@ -67,13 +90,21 @@
             // Server caído: no bloquear la página (modo local-first);
             // el connectivity-monitor ya muestra el banner offline.
             console.warn('[auth] No se pudo verificar sesión:', e.message);
+            try {
+                _localTrusted = !!(_user?.id && _user.status === 'approved' &&
+                    localStorage.getItem('gunter_device_user') === _user.id);
+            } catch { _localTrusted = false; }
             return _user;
         }
     }
 
     async function logout() {
+        _localTrusted = false;
+        _verified = false;
+        _user = null;
         try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { }
         sessionStorage.removeItem('gunter_auth_user');
+        sessionStorage.removeItem('gunter_entry_greeting');
         location.replace('login.html');
     }
 
@@ -254,6 +285,8 @@
     // ---------- API pública ----------
     window.GunterAuth = {
         getUser: () => _user,
+        isVerified: () => _verified,
+        canAccessLocalData: () => _localTrusted,
         isAdmin: () => _user?.role === 'admin',
         // Tutor 📚: privilegio del admin o concedido explícitamente por él
         canTutor: () => !!(_user && (_user.role === 'admin' || _user.tutorAccess)),

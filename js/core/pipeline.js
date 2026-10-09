@@ -10,6 +10,17 @@
     const { startStage, endStage, recordError, persist } = window.GunterTraceLogger;
 
     async function handleUserInput(text) {
+        // Handle explicit memory commands before the context envelope/network,
+        // trace logger and conversation history see the personal content.
+        if (window.GunterPersonalMemory?.parseCommand?.(text)) {
+            const state = window.GunterCoreModels.newPipelineState('[comando de memoria personal]', window.GunterContextProvider.build());
+            const result = await window.GunterPersonalMemory.handleCommand(text);
+            state.intent = { primary: { type: 'personal_memory', confidence: 1 },
+                alternatives: [], multiIntent: false, method: 'explicit-personal-memory' };
+            state.execution = { executed: [], failed: [], pending: [], sideEffects: [],
+                uiResponse: { speech: result.reply, animation: 'nod', panels: [] } };
+            return { state, awaitingConfirmation: false, response: state.execution.uiResponse };
+        }
         const ctx = window.GunterContextProvider.enrich
             ? await window.GunterContextProvider.enrich(text, { channel: 'pipeline' })
             : window.GunterContextProvider.build();
@@ -17,6 +28,26 @@
         const state = window.GunterCoreModels.newPipelineState(text, ctx);
 
         try {
+            // Los cambios/consultas de configuración deben funcionar por voz
+            // igual que en el chat del companion, sin pasar por el clasificador.
+            if (window.GunterActions?.dispatch) {
+                const action = await window.GunterActions.dispatch(text);
+                if (action?.reply) {
+                    state.intent = {
+                        primary: { type: 'settings', confidence: 1 }, alternatives: [],
+                        multiIntent: false, method: 'settings-action-vocabulary'
+                    };
+                    state.execution = {
+                        executed: action.intent === 'applied' ? [{ feature: action.feature, value: action.value }] : [],
+                        failed: [], pending: [], sideEffects: [],
+                        uiResponse: { speech: action.reply, animation: action.intent === 'applied' ? 'nod' : 'think', panels: [] }
+                    };
+                    window.GunterContextProvider.pushConversationTurn('assistant', action.reply);
+                    persist(state);
+                    return { state, awaitingConfirmation: !!action.requiresConfirmation, response: state.execution.uiResponse, action };
+                }
+            }
+
             // Los planes multipaso pasan primero por el coordinador durable.
             // Una propuesta no ejecuta efectos hasta que el usuario aprueba la secuencia completa.
             if (window.GunterWorkflowOrchestrator?.dispatch) {
@@ -45,6 +76,21 @@
                     persist(state);
                     return { state, awaitingConfirmation: workflowResult.status === 'awaiting_confirmation', response: state.execution.uiResponse, workflow: workflowResult };
                 }
+            }
+
+            // The main command bar uses the same verified tools as the floating chat.
+            const tool = await window.GunterAssistantTools?.dispatch?.(text);
+            const clarification = !tool?.handled ? window.GunterAssistantTools?.clarifyRequest?.(text) : null;
+            if (tool?.handled || clarification) {
+                const result = tool?.handled ? tool : clarification;
+                state.assistantPending = result.requiresConfirmation ? window.GunterAssistantTools.getPending() : null;
+                state.execution = {
+                    executed: result.status === 'complete' ? [{ toolId: result.intent }] : [], failed: result.status === 'error' ? [{ reason: result.reply }] : [], pending: [], sideEffects: [],
+                    uiResponse: { speech: result.reply, animation: result.status === 'complete' ? 'nod' : 'think', panels: [{ type: 'activity-updated' }], awaitingConfirmation: !!result.requiresConfirmation }
+                };
+                window.GunterContextProvider.pushConversationTurn('assistant', result.reply);
+                persist(state);
+                return { state, awaitingConfirmation: !!result.requiresConfirmation, response: state.execution.uiResponse };
             }
 
             // El reloj del dispositivo es la única fuente para fecha/hora actual.
@@ -178,6 +224,17 @@
     }
 
     async function handleConfirmation(pendingState, answer) {
+        if (pendingState?.assistantPending) {
+            const current = window.GunterAssistantTools?.getPending?.();
+            const expected = pendingState.assistantPending;
+            const result = current?.toolId === expected.toolId && current?.createdAt === expected.createdAt
+                ? await window.GunterAssistantTools.dispatch(answer?.accepted ? 'sí' : 'no')
+                : { reply: 'Esa solicitud ya venció o cambió. Pídeme de nuevo la acción que deseas.' };
+            const response = { speech: result.reply, animation: result.status === 'complete' ? 'nod' : 'think', panels: [{ type: 'activity-updated' }] };
+            pendingState.execution = { executed: [], failed: [], pending: [], sideEffects: [], uiResponse: response };
+            persist(pendingState);
+            return { state: pendingState, response };
+        }
         if (pendingState?.workflowId && window.GunterWorkflowOrchestrator?.confirm) {
             const result = await window.GunterWorkflowOrchestrator.confirm(pendingState.workflowId, answer?.accepted === true);
             pendingState.execution = {

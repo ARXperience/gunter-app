@@ -1,21 +1,21 @@
 /* Stitch console: a viewport workspace, not a mascot card. Shared Polar tokens. */
 body.gunter-page-day {
-  --console-bg: #08131c;
-  --console-panel: #0c1a24;
-  --console-line: rgba(104, 200, 206, .24);
-  --console-grid: rgba(104, 200, 206, .085);
-  --console-ink: #e8f1f4;
-  --console-muted: #97b4bf;
-  --console-accent: #68c8ce;
+  --console-bg: #07131f;
+  --console-panel: #0d1e2b;
+  --console-line: rgba(112, 228, 239, .27);
+  --console-grid: rgba(112, 228, 239, .075);
+  --console-ink: #eaf5f8;
+  --console-muted: #a9c0ce;
+  --console-accent: #70e4ef;
 }
 body.at-light.gunter-page-day {
-  --console-bg: #eff6f7;
-  --console-panel: #f8fcfd;
-  --console-line: rgba(0, 111, 120, .26);
-  --console-grid: rgba(0, 111, 120, .1);
-  --console-ink: #10232b;
-  --console-muted: #41636d;
-  --console-accent: #006f78;
+  --console-bg: #edf4f8;
+  --console-panel: #fbfdff;
+  --console-line: rgba(0, 103, 127, .25);
+  --console-grid: rgba(0, 103, 127, .075);
+  --console-ink: #102738;
+  --console-muted: #415c6b;
+  --console-accent: #00677f;
 }
 html body.gunter-page-day :is(.gday, .gday__shell) {
   background: transparent !important;
@@ -61,10 +61,10 @@ html body.gunter-page-day .gday__main {
   border-bottom: 1px solid var(--console-line);
   background: var(--console-bg);
 }
-.gunter-console__topbar h1 {
+html body.gunter-page-day .gunter-console__topbar h1 {
   display: flex; align-items: center; gap: 18px;
   margin: 0; color: var(--console-ink);
-  font: italic 800 20px/1.2 'Inter Tight', 'Inter', sans-serif;
+  font: italic 800 20px/1.2 'Inter Tight', 'Inter', sans-serif !important;
   letter-spacing: .21em;
 }
 .gunter-console__topbar h1::before {
@@ -107,6 +107,7 @@ html body.gunter-page-day .gunter-console .gday__chip { display: flex; flex-wrap
 .gunter-console__inner-ring { color: var(--console-ink); opacity: .65; }
 .gunter-console__mascot { position: absolute; inset: -4%; width: 108%; height: 108%; touch-action: pan-y; cursor: crosshair; }
 .gunter-console__core-bottom { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; color: var(--console-accent); font: 500 9px/1.4 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: .06em; }
+body.gunter-page-day .gunter-console__core-bottom .gunter-home__voice { display: inline-flex; min-height: 32px; margin: 0; padding: 0 12px; }
 .gunter-console__led { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--console-muted); }
 .gunter-console.is-listening .gunter-console__led { background: var(--console-accent); box-shadow: 0 0 10px var(--console-accent); }
 .gunter-console .gunter-home__focus { display: none; }
@@ -162,33 +163,43 @@ html body.gunter-page-day .gunter-command-nav__mobile-panel a { color: var(--con
   .gunter-console__tools { display: none; }
   .gunter-console__topbar h1 span { display: none; }
 }
-@media (max-width: 820px) {
+@media (max-width: 1000px) {
   html body.gunter-page-day .gday__main { width: 100% !important; margin: 0 !important; padding: 0 16px 110px !important; }
+  html body.gunter-page-day .gday__sidebar { display: none !important; }
   .gunter-console { min-height: 100svh; margin: 0 -16px 24px; padding: 0 12px 108px; grid-template-rows: 56px minmax(0, 1fr) auto; background-size: auto, 36px 36px, 36px 36px; }
   .gunter-console__topbar { margin: 0 -12px; padding: 0 16px; justify-content: center; border-color: color-mix(in srgb, var(--console-line) 60%, transparent); }
-  .gunter-console__topbar h1 { font-size: 21px; letter-spacing: .2em; color: var(--console-accent); text-shadow: 0 0 18px color-mix(in srgb, var(--console-accent) 45%, transparent); }
+  html body.gunter-page-day .gunter-console__topbar h1 { font-size: 21px !important; letter-spacing: .2em; color: var(--console-accent); text-shadow: 0 0 18px color-mix(in srgb, var(--console-accent) 45%, transparent); }
   .gunter-console__topbar h1::before, .gunter-console__topbar h1 span { display: none; }
   .gunter-console__clock { position: absolute; top: 84px; left: 24px; right: 24px; justify-content: space-between; }
   .gunter-console__workspace { display: block; align-self: center; margin: 46px auto 0; max-width: 480px; }
   .gunter-console__panel { display: none; }
   .gunter-console__core { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
   .gunter-console__core-top { display: none; }
-  .gunter-console__viewport { width: min(100%, 57svh); margin: 0 auto; }
+  .gunter-console__viewport { width: min(100%, 57svh, 390px); margin: 0 auto; }
   .gunter-console__mascot { inset: -3%; width: 106%; height: 106%; }
   .gunter-console__reticle { filter: drop-shadow(0 0 9px color-mix(in srgb, var(--console-accent) 35%, transparent)); }
   .gunter-console__inner-ring { stroke-dasharray: none; stroke-width: 1.8; opacity: .95; filter: drop-shadow(0 0 5px var(--console-ink)) drop-shadow(0 0 14px var(--console-accent)); }
   .gunter-console__core-bottom { width: fit-content; margin: 10px auto 0; padding: 0 8px 0 14px; border: 1px solid var(--console-line); border-radius: 30px; background: color-mix(in srgb, var(--console-accent) 7%, var(--console-bg)); font-size: 8px; gap: 6px; }
-  body.gunter-page-day .gunter-console .gunter-home__focus { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: 0 0 0 8px; padding: 0 9px; border: 0; border-left: 1px solid var(--console-line); border-radius: 0; background: transparent; box-shadow: none; color: var(--console-ink); font-size: 10px; }
+  html body.gunter-page-day .gunter-console__core-bottom { display: none !important; }
+  body.gunter-page-day .gunter-console .gunter-home__focus { display: none !important; }
   .gunter-console__command { display: none; margin-top: 20px; }
   .gunter-console.is-command-open .gunter-console__command { display: block; }
   .gunter-console .gday__quickbar-label { font-size: 10px; }
   html body.gunter-page-day .gunter-console .gday__quickbar-form { grid-template-columns: 38px minmax(0, 1fr) 62px !important; }
-  html body.gunter-page-day .gunter-command-nav__dock { left: 0; right: 0; bottom: 0; transform: none; width: 100%; min-height: 76px; padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px)); border-inline: 0; border-bottom: 0; border-radius: 0; }
-  html body.gunter-page-day .gunter-command-nav__dock a.is-active { background: transparent !important; }
-  html body.gunter-page-day .gunter-command-nav__dock a.is-active .gunter-icon { filter: drop-shadow(0 0 6px var(--console-accent)); }
+  html body.gunter-page-day .gunter-command-nav { position: static !important; width: 0 !important; min-width: 0 !important; min-height: 0 !important; height: 0 !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; transform: none !important; filter: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+  html body.gunter-page-day .gunter-command-nav__brand, html body.gunter-page-day .gunter-command-nav__links, html body.gunter-page-day .gunter-command-nav__action, html body.gunter-page-day .gunter-command-nav__settings { display: none !important; }
+  html body.gunter-page-day .gunter-command-nav__dock { position: fixed !important; z-index: 10010; left: 0; right: 0; bottom: 0; transform: none !important; display: grid !important; width: auto !important; min-width: 100vw; min-height: 76px; padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px)); border-inline: 0; border-bottom: 0; border-radius: 0; }
+  html body.gunter-page-day .gunter-command-nav__dock :is(a, button) { min-height: 50px; }
   html body.gunter-page-day .gunter-command-nav__dock .gunter-command-nav__voice { width: 60px; height: 60px; min-height: 60px; margin-top: -23px; }
   html body.gunter-page-day .gunter-command-nav__voice span { top: 65px; }
+  html body.gunter-page-day .gunter-command-nav__mobile { display: block !important; height: 0; }
   html body.gunter-page-day .gunter-command-nav__mobile-panel { bottom: 100px; right: 16px; }
+  html body.gunter-page-day .gunter-command-nav__dock a.is-active { background: transparent !important; }
+  html body.gunter-page-day .gunter-command-nav__dock a.is-active .gunter-icon { filter: drop-shadow(0 0 6px var(--console-accent)); }
+}
+@media (max-width: 1000px) and (min-width: 821px) {
+  .gunter-console__topbar { height: 56px; }
+  .gunter-console__topbar h1 { font-size: 21px !important; }
 }
 @media (prefers-reduced-motion: reduce) { .gunter-console__segments, .gunter-console__segments-reverse { animation: none; } }
 @keyframes console-orbit { to { transform: rotate(360deg); } }

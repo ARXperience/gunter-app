@@ -246,6 +246,16 @@ async function test(name, fn) {
         assert.equal(entitlements.verifyLease({ ...lease, node_id: 'altered' }).ok, false);
     });
 
+    await test('Permission Gate distingue origen de voz y exige confirmación para efectos', () => {
+        const base = { userId, actor: admin, skillName: 'desktop.media.play_pause',
+            node: { nodeType: 'DESKTOP' }, payload: {}, autonomy: 'L3', inputSource: 'voice' };
+        assert.equal(skills.authorizeProposal({ ...base, confirmed: false }).error, 'confirmation_required');
+        assert.equal(skills.authorizeProposal({ ...base, confirmed: true }).ok, true);
+        const read = { ...base, skillName: 'desktop.ui.inspect', inputSource: 'voice', confirmed: false };
+        const readDecision = skills.authorizeProposal(read);
+        assert.equal(readDecision.ok, true, JSON.stringify(readDecision));
+    });
+
     await test('comando idempotente exige skill, permiso y confirmación', () => {
         const queued = nodes.queueCommand(userId, {
             nodeId, skill: 'desktop.apps.open', payload: { app: 'notepad' },
@@ -472,7 +482,8 @@ async function test(name, fn) {
         const beeperRuntime = { beeper: { paired: true, reachable: true, accounts: [{ provider: 'instagram', status: 'connected', label: 'Ana' }] } };
         const attachment = socialHub.validateSend(userId, { provider: 'instagram', peerId: 'ana', attachmentPath: 'C:\\Users\\Ana\\Downloads\\foto.png', confirmed: true, source: 'user_click' }, beeperRuntime);
         assert.equal(attachment.ok, true);
-        assert.equal(path.basename(attachment.attachmentPath), 'foto.png');
+        assert.equal(path.win32.basename(attachment.attachmentPath), 'foto.png');
+        assert.equal(socialHub.validateSend(userId, { provider: 'instagram', peerId: 'ana', attachmentPath: 'foto.png', confirmed: true, source: 'user_click' }, beeperRuntime).ok, false);
     });
 
     await test('cuentas personales no fingen conexión sin nodo Beeper verificado', () => {

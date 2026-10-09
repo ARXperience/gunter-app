@@ -100,11 +100,13 @@ async function testEndpointsRegistered() {
                    '/api/gemini-text', '/api/gemini-image',
                    '/api/commitments', '/api/proactive', '/api/style-mirror', '/api/forecast',
                    '/api/jobs'];
+    const optionalProviders = new Set(['/api/transcribe', '/api/tts', '/api/gemini-text', '/api/gemini-image']);
     for (const ep of posts) {
         try {
             const { status } = await jpost(ep, {});
-            // 503 válido para /api/tts sin OpenAI (cliente cae a voz del navegador)
-            (status === 400 || status === 200 || (ep === '/api/tts' && status === 503))
+            // Registration smoke: optional cloud/model providers may be unavailable
+            // in a clean checkout. Their live behavior has separate gated tests.
+            (status === 400 || status === 200 || (optionalProviders.has(ep) && status === 503))
                 ? ok(`POST ${ep} (${status})`)
                 : ko(`POST ${ep}`, `status=${status}`);
         } catch (e) { ko(`POST ${ep}`, e.message); }
@@ -193,10 +195,35 @@ async function testActionsDispatch() {
                 : ko(`"${phrase}"`, `esperaba ${expected}, obtuvo ${feat || json?.data?.intent}`);
         } catch (e) { ko(`"${phrase}"`, e.message); }
     }
+
+    const settingsCases = [
+        ['cambia modo de voz a solo con wake word', 'voiceMode', 'wake_word_only'],
+        ['cambia personalidad a suave', 'personalityIntensity', 'soft'],
+        ['cambia modo de escucha a continuo', 'wakeWordListeningMode', 'continuous'],
+        ['cambia la palabra de activación personalizada a Computer', 'wakeWord', 'Computer'],
+        ['cambia el tiempo de escucha a 30 segundos', 'wakeWordAutoStopSeconds', 30],
+        ['desactiva modo sabio', 'tutorMode', false]
+    ];
+    for (const [phrase, expectedFeature, expectedValue] of settingsCases) {
+        try {
+            await jpost('/api/actions', { op: 'dispatch', text: 'no' });
+            const { json } = await jpost('/api/actions', { op: 'dispatch', text: phrase });
+            const result = json?.data;
+            result?.intent === 'applied' && result.feature === expectedFeature && result.value === expectedValue
+                ? ok(`"${phrase}" → ${result.feature}=${result.value}`)
+                : ko(`"${phrase}"`, `esperaba ${expectedFeature}=${expectedValue}, obtuvo ${result?.feature}=${result?.value} (${result?.intent})`);
+        } catch (e) { ko(`"${phrase}"`, e.message); }
+    }
 }
 
 async function testTutorSage() {
     console.log('\n── Tutor / Sage ──');
+    const indexDir = path.join(__dirname, '..', 'tutor-library', 'index');
+    const requiredIndex = ['chunks.json', 'postings.json', 'stats.json', 'concepts.json', 'cross-refs.json'];
+    const present = requiredIndex.map(name => fs.existsSync(path.join(indexDir, name)));
+    const indexed = present.every(Boolean);
+    if (present.some(Boolean) && !indexed) ko('sage-index', 'índice local incompleto');
+    if (indexed) {
     try {
         const { json } = await jpost('/api/tutor', { op: 'sage-status' });
         const d = json?.data;
@@ -240,13 +267,21 @@ async function testTutorSage() {
         const books = json?.data?.contributingBooks?.length || 0;
         books >= 3 ? ok(`sage-synthesize (${books} libros contribuyen)`) : ko('sage-synthesize', `solo ${books} libros`);
     } catch (e) { ko('sage-synthesize', e.message); }
+    } else {
+        try {
+            const { json } = await jpost('/api/tutor', { op: 'sage-status' });
+            json?.data?.loaded === false ? ok('sage-status informa índice local no instalado')
+                : ko('sage-status', 'estado inesperado sin índice local');
+        } catch (e) { ko('sage-status', e.message); }
+    }
 
     try {
         const { json } = await jpost('/api/tutor', { op: 'notes-pull', userId: 'smoke-test' });
         json?.success ? ok('notes-pull') : ko('notes-pull', 'no success');
     } catch (e) { ko('notes-pull', e.message); }
 
-    // sage-bulk (warmup en 1 request)
+    // sage-bulk requires the optional local index.
+    if (indexed) {
     try {
         const { json } = await jpost('/api/tutor', { op: 'sage-bulk' });
         const d = json?.data;
@@ -254,6 +289,7 @@ async function testTutorSage() {
             ? ok(`sage-bulk (${Object.keys(d.digests).length} digests en 1 request)`)
             : ko('sage-bulk', JSON.stringify({ inv: d?.inventory?.indexed?.length, dig: Object.keys(d?.digests || {}).length }));
     } catch (e) { ko('sage-bulk', e.message); }
+    }
 
     // teach roundtrip: add → search → remove
     try {
@@ -280,6 +316,13 @@ async function testAuth() {
         const { status } = await jpost('/api/actions', { op: 'get_state' }, null);
         status === 401 ? ok('guard: /api/* sin sesión → 401') : ko('guard sin sesión', `status=${status}`);
     } catch (e) { ko('guard sin sesión', e.message); }
+
+    try {
+        const denied = await jpost('/api/location/reverse', { latitude: 0, longitude: 0 }, null);
+        denied.status === 401 ? ok('ubicación exige sesión aprobada') : ko('ubicación protegida', `status=${denied.status}`);
+        const invalid = await jpost('/api/location/reverse', { latitude: 91, longitude: 0 });
+        invalid.status === 400 ? ok('ubicación rechaza coordenadas inválidas sin consultar proveedores') : ko('ubicación válida', `status=${invalid.status}`);
+    } catch (e) { ko('ubicación segura', e.message); }
 
     // Público: setup-status responde sin auth
     try {
@@ -434,6 +477,7 @@ async function testAssets() {
         '/js/services/gunter-rules-service.js',
         '/js/core/temporal-context.js', '/js/core/wake-invocation.js',
         '/js/core/conversation-state.js', '/js/core/assistant-tools.js',
+        '/js/core/assistant-presence.js', '/js/controllers/presence-settings.js',
         '/js/core/workflow-orchestrator.js',
         '/js/services/jobs-service.js', '/js/services/voice-activity-service.js',
         '/styles/gunter-cinematic.css', '/js/services/gunter-cinematic-shell.js',

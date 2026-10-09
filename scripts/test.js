@@ -39,8 +39,9 @@ async function main() {
     };
     delete env.GUNTER_AUTH_DATA_DIR;
     const all = [
-        'auth-security.js', 'ui-contracts.js', 'api-base.js', 'preflight-guard.js', 'assistant-core.js', 'jobs-core.js', 'control-plane-core.js',
-        'gunter-node.js', 'mobile-runtime.js', 'mobile-push.js', 'run-smoke.js'
+        'auth-security.js', 'ui-contracts.js', 'api-base.js', 'preflight-guard.js', 'assistant-core.js', 'presence-voice.js', 'browser-control.js', 'jobs-core.js', 'control-plane-core.js',
+        'gunter-node.js', 'mobile-runtime.js', 'mobile-push.js',
+        'hybrid-foundation.js', 'hybrid-browser.js', 'local-brain-core.js', 'run-smoke.js'
     ];
     const suites = process.argv.includes('--smoke-only') ? ['run-smoke.js'] : all;
 

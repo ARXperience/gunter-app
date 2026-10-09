@@ -90,6 +90,11 @@ async function main() {
             runner.once('exit', code => resolve(code ?? 1));
         });
         exitCode = result;
+        if (exitCode !== 0) {
+            const artifacts = path.join(root, 'output', 'e2e-' + Date.now());
+            fs.cpSync(path.join(tempRoot, 'playwright-results'), artifacts, { recursive: true });
+            console.log('Failure artifacts preserved at ' + artifacts);
+        }
     } finally {
         await stop(server);
         // This is the exact unique temp directory allocated above, never project/user data.

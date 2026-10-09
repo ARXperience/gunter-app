@@ -107,6 +107,27 @@ function sanitizeAdvanced(definition, value) {
 function setting(key, label, entitlement, defaultEnabled, advancedFields) {
     return { key, label, entitlement, defaultEnabled, advancedFields, description: descriptionFor(key) };
 }
+// Hybrid preferences are stored with the existing per-user settings file. No
+// data is migrated and AUTO is deliberately identical to the legacy route.
+const HYBRID_MODES = Object.freeze(['AUTO', 'CLOUD', 'LOCAL']);
+const PRIVACY_MODES = Object.freeze(['STANDARD', 'LOCAL_ONLY']);
+function hybridStatus(userId) {
+    const saved = load(userId).hybrid || {};
+    return {
+        mode: HYBRID_MODES.includes(saved.mode) ? saved.mode : 'AUTO',
+        privacy: PRIVACY_MODES.includes(saved.privacy) ? saved.privacy : 'STANDARD',
+        updatedAt: saved.updatedAt || null
+    };
+}
+function patchHybrid(userId, input = {}) {
+    if (input.mode !== undefined && !HYBRID_MODES.includes(input.mode)) return { ok: false, error: 'INVALID_HYBRID_MODE' };
+    if (input.privacy !== undefined && !PRIVACY_MODES.includes(input.privacy)) return { ok: false, error: 'INVALID_PRIVACY_MODE' };
+    const data = load(userId);
+    data.hybrid = { ...hybridStatus(userId), ...(input.mode === undefined ? {} : { mode: input.mode }),
+        ...(input.privacy === undefined ? {} : { privacy: input.privacy }), updatedAt: new Date().toISOString() };
+    save(userId, data);
+    return { ok: true, ...data.hybrid };
+}
 function descriptionFor(key) {
     return ({
         'voice.continuous': 'Escucha, interrupción y respuesta por voz con privacidad configurable.',
@@ -130,4 +151,4 @@ function descriptionFor(key) {
     })[key] || '';
 }
 
-module.exports = { REGISTRY, list, patch, _load: load };
+module.exports = { REGISTRY, list, patch, hybridStatus, patchHybrid, HYBRID_MODES, PRIVACY_MODES, _load: load };

@@ -3,7 +3,11 @@
 
 <head>
     <script src="js/services/log-buffer.js?v66b-gunter-pixar-1783590000000"></script>
-    <script src="js/services/auth-service.js?v66b-gunter-pixar-1783590000000"></script>
+    <script src="js/services/auth-service.js?v115-verified-greeting"></script>
+    <script src="js/services/data-repository.js?v3-backup" defer></script>
+    <script src="js/services/gunter-memory.js?v3-backup" defer></script>
+    <script src="js/services/personal-memory-service.js?v3-conversation" defer></script>
+    <script src="js/core/assistant-presence.js?v115-presence" defer></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Gunter App - Configuración de Contexto - Selecciona tu entorno de trabajo">
@@ -21,7 +25,7 @@
     <link rel="stylesheet" href="styles/animations.css">
     <link rel="stylesheet" href="styles/pages/config.css">
     <link rel="stylesheet" href="styles/pages/config-polish.css">
-    <link rel="stylesheet" href="styles/pages/config-settings.css">
+    <link rel="stylesheet" href="styles/pages/config-settings.css?v3-backup">
     <link rel="stylesheet" href="styles/pages/advanced-settings.css?v85d-final">
     <!-- (audio-trimmer.css eliminado: pertenecía al flujo Nuevo Proyecto) -->
 
@@ -53,8 +57,8 @@
     <link rel="stylesheet" href="styles/pages/control-plane.css?v95-device-access">
     <link rel="stylesheet" href="styles/pages/social-settings.css?v103-device-runtime">
     <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
-    <script src="js/services/gunter-particles.js?v3-stitch-3d" defer></script>
-    <script src="js/services/gunter-command-center.js?v107-stitch-console" defer></script>
+    <script src="js/services/gunter-particles.js?v10-stitch-figure" defer></script>
+    <script src="js/services/gunter-command-center.js?v115-local-clock" defer></script>
     <script src="js/services/gunter-icon-system.js?v3-unified-icons" defer></script>
 </head>
 
@@ -97,6 +101,17 @@
         <!-- TAB: PREFERENCES -->
         <section class="config-tab-panel" id="config-panel-preferences" role="tabpanel" aria-labelledby="config-tab-preferences" tabindex="0" data-panel="preferences" hidden>
             <div class="settings-card">
+                <h3>Bienvenida y ubicación</h3>
+                <p class="settings-card__hint">Gunter te saluda con el nombre de tu cuenta y la hora local. La ciudad se toma de la ubicación autorizada o de la que indiques aquí.</p>
+                <div class="settings-row settings-row--toggle"><label for="pref-entry-greeting">Saludar al entrar</label><input type="checkbox" id="pref-entry-greeting" class="form-toggle" checked></div>
+                <div class="settings-row"><label for="pref-city">Ciudad</label><input id="pref-city" class="form-input" maxlength="100" placeholder="Tu ciudad"></div>
+                <div class="settings-row"><label for="pref-timezone">Zona horaria</label><input id="pref-timezone" class="form-input" placeholder="America/Bogota"></div>
+                <button type="button" class="btn btn--secondary" id="pref-use-location">Usar ubicación actual</button>
+                <p class="settings-card__hint">Esta opción solicita permiso del navegador y consulta la ciudad en <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>. Puedes escribirla sin compartir tu ubicación.</p>
+                <p id="pref-location-status" role="status" class="settings-card__hint" aria-live="polite"></p>
+                <p class="settings-card__hint">Personalidad y estilo de voz: <a href="#premium">Funciones del asistente</a>.</p>
+            </div>
+            <div class="settings-card">
                 <h3>Apariencia</h3>
                     <p class="settings-card__hint">Elige el ambiente de tus sesiones. La interfaz conserva la identidad Polar y su modo claro u oscuro.</p>
                 <div class="settings-row">
@@ -125,6 +140,7 @@
                 <div class="settings-row">
                     <label for="pref-language">Idioma</label>
                     <select id="pref-language" class="form-input">
+                        <option value="es-MX">Español (Latinoamérica)</option>
                         <option value="es-ES">Español</option>
                         <option value="en-US">English</option>
                         <option value="pt-BR">Português</option>
@@ -240,13 +256,50 @@
 
             <div id="social-settings-panel"></div>
 
+            <h4 class="data-section-title">Memoria personal</h4>
+            <div class="settings-card" id="personal-memory-card">
+                <h3>Lo que quieres que Gunter sepa</h3>
+                <p class="settings-card__hint">Guarda hechos o preferencias de forma explícita. Permanecen en este dispositivo y Gunter solo los incorpora automáticamente al contexto del modelo local. No son recordatorios ni reglas.</p>
+                <form id="personal-memory-form" class="personal-memory-form">
+                    <label for="personal-memory-type">Tipo</label>
+                    <select id="personal-memory-type" name="type">
+                        <option value="personal_fact">Dato personal</option>
+                        <option value="preference">Preferencia</option>
+                    </select>
+                    <label for="personal-memory-content">Contenido</label>
+                    <textarea id="personal-memory-content" name="content" rows="3" maxlength="2000" required placeholder="Ejemplo: Prefiero respuestas breves y con ejemplos concretos."></textarea>
+                    <div class="personal-memory-actions">
+                        <button type="submit" class="btn btn--primary" id="personal-memory-save">Guardar recuerdo</button>
+                        <button type="button" class="btn btn--secondary" id="personal-memory-cancel" hidden>Cancelar edición</button>
+                    </div>
+                </form>
+                <p id="personal-memory-status" class="settings-card__hint" role="status" aria-live="polite"></p>
+                <label for="personal-memory-search">Buscar en mi memoria</label>
+                <input id="personal-memory-search" type="search" placeholder="Busca un hecho o preferencia" autocomplete="off">
+                <div id="personal-memory-list" class="personal-memory-list" aria-live="polite"></div>
+                <div class="personal-memory-backup">
+                    <h4>Respaldo de memoria personal</h4>
+                    <p class="settings-card__hint">El archivo puede contener información personal. Guárdalo en un lugar seguro y no lo compartas. Solo se exportan recuerdos explícitos de esta cuenta; se excluyen los que parecen contener credenciales o tokens.</p>
+                    <div class="personal-memory-actions">
+                        <button type="button" class="btn btn--secondary" id="personal-memory-export">Descargar JSON</button>
+                        <label for="personal-memory-import-file">Seleccionar respaldo JSON</label>
+                        <input id="personal-memory-import-file" type="file" accept=".json,application/json">
+                    </div>
+                    <p id="personal-memory-backup-status" class="settings-card__hint" role="status" aria-live="polite"></p>
+                    <div id="personal-memory-import-preview" hidden>
+                        <p id="personal-memory-import-counts"></p>
+                        <button type="button" class="btn btn--primary" id="personal-memory-import-confirm" disabled>Confirmar importación</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- 3.5 Memoria conversacional (v2 — F1) -->
             <h4 class="data-section-title">🧬 Memoria conversacional</h4>
 
             <div class="settings-card" id="conv-memory-card" data-flag-required="conversationMemory">
-                <h3>🧠 Lo que Gunter recuerda de ti</h3>
+                <h3>🧠 Historial conversacional</h3>
                 <p class="settings-card__hint">
-                    Memoria de largo plazo de tus conversaciones (web, voz, WhatsApp). Gunter recupera lo relevante automáticamente al responderte. <strong>Solo se almacena en este navegador.</strong>
+                    Turnos de conversación guardados en este navegador cuando activas la función. Gunter recupera los relevantes al responder con el modelo local. Los datos personales que tú guardas explícitamente se gestionan arriba.
                 </p>
 
                 <div id="conv-memory-stats" style="margin-top: 12px; display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px;">
@@ -293,48 +346,51 @@
     <script src="js/services/google-auth-service.js" defer></script>
     <script src="js/services/calendar-service.js" defer></script>
     <script src="js/services/status-bus.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/connectivity-monitor.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/connectivity-monitor.js?v116-supertonic3" defer></script>
+    <script src="js/services/stt-provider.js?v117-supertonic3-native" defer></script>
     <script src="js/services/notifications-service.js?v102-background-push" defer></script>
     <script src="js/services/transcript-store.js" defer></script>
     <script src="js/services/local-data-maintenance-service.js" defer></script>
-    <script src="js/services/error-mapper.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/tasks-service.js" defer></script>
+    <script src="js/services/error-mapper.js?v116-supertonic3" defer></script>
+    <script src="js/services/tasks-service.js?v74-task-cancel" defer></script>
     <script src="js/services/events-service.js" defer></script>
     <script src="js/services/whatsapp-service.js" defer></script>
     <script src="js/core/temporal-context.js?v70-assistant" defer></script>
-    <script src="js/core/wake-invocation.js?v68-assistant" defer></script>
+    <script src="js/core/wake-invocation.js?v110-wake-chat" defer></script>
     <script src="js/core/conversation-state.js?v73-assistant" defer></script>
     <script src="js/core/time-parser.js?v71-assistant" defer></script>
     <script src="js/services/jobs-service.js?v73-assistant" defer></script>
     <script src="js/services/voice-activity-service.js?v73-assistant" defer></script>
-    <script src="js/core/assistant-tools.js?v103-device-runtime" defer></script>
+    <script src="js/core/assistant-tools.js?v119-task-cancel" defer></script>
     <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
-    <script src="js/services/voice-service.js?v71-assistant" defer></script>
-    <script src="js/services/wake-word-service.js?v73-assistant" defer></script>
+    <script src="js/services/voice-service.js?v116-supertonic3" defer></script>
+    <script src="js/services/wake-word-service.js?v115-interrupt" defer></script>
 
     <!-- Adapters (Fase 7) -->
     <script src="js/adapters/storage-adapter.js" defer></script>
     <script src="js/adapters/auth-adapter.js" defer></script>
     <script src="js/adapters/notification-adapter.js" defer></script>
     <script src="js/adapters/calendar-adapter.js" defer></script>
-    <script src="js/adapters/voice-adapter.js" defer></script>
+    <script src="js/adapters/voice-adapter.js?v116-supertonic3" defer></script>
     <script src="js/adapters/index.js" defer></script>
 
     <script src="js/premium-features-service.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/advanced-settings.js?v85d-final" defer></script>
+    <script src="js/advanced-settings.js?v117-supertonic3-native" defer></script>
     <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
     <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
     <script src="js/services/connection-manager.js?v87-context-sync" defer></script>
     <script src="js/services/web-node-runtime.js?v84-control" defer></script>
-    <script src="js/controllers/control-plane-settings.js?v104-resident-node" defer></script>
+    <script src="js/controllers/control-plane-settings.js?v117-supertonic3-native" defer></script>
     <script src="js/controllers/social-settings-panel.js?v103-device-runtime" defer></script>
 
     <!-- v2 — Memoria Conversacional (F1): se carga aquí solo para que la card de gestión funcione (stats/list/clear/forget). El modo write/recall vive en day.html y meeting.html. -->    <script src="js/services/embedding-service.js?v66b-gunter-pixar-1783590000000" defer></script>
 
     <script src="js/services/conversation-memory-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/controllers/conversation-memory-panel.js" defer></script>
+    <script src="js/controllers/personal-memory-panel.js?v2-backup" defer></script>
 
-    <script src="js/config-settings.js?v105-hash-tabs" defer></script>
+    <script src="js/config-settings.js?v115-preserve-prefs" defer></script>
+    <script src="js/controllers/presence-settings.js?v115-presence" defer></script>
     <!-- (ai-analysis, cache-service, audio-chunker, audio-trimmer eliminados:
          pertenecían al flujo Nuevo Proyecto que ahora vive en dashboard.html) -->
     <script src="js/app.js?v67-security-20260828" defer></script>
@@ -344,7 +400,7 @@
     <script src="js/card-interactions.js" defer></script>
 
     <!-- PWA registration (Fase 8) -->
-    <script src="js/services/pwa-register.js" defer></script>
+    <script src="js/services/pwa-register.js?v115-presence-stability" defer></script>
 
     <!-- Fase F.F5 — Wiring del toggle dark mode -->
     <script>
@@ -596,8 +652,8 @@
     </script>
 
     <!-- Medieval Futuristic Theme -->
-    <script src="js/services/sw-updater.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/theme-toggle.js?v80-polar" defer></script>    <script src="js/services/actions-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/nlp-llm-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/commitments-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/sw-updater.js?v115-stable-entry" defer></script>
+    <script src="js/services/theme-toggle.js?v80-polar" defer></script>    <script src="js/services/actions-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/nlp-llm-service.js?v117-personal-context" defer></script>    <script src="js/services/commitments-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-rules-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-mood-service.js?v66b-gunter-pixar-1783590000000" defer></script>
 
@@ -607,7 +663,7 @@
 
 
 
-    <script src="js/services/gunter-companion.js?v71-assistant" defer></script>
+    <script src="js/services/gunter-companion.js?v117-personal-context" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-onboarding.js?v67-security-20260828" defer></script>
 </body>

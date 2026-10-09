@@ -11,6 +11,24 @@
     // Catálogo: clave → { user, hint? }
     // Match orden: primero código exacto (network/openai/quota), luego regex sobre el mensaje.
     const CATALOG = {
+        PROVIDER_UNAVAILABLE: { user: 'El proveedor solicitado no está disponible.', hint: 'Consulta el diagnóstico de proveedores.' },
+        NETWORK_UNAVAILABLE: { user: 'No hay conexión disponible para esta función.', hint: 'Revisa Internet y el servidor.' },
+        PERMISSION_DENIED: { user: 'No tienes permiso para esta acción.' },
+        CONFIRMATION_REQUIRED: { user: 'Necesito tu confirmación antes de continuar.' },
+        LOCAL_ONLY_MODE: { user: 'El modo solo local bloquea esta conexión externa.' },
+        SYNC_UNAVAILABLE: { user: 'La sincronización no está disponible ahora.', hint: 'Los cambios admitidos quedan en la cola local.' },
+        LOCAL_MODEL_NOT_INSTALLED: { user: 'El modelo local todavía no está instalado.', hint: 'Usa AUTO/CLOUD mientras se prepara el proveedor local.' },
+        LOCAL_PROVIDER_NOT_INSTALLED: { user: 'El proveedor local para esta función todavía no está instalado.', hint: 'LOCAL_ONLY mantiene bloqueada la nube; vuelve a STANDARD si quieres usar el proveedor actual.' },
+        LOCAL_PROVIDER_UNAVAILABLE: { user: 'El cerebro local no está disponible ahora.', hint: 'Comprueba el modelo y el runtime, o vuelve a AUTO/CLOUD si quieres usar la nube.' },
+        LOCAL_STT_NOT_INSTALLED: { user: 'Moonshine local no está instalado.', hint: 'Instala el modelo español verificado o usa AUTO/CLOUD para transcribir en la nube.' },
+        LOCAL_STT_UNAVAILABLE: { user: 'Moonshine local no pudo transcribir.', hint: 'Revisa el modelo, el motor y sus hashes. LOCAL_ONLY no enviará el audio a la nube.' },
+        LOCAL_STT_INVALID_AUDIO: { user: 'No pude leer ese audio.', hint: 'Usa un formato de audio admitido y comprueba que la grabación no esté vacía.' },
+        LOCAL_STT_AUDIO_TOO_LARGE: { user: 'El audio excede el límite local de 120 segundos o 30 MB.', hint: 'Divídelo en fragmentos más cortos.' },
+        LOCAL_STT_BUSY: { user: 'Moonshine está transcribiendo otro audio.', hint: 'Espera a que termine antes de enviar otro fragmento.' },
+        LOCAL_TTS_NOT_INSTALLED: { user: 'La voz local Supertonic 3 no está instalada en este dispositivo.', hint: 'Configura el motor y los pesos locales; en modo solo local no usaré una voz de la nube.' },
+        LOCAL_TTS_UNAVAILABLE: { user: 'La voz local Supertonic 3 no pudo generar audio.', hint: 'Revisa el motor y el modelo local. El texto de la respuesta sigue disponible.' },
+        LOCAL_TTS_BUSY: { user: 'Gunter está preparando otra respuesta de voz.', hint: 'Espera un momento o interrumpe la respuesta anterior.' },
+        SQLITE_NOT_CONFIGURED: { user: 'La base SQLite aún no está configurada.', hint: 'Los datos web permanecen en su almacenamiento actual.' },
         // Network / connectivity
         offline:           { user: 'Sin conexión a internet. Verifica tu red.', hint: 'Tus datos locales siguen seguros.' },
         timeout:           { user: 'La operación está tardando más de lo normal. Intenta otra vez.' },
@@ -151,6 +169,15 @@
 
     function detectKey(message, context) {
         if (!message) return 'unknown';
+        for (const code of ['PROVIDER_UNAVAILABLE', 'NETWORK_UNAVAILABLE', 'PERMISSION_DENIED', 'CONFIRMATION_REQUIRED', 'LOCAL_ONLY_MODE', 'SYNC_UNAVAILABLE'])
+            if (message.includes(code)) return code;
+        if (/LOCAL_PROVIDER_NOT_INSTALLED/.test(message)) return 'LOCAL_PROVIDER_NOT_INSTALLED';
+        for (const code of ['LOCAL_STT_NOT_INSTALLED', 'LOCAL_STT_UNAVAILABLE', 'LOCAL_STT_INVALID_AUDIO', 'LOCAL_STT_AUDIO_TOO_LARGE', 'LOCAL_STT_BUSY'])
+            if (message.includes(code)) return code;
+        for (const code of ['LOCAL_TTS_NOT_INSTALLED', 'LOCAL_TTS_UNAVAILABLE', 'LOCAL_TTS_BUSY'])
+            if (message.includes(code)) return code;
+        if (/LOCAL_MODEL_NOT_INSTALLED/.test(message)) return 'LOCAL_MODEL_NOT_INSTALLED';
+        if (/SQLITE_NOT_CONFIGURED/.test(message)) return 'SQLITE_NOT_CONFIGURED';
 
         // Context-prioritized detection
         if (context === 'document' && /imagen|recibo|factura/i.test(message)) {

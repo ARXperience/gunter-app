@@ -41,9 +41,12 @@ Las credenciales se cifran con AES-256-GCM en `%APPDATA%/Gunter/Node`. Esta vers
 
 El acceso `all` no evita las reglas de Windows: carpetas de otros usuarios, archivos del sistema protegidos y recursos que requieran elevación continuarán bloqueados si la cuenta local no tiene permiso. Gunter abre ejecutables directamente, sin concatenar comandos de shell.
 
+También puedes pedir en el chat de texto o voz: `activa el control completo del PC`. Gunter interpreta esa orden como acceso amplio a archivos y programas, explica sus límites y solicita confirmación antes de modificar el permiso. `desactiva el control completo del PC` devuelve el dispositivo al acceso limitado. Cada usuario y dispositivo conserva su propio permiso; no se activa para otras cuentas.
+
 ## Capacidades del nodo
 
 - Abrir y descubrir programas instalados.
+- Abrir páginas, buscar contenido y reproducir vídeos o mixes de YouTube en Brave, Chrome o Edge, comprobando que el vídeo avance.
 - Listar, buscar y abrir archivos o carpetas dentro del alcance concedido.
 - Reproducir o pausar, cambiar de pista, detener, silenciar y ajustar el volumen mediante las teclas multimedia de Windows.
 - Inspeccionar nombres, tipos e identificadores de controles accesibles sin extraer el contenido escrito.
@@ -53,6 +56,14 @@ El acceso `all` no evita las reglas de Windows: carpetas de otros usuarios, arch
 Ejemplos de órdenes: `reproduce la música`, `siguiente canción`, `sube el volumen`, `qué botones hay en Paint`, `pulsa el botón Guardar en Bloc de notas` o `escribe "Hola" en el campo "Contenido" de Bloc de notas`.
 
 La interacción usa Windows UI Automation y guarda objetivos semánticos —nombre, tipo e identificador— en las rutas aprendidas. No usa coordenadas de pantalla. Algunas aplicaciones, juegos o superficies dibujadas sin accesibilidad no exponen esos controles; en ese caso el nodo devuelve un error verificable. Gunter no escribe contraseñas, códigos de acceso, tokens, PIN u OTP, y nunca acepta scripts o comandos de terminal dentro de una orden remota.
+
+### Navegador y música
+
+Ejemplo: `entra al navegador de Brave y pon un mix en YouTube de ACDC`.
+
+El nodo debe estar conectado y el navegador instalado. Se utiliza un perfil propio de Gunter, separado de tu perfil cotidiano, sin copiar tus cookies ni contraseñas. YouTube puede solicitar consentimiento, acceso o esperar anuncios. Gunter no declara que la música está sonando hasta observar el reproductor avanzando sin anuncios. La automatización depende de los controles que publique YouTube y puede necesitar ajustes si la página cambia.
+
+La prueba opcional `node test/browser-live.js` abre Brave con un perfil temporal, verifica ese ejemplo y cierra solo el navegador de prueba. No se ejecuta en la batería habitual para no abrir aplicaciones durante cada prueba.
 
 ## Enseñar una ruta de PC
 

@@ -1,9 +1,8 @@
 /* =============================================
    GUNTER ADAPTER - Voice (Fase 7)
    -------------------------------------------------
-   Hoy: GunterVoice (OpenAI TTS-1-HD + speechSynthesis
-   fallback). Mañana: ElevenLabs, Azure Neural,
-   PlayHT — el consumidor llama igual.
+   Hoy: GunterVoice (Supertonic 3 M1 local cuando está listo,
+   respaldo anterior en AUTO/CLOUD). El consumidor llama igual.
 
    Interfaz:
      voice.speak(text, opts?): void
@@ -33,6 +32,7 @@
     }
 
     // ---------- Default: GunterVoice ----------
+    // Legacy name `local` denotes the web adapter, NOT a local TTS model.
     const localImpl = {
         speak(text, opts = {}) {
             const v = window.GunterVoice;
@@ -55,6 +55,10 @@
 
     const surface = {
         register, use,
+        get providers() { return window.GunterVoice?.providers || {}; },
+        get providerStatus() { return { cloud: this.providers.CloudTTS?.status || 'UNKNOWN',
+            browser: this.providers.BrowserFallback?.status || 'UNKNOWN',
+            local: window.GunterRuntimeState?.getState?.()?.providers?.tts?.local?.status || 'UNKNOWN' }; },
         get current() { return current(); },
         get activeName() { return active; },
         speak:       (...a) => current().speak(...a),

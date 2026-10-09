@@ -130,7 +130,9 @@
 
             // Si el SW activo cambia (skipWaiting), recarga una sola vez
             let reloaded = false;
+            const hadControllerOnLoad = !!navigator.serviceWorker.controller;
             navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!hadControllerOnLoad) return;
                 if (reloaded) return;
                 reloaded = true;
                 window.location.reload();

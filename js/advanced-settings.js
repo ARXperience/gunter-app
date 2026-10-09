@@ -322,6 +322,7 @@
 
     // ---------- Core render ----------
     let rootEl = null;
+    let hybridListenerBound = false;
 
     function mount(selector = '#premium-panel') {
         rootEl = typeof selector === 'string' ? document.querySelector(selector) : selector;
@@ -330,6 +331,10 @@
         render();
         // Re-render on any flag change from outside
         S().subscribe(() => render());
+        if (!hybridListenerBound) {
+            hybridListenerBound = true;
+            window.addEventListener('gunter-hybrid-state', () => render());
+        }
     }
 
     function render() {
@@ -342,6 +347,11 @@
                  .map(b => b.dataset.toggleCfg)
         );
         const catalogOpen = rootEl.querySelector('.gps__catalog')?.open === true;
+        // Control Plane mounts its own interactive section into this host.
+        // Preserve the live node (and delegated listeners) across voice/status
+        // refreshes; replacing it would make its controls disappear.
+        const controlPlanePanel = rootEl.querySelector(':scope > .cp-settings');
+        controlPlanePanel?.remove();
         // También preservamos la posición de scroll del grid para que el usuario
         // no pierda el lugar al cambiar un toggle.
         const scrollY = window.scrollY;
@@ -409,6 +419,7 @@
                 </div>
             </details>
         `;
+        if (controlPlanePanel) rootEl.prepend(controlPlanePanel);
         wireMaster();
         wireStatusBoard();
 
@@ -882,6 +893,11 @@
     function renderVoiceCard(feature) {
         const enabled = S().isEnabled(feature.id);
         const cfg = S().getVoiceConfig();
+        const ttsState = window.GunterRuntimeState?.getState?.();
+        const localTTS = ttsState?.localTTSAvailable === true;
+        const motorHint = !ttsState?.loaded ? 'Comprobando el motor local…'
+            : localTTS ? 'Disponible localmente en este servidor.'
+                : 'No disponible localmente ahora; en AUTO puede usarse un respaldo, pero LOCAL_ONLY nunca enviará el texto a la nube.';
         const status = cfg.supported ? S().getFeatureStatus(feature.id) : 'unsupported';
         const modes = S().ENUMS.voiceMode;
         const speeds = S().ENUMS.voiceSpeed;
@@ -903,6 +919,7 @@
                 </div>
                 <div class="gps-card__details" data-details="${feature.id}">
                     ${cfg.supported ? '' : `<div class="gps-warning gps-warning--error">Este navegador no soporta <code>speechSynthesis</code>. Usa Chrome/Edge/Safari.</div>`}
+                    <div class="gps-sub__hint">Motor seleccionado: Supertonic 3 · voz masculina M1. ${motorHint}</div>
 
                     <div class="gps-sub">
                         <div>
@@ -917,7 +934,7 @@
                     <div class="gps-sub" style="margin-top:12px;">
                         <div>
                             <div class="gps-sub__label">Estilo y personalidad vocal</div>
-                            <div class="gps-sub__hint">Cada estilo cambia tono, ritmo y jerga (estilos originales, no clonaciones)</div>
+                            <div class="gps-sub__hint">Cambia la forma de responder de Gunter; la identidad de voz M1 se mantiene.</div>
                         </div>
                     </div>
                     <div class="gps-voice-grid" data-enum="voiceStyle">

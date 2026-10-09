@@ -12,6 +12,24 @@
     "test:assistant": "node test/assistant-core.js",
     "test:jobs": "node test/jobs-core.js",
     "test:control": "node test/control-plane-core.js",
+    "test:hybrid": "node test/hybrid-foundation.js && node test/hybrid-browser.js",
+    "test:memory": "node test/memory-foundation.js",
+    "test:personal-memory": "node test/personal-memory.js",
+    "test:personal-memory-backup": "node test/personal-memory-backup.js",
+    "test:personal-memory-conversation": "node test/personal-memory-conversation.js",
+    "test:local": "node test/local-brain-core.js",
+    "test:local:live": "node test/local-brain-live.js",
+    "test:local-stt": "node test/local-stt-core.js && node test/local-stt-browser.js",
+    "test:local-stt:live": "node test/local-stt-live.js",
+    "test:local-stt:offline": "node test/local-stt-offline.js",
+    "test:local-stt:routing": "node test/local-stt-routing-live.js",
+    "test:local-stt:metrics": "node test/local-stt-metrics.js",
+    "test:local-tts": "node test/local-tts-core.js && node test/presence-voice.js",
+    "test:local-tts:live": "node test/local-tts-http-live.js",
+    "tts:install": "node scripts/install-supertonic3-model.js",
+    "test:local:offline": "node test/local-brain-offline.js",
+    "test:local:offline-server": "node test/local-brain-offline-server.js",
+    "test:local:gate": "node test/validation/local-brain-120.mjs ministral-3:3b optimized-v2",
     "test:smoke": "node scripts/test.js --smoke-only",
     "test:node": "node test/gunter-node.js",
     "test:mobile": "node test/mobile-runtime.js",
@@ -32,10 +50,13 @@
     "@whiskeysockets/baileys": "^7.0.0-rc.14",
     "canvas": "^3.2.3",
     "dotenv": "^17.4.2",
+    "ffmpeg-static": "5.3.0",
     "msedge-tts": "^2.0.7",
+    "onnxruntime-node": "1.17.3",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
     "pino": "^10.3.1",
+    "playwright-core": "^1.63.0",
     "qrcode": "^1.5.4",
     "tesseract.js": "^7.0.0",
     "web-push": "^3.6.7",
@@ -49,12 +70,12 @@
     "ws": "^8.21.0",
     "tar": "^7.5.22",
     "@imgly/background-removal-node": {
-      "sharp": "^0.35.0",
+      "sharp": "^0.35.5",
       "lodash": "^4.18.1",
       "zod": "^3.25.76"
     },
     "@whiskeysockets/baileys": {
-      "sharp": "^0.35.0"
+      "sharp": "^0.35.5"
     }
   }
 }

@@ -153,4 +153,66 @@
         getState: () => ({ ...STATE }),
         forceCheck: () => { renderBanner(); }
     };
+
+    // One observable runtime snapshot. The server is authoritative for the
+    // per-user mode; navigator.onLine alone cannot prove provider readiness.
+    let hybrid = { mode: 'AUTO', privacy: 'STANDARD', providers: null, loaded: false };
+    let ttsReadyRetries = 0;
+    let ttsReadyTimer = null;
+    async function refreshHybrid() {
+        const response = await fetch('/api/control/hybrid/status', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`hybrid status HTTP ${response.status}`);
+        const result = await response.json();
+        hybrid = { ...result.data, loaded: true };
+        window.dispatchEvent(new CustomEvent('gunter-hybrid-state', { detail: runtimeSnapshot() }));
+        const waitingForTts = hybrid.providers?.tts?.local?.status === 'INSTALLED_NOT_READY'
+            && hybrid.flags?.['tts.local'] === true;
+        if (waitingForTts && ttsReadyRetries < 10 && !ttsReadyTimer) {
+            ttsReadyRetries += 1;
+            ttsReadyTimer = setTimeout(() => {
+                ttsReadyTimer = null;
+                refreshHybrid().catch(() => {});
+            }, 1000);
+        } else if (!waitingForTts) {
+            ttsReadyRetries = 0;
+            if (ttsReadyTimer) clearTimeout(ttsReadyTimer);
+            ttsReadyTimer = null;
+        }
+        return runtimeSnapshot();
+    }
+    function runtimeSnapshot() {
+        const configured = kind => hybrid.providers?.[kind]?.cloud?.configured === true;
+        const cloudAllowed = STATE.online && STATE.apiHealthy && hybrid.privacy !== 'LOCAL_ONLY' && hybrid.mode !== 'LOCAL';
+        return { networkAvailable: STATE.online, backendAvailable: STATE.apiHealthy,
+            ...hybrid, effectiveCloud: cloudAllowed,
+            cloudBrainAvailable: cloudAllowed && configured('chat'),
+            localBrainAvailable: hybrid.localBrainReady === true && hybrid.flags?.['ai.local'] === true,
+            localBrainInstalled: hybrid.localBrainInstalled === true,
+            localBrainRuntimeAvailable: hybrid.localBrainRuntimeAvailable === true,
+            localBrainReady: hybrid.localBrainReady === true,
+            localBrainModel: hybrid.localBrainModel || null,
+            localBrainError: hybrid.localBrainError || null,
+            cloudSTTAvailable: cloudAllowed && configured('stt'),
+            localSTTAvailable: hybrid.localSTTReady === true && hybrid.flags?.['stt.local'] === true,
+            localSTTInstalled: hybrid.localSTTInstalled === true,
+            localSTTRuntimeAvailable: hybrid.localSTTRuntimeAvailable === true,
+            localSTTReady: hybrid.localSTTReady === true,
+            localSTTModel: hybrid.localSTTModel || null,
+            localSTTError: hybrid.localSTTError || null,
+            cloudTTSAvailable: cloudAllowed && configured('tts'),
+            localTTSAvailable: hybrid.providers?.tts?.local?.status === 'READY' && hybrid.flags?.['tts.local'] === true,
+            cloudEmbeddingAvailable: cloudAllowed && configured('embeddings'), localEmbeddingAvailable: false,
+            syncAvailable: STATE.online && STATE.apiHealthy && hybrid.loaded && !!hybrid.sync };
+    }
+    async function setHybridMode(mode, privacy = hybrid.privacy) {
+        const response = await fetch('/api/control/hybrid/mode', { method: 'POST',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, privacy }) });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw Object.assign(new Error(result.error || 'hybrid_mode_failed'), { code: result.error });
+        hybrid = { ...hybrid, ...(result.data || {}), mode, privacy, loaded: true };
+        window.dispatchEvent(new CustomEvent('gunter-hybrid-state', { detail: runtimeSnapshot() }));
+        return refreshHybrid();
+    }
+    window.GunterRuntimeState = { getState: runtimeSnapshot, refresh: refreshHybrid, setMode: setHybridMode };
+    window.GunterAuth?.onReady?.(() => refreshHybrid().catch(() => {}));
 })();

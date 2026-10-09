@@ -152,6 +152,7 @@ async function applyAction({ intent, feature, value, channel, identifier }) {
   if (intent === 'toggle_on')  newValue = true;
   if (intent === 'toggle_off') newValue = false;
   if (intent === 'set_enum')   newValue = value;
+  if (intent === 'set_text' || intent === 'set_number') newValue = value;
 
   state.set(feature.flag, newValue, { source: channel, reason: 'action:' + intent });
 

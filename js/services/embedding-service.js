@@ -111,6 +111,8 @@
     }
 
     async function embed(text) {
+        const hybrid = window.GunterRuntimeState?.getState?.();
+        if (hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL') throw Object.assign(new Error('LOCAL_PROVIDER_NOT_INSTALLED'), { code: 'LOCAL_PROVIDER_NOT_INSTALLED' });
         const t = truncate(text);
         if (!t) return new Float32Array(1536);
         const hash = await hashKey(t);
@@ -126,6 +128,8 @@
     }
 
     async function embedBatch(texts) {
+        const hybrid = window.GunterRuntimeState?.getState?.();
+        if (hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL') throw Object.assign(new Error('LOCAL_PROVIDER_NOT_INSTALLED'), { code: 'LOCAL_PROVIDER_NOT_INSTALLED' });
         const inputs = texts.map(truncate);
         const hashes = await Promise.all(inputs.map(t => t ? hashKey(t) : Promise.resolve(null)));
         const result = new Array(inputs.length);
@@ -197,5 +201,6 @@
         } catch { return { vectors: 0, memCache: memCache.size }; }
     }
 
-    window.GunterEmbeddings = { embed, embedBatch, cosine, clearCache, stats, hashKey };
+    window.GunterEmbeddings = { embed, embedBatch, cosine, clearCache, stats, hashKey,
+        providers: { cloud: { status: 'CURRENT_PROVIDER' }, local: { status: 'NOT_INSTALLED' } } };
 })();

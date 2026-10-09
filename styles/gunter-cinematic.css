@@ -38,106 +38,106 @@ body.at-light {
     var(--gd-bg) !important;
 }
 
-/* ---------- Gunter Polar · paleta global de producto ----------
+/* ---------- Gunter Ion · paleta global de producto ----------
    El modo claro/oscuro es independiente del perfil de reunión
    (empresarial/artístico/podcast); así cambiar una preferencia no
    altera accidentalmente el contexto visual de un proyecto. */
 body.at-light,
 html[data-theme] body.at-light {
   color-scheme: light;
-  --gd-bg: #F3F7F8;
+  --gd-bg: #F2F7FB;
   --gd-surface: #FFFFFF;
-  --gd-surface-lo: #EAF1F3;
-  --gd-surface-cont: #DFE9EC;
-  --gd-surface-hi: #CAD9DE;
+  --gd-surface-lo: #E8F0F5;
+  --gd-surface-cont: #DCE8EF;
+  --gd-surface-hi: #C8D9E3;
   --gd-surface-lowest: #FFFFFF;
-  --gd-ink: #10232B;
-  --gd-ink-soft: #263E47;
-  --gd-primary: #006F78;
-  --gd-primary-hi: #005D65;
-  --gd-primary-lo: #E6F4F4;
-  --gd-primary-container: #D5ECEE;
+  --gd-ink: #102738;
+  --gd-ink-soft: #294656;
+  --gd-primary: #00677F;
+  --gd-primary-hi: #00566B;
+  --gd-primary-lo: #E2F3F8;
+  --gd-primary-container: #CDEBF2;
   --gd-on-primary: #FFFFFF;
-  --gd-on-primary-container: #123F45;
-  --gd-primary-grad: linear-gradient(135deg, #087E87 0%, #006F78 100%);
-  --gd-secondary: #356D82;
-  --gd-secondary-hi: #285B6E;
-  --gd-secondary-lo: #EAF3F6;
-  --gd-secondary-container: #D6E9EF;
+  --gd-on-primary-container: #123E4B;
+  --gd-primary-grad: linear-gradient(135deg, #00849A 0%, #00677F 100%);
+  --gd-secondary: #386A91;
+  --gd-secondary-hi: #2E5A7E;
+  --gd-secondary-lo: #EAF2F8;
+  --gd-secondary-container: #D8E7F2;
   --gd-on-secondary: #FFFFFF;
   --gd-on-secondary-container: #173C4A;
-  --gd-tertiary: #28765F;
-  --gd-tertiary-hi: #21664F;
-  --gd-tertiary-lo: #EAF5F0;
-  --gd-tertiary-container: #D7EDE3;
+  --gd-tertiary: #167A62;
+  --gd-tertiary-hi: #11664F;
+  --gd-tertiary-lo: #E8F5F0;
+  --gd-tertiary-container: #CFEDE1;
   --gd-on-tertiary: #FFFFFF;
   --gd-on-tertiary-container: #174637;
-  --gd-on-bg: #10232B;
-  --gd-on-surface: #10232B;
-  --gd-on-surface-var: #435C66;
-  --gd-on-surface-variant: #435C66;
-  --gd-muted: #435C66;
-  --gd-outline: #526B74;
-  --gd-outline-var: #C9D7DC;
-  --gd-border: #D5E0E4;
-  --gd-border-strong: #B8C9CF;
-  --gd-sh-color-a: 16 35 43;
-  --gd-sh-primary-glow: 0 0 0 1px rgba(0,111,120,.14), 0 5px 16px rgba(16,35,43,.10);
-  --gc-edge: rgba(19, 58, 70, .12);
-  --gc-edge-hi: rgba(19, 58, 70, .2);
-  --gc-glass: rgba(249, 252, 253, .84);
+  --gd-on-bg: #102738;
+  --gd-on-surface: #102738;
+  --gd-on-surface-var: #415C6B;
+  --gd-on-surface-variant: #415C6B;
+  --gd-muted: #415C6B;
+  --gd-outline: #526C7A;
+  --gd-outline-var: #C7D7E0;
+  --gd-border: #D1DEE6;
+  --gd-border-strong: #B4C8D4;
+  --gd-sh-color-a: 16 39 56;
+  --gd-sh-primary-glow: 0 0 0 1px rgba(0,103,127,.16), 0 5px 18px rgba(16,39,56,.12);
+  --gc-edge: rgba(18, 58, 78, .13);
+  --gc-edge-hi: rgba(18, 58, 78, .22);
+  --gc-glass: rgba(249, 252, 255, .86);
   --gc-glass-soft: rgba(255, 255, 255, .72);
-  --gc-ink: #10232B;
-  --gc-accent: #087E87;
+  --gc-ink: #102738;
+  --gc-accent: #007B91;
 }
 
 body.at-dark,
 html[data-theme] body.at-dark {
   color-scheme: dark;
-  --gd-bg: #0A141A;
-  --gd-surface: #101E25;
-  --gd-surface-lo: #16262E;
-  --gd-surface-cont: #1D3039;
-  --gd-surface-hi: #2A414B;
-  --gd-surface-lowest: #071015;
-  --gd-ink: #E8F1F4;
-  --gd-ink-soft: #D0DDE1;
-  --gd-primary: #68C8CE;
-  --gd-primary-hi: #8AD9DD;
-  --gd-primary-lo: #15343A;
-  --gd-primary-container: #1C555D;
-  --gd-on-primary: #08262A;
-  --gd-on-primary-container: #DDF5F5;
-  --gd-primary-grad: linear-gradient(135deg, #72D1D5 0%, #4BB3BC 100%);
-  --gd-secondary: #8AB8CB;
-  --gd-secondary-hi: #A4CADA;
-  --gd-secondary-lo: #1B3039;
-  --gd-secondary-container: #315665;
-  --gd-on-secondary: #102830;
-  --gd-on-secondary-container: #E0F2F6;
-  --gd-tertiary: #73C6A5;
-  --gd-tertiary-hi: #8DDBB9;
-  --gd-tertiary-lo: #18372E;
-  --gd-tertiary-container: #285945;
+  --gd-bg: #07131F;
+  --gd-surface: #0D1E2B;
+  --gd-surface-lo: #132A39;
+  --gd-surface-cont: #1A3545;
+  --gd-surface-hi: #294858;
+  --gd-surface-lowest: #050D16;
+  --gd-ink: #EAF5F8;
+  --gd-ink-soft: #D1E3E9;
+  --gd-primary: #70E4EF;
+  --gd-primary-hi: #A1F1F5;
+  --gd-primary-lo: #123440;
+  --gd-primary-container: #155566;
+  --gd-on-primary: #062832;
+  --gd-on-primary-container: #E2FAFC;
+  --gd-primary-grad: linear-gradient(135deg, #78EAF0 0%, #43C6D8 100%);
+  --gd-secondary: #A4C9FF;
+  --gd-secondary-hi: #C2DAFF;
+  --gd-secondary-lo: #152A42;
+  --gd-secondary-container: #264B70;
+  --gd-on-secondary: #10263C;
+  --gd-on-secondary-container: #E6F0FF;
+  --gd-tertiary: #70DDB5;
+  --gd-tertiary-hi: #98EACB;
+  --gd-tertiary-lo: #12392F;
+  --gd-tertiary-container: #1D5847;
   --gd-on-tertiary: #0C2A20;
-  --gd-on-tertiary-container: #DDF5E8;
-  --gd-on-bg: #E8F1F4;
-  --gd-on-surface: #E8F1F4;
-  --gd-on-surface-var: #B5C6CC;
-  --gd-on-surface-variant: #B5C6CC;
-  --gd-muted: #B5C6CC;
-  --gd-outline: #A4B8BF;
-  --gd-outline-var: #31464F;
-  --gd-border: #243941;
-  --gd-border-strong: #3A525C;
-  --gd-sh-color-a: 5 16 21;
-  --gd-sh-primary-glow: 0 0 0 1px rgba(104,200,206,.2), 0 5px 18px rgba(4,19,24,.28);
-  --gc-edge: rgba(188, 220, 226, .12);
-  --gc-edge-hi: rgba(188, 220, 226, .2);
-  --gc-glass: rgba(12, 25, 32, .78);
+  --gd-on-tertiary-container: #DDF8ED;
+  --gd-on-bg: #EAF5F8;
+  --gd-on-surface: #EAF5F8;
+  --gd-on-surface-var: #B7CBD5;
+  --gd-on-surface-variant: #B7CBD5;
+  --gd-muted: #B7CBD5;
+  --gd-outline: #9BB6C2;
+  --gd-outline-var: #304A59;
+  --gd-border: #203B4A;
+  --gd-border-strong: #385767;
+  --gd-sh-color-a: 5 19 31;
+  --gd-sh-primary-glow: 0 0 0 1px rgba(112,228,239,.24), 0 5px 20px rgba(3,24,37,.36);
+  --gc-edge: rgba(183, 218, 230, .14);
+  --gc-edge-hi: rgba(183, 218, 230, .25);
+  --gc-glass: rgba(8, 25, 39, .82);
   --gc-glass-soft: rgba(223, 241, 244, .045);
-  --gc-ink: #E8F1F4;
-  --gc-accent: #68C8CE;
+  --gc-ink: #EAF5F8;
+  --gc-accent: #70E4EF;
 }
 
 /* Los perfiles de proyecto no deben reintroducir acentos neón ni
@@ -978,14 +978,16 @@ body:is(.at-light, .at-dark) .gunter-command-nav__status { color: var(--gd-on-su
 html body.at-dark,
 html[data-theme] body.at-dark {
   background:
-    radial-gradient(ellipse 54vw 44vh at 50% 22%, rgba(48, 157, 166, .11), transparent 72%),
-    linear-gradient(155deg, #0D1C23 0%, #091419 56%, #0A171D 100%) !important;
+    radial-gradient(ellipse 58vw 46vh at 52% 22%, rgba(42, 190, 220, .13), transparent 72%),
+    radial-gradient(ellipse 42vw 34vh at 92% 88%, rgba(65, 120, 205, .07), transparent 75%),
+    linear-gradient(155deg, #0A1A2A 0%, #07131F 56%, #091725 100%) !important;
 }
 html body.at-light,
 html[data-theme] body.at-light {
   background:
-    radial-gradient(ellipse 56vw 45vh at 52% 20%, rgba(8, 126, 135, .095), transparent 72%),
-    linear-gradient(155deg, #F5FAFA 0%, #EAF2F4 58%, #F2F7F8 100%) !important;
+    radial-gradient(ellipse 58vw 46vh at 52% 20%, rgba(0, 132, 154, .09), transparent 72%),
+    radial-gradient(ellipse 42vw 34vh at 92% 88%, rgba(69, 125, 190, .045), transparent 75%),
+    linear-gradient(155deg, #F8FBFD 0%, #EDF4F8 58%, #F3F8FB 100%) !important;
 }
 .gunter-cinematic-bg::after {
   opacity: .08;

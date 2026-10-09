@@ -9,7 +9,7 @@ const PROVIDERS = Object.freeze({
     instagram: { label: 'Instagram', env: [], runtime: 'beeper_node' },
     messenger: { label: 'Messenger', env: [], runtime: 'beeper_node' }
 });
-const SEND_SOURCES = new Set(['user_click', 'manual', 'user_voice_confirmed']);
+const SEND_SOURCES = new Set(['user_click', 'manual', 'user_voice_confirmed', 'user_text_confirmed']);
 const STOPWORDS = new Set('para como esta este esto eso con por una uno unos unas que del las los quien donde cuando pero porque desde hasta sobre hola buenas gracias mensaje tengo tiene hacer puede puedes quiero queremos'.split(' '));
 
 function fileFor(userId) { return path.join(userStore.userDir(userId), 'social-hub.json'); }
@@ -183,7 +183,9 @@ function replySuggestions(text, name) {
 function clean(value, max) { return String(value || '').trim().replace(/[\u0000-\u001f]/g, '').slice(0, max); }
 function cleanLocalPath(value) {
     const candidate = String(value || '').trim().replace(/[\u0000-\u001f]/g, '').slice(0, 4096);
-    return candidate && path.isAbsolute(candidate) ? path.resolve(candidate) : '';
+    if (path.win32.isAbsolute(candidate)) return path.win32.normalize(candidate);
+    if (path.posix.isAbsolute(candidate)) return path.posix.normalize(candidate);
+    return '';
 }
 function validDate(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? null : date.toISOString(); }
 

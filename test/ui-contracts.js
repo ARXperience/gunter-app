@@ -22,15 +22,27 @@ for (const file of themedPages) {
 const themeToggle = read('js/services/theme-toggle.js');
 assert.match(themeToggle, /const KEY = 'gunter_color_mode'/, 'color mode does not overwrite the meeting profile key');
 assert.match(themeToggle, /apply\(current, hasExplicitPreference\(\)\)/, 'first visit follows the device color-scheme preference');
-assert.match(read('styles/gunter-cinematic.css'), /--gd-primary: #006F78/, 'light palette uses the Polar teal accent');
-assert.match(read('styles/gunter-cinematic.css'), /--gd-primary: #68C8CE/, 'dark palette uses the Polar teal accent');
+assert.match(read('styles/gunter-cinematic.css'), /--gd-primary: #00677F/, 'light palette uses the Ion cyan/teal accent');
+assert.match(read('styles/gunter-cinematic.css'), /--gd-primary: #70E4EF/, 'dark palette uses a luminous cyan accent');
 assert.match(read('styles/gunter-cinematic.css'), /--gd-on-primary: #FFFFFF/, 'light primary controls have a dedicated contrasting foreground');
-assert.match(read('styles/gunter-cinematic.css'), /--gd-on-primary: #08262A/, 'dark primary controls have a dedicated contrasting foreground');
+assert.match(read('styles/gunter-cinematic.css'), /--gd-on-primary: #062832/, 'dark primary controls have a dedicated contrasting foreground');
 assert.match(read('styles/gunter-cinematic.css'), /\.env-card__description[\s\S]*color: #F3FAFB/, 'environment thumbnails use readable foregrounds over dark overlays');
 assert.match(read('styles/gunter-cinematic.css'), /\.project-card::before/, 'project miniatures receive a consistent technical visual treatment');
-assert.match(read('styles/gunter-command-center.css'), /\.config-tabs \.config-tab\.is-active[\s\S]*color: #FFFFFF !important/, 'active configuration tabs use a readable light-theme foreground');
-assert.match(read('styles/gunter-command-center.css'), /\.config-tabs \.config-tab\.is-active[\s\S]*color: #08262A !important/, 'active configuration tabs use a readable dark-theme foreground');
-assert.match(read('styles/gunter-command-center.css'), /\.gunter-command-nav \.gunter-command-nav__action span[\s\S]*color: #FFFFFF !important/, 'mobile navigation action text contrasts with its teal button');
+assert.match(read('styles/gunter-command-center.css'), /\.config-tabs \.config-tab\.is-active[\s\S]*color: var\(--gd-on-primary\) !important/, 'active configuration tabs use the palette contrast token');
+assert.match(read('styles/gunter-command-center.css'), /\.gunter-command-nav \.gunter-command-nav__action span[\s\S]*color: var\(--gd-on-primary\) !important/, 'mobile navigation action text uses the palette contrast token');
+function luminance(hex) {
+    const channels = hex.slice(1).match(/.{2}/g).map(value => parseInt(value, 16) / 255)
+        .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+}
+function contrastRatio(a, b) {
+    const values = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (values[0] + 0.05) / (values[1] + 0.05);
+}
+assert.ok(contrastRatio('#00677F', '#FFFFFF') >= 4.5, 'light theme primary button meets WCAG AA contrast');
+assert.ok(contrastRatio('#70E4EF', '#062832') >= 4.5, 'dark theme primary button meets WCAG AA contrast');
+assert.ok(contrastRatio('#415C6B', '#F2F7FB') >= 4.5, 'light theme secondary text meets WCAG AA contrast');
+assert.ok(contrastRatio('#B7CBD5', '#0D1E2B') >= 4.5, 'dark theme secondary text meets WCAG AA contrast');
 const cinematicShell = read('js/services/gunter-cinematic-shell.js');
 assert.doesNotMatch(cinematicShell, /AMBIENT_VIDEO|createElement\('video'/, 'the shared background does not fetch or animate an external video');
 assert.doesNotMatch(cinematicShell, /createElement\('div', 'gunter-cinematic-wordmark'/, 'the ambient background has no Gunter wordmark');
@@ -76,11 +88,12 @@ assert.match(iconSystem, /new MutationObserver/, 'dynamically rendered icons use
 
 const day = read('day.html');
 assert.match(commandNav, /¿Qué necesitas resolver hoy\?/ , 'the post-login Inicio screen has an assistant-focused hero');
-assert.match(commandNav, /America\/Bogota/, 'the home screen clock uses the actual Bogota time zone');
+assert.match(commandNav, /GunterPresence\?\.timezone\?\.\(\)/, 'the home clock follows the configured or device time zone');
+assert.doesNotMatch(commandNav, /timeZone:\s*['"]America\/Bogota['"]/, 'the clock does not infer that every user is in Bogota');
 assert.match(commandNav, /\.gunter-home__focus.*focusCommand/s, 'the home CTA focuses the existing working command input');
 assert.match(commandNav, /GunterParticles\?\.mount\?\./, 'the home mascot mounts the shared particle renderer');
 assert.match(commandNav, /data-gunter-particles="hero"/, 'the home mascot uses the particle hero variant');
-assert.match(read('js/services/gunter-particles.js'), /record\.targetX[\s\S]*record\.gazeX/, 'pointer tracking animates Gunter particles around the head');
+assert.match(read('js/services/gunter-particles.js'), /pointermove[\s\S]*record\.targetX[\s\S]*record\.hover/, 'pointer tracking drives the interactive particle hologram');
 assert.match(read('styles/gunter-command-center.css'), /body\.gunter-page-day \.gunter-command-nav__brand,[\s\S]*body\.gunter-page-day \.gunter-command-nav__links \{ display: none !important; \}/, 'the duplicated top brand bar is hidden on the mobile home screen');
 assert.match(read('js/services/gunter-companion.js'), /data-gunter-particles="chat"/, 'the floating Gunter companion uses the particle mascot');
 assert.match(read('js/services/gunter-particles.js'), /replaceLegacyDashboardMascot/, 'the meetings page replaces the remaining raster mascot with the particle renderer');
@@ -90,6 +103,8 @@ assert.match(day, /id="gday-doc-btn"[^>]*aria-label=/, 'attachment icon button h
 assert.match(read('js/controllers/day-tabs.js'), /bar\.onkeydown/, 'day tabs support keyboard navigation');
 assert.match(read('js/controllers/day-tabs.js'), /addEventListener\('hashchange'/, 'day deep links activate the matching panel');
 assert.match(read('styles/gunter-command-center.css'), /prefers-reduced-motion:\s*reduce/, 'global navigation honors reduced-motion preference');
+assert.match(read('styles/gunter-command-center.css'), /@keyframes gunterCoreBreathe/, 'Gunter core has a restrained living light pulse');
+assert.match(read('styles/gunter-command-center.css'), /\.gunter-home__orbit, \.gunter-home__signal, \.gunter-home__halo \{ animation: none !important; \}/, 'the living core honors reduced-motion preference');
 assert.match(read('styles/ui-polish.css'), /\.skip-link:focus-visible/, 'skip link appears on keyboard focus');
 for (const id of ['status-fcm', 'status-apns']) assert.match(config, new RegExp(`id="${id}"`));
 

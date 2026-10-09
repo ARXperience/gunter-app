@@ -47,7 +47,7 @@
             .trim();
     }
 
-    function detect(raw) {
+    function detect(raw, options = {}) {
         const normalized = normalize(raw);
         if (!normalized) return null;
         for (const def of DEFINITIONS) {
@@ -64,6 +64,28 @@
                 normalized,
                 confidence: def.type === 'solo_gunter' ? 0.88 : 0.98
             };
+        }
+
+        // Permite una palabra/frase personalizable sin reemplazar los llamados
+        // naturales de Gunter. La coincidencia se escapa para no interpretar
+        // caracteres del ajuste como una expresión regular.
+        const custom = normalize(options.wakeWord || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (custom && custom.toLowerCase() !== 'hi gunter') {
+            const match = new RegExp(`(?:^|\\s)(${custom})(?=$|\\s)`, 'i').exec(normalized);
+            if (match) {
+                const phrase = match[1];
+                const start = match.index + match[0].indexOf(phrase);
+                const before = normalized.slice(0, start).trim();
+                const after = normalized.slice(start + phrase.length).trim();
+                return {
+                    matched: true,
+                    type: 'custom_wake_word',
+                    phrase,
+                    command: [before, after].filter(Boolean).join(' ').trim(),
+                    normalized,
+                    confidence: 0.98
+                };
+            }
         }
         return null;
     }
@@ -84,4 +106,3 @@
 
     return { detect, normalize, responseFor, supportedCalls };
 });
-

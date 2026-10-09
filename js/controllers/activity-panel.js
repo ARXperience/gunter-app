@@ -188,7 +188,9 @@
     }
     function skillLabel(name) {
         return ({
-            'agenda.list': 'Consultar agenda', 'tasks.create': 'Crear tarea', 'calendar.read': 'Consultar calendario',
+            'agenda.list': 'Consultar agenda', 'tasks.create': 'Crear tarea',
+            'tasks.complete': 'Completar tarea', 'tasks.reopen': 'Reactivar tarea', 'tasks.cancel': 'Cancelar tarea',
+            'tasks.update': 'Editar tarea', 'calendar.read': 'Consultar calendario',
             'calendar.create': 'Crear evento', 'reminder.schedule': 'Programar recordatorio',
             'follow_up.schedule': 'Programar seguimiento', 'desktop.apps.open': 'Abrir aplicación',
             'desktop.files.open': 'Abrir archivo', 'desktop.screen.inspect': 'Inspeccionar pantalla',

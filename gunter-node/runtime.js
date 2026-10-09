@@ -44,6 +44,7 @@ class GunterNodeRuntime {
             nodeId: this.config.nodeId, state, protocolVersion: '1.0.0', clientTime: Date.now(),
             capabilities: [
                 'desktop.apps.open', 'desktop.apps.discover', 'desktop.permissions.write',
+                'desktop.browser.control',
                 'desktop.files.read', 'desktop.files.open', 'desktop.files.latest', 'desktop.files.list', 'desktop.files.search',
                 'desktop.media.control', 'desktop.ui.inspect', 'desktop.ui.capture_target', 'desktop.ui.focus', 'desktop.ui.click', 'desktop.ui.type',
                 'desktop.ui.wait', 'desktop.ui.scroll', 'desktop.ui.hotkey', 'desktop.ui.select_file',

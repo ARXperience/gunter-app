@@ -11,7 +11,8 @@ const DEFINITIONS = Object.freeze([
     ['mobile.node', 'on'], ['mobile.media', 'on'], ['mobile.messaging', 'on'], ['mobile.location', 'off'], ['mobile.camera', 'off'], ['mobile.local_ai', 'off'],
     ['cortex.basic', 'on'], ['cortex.semantic', 'off'], ['cortex.graph', 'off'], ['cortex.learning', 'off'], ['cortex.export', 'admin_only'],
     ['automation.basic', 'on'], ['automation.commitments', 'on'], ['automation.procedures', 'on'], ['automation.missions', 'off'], ['automation.proactive', 'on'],
-    ['ai.local', 'off'], ['ai.cloud.standard', 'on'], ['ai.cloud.reasoning', 'admin_only'], ['ai.vision', 'admin_only'],
+    ['ai.local', 'off'], ['stt.local', 'off'], ['tts.local', 'off'], ['embeddings.local', 'off'], ['hybrid.routing', 'off'],
+    ['ai.cloud.standard', 'on'], ['ai.cloud.reasoning', 'admin_only'], ['ai.vision', 'admin_only'],
     ['browser.agent', 'off'], ['core.connection', 'on'], ['integrations.core', 'on'], ['core.entitlements', 'on'], ['core.observability', 'admin_only'],
     ['admin.accounts', 'on'], ['admin.billing', 'admin_only'], ['admin.devices', 'admin_only'], ['admin.operations', 'admin_only'], ['admin.releases', 'admin_only'],
     ['billing.recurring', 'off'], ['security.core', 'on'], ['quality.gate', 'admin_only'], ['evolution.skill_forge', 'off']

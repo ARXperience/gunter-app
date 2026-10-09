@@ -77,6 +77,9 @@ catch (e) { console.warn('⚠️  Mobile push scheduler not available:', e.messa
 let controlPlane = null;
 try { controlPlane = require('./server/control-plane'); }
 catch (e) { console.warn('⚠️  Control Plane module not available:', e.message); }
+const localBrain = require('./server/local-brain');
+const localSTT = require('./server/local-stt');
+const localTTS = require('./server/local-tts');
 
 // Etapa 3 — Actions dispatcher (control unificado de features)
 let actions = null;
@@ -413,34 +416,104 @@ const handleRequest = async (req, res) => {
         return;
     }
 
+    // Foundation-only privacy gate. All existing cloud implementations remain
+    // untouched in AUTO/CLOUD; LOCAL and LOCAL_ONLY fail before request bodies
+    // are consumed, so a prohibited cloud call cannot accidentally fall through.
+    if (req.method === 'POST' && controlPlane) {
+        const hybridKind = ({ '/api/chat': 'chat', '/api/transcribe': 'stt', '/api/tts': 'tts', '/api/embeddings': 'embeddings',
+            '/api/gemini-text': 'chat', '/api/gemini-image': 'chat', '/api/document-extract': 'chat',
+            '/api/premium-intel': 'chat', '/api/premium-intel/actions': 'chat',
+            '/api/style-mirror': 'chat', '/api/forecast': 'chat', '/api/tutor': 'chat' })[parsedUrl.pathname];
+        if (hybridKind) {
+            const decision = controlPlane.modelRouter.resolveHybrid(hybridKind,
+                controlPlane.settings.hybridStatus(userContext.currentUserId()),
+                { ...req.gunterUser, userId: userContext.currentUserId() });
+            if (!decision.ok) {
+                res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                return res.end(JSON.stringify({ success: false, error: decision.code, code: decision.code,
+                    message: 'El proveedor local aún no está instalado. Cambia a AUTO/CLOUD o instala uno en una fase posterior.' }));
+            }
+            if (decision.provider === 'local' && !['/api/chat', '/api/transcribe', '/api/tts'].includes(parsedUrl.pathname)) {
+                res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                return res.end(JSON.stringify({ success: false, error: 'LOCAL_ONLY_MODE', code: 'LOCAL_ONLY_MODE' }));
+            }
+            if (hybridKind === 'chat') req.gunterBrainProvider = decision.provider;
+            if (hybridKind === 'stt') req.gunterSTTProvider = decision.provider;
+            if (hybridKind === 'tts') req.gunterTTSProvider = decision.provider;
+        }
+    }
+
+    if (parsedUrl.pathname === '/api/location/reverse' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', async () => {
+            try {
+                const result = await require('./server/location').reverse(JSON.parse(body));
+                res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify(result));
+            } catch (error) {
+                res.writeHead(error instanceof SyntaxError ? 400 : error.status || 503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ error: error.status === 400 ? 'invalid_coordinates' : 'location_unavailable' }));
+            }
+        });
+        return;
+    }
+
     // Transcription endpoint
     if (parsedUrl.pathname === '/api/transcribe' && req.method === 'POST') {
         try {
             let body = [];
             let totalSize = 0;
 
+            const maxSize = req.gunterSTTProvider === 'local' ? 31 * 1024 * 1024 : MAX_BODY_SIZE;
             req.on('data', chunk => {
                 totalSize += chunk.length;
 
                 // Check if size exceeds limit
-                if (totalSize > MAX_BODY_SIZE) {
-                    req.connection.destroy();
+                if (totalSize > maxSize) {
+                    if (req.gunterSTTProvider === 'local') body = [];
+                    else req.connection.destroy();
                     return;
                 }
 
                 body.push(chunk);
             });
 
-            req.on('end', () => {
-                if (totalSize > MAX_BODY_SIZE) {
+            req.on('end', async () => {
+                if (totalSize > maxSize) {
                     res.writeHead(413, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({
-                        error: `File too large. Maximum size is ${MAX_BODY_SIZE / (1024 * 1024)} MB. Received ${(totalSize / (1024 * 1024)).toFixed(2)} MB.`
+                        ...(req.gunterSTTProvider === 'local'
+                            ? { error: 'AUDIO_TOO_LARGE', code: 'LOCAL_STT_AUDIO_TOO_LARGE' }
+                            : { error: `File too large. Maximum size is ${MAX_BODY_SIZE / (1024 * 1024)} MB. Received ${(totalSize / (1024 * 1024)).toFixed(2)} MB.` })
                     }));
                     return;
                 }
 
                 body = Buffer.concat(body);
+
+                if (req.gunterSTTProvider === 'local') {
+                    const parsed = extractMultipartFile(body, req.headers['content-type']);
+                    if (!parsed?.file?.data?.length) {
+                        res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                        return res.end(JSON.stringify({ error: 'LOCAL_STT_INVALID_AUDIO', code: 'LOCAL_STT_INVALID_AUDIO' }));
+                    }
+                    const controller = new AbortController();
+                    res.once('close', () => { if (!res.writableEnded) controller.abort(); });
+                    try {
+                        const text = await localSTT.transcribeAudio(parsed.file.data, parsed.file.mime, { signal: controller.signal });
+                        if (res.destroyed) return;
+                        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                        return res.end(JSON.stringify({ text, provider: 'moonshine.local', inputSource: 'voice' }));
+                    } catch (error) {
+                        if (res.destroyed) return;
+                        const code = error.code || 'LOCAL_STT_UNAVAILABLE';
+                        const status = code === 'LOCAL_STT_INVALID_AUDIO' ? 400 : code === 'LOCAL_STT_AUDIO_TOO_LARGE' ? 413
+                            : code === 'LOCAL_STT_BUSY' ? 429 : 503;
+                        res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                        return res.end(JSON.stringify({ error: code, code, detail: error.cause || null }));
+                    }
+                }
 
                 // v42 — Sin OpenAI: transcripción via Gemini (mismo shape {text} de Whisper)
                 if (!OPENAI_API_KEY) {
@@ -680,8 +753,46 @@ const handleRequest = async (req, res) => {
         return;
     }
 
-    // ========== TTS (voces humanas: OpenAI o Gemini TTS) ==========
+    // ========== TTS: Supertonic 3 local, with legacy cloud route preserved ==========
     if (parsedUrl.pathname === '/api/tts' && req.method === 'POST') {
+        if (req.gunterTTSProvider === 'local') {
+            let body = '';
+            let bodyBytes = 0;
+            req.on('data', chunk => {
+                bodyBytes += chunk.length;
+                if (bodyBytes <= 4096) body += chunk.toString('utf8');
+            });
+            req.on('end', async () => {
+                const controller = new AbortController();
+                const onClose = () => { if (!res.writableEnded) controller.abort(); };
+                res.once('close', onClose);
+                try {
+                    if (bodyBytes > 4096) {
+                        res.writeHead(413, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                        return res.end(JSON.stringify({ error: 'LOCAL_TTS_INVALID_TEXT', code: 'LOCAL_TTS_INVALID_TEXT' }));
+                    }
+                    const input = JSON.parse(body || '{}');
+                    const text = input.text;
+                    if (typeof text !== 'string' || !text.trim() || text.length > 800) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        return res.end(JSON.stringify({ error: 'invalid_tts_text' }));
+                    }
+                    const speed = typeof input.localSpeed === 'number' ? input.localSpeed : 1.05;
+                    const { buffer, mime } = await localTTS.synthesizeSpeech({ text, speed, signal: controller.signal });
+                    if (controller.signal.aborted || res.writableEnded) return;
+                    res.writeHead(200, { 'Content-Type': mime, 'Content-Length': buffer.length,
+                        'Cache-Control': 'no-store', 'X-Gunter-TTS-Provider': 'supertonic3.local' });
+                    res.end(buffer);
+                } catch (error) {
+                    if (controller.signal.aborted || res.writableEnded) return;
+                    const code = error.code || 'LOCAL_TTS_UNAVAILABLE';
+                    res.writeHead(code === 'LOCAL_TTS_INVALID_TEXT' || code === 'LOCAL_TTS_INVALID_SPEED' || error instanceof SyntaxError ? 400 : code === 'LOCAL_TTS_BUSY' ? 429 : 503,
+                        { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                    res.end(JSON.stringify({ error: code, code }));
+                } finally { res.removeListener('close', onClose); }
+            });
+            return;
+        }
         // v43: sin OpenAI, la voz corre en Gemini TTS (voces neuronales free
         // tier) con cache en disco. Si Gemini falla (cuota del día agotada),
         // 503 → el cliente cae solo a la voz del navegador.
@@ -1568,6 +1679,44 @@ const handleRequest = async (req, res) => {
                 'X-Gunter-Context-Id': prepared.envelope.context_id,
                 'X-Gunter-Trace-Id': prepared.envelope.trace_id
             } : {};
+            if (req.gunterBrainProvider === 'local') {
+                const controller = new AbortController();
+                res.once('close', () => { if (!res.writableEnded) controller.abort(); });
+                const localMessages = payload.messages;
+                const invalidMessages = localMessages.length > 24 || localMessages.some(message =>
+                    !['system', 'user', 'assistant'].includes(message?.role) ||
+                    typeof message.content !== 'string' || message.content.length > 8000);
+                const format = payload.response_format;
+                const invalidFormat = format && (!['json_object', 'json_schema'].includes(format.type) ||
+                    JSON.stringify(format).length > 8192);
+                if (invalidMessages || invalidFormat) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ success: false, code: 'LOCAL_TEXT_OR_SCHEMA_INVALID' }));
+                }
+                const localPayload = { messages: localMessages, temperature: payload.temperature ?? 0.2,
+                    max_tokens: payload.max_tokens ?? 400, ...(format ? { response_format: format } : {}) };
+                try {
+                    if (payload.stream === true) {
+                        const { response: upstream, cleanup } = await localBrain.stream(localPayload, controller.signal);
+                        res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', ...contextHeaders });
+                        try {
+                            for await (const chunk of upstream.body) {
+                                if (controller.signal.aborted) break;
+                                res.write(chunk);
+                            }
+                            return res.end();
+                        } finally { cleanup(); }
+                    }
+                    const answer = await localBrain.generate(localPayload, controller.signal);
+                    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...contextHeaders });
+                    return res.end(JSON.stringify(answer));
+                } catch (error) {
+                    if (res.headersSent || res.destroyed) return res.end();
+                    const code = error.code || 'LOCAL_PROVIDER_UNAVAILABLE';
+                    res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+                    return res.end(JSON.stringify({ success: false, code, error: code, reason: error.cause || error.message }));
+                }
+            }
             // v42 — Sin OpenAI: el chat corre sobre Gemini devolviendo el
             // mismo shape de OpenAI (choices[0].message.content) para que
             // ningún cliente cambie.
@@ -1765,7 +1914,7 @@ server.listen(PORT, () => {
     console.log('║  Endpoints:');
     console.log('║    POST /api/transcribe    - Audio transcription (Whisper)');
     console.log('║    POST /api/chat          - Chat completions (OpenAI)');
-    console.log('║    POST /api/tts           - Text-to-speech humanizado (OpenAI)');
+    console.log('║    POST /api/tts           - Supertonic 3 M1 local / respaldo configurado');
     console.log('║    POST /api/embeddings    - Vector embeddings (text-embedding-3-small)');
     console.log('║    *    /api/knowledge/*   - Project memory shared with WhatsApp');
     console.log('║    POST /api/premium-intel - Premium intelligence (planner, summary, urgency, etc.)');
@@ -1785,11 +1934,14 @@ server.listen(PORT, () => {
     console.log('║    POST /api/forecast        - F6: Forecast probabilístico');
     console.log('╚════════════════════════════════════════════════');
     console.log('');
+    if (localTTS.installed() && require('./server/control-plane/feature-flags').evaluate('tts.local', { kind: 'service' }).enabled)
+        localTTS.warm().then(() => console.log('[tts] Supertonic 3 M1 listo, sin conexión'))
+            .catch(error => console.warn('[tts] motor local no disponible:', error.detail || error.code || error.message));
     jobs?.start?.();
     mobilePushScheduler?.start?.();
 });
 
-server.on('close', () => { jobs?.stop?.(); mobilePushScheduler?.stop?.(); });
+server.on('close', () => { jobs?.stop?.(); mobilePushScheduler?.stop?.(); localTTS.stop(); });
 
 // ===== v47 — Arranque resiliente =====
 // WhatsApp: si hay sesión guardada en disco, reconectar solo (sin QR).

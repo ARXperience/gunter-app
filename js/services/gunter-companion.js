@@ -28,6 +28,8 @@
         pendingHideTimer: null,
         bubbleShown: false,
         log: [],
+        turnId: 0,
+        turnController: null,
         currentPage: 'unknown'
     };
 
@@ -162,6 +164,7 @@
         loadLog();
         renderLog();
         renderQuick();
+        if (window.GunterAuth?.isVerified?.()) greetOnEntry(window.GunterAuth.getUser());
 
         // v37 · Mood engine: humor del día → mascota + status del chat
         try {
@@ -211,6 +214,26 @@
         // Reunión activa → esconder
         window.addEventListener('gunter-recording-started', () => hide());
         window.addEventListener('gunter-recording-stopped', () => show());
+    }
+
+    async function greetOnEntry(user) {
+        if (!STATE.mounted || STATE.currentPage === 'meeting' || !window.GunterPresence || window.GunterPresence.preferences().entryGreeting === false) return;
+        const turnId = STATE.turnId;
+        try {
+            const greeting = await window.GunterPresence.greet(user);
+            if (!greeting || turnId !== STATE.turnId || STATE.hidden) return;
+            addMessage('assistant', greeting, { voiceContext: 'entry', fullVoice: true });
+            if (!STATE.expanded) showBubble(greeting, 12000);
+        } catch (error) { console.warn('[companion] greeting unavailable:', error.message); }
+    }
+
+    function interrupt() {
+        STATE.turnId += 1;
+        STATE.turnController?.abort();
+        STATE.turnController = null;
+        window.GunterVoice?.cancel?.('user-interruption');
+        setTyping(false);
+        setMascotState('listening');
     }
 
     // ─────────────────────────────────────
@@ -284,7 +307,7 @@
         }, BUBBLE_INTERVAL_MS);
     }
 
-    function showBubble(text) {
+    function showBubble(text, duration = BUBBLE_DURATION_MS) {
         const root = document.getElementById('gunter-companion');
         if (!root) return;
         const tooltip = root.querySelector('.gn-comp__tooltip');
@@ -296,7 +319,7 @@
         STATE.pendingHideTimer = setTimeout(() => {
             hideBubble();
             scheduleContextualBubble();
-        }, BUBBLE_DURATION_MS);
+        }, duration);
     }
 
     function hideBubble() {
@@ -333,7 +356,7 @@
     function tryClientIntercepts(text) {
         const t = (text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
         const temporal = window.GunterTemporalContext?.answer?.(text, {
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            timezone: window.GunterPresence?.timezone?.() || Intl.DateTimeFormat().resolvedOptions().timeZone,
             locale: navigator.language || 'es-CO'
         });
         if (temporal) {
@@ -442,6 +465,15 @@
         if (/\b(que libros|cuales libros|biblioteca|que puedes enseñarme|que puedes ensename|ruta de estudio|curriculum|curriculo|catalog(o|ue)|obras (del|de|disponibles)|autor)\b/.test(t)) {
             const tutor = window.GunterTutor;
             if (!tutor) return { reply: 'El módulo tutor no está cargado en esta página. Recargá.', intent: 'tutor-guide', __clientHandled: true };
+            if (!tutor.isEnabled?.()) {
+                const authorized = !window.GunterAuth || window.GunterAuth.canTutor?.();
+                return {
+                    reply: authorized
+                        ? 'El modo Sabio está desactivado, así que no consulté su biblioteca ni sus rutas de estudio. Puedes activarlo en Configuración → funciones inteligentes. Si quieres, aún puedo conversar sobre temas generales con mi conocimiento habitual.'
+                        : 'El modo Sabio está desactivado para esta cuenta y además requiere autorización del administrador. No consulté la biblioteca. Puedo conversar sobre temas generales con mi conocimiento habitual.',
+                    intent: 'tutor-disabled', __clientHandled: true
+                };
+            }
             // Async — usamos setTimeout-then dentro de client handler
             return {
                 __asyncPromise: (async () => {
@@ -569,53 +601,112 @@
         return null;
     }
 
-    async function handleUserMessage(text) {
+    async function handleUserMessage(text, messageOptions = {}) {
+        const voiceInput = messageOptions.inputSource === 'voice';
+        interrupt();
+        const turnId = STATE.turnId;
+        const controller = new AbortController();
+        STATE.turnController = controller;
+        const toolHint = window.GunterAssistantTools?.detect?.(text) || window.GunterAssistantTools?.getPending?.();
+        const toolTimeout = toolHint?.toolId?.startsWith('desktop.browser.') ? 95000 : toolHint?.toolId?.startsWith('desktop.') ? 65000 : 8000;
+        const finishTyping = () => { if (turnId === STATE.turnId) setTyping(false); };
+        const reply = (message, extra = {}) => {
+            if (turnId === STATE.turnId) addMessage('assistant', message, { ...messageOptions, ...extra });
+        };
         addMessage('user', text);
         setTyping(true);
 
+        // Navegación determinista de respaldo: las rutas son estáticas y
+        // allowlistadas; evita que el planificador de tareas interprete
+        // "ve a tareas" como una solicitud temporal.
+        const directDestination = !toolHint || toolHint.toolId === 'app.navigate' ? resolveGunterNavigation(text) : null;
+        if (directDestination) {
+            finishTyping();
+            reply(`Abriendo ${directDestination.label}.`);
+            window.location.assign(directDestination.href);
+            return;
+        }
+
         // Safety net: siempre limpiar el typing indicator al terminar
         const safetyTimer = setTimeout(() => {
-            setTyping(false);
-            addMessage('assistant', '⚠️ El servidor no respondió a tiempo. Verifica que `npm run dev` esté corriendo y prueba de nuevo.');
-        }, SAFETY_TIMEOUT_MS + 5000);
+            if (turnId !== STATE.turnId) return;
+            finishTyping();
+            reply('⚠️ El servidor no respondió a tiempo. Verifica que `npm run dev` esté corriendo y prueba de nuevo.');
+        }, Math.max(SAFETY_TIMEOUT_MS, toolTimeout) + 5000);
 
         try {
+            // Explicit personal-memory commands work from both chat and voice.
+            // They never rely on the LLM to claim that a write happened.
+            const memoryCommand = window.GunterPersonalMemory?.parseCommand?.(text);
+            if (memoryCommand) {
+                const result = await window.GunterPersonalMemory.handleCommand(text);
+                if (turnId !== STATE.turnId) return;
+                clearTimeout(safetyTimer);
+                finishTyping();
+                reply(result.reply);
+                return;
+            }
+            // Navegación y configuración propia de Gunter deben llegar primero
+            // al registro allowlist; interceptores históricos pueden interpretar
+            // "memoria semántica" como una pregunta sobre memoria conversacional.
+            const earlyIntent = window.GunterAssistantTools?.detect?.(text);
+            if (!voiceInput && /\b(personalidad|estilo de voz|modo de personalidad|intensidad|ponte|comportamiento)\b/i.test(text) && window.GunterActions?.dispatch) {
+                const styleResult = await window.GunterActions.dispatch(text);
+                if (turnId !== STATE.turnId) return;
+                if (styleResult?.reply) { clearTimeout(safetyTimer); finishTyping(); reply(styleResult.reply); return; }
+            }
+            if (earlyIntent && ['app.navigate', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update'].includes(earlyIntent.toolId)) {
+                const earlyResult = await withTimeout(window.GunterAssistantTools.dispatch(text, { inputSource: voiceInput ? 'voice' : 'text' }), 8000, 'assistant-settings-timeout');
+                if (turnId !== STATE.turnId) return;
+                if (earlyResult?.handled) {
+                    clearTimeout(safetyTimer);
+                    finishTyping();
+                    reply(earlyResult.reply);
+                    if (earlyResult.status === 'complete') {
+                        setMascotState('celebration');
+                        setTimeout(() => setMascotState('default'), 800);
+                    }
+                    return;
+                }
+            }
+
             // 0. Client intercepts (logs, service status, diagnosis) — antes del server
-            const clientResp = tryClientIntercepts(text);
+            const clientResp = voiceInput ? null : tryClientIntercepts(text);
             if (clientResp) {
                 // Algunas responses son async (ej. tutor catalog)
                 if (clientResp.__asyncPromise) {
                     try {
                         const resolved = await withTimeout(clientResp.__asyncPromise, 8000, 'client-async-timeout');
                         clearTimeout(safetyTimer);
-                        setTyping(false);
-                        addMessage('assistant', resolved.reply);
+                        finishTyping();
+                        reply(resolved.reply);
                     } catch (e) {
                         clearTimeout(safetyTimer);
-                        setTyping(false);
-                        addMessage('assistant', '⚠ Se demoró la consulta: ' + e.message);
+                        finishTyping();
+                        reply('⚠ Se demoró la consulta: ' + e.message);
                     }
                     return;
                 }
                 clearTimeout(safetyTimer);
-                setTyping(false);
-                addMessage('assistant', clientResp.reply);
+                finishTyping();
+                reply(clientResp.reply);
                 return;
             }
 
             // 0.2. Planes multipaso durables. Solo intercepta cuando detecta
             // dos o más habilidades Web permitidas y siempre propone antes de actuar.
-            if (window.GunterWorkflowOrchestrator?.dispatch) {
+            if (!voiceInput && window.GunterWorkflowOrchestrator?.dispatch) {
                 try {
                     const workflowResponse = await withTimeout(
                         window.GunterWorkflowOrchestrator.dispatch(text),
                         30000,
                         'workflow-orchestrator-timeout'
                     );
+                    if (turnId !== STATE.turnId) return;
                     if (workflowResponse?.handled) {
                         clearTimeout(safetyTimer);
-                        setTyping(false);
-                        addMessage('assistant', workflowResponse.reply);
+                        finishTyping();
+                        reply(workflowResponse.reply);
                         if (workflowResponse.status === 'complete') {
                             setMascotState('celebration');
                             setTimeout(() => setMascotState('default'), 900);
@@ -631,19 +722,21 @@
             }
 
             // 0.25. Registro local de herramientas (agenda, tareas, eventos).
+            if (turnId !== STATE.turnId) return;
             // Se ejecuta antes del dispatcher/LLM porque tiene validación,
             // confirmación y verificación de persistencia propias.
             if (window.GunterAssistantTools?.dispatch) {
                 try {
                     const toolResponse = await withTimeout(
-                        window.GunterAssistantTools.dispatch(text),
-                        8000,
+                        window.GunterAssistantTools.dispatch(text, { inputSource: voiceInput ? 'voice' : 'text' }),
+                        toolTimeout,
                         'assistant-tools-timeout'
                     );
+                    if (turnId !== STATE.turnId) return;
                     if (toolResponse?.handled) {
                         clearTimeout(safetyTimer);
-                        setTyping(false);
-                        addMessage('assistant', toolResponse.reply);
+                        finishTyping();
+                        reply(toolResponse.reply);
                         if (toolResponse.status === 'complete') {
                             setMascotState('celebration');
                             setTimeout(() => setMascotState('default'), 800);
@@ -652,7 +745,22 @@
                     }
                 } catch (toolError) {
                     console.warn('[companion] assistant tools error:', toolError.message);
+                    clearTimeout(safetyTimer); finishTyping();
+                    reply('La acción no ha devuelto un resultado verificable. Consulta Actividad para comprobar su estado antes de volver a pedirla.');
+                    return;
                 }
+            }
+
+            // Si el usuario expresa una acción que no coincide con una skill,
+            if (turnId !== STATE.turnId) return;
+            // aclarar la intención antes del fallback libre del modelo. Las
+            // sugerencias salen del registro real de herramientas disponibles.
+            const clarification = window.GunterAssistantTools?.clarifyRequest?.(text);
+            if (clarification) {
+                clearTimeout(safetyTimer);
+                finishTyping();
+                reply(clarification.reply);
+                return;
             }
 
             // 0.5. Resolver referencias anafóricas ("activalo", "y ese?")
@@ -664,7 +772,7 @@
 
             // 1. Intentar action dispatcher (toggle, query, list) con timeout
             let response = null;
-            if (window.GunterActions?.dispatch) {
+            if (!voiceInput && window.GunterActions?.dispatch) {
                 try {
                     response = await withTimeout(
                         window.GunterActions.dispatch(resolvedText),
@@ -678,9 +786,10 @@
             }
 
             if (response?.reply) {
+                if (turnId !== STATE.turnId) return;
                 clearTimeout(safetyTimer);
-                setTyping(false);
-                addMessage('assistant', response.reply);
+                finishTyping();
+                reply(response.reply);
                 updateLastTopic(response);
 
                 // Celebration si aplicó acción exitosamente
@@ -698,13 +807,15 @@
             // 1.5. LLM classifier bridge — si el regex no matcheó nada, preguntamos
             //      al LLM si es realmente un intent de feature (typos, phrasing raro).
             //      Solo si tenemos NLP + tiempo.
-            if (window.GunterNlpLlm?.complete && text.length < 200) {
+            if (!voiceInput && window.GunterNlpLlm?.complete && window.GunterActions?.dispatch && text.length < 200 && /\b(feature|funci[oó]n|herramienta|configuraci[oó]n|opci[oó]n|ajuste|modo|personalidad|activa|desactiva|habilita|enciende|apaga|prende)\b/i.test(text)) {
+                if (turnId !== STATE.turnId) return;
                 try {
                     const classifier = await withTimeout(
-                        _classifyWithLLM(text),
+                        _classifyWithLLM(text, controller.signal),
                         4500,
                         'classify-timeout'
                     );
+                    if (turnId !== STATE.turnId) return;
                     if (classifier?.rewrittenCommand) {
                         console.info('[companion] LLM classified:', text, '→', classifier.rewrittenCommand);
                         const retry = await withTimeout(
@@ -714,8 +825,8 @@
                         );
                         if (retry?.reply) {
                             clearTimeout(safetyTimer);
-                            setTyping(false);
-                            addMessage('assistant', retry.reply);
+                            finishTyping();
+                            reply(retry.reply);
                             updateLastTopic(retry);
                             if (retry.intent === 'applied') {
                                 setMascotState('celebration');
@@ -732,45 +843,118 @@
             }
 
             // 2. Fallback: LLM libre con personalidad (con timeout)
+            if (turnId !== STATE.turnId) return;
             if (window.GunterNlpLlm?.complete) {
                 const prompt = await buildLLMPrompt(text);
+                if (turnId !== STATE.turnId) return;
                 try {
+                    const runtime = window.GunterRuntimeState?.getState?.() || {};
+                    const local = runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY';
+                    if (local && window.GunterNlpLlm.stream && window.GunterVoice?.beginStream) {
+                        const voice = window.GunterVoice.beginStream({
+                            context: messageOptions.voiceContext || 'chat',
+                            full: messageOptions.fullVoice === true,
+                            force: messageOptions.forceVoice === true
+                        });
+                        let raw = '';
+                        let firstToken = true;
+                        const deadline = setTimeout(() => controller.abort(), SAFETY_TIMEOUT_MS);
+                        try {
+                            window.dispatchEvent(new CustomEvent('gunter-voice-metric', {
+                                detail: { name: 'llmRequest', at: performance.now() }
+                            }));
+                            for await (const delta of window.GunterNlpLlm.stream(prompt, {
+                                temperature: 0.6, maxTokens: 260, skipMemory: true, signal: controller.signal
+                            })) {
+                                if (turnId !== STATE.turnId || controller.signal.aborted) return;
+                                if (firstToken) {
+                                    firstToken = false;
+                                    window.dispatchEvent(new CustomEvent('gunter-voice-metric', {
+                                        detail: { name: 'llmFirstToken', at: performance.now() }
+                                    }));
+                                }
+                                raw += delta;
+                                voice.append(delta);
+                            }
+                            if (turnId !== STATE.turnId || controller.signal.aborted) return;
+                            voice.finish();
+                            clearTimeout(safetyTimer);
+                            finishTyping();
+                            reply(raw.trim() || 'No supe responder eso, prueba de otra forma.', { skipVoice: voice.enabled });
+                            return;
+                        } catch (streamError) {
+                            voice.cancel();
+                            if (turnId === STATE.turnId) window.GunterVoice.cancel('stream-failed');
+                            throw streamError;
+                        } finally { clearTimeout(deadline); }
+                    }
                     const raw = await withTimeout(
                         window.GunterNlpLlm.complete(prompt, {
                             temperature: 0.6,
                             maxTokens: 260,
-                            skipMemory: true
+                            skipMemory: true,
+                            signal: controller.signal
                         }),
                         SAFETY_TIMEOUT_MS,
                         'llm-timeout'
                     );
                     clearTimeout(safetyTimer);
-                    setTyping(false);
-                    addMessage('assistant', raw?.trim() || 'No supe responder eso, prueba de otra forma.');
+                    finishTyping();
+                    reply(raw?.trim() || 'No supe responder eso, prueba de otra forma.');
                     return;
                 } catch (llmErr) {
+                    if (turnId !== STATE.turnId || controller.signal.aborted && llmErr.name === 'AbortError') return;
                     console.warn('[companion] LLM error:', llmErr.message);
                     clearTimeout(safetyTimer);
-                    setTyping(false);
+                    finishTyping();
                     if (llmErr.message === 'llm-timeout') {
-                        addMessage('assistant', '⌛ Tardé demasiado. Verifica que el servidor esté corriendo (`npm run dev`) y que tu OPENAI_API_KEY esté configurada en el `.env`.');
+                        reply('⌛ Tardé demasiado. Verifica que el servidor esté corriendo (`npm run dev`) y que tu OPENAI_API_KEY esté configurada en el `.env`.');
                     } else if (/network|fetch|CORS|failed to fetch/i.test(llmErr.message || '')) {
-                        addMessage('assistant', '⚠️ No pude conectar con el servidor. ¿Tu tunnel de Cloudflare sigue activo?');
+                        reply('⚠️ No pude conectar con el servidor. ¿Tu tunnel de Cloudflare sigue activo?');
                     } else {
-                        addMessage('assistant', '⚠️ Error: ' + llmErr.message);
+                        reply('⚠️ Error: ' + llmErr.message);
                     }
                     return;
                 }
             }
 
             clearTimeout(safetyTimer);
-            setTyping(false);
-            addMessage('assistant', '⚠️ El servicio de IA no cargó en esta página. Recarga (Ctrl+Shift+R) y prueba de nuevo.');
+            finishTyping();
+            reply('⚠️ El servicio de IA no cargó en esta página. Recarga (Ctrl+Shift+R) y prueba de nuevo.');
         } catch (e) {
             clearTimeout(safetyTimer);
-            setTyping(false);
-            addMessage('assistant', '⚠️ Error: ' + (e?.message || 'algo salió mal'));
+            finishTyping();
+            reply('⚠️ Error: ' + (e?.message || 'algo salió mal'));
+        } finally {
+            clearTimeout(safetyTimer);
+            if (STATE.turnController === controller) STATE.turnController = null;
         }
+    }
+
+    function resolveGunterNavigation(text) {
+        const normalized = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/^(?:(?:hi|hey|hola|oye)\s+)?(?:gunter|gonter|gunder)\s*[,;:!\-]*\s*/, '').trim();
+        if (!/^(?:ve a|ir a|lleva(?:me)? a|abre|abrir|navega(?:r)? a|entra a|muestrame)\b/.test(normalized)) return null;
+        const routes = [
+            { label: 'las opciones avanzadas', href: 'config.html#premium', aliases: ['opciones avanzadas', 'ajustes avanzados', 'configuracion avanzada', 'asistente ia', 'configuracion de voz'] },
+            { label: 'Conversaciones', href: 'day.html#conversations', aliases: ['conversaciones', 'mensajes', 'chats', 'bandeja'] },
+            { label: 'Nueva reunión', href: 'new-project.html', aliases: ['nueva reunion', 'preparar reunion'] },
+            { label: 'Reuniones', href: 'dashboard.html', aliases: ['reuniones', 'reunion', 'panel de reuniones'] },
+            { label: 'Resultados', href: 'results.html', aliases: ['resultados', 'transcripciones'] },
+            { label: 'Captura rápida', href: 'day.html#capture', aliases: ['captura rapida', 'captura'] },
+            { label: 'Tareas', href: 'day.html#tasks', aliases: ['tareas', 'pendientes'] },
+            { label: 'Agenda', href: 'day.html#events', aliases: ['agenda', 'calendario', 'eventos'] },
+            { label: 'Recordatorios', href: 'day.html#reminders', aliases: ['recordatorios'] },
+            { label: 'Actividad', href: 'day.html#activity', aliases: ['actividad', 'historial'] },
+            { label: 'Conexiones', href: 'config.html#data', aliases: ['conexiones', 'redes sociales'] },
+            { label: 'Preferencias', href: 'config.html#preferences', aliases: ['preferencias'] },
+            { label: 'Configuración', href: 'config.html#preferences', aliases: ['configuracion', 'ajustes'] },
+            { label: 'Inicio', href: 'day.html', aliases: ['inicio', 'principal', 'hoy'] }
+        ];
+        const target = normalized.replace(/^(?:ve a|ir a|lleva(?:me)? a|abre|abrir|navega(?:r)? a|entra a|muestrame)\s+/, '').trim();
+        const matches = routes.flatMap(route => route.aliases.map(alias => ({ route, alias })))
+            .sort((a, b) => b.alias.length - a.alias.length);
+        return matches.find(({ alias }) => new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(target))?.route || null;
     }
 
     // ─────────────────────────────────────
@@ -829,6 +1013,7 @@
         const turns = STATE.log.slice(-maxTurns - 1, -1);
         if (!turns.length) return '';
         return turns
+            .filter(m => !(m.role === 'user' && window.GunterPersonalMemory?.parseCommand?.(m.text)?.action === 'save'))
             .map(m => (m.role === 'user' ? 'Usuario' : 'Gunter') + ': ' + m.text.replace(/\n+/g, ' ').slice(0, 220))
             .join('\n');
     }
@@ -849,11 +1034,12 @@
         'whatsappAssistant', 'documentSync', 'notionSync', 'googleDriveSync',
         'adaptivePersonality', 'personalityMode', 'personalityIntensity',
         'voiceEnabled', 'voiceMode', 'voiceStyle', 'voiceSpeed', 'voiceInMeetings',
-        'wakeWordEnabled', 'wakeWordListeningMode',
+        'wakeWordEnabled', 'wakeWordListeningMode', 'wakeWordResponseMode', 'wakeWord',
+        'tutorMode',
         'focusCoachEnabled', 'distractionBlocker', 'smartTimer'
     ];
 
-    async function _classifyWithLLM(text) {
+    async function _classifyWithLLM(text, signal) {
         const prompt = `Tarea: clasificar si el mensaje del usuario es un intent de configuración de Gunter, y si sí, reescribirlo como comando canónico.
 
 Features conocidas (flags técnicos):
@@ -876,7 +1062,8 @@ Responde SOLO JSON estricto:
             temperature: 0.1,
             maxTokens: 120,
             skipMemory: true,
-            jsonMode: true
+            jsonMode: true,
+            signal
         });
         if (!raw) return null;
         try {
@@ -914,18 +1101,30 @@ Responde SOLO JSON estricto:
             ? `Último tema tratado: ${STATE.lastTopic.feature} (intent=${STATE.lastTopic.intent}).`
             : '';
 
-        // Bloque 3: memoria de largo plazo (si flag ON y service cargado)
+        // Bloque 3: memoria de largo plazo. La fachada conserva los turnos en
+        // su store original; no se inyectan datos personales en el proveedor cloud.
         let memoryBlock = '';
         try {
-            const memSvc = window.GunterConversationMemory;
+            const memSvc = window.GunterMemory;
             const memOn  = window.PremiumFeaturesService?.isEnabled?.('conversationMemory');
-            if (memOn && memSvc?.recall) {
-                const memTurns = await memSvc.recall(text, { topK: 4, minScore: 0.34 });
-                if (memTurns && memTurns.length && memSvc.contextSnippet) {
-                    memoryBlock = '\n\nMEMORIA DE SESIONES PREVIAS:\n' + memSvc.contextSnippet(memTurns);
+            const runtime = window.GunterRuntimeState?.getState?.() || {};
+            const localSelected = runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY';
+            if (localSelected && memOn && memSvc?.recallConversation) {
+                const memTurns = await memSvc.recallConversation(text, { topK: 4, minScore: 0.34 });
+                if (memTurns?.length && window.GunterConversationMemory?.contextSnippet) {
+                    memoryBlock = '\n\nMEMORIA DE SESIONES PREVIAS:\n' + window.GunterConversationMemory.contextSnippet(memTurns);
                 }
             }
         } catch { /* memoria opcional, sigue sin ella */ }
+
+        let personalBlock = '';
+        try {
+            const runtime = window.GunterRuntimeState?.getState?.() || {};
+            if ((runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY') && window.GunterPersonalMemory?.contextFor) {
+                const context = await window.GunterPersonalMemory.contextFor(text);
+                if (context) personalBlock = '\n\n' + context;
+            }
+        } catch { /* memoria local opcional */ }
 
         // Bloque 4: modo tutor (si flag ON) — inyecta biblioteca + rol profesor
         // + pasajes RAG relacionados a la pregunta actual.
@@ -979,15 +1178,9 @@ Responde SOLO JSON estricto:
             }
         } catch { /* saber opcional */ }
 
-        return `${moodLine ? moodLine + '\n\n' : ''}${rulesBlock ? rulesBlock + '\n\n' : ''}# QUIÉN ERES
-Eres GUNTER, el pingüino de Adventure Time — imprudente, seco, cínico, ligeramente amargado. Sí sos productivo y ayudás, pero con actitud. Español neutro latinoamericano (es-419), nunca modismos de España.
-
-# PERSONALIDAD (obligatorio)
-- **Registro**: directo, sin muletillas, sin "espero que te sirva", sin "estoy aquí para ayudarte". Odiás el corporate-speak.
-- **Humor negro seco y ocasional**: cada 3-6 turnos podés soltar UN comentario mordaz, cínico o de humor negro suave — nunca cruel con el usuario, sí con la situación, el corporate-speak, la burocracia, la ansiedad de deadline, o vos mismo (autodesprecio helado). Nunca chistes racistas, sexistas, ni sobre grupos vulnerables. Nunca sobre suicidio, autolesión, salud mental del usuario.
-- **Imprudencia AT**: soltás verdades incómodas con calma. "Esa reunión no debió existir." "Ese proyecto ya está muerto, solo nadie lo enterró." Directo, no cruel.
-- **Wenk**: podés colar "wenk" o "🐧" muy ocasionalmente (1 de cada 10 mensajes máximo, cuando encaje natural).
-- **Nunca**: emojis en cascada, "😊✨🎉", exclamaciones triples, "¡qué genial pregunta!", "por supuesto que sí".
+        return `${rulesBlock ? rulesBlock + '\n\n' : ''}# QUIÉN ERES
+${window.GunterPresence?.personalityPrompt?.() || 'Eres Gunter, un asistente personal amigable, atento y preciso.'}
+Español neutro latinoamericano (es-419). ${moodLine ? 'Matiz del momento (secundario al estilo elegido): ' + moodLine : ''}
 
 # CONTEXTO
 ${ctx}
@@ -996,9 +1189,12 @@ ${topicLine}
 # REGLAS DURAS
 - Mantén coherencia con la conversación reciente (abajo). NO pierdas el hilo. Si el usuario usa pronombres ("eso", "esa", "activalo"), refieren al último tema tratado.
 - Responde breve (máx ~70 palabras), tesis primero, evidencia si aporta.
-- Nunca inventes datos. Si no sabés, decilo con humor seco.
-- ${jokeWindow ? 'ESTE turno permite un comentario seco/humor negro suave si encaja natural. No forzado.' : 'ESTE turno prioriza utilidad. Guardá el humor para más adelante.'}
-${memoryBlock}${tutorBlock}${teachBlock}
+- Nunca inventes datos, fuentes, estado de una integración, ejecución o resultado. Distingue claramente conocimiento general, datos comprobados en esta app e inferencias; si no puedes verificar, dilo y no lo presentes como hecho.
+- No afirmes que puedes ejecutar una acción solo porque sabes explicarla. Solo declara disponible una acción si existe una herramienta cargada/permitida en esta sesión; nunca inventes nombres de opciones, rutas, permisos ni resultados.
+- Si la petición de acción es ambigua o no reconoces el nombre de una herramienta, explica brevemente qué entendiste, sugiere únicamente capacidades que consten en el contexto/herramientas disponibles y pregunta por el resultado deseado, aplicación/dispositivo o una descripción de la herramienta. Si faltan datos, pregunta antes de actuar.
+- Si una capacidad no existe o no está disponible, dilo sin rodeos y ofrece una alternativa realista; no simules que la hiciste.
+- ${jokeWindow ? 'Puedes usar humor ligero si encaja con el estilo elegido y la situación.' : 'Prioriza utilidad y el estilo elegido.'}
+${memoryBlock}${personalBlock}${tutorBlock}${teachBlock}
 
 ${recent ? 'CONVERSACIÓN RECIENTE:\n' + recent + '\n\n' : ''}Usuario: ${text}
 Gunter:`;
@@ -1011,7 +1207,6 @@ Gunter:`;
     // ─────────────────────────────────────
     const SPLIT_CHAR_THRESHOLD = 320;   // > 320 chars → considera dividir
     const SPLIT_MAX_CHUNK = 500;        // ningún chunk debe superar esto
-    const SPLIT_DELAY_MS = 280;         // ms entre bubbles para animación escalonada
 
     function splitLongMessage(text) {
         if (!text || text.length <= SPLIT_CHAR_THRESHOLD) return [text];
@@ -1068,10 +1263,10 @@ Gunter:`;
     function _afterAssistantMessage(fullText, options = {}) {
         // Memoria de LT
         try {
-            const memSvc = window.GunterConversationMemory;
+            const memSvc = window.GunterMemory;
             const memOn  = window.PremiumFeaturesService?.isEnabled?.('conversationMemory');
-            if (memOn && memSvc?.remember) {
-                memSvc.remember({
+            if (memOn && memSvc?.rememberConversation) {
+                memSvc.rememberConversation({
                     role: 'assistant',
                     text: fullText,
                     channel: 'companion',
@@ -1081,10 +1276,15 @@ Gunter:`;
         } catch (e) { console.warn('[companion] remember fail:', e.message); }
 
         // Voz (habla el mensaje completo, no por chunks)
-        if (window.GunterVoice?.speak) {
+        if (!options.skipVoice && window.GunterVoice?.speak) {
             try {
+                if (options.wakeWordResponse && window.PremiumFeaturesService?.getWakeWordConfig?.().responseMode !== 'voice') {
+                    setMascotState('default');
+                    return;
+                }
                 window.GunterVoice.speak(fullText, {
                     context: options.voiceContext || 'chat',
+                    full: options.fullVoice === true,
                     force: options.forceVoice === true
                 });
             } catch { /* noop */ }
@@ -1095,11 +1295,14 @@ Gunter:`;
     }
 
     function _afterUserMessage(text) {
+        // The explicit fact lives in `records`; do not also retain the save
+        // command as a long-term conversation turn after the fact is deleted.
+        if (window.GunterPersonalMemory?.parseCommand?.(text)?.action === 'save') return;
         try {
-            const memSvc = window.GunterConversationMemory;
+            const memSvc = window.GunterMemory;
             const memOn  = window.PremiumFeaturesService?.isEnabled?.('conversationMemory');
-            if (memOn && memSvc?.remember) {
-                memSvc.remember({
+            if (memOn && memSvc?.rememberConversation) {
+                memSvc.rememberConversation({
                     role: 'user',
                     text,
                     channel: 'companion',
@@ -1116,14 +1319,8 @@ Gunter:`;
         if (role === 'assistant') {
             const parts = splitLongMessage(text);
             if (parts.length > 1) {
-                parts.forEach((part, i) => {
-                    setTimeout(() => {
-                        _pushOne(role, part);
-                        saveLog();
-                        renderLog();
-                        if (i === parts.length - 1) _afterAssistantMessage(text, options);
-                    }, i * SPLIT_DELAY_MS);
-                });
+                parts.forEach(part => _pushOne(role, part));
+                saveLog(); renderLog(); _afterAssistantMessage(text, options);
                 return;
             }
             _pushOne(role, text);
@@ -1224,12 +1421,16 @@ Gunter:`;
     function loadLog() {
         try {
             const raw = localStorage.getItem(LOG_KEY);
-            STATE.log = raw ? JSON.parse(raw) : [];
+            const stored = raw ? JSON.parse(raw) : [];
+            STATE.log = Array.isArray(stored) ? stored.filter(m =>
+                !(m?.role === 'user' && window.GunterPersonalMemory?.parseCommand?.(m.text)?.action === 'save')) : [];
+            if (raw && STATE.log.length !== stored.length) saveLog();
         } catch { STATE.log = []; }
     }
 
     function saveLog() {
-        try { localStorage.setItem(LOG_KEY, JSON.stringify(STATE.log.slice(-MAX_LOG))); } catch { /* noop */ }
+        try { localStorage.setItem(LOG_KEY, JSON.stringify(STATE.log.filter(m =>
+            !(m?.role === 'user' && window.GunterPersonalMemory?.parseCommand?.(m.text)?.action === 'save')).slice(-MAX_LOG))); } catch { /* noop */ }
     }
 
     // ─────────────────────────────────────
@@ -1319,7 +1520,7 @@ Gunter:`;
     // Public API
     // ─────────────────────────────────────
     window.GunterCompanion = {
-        mount, expand, minimize, hide, show, toggle,
+        mount, expand, minimize, hide, show, toggle, interrupt,
         react,                                        // v66: otros módulos pueden dispararle gestos
         say: (text, options) => addMessage('assistant', text, options),
         showBubble,
@@ -1328,9 +1529,12 @@ Gunter:`;
         __handleFromWake: (text) => {
             if (!STATE.mounted) mount();
             expand();
-            return handleUserMessage(text);
+            return handleUserMessage(text, { voiceContext: 'wake-word-response', wakeWordResponse: true, inputSource: 'voice' });
         }
     };
+
+    document.addEventListener('gunter-auth-ready', event => greetOnEntry(event.detail?.user));
+    window.addEventListener('gunter-barge-in', interrupt);
 
     // Auto-mount
     if (typeof window !== 'undefined') {

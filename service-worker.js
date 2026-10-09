@@ -11,7 +11,7 @@
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = "v104-native-apns-20260925";
+const SW_VERSION = "v114-conversational-task-cancel-20261009";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;
@@ -44,6 +44,9 @@ const PRECACHE_URLS = [
     '/styles/pages/control-plane.css',
     '/styles/pages/activity.css',
     '/js/services/control-plane-service.js',
+    '/js/services/data-repository.js',
+    '/js/services/gunter-memory.js',
+    '/js/services/personal-memory-service.js',
     '/js/services/connection-manager.js',
     '/js/services/web-node-runtime.js'
     ,'/js/controllers/activity-panel.js'

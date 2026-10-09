@@ -127,7 +127,7 @@
      */
     function detectInvocation(raw) {
         if (window.GunterWakeInvocation?.detect) {
-            return window.GunterWakeInvocation.detect(raw);
+            return window.GunterWakeInvocation.detect(raw, { wakeWord: getConfig().wakeWord });
         }
         if (!raw) return null;
         const norm = raw.toLowerCase()
@@ -185,6 +185,14 @@
     }
 
     async function start(fromUserGesture = false) {
+        const hybrid = window.GunterRuntimeState?.getState?.() || {};
+        if (hybrid.loaded !== true) return;
+        if (hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY') {
+            // Browser SpeechRecognition may use a remote service. Never enable it
+            // while the user has selected an exclusively local STT route.
+            window.GunterNotificationsService?.showToast?.('En modo local usa el botón Hablar: pulsa para grabar y vuelve a pulsar para transcribir con Moonshine.', { variant: 'info' });
+            return;
+        }
         const cfg = getConfig();
         if (!cfg.enabled) { setIndicator('off', ''); return; }
         if (running) return;
@@ -253,7 +261,7 @@
                 // Barge-in: si Gunter está hablando y entra voz humana que no
                 // coincide con su propio TTS, detenemos la respuesta y damos
                 // prioridad inmediata al usuario.
-                if (last.isFinal && window.GunterVoice?.isSpeaking?.()) {
+                if (window.GunterVoice?.isSpeaking?.() && (last.isFinal || invocation || bestText.trim().split(/\s+/).length >= 3 || /^(para|detente|silencio|espera)$/i.test(bestText))) {
                     if (window.GunterVoice.isLikelyEcho?.(bestText)) return;
                     window.GunterVoice.cancel?.('barge-in');
                     try {
@@ -265,6 +273,7 @@
                     mode = 'query';
                     setIndicator('query', '🎤 Interrupción detectada…');
                     notifyState();
+                    if (!last.isFinal) return;
                     if (interruptedCommand) handleQuery(interruptedCommand);
                     else enterQueryMode(invocation);
                     return;
@@ -374,6 +383,11 @@
         return arr[Math.floor(Math.random() * arr.length)];
     }
 
+    function canSpeakWakeReply(context = 'wake-word-response') {
+        const cfg = getConfig();
+        return cfg.responseMode === 'voice' && !!window.GunterVoice?.shouldSpeak?.(context);
+    }
+
     function enterQueryMode(invocation = null) {
         mode = 'query';
         lastInvocation = invocation;
@@ -386,13 +400,14 @@
         // sólo cambia el indicador visual.
         try {
             const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
-            if (meetingActive) {
+            const context = meetingActive ? 'meeting' : 'wake-word-feedback';
+            if (!canSpeakWakeReply(context)) {
                 // Solo visual; no hablar feedback durante grabación
             } else {
                 const feedback = pickWakeFeedback(invocation);
                 if (window.GunterVoice?.speak) {
                     // 'wake-word-feedback' tiene límite ultra-corto (80 chars)
-                    window.GunterVoice.speak(feedback, { context: 'wake-word-feedback', force: true, volume: 0.85 });
+                    window.GunterVoice.speak(feedback, { context: 'wake-word-feedback', volume: 0.85 });
                 } else if ('speechSynthesis' in window) {
                     const u = new SpeechSynthesisUtterance(feedback);
                     u.lang = 'es-MX'; u.volume = 0.4; u.rate = 1.15;
@@ -419,6 +434,10 @@
     }
 
     function ensureAssistantOpen() {
+        if (window.GunterCompanion?.expand) {
+            window.GunterCompanion.expand();
+            return;
+        }
         if (!window.GunterAssistantController) return;
         if (!document.querySelector('.gn-assistant')) {
             window.GunterAssistantController.mount();
@@ -428,6 +447,8 @@
     }
 
     async function handleQuery(transcript) {
+        window.GunterCompanion?.interrupt?.();
+        if (/^(para|detente|silencio|espera)[.!]?$/i.test(String(transcript).trim())) { setIndicator('query', 'Te escucho…'); return; }
         const cfg = getConfig();
         if (queryTimeout) { clearTimeout(queryTimeout); queryTimeout = null; }
         mode = 'wake';
@@ -439,6 +460,73 @@
         console.log('[wake-word] 💬 Procesando:', text);
         window.GunterConversationState?.transition?.('thinking', { reason: 'voice-query', transcript: text });
 
+        // One shared conversational turn for both inputs: cancellation, tools,
+        // confirmations and personality must not diverge between voice and text.
+        if (window.GunterCompanion?.__handleFromWake) {
+            ensureAssistantOpen();
+            await window.GunterCompanion.__handleFromWake(text);
+            return;
+        }
+
+        // Fail closed: legacy fallbacks below do not preserve voice provenance
+        // through every settings/action path. They must never turn STT output
+        // into an implicit authorization when the guarded companion is absent.
+        ensureAssistantOpen();
+        window.GunterVoice?.speak?.('El chat seguro no está disponible en esta página. Abre el asistente y vuelve a intentarlo.',
+            { context: 'wake-word-response' });
+        return;
+
+        const voiceDestination = resolveVoiceNavigation(text);
+        if (voiceDestination) {
+            const context = window.GunterVoice?.isMeetingActive?.() ? 'meeting' : 'wake-word-response';
+            ensureAssistantOpen();
+            if (window.GunterCompanion?.say) window.GunterCompanion.say(`Abriendo ${voiceDestination.label}.`, { voiceContext: context, wakeWordResponse: true });
+            window.location.assign(voiceDestination.href);
+            return;
+        }
+
+        // Mantén idéntica la prioridad del chat de texto: settings y navegación
+        // no deben quedar ocultos por el dispatcher legado de flags/features.
+        const earlyIntent = window.GunterAssistantTools?.detect?.(text);
+        if (/\b(personalidad|estilo de voz|modo de personalidad|intensidad|ponte|comportamiento)\b/i.test(text) && window.GunterCompanion?.__handleFromWake) {
+            await window.GunterCompanion.__handleFromWake(text);
+            return;
+        }
+        if (earlyIntent && ['app.navigate', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update'].includes(earlyIntent.toolId)) {
+            try {
+                const result = await window.GunterAssistantTools.dispatch(text);
+                if (result?.handled) {
+                    const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
+                    const context = meetingActive ? 'meeting' : 'wake-word-response';
+                    ensureAssistantOpen();
+                    if (window.GunterCompanion?.say) window.GunterCompanion.say(result.reply, { voiceContext: context, wakeWordResponse: true });
+                    else if (canSpeakWakeReply(context)) window.GunterVoice?.speak?.(result.reply, { context });
+                    return;
+                }
+            } catch (error) { console.warn('[wake-word] priority settings error:', error); }
+        }
+
+        // La misma matriz de ajustes conversacionales que usa el chat aplica
+        // también a la ruta de voz del pipeline en Inicio.
+        if (window.GunterActions?.dispatch) {
+            try {
+                const action = await window.GunterActions.dispatch(text);
+                if (action?.reply) {
+                    const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
+                    const context = meetingActive ? 'meeting' : 'wake-word-response';
+                    ensureAssistantOpen();
+                    if (window.GunterCompanion?.say) {
+                        window.GunterCompanion.say(action.reply, { voiceContext: context, wakeWordResponse: true });
+                    } else if (canSpeakWakeReply(context)) {
+                        window.GunterVoice?.speak?.(action.reply, { context });
+                    }
+                    return;
+                }
+            } catch (error) {
+                console.warn('[wake-word] settings action error:', error);
+            }
+        }
+
         // Herramientas locales allowlist: agenda, tareas y eventos. Esta ruta
         // conserva confirmaciones entre turnos y verifica la persistencia real.
         if (window.GunterAssistantTools?.dispatch) {
@@ -449,19 +537,28 @@
                     const speechContext = meetingActive ? 'meeting' : 'wake-word-response';
                     ensureAssistantOpen();
                     if (window.GunterCompanion?.say) {
-                        window.GunterCompanion.expand?.();
-                        window.GunterCompanion.say(toolResult.reply, {
-                            voiceContext: speechContext,
-                            forceVoice: !meetingActive
-                        });
-                    } else if (window.GunterVoice?.speak) {
-                        window.GunterVoice.speak(toolResult.reply, { context: speechContext, force: !meetingActive });
+                        window.GunterCompanion.say(toolResult.reply, { voiceContext: speechContext, wakeWordResponse: true });
+                    } else if (canSpeakWakeReply(speechContext)) {
+                        window.GunterVoice?.speak?.(toolResult.reply, { context: speechContext });
                     }
                     return;
                 }
             } catch (error) {
                 console.error('[wake-word] assistant tool error:', error);
             }
+        }
+
+        const clarification = window.GunterAssistantTools?.clarifyRequest?.(text);
+        if (clarification) {
+            const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
+            const speechContext = meetingActive ? 'meeting' : 'wake-word-response';
+            ensureAssistantOpen();
+            if (window.GunterCompanion?.say) {
+                window.GunterCompanion.say(clarification.reply, { voiceContext: speechContext, wakeWordResponse: true });
+            } else if (canSpeakWakeReply(speechContext)) {
+                window.GunterVoice?.speak?.(clarification.reply, { context: speechContext });
+            }
+            return;
         }
 
         // Fecha/hora nunca se delegan al LLM: salen del reloj y timezone reales.
@@ -474,19 +571,16 @@
             const speechContext = meetingActive ? 'meeting' : 'wake-word-response';
             ensureAssistantOpen();
             if (window.GunterCompanion?.say) {
-                window.GunterCompanion.expand?.();
-                window.GunterCompanion.say(temporal.reply, {
-                    voiceContext: speechContext,
-                    forceVoice: !meetingActive
-                });
-            } else if (window.GunterVoice?.speak) {
-                window.GunterVoice.speak(temporal.reply, { context: speechContext, force: !meetingActive });
+                window.GunterCompanion.say(temporal.reply, { voiceContext: speechContext, wakeWordResponse: true });
+            } else if (canSpeakWakeReply(speechContext)) {
+                window.GunterVoice?.speak?.(temporal.reply, { context: speechContext });
             }
             return;
         }
 
         // v2 (F1) — registrar lo dicho al wake en LTM (canal 'wake')
-        if (window.GunterConversationMemory?.remember) {
+        if (window.GunterConversationMemory?.remember &&
+            window.GunterPersonalMemory?.parseCommand?.(text)?.action !== 'save') {
             try {
                 window.GunterConversationMemory.remember({
                     role: 'user',
@@ -507,11 +601,12 @@
             try {
                 const result = await window.GunterPipeline.handleUserInput(text);
                 const reply = result?.response?.speech || 'Listo.';
-                if (window.GunterVoice?.speak) {
-                    const force = !meetingActive;
-                    window.GunterVoice.speak(reply, { context: speechContext, force });
-                }
                 ensureAssistantOpen();
+                if (window.GunterCompanion?.say) {
+                    window.GunterCompanion.say(reply, { voiceContext: speechContext, wakeWordResponse: true });
+                } else if (canSpeakWakeReply(speechContext)) {
+                    window.GunterVoice?.speak?.(reply, { context: speechContext });
+                }
                 return;
             } catch (e) {
                 console.error('[wake-word] pipeline error:', e);
@@ -539,6 +634,31 @@
                 console.error('[wake-word] companion route error:', e);
             }
         }
+    }
+
+    function resolveVoiceNavigation(text) {
+        const normalized = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/^(?:(?:hi|hey|hola|oye)\s+)?(?:gunter|gonter|gunder)\s*[,;:!\-]*\s*/, '').trim();
+        if (!/^(?:ve a|ir a|lleva(?:me)? a|abre|abrir|navega(?:r)? a|entra a|muestrame)\b/.test(normalized)) return null;
+        const routes = [
+            { label: 'las opciones avanzadas', href: 'config.html#premium', aliases: ['opciones avanzadas', 'ajustes avanzados', 'configuracion avanzada', 'asistente ia', 'configuracion de voz'] },
+            { label: 'Conversaciones', href: 'day.html#conversations', aliases: ['conversaciones', 'mensajes', 'chats', 'bandeja'] },
+            { label: 'Nueva reunión', href: 'new-project.html', aliases: ['nueva reunion', 'preparar reunion'] },
+            { label: 'Reuniones', href: 'dashboard.html', aliases: ['reuniones', 'reunion', 'panel de reuniones'] },
+            { label: 'Resultados', href: 'results.html', aliases: ['resultados', 'transcripciones'] },
+            { label: 'Captura rápida', href: 'day.html#capture', aliases: ['captura rapida', 'captura'] },
+            { label: 'Tareas', href: 'day.html#tasks', aliases: ['tareas', 'pendientes'] },
+            { label: 'Agenda', href: 'day.html#events', aliases: ['agenda', 'calendario', 'eventos'] },
+            { label: 'Recordatorios', href: 'day.html#reminders', aliases: ['recordatorios'] },
+            { label: 'Actividad', href: 'day.html#activity', aliases: ['actividad', 'historial'] },
+            { label: 'Conexiones', href: 'config.html#data', aliases: ['conexiones', 'redes sociales'] },
+            { label: 'Preferencias', href: 'config.html#preferences', aliases: ['preferencias'] },
+            { label: 'Configuración', href: 'config.html#preferences', aliases: ['configuracion', 'ajustes'] },
+            { label: 'Inicio', href: 'day.html', aliases: ['inicio', 'principal', 'hoy'] }
+        ];
+        const target = normalized.replace(/^(?:ve a|ir a|lleva(?:me)? a|abre|abrir|navega(?:r)? a|entra a|muestrame)\s+/, '').trim();
+        const matches = routes.flatMap(route => route.aliases.map(alias => ({ route, alias })).sort((a, b) => b.alias.length - a.alias.length));
+        return matches.find(({ alias }) => new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(target))?.route || null;
     }
 
     const listeners = new Set();
@@ -580,6 +700,10 @@
 
     window.addEventListener('gunterPremiumFeaturesChange', (e) => {
         if (e.detail?.key === 'wakeWordEnabled' || e.detail?.key === null) refresh();
+    });
+    window.addEventListener('gunter-hybrid-state', event => {
+        const hybrid = event.detail || {};
+        if (hybrid.loaded !== true || hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY') stop();
     });
 
     window.addEventListener('gunter-vad-state', event => {

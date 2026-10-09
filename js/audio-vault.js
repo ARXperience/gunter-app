@@ -139,13 +139,7 @@
         form.append('language', language);
         form.append('response_format', 'json');
 
-        const resp = await fetch(whisperUrl, { method: 'POST', body: form });
-        if (!resp.ok) {
-            const txt = await resp.text().catch(() => '');
-            throw new Error(`Whisper HTTP ${resp.status}: ${txt.slice(0, 200)}`);
-        }
-        const raw = await resp.text();
-        try { return (JSON.parse(raw).text || '').trim(); } catch { return raw.trim(); }
+        return (await window.GunterSTT.transcribe(form, { url: whisperUrl })).trim();
     }
 
     /**

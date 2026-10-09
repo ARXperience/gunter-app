@@ -15,6 +15,8 @@
     function init() {
         mountAvatar();
         renderHeader();
+        document.addEventListener('gunter-auth-ready', renderHeader);
+        window.addEventListener('gunter-location-change', renderHeader);
         wireQuickBar();
         wireNotifications();
         wireNav();
@@ -66,14 +68,16 @@
     function renderHeader() {
         const ctx = window.GunterContextProvider.build();
         const now = new Date();
-        const h = now.getHours();
-        const greeting = h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
+        const timezone = window.GunterPresence?.timezone?.() || Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const h = Number(new Intl.DateTimeFormat('en', { timeZone: timezone, hour: 'numeric', hourCycle: 'h23' }).format(now));
+        const greeting = h >= 5 && h < 12 ? 'Buenos días' : h >= 12 && h < 19 ? 'Buenas tardes' : 'Buenas noches';
         document.getElementById('gday-greeting').textContent = greeting;
         document.getElementById('gday-date').textContent = now.toLocaleDateString('es-MX', {
-            weekday: 'long', day: 'numeric', month: 'long'
+            weekday: 'long', day: 'numeric', month: 'long', timeZone: timezone
         });
 
-        const user = localStorage.getItem('gunter_username') || ctx.userId || '';
+        const account = window.GunterAuth?.isVerified?.() ? window.GunterAuth.getUser() : null;
+        const user = account?.displayName || account?.username || '';
         const uEl = document.getElementById('gday-user-name');
         if (uEl) uEl.textContent = user || 'Tu cuenta';
 

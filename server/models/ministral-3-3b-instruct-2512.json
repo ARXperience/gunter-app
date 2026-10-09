@@ -1,0 +1,14 @@
+{
+  "id": "ministral-3-3b-instruct-2512",
+  "family": "Ministral 3",
+  "version": "3B Instruct 2512",
+  "source": "https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512-GGUF",
+  "revision": "eb599d408350ea2bb60452cb86be7c7b2fc28227",
+  "quantization": "Q4_K_M",
+  "sha256": "9ed150d4367e68df0ac8e1540f6ddc65b42d0ee26378329d1ecbca60f93fc5f8",
+  "size": 2147023008,
+  "license": "Apache-2.0",
+  "runtime": "llama.cpp b11399 (2ca15f5404760548c39e7b92bd43116a09414a1a)",
+  "capabilities": ["chat", "summarize", "classify", "interpret", "tool_proposal"],
+  "apiAlias": "ministral-3:3b"
+}
