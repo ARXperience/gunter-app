@@ -31,7 +31,7 @@
         capture: 'day.html#capture', tasks: 'day.html#tasks', agenda: 'day.html#events',
         reminders: 'day.html#reminders', activity: 'day.html#activity',
         settings: 'config.html#preferences', preferences: 'config.html#preferences',
-        connections: 'config.html#data', data: 'config.html#data', assistant: 'config.html#premium',
+        connections: 'config.html#connections', data: 'config.html#data', assistant: 'config.html#premium',
         'ai assistant': 'config.html#premium', trash: 'config.html#trash',
         'advanced settings': 'config.html#premium', administration: 'admin.html'
     });
@@ -151,6 +151,7 @@
 
     function create(options = {}) {
         const registry = new Map();
+        let lastTaskReference = null;
         const runtime = options.root || root || {};
         const memoryStorage = new Map();
         const storage = options.storage || safeStorage(runtime.sessionStorage, memoryStorage);
@@ -637,6 +638,10 @@
                 if (controlRun) controlStage = 'verified';
                 await controlTransition(controlRun, 'completed', { reason: 'legacy_adapter_complete' });
                 const reply = tool.formatResult ? await tool.formatResult(result, match.args) : 'Listo.';
+                if (tool.id.startsWith('tasks.') && result?.id && taskOwnerId()) {
+                    lastTaskReference = { id: result.id, title: result.title || match.args.title || match.args.targetTitle,
+                        ownerId: taskOwnerId(), at: Date.now() };
+                }
                 savePending(null);
                 state('idle', 'tool-complete', { toolId: tool.id, verified: true });
                 notify({ phase: 'complete', toolId: tool.id, result, verified: true });
@@ -699,7 +704,20 @@
                 return { handled: true, intent: pending.toolId, status: 'cancelled', reply: 'Cancelado. No hice ningún cambio.' };
             }
 
-            const detected = detect(text);
+            // Resolve only a recent, verified task target. Never guess among
+            // several records or execute a side effect from an ambiguous pronoun.
+            let effectiveText = text;
+            const taskFollowUp = /^(?:y\s+)?(?:hazlo|muevela|muevelo|reprogramala|reprogramalo|cambiala|cambialo|ponla|ponlo)\s+(?:para\s+|a\s+)?(.+)$/i.exec(normalized);
+            const reminderFollowUp = /^(?:y\s+)?recuerdame\s+(?:eso|esa|esto|esta)(?:\s+tambien)?$/i.test(normalized);
+            if (taskFollowUp || reminderFollowUp) {
+                const target = lastTaskReference?.ownerId === taskOwnerId() && Date.now() - lastTaskReference.at < 10 * 60 * 1000
+                    ? lastTaskReference : null;
+                if (!target?.title) return { handled: true, status: 'needs_input', reply: '¿A qué tarea te refieres? Dime su nombre para evitar cambiar otra.' };
+                if (reminderFollowUp) return { handled: true, status: 'needs_input',
+                    reply: `Puedo crear un recordatorio para “${target.title}”. ¿Cuándo quieres que te avise?` };
+                effectiveText = `Reprograma la tarea "${target.title.replace(/"/g, '')}" para ${taskFollowUp[1]}`;
+            }
+            const detected = detect(effectiveText);
             if (!detected) return { handled: false };
             const prepared = await prepare(detected);
             if (options.inputSource === 'voice') prepared.args = { ...prepared.args, inputSource: 'voice', voiceTranscript: String(text || '') };

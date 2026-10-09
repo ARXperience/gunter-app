@@ -299,16 +299,19 @@
             input.disabled = true;
             form.querySelector('button').disabled = true;
             try {
+                if (window.GunterAssistantController?.send) {
+                    // One turn, one permission gate and one shared history.
+                    // Replaying a pending command through the chat created a second proposal.
+                    await window.GunterAssistantController.send(text);
+                    input.value = '';
+                    document.getElementById('gday-chat-mount')?.scrollIntoView?.({ block: 'nearest' });
+                    return;
+                }
                 const { awaitingConfirmation, response } = await window.GunterPipeline.handleUserInput(text);
                 if (response?.speech) {
                     window.GunterNotificationsService.showToast(response.speech, { priority: 'normal', duration: 4500 });
                 }
-                if (awaitingConfirmation) {
-                    // Route to the chat panel so the user can answer there
-                    window.GunterNotificationsService.showToast('Gunter necesita confirmación — revisa el chat abajo.', { priority: 'high', duration: 6000 });
-                    // Replay the input in the chat so user sees it threaded
-                    if (window.GunterAssistantController?.send) await window.GunterAssistantController.send(text);
-                }
+                if (awaitingConfirmation) window.GunterNotificationsService.showToast('Gunter necesita confirmación en el chat.', { priority: 'high', duration: 6000 });
                 input.value = '';
                 if (brandAvatar && response?.animation && brandAvatar.playAnimation) {
                     brandAvatar.playAnimation(response.animation);

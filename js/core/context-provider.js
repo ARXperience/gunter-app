@@ -58,15 +58,19 @@
 
     function getConversationHistory(limit = 8) {
         try {
+            const ownerId = window.GunterAuth?.canAccessLocalData?.() && window.GunterAuth?.getUser?.()?.id;
+            if (!ownerId) return [];
             const raw = JSON.parse(localStorage.getItem('gunter_conversation') || '[]');
-            return raw.slice(-limit);
+            return raw.filter(turn => turn?.ownerId === ownerId).slice(-limit);
         } catch { return []; }
     }
 
     function pushConversationTurn(role, content) {
         try {
+            const ownerId = window.GunterAuth?.canAccessLocalData?.() && window.GunterAuth?.getUser?.()?.id;
+            if (!ownerId || !['user', 'assistant'].includes(role) || !String(content || '').trim()) return;
             const raw = JSON.parse(localStorage.getItem('gunter_conversation') || '[]');
-            raw.push({ role, content, timestamp: new Date().toISOString() });
+            raw.push({ role, content: String(content).slice(0, 4000), ownerId, timestamp: new Date().toISOString() });
             if (raw.length > 50) raw.splice(0, raw.length - 50);
             localStorage.setItem('gunter_conversation', JSON.stringify(raw));
         } catch {}

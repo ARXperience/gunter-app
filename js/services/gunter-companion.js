@@ -126,8 +126,9 @@
                 <div class="gn-comp__chat-log" id="gn-comp-log"></div>
                 <div class="gn-comp__quick" id="gn-comp-quick"></div>
                 <form class="gn-comp__chat-form" id="gn-comp-form">
-                    <input type="text" class="gn-comp__chat-input" id="gn-comp-input"
-                           placeholder="Escribe o pregúntame algo…" autocomplete="off">
+                    <p class="gn-comp__transcript-review" id="gn-comp-transcript-review" role="status" hidden>Texto reconocido. Corrígelo antes de enviarlo.</p>
+                    <textarea class="gn-comp__chat-input" id="gn-comp-input" rows="1"
+                           placeholder="Escribe o pregúntame algo…" autocomplete="off"></textarea>
                     <button type="submit" class="gn-comp__chat-send" aria-label="Enviar">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
@@ -203,7 +204,13 @@
             const text = input.value.trim();
             if (!text) return;
             input.value = '';
+            root.querySelector('#gn-comp-transcript-review').hidden = true;
             await handleUserMessage(text);
+        });
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+                event.preventDefault(); form.requestSubmit();
+            }
         });
 
         // Cerrar al escapar
@@ -265,6 +272,19 @@
             try { moodGreet = window.GunterMood?.greetLine?.() || ''; } catch {}
             addMessage('assistant', moodGreet ? moodGreet + '\n\n' + welcome : welcome);
         }
+    }
+
+    function reviewTranscript(text) {
+        if (!STATE.mounted) mount();
+        expand();
+        const root = document.getElementById('gunter-companion');
+        const input = root?.querySelector('#gn-comp-input');
+        if (!input) return false;
+        input.value = String(text || '');
+        root.querySelector('#gn-comp-transcript-review').hidden = false;
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+        return true;
     }
 
     function minimize() {
@@ -364,24 +384,6 @@
         }
         const buf = window.GunterLogBuffer;
         if (!buf) return null;
-
-        // ¿Muéstrame los logs / qué salió mal / errores?
-        if (/\b(log|logs|errore?s?|salio mal|salió mal|que fallo|que fallo|que paso|que pasó|paso algo|diagnostico|diagnóstico|debug)\b/.test(t)) {
-            const summary = buf.getSummary();
-            const errors = buf.formatForChat({ level: 'error', limit: 5 });
-            const warns  = buf.formatForChat({ level: 'warn',  limit: 5 });
-            const lines = [];
-            lines.push(`📋 Resumen de logs (últimos ${summary.total}/${summary.capacity}):`);
-            lines.push(`• Errores: ${summary.byLevel.error} · Advertencias: ${summary.byLevel.warn} · Info: ${summary.byLevel.info}`);
-            if (errors) lines.push('\n🔴 Últimos errores:\n' + errors);
-            else lines.push('\n✅ Sin errores recientes.');
-            if (warns) lines.push('\n🟡 Últimas advertencias:\n' + warns);
-            return {
-                reply: lines.join('\n'),
-                intent: 'logs-report',
-                __clientHandled: true
-            };
-        }
 
         // ¿Qué servicios tienes cargados?
         if (/\b(servicios? cargados|que servicios|estado de servicios|que tienes cargado|servicios activos|que puedes usar aqui)\b/.test(t)) {
@@ -583,21 +585,6 @@
             };
         }
 
-        // ¿Qué está pasando ahora / diagnóstico completo?
-        if (/\b(diagnostico completo|diagnóstico completo|que esta pasando|qué está pasando|estado general|todo bien|check up|checkup|health)\b/.test(t)) {
-            const st = buf.getServiceStatus();
-            const summary = buf.getSummary();
-            const latest = summary.latestError || summary.latestWarn;
-            const lines = [
-                `🩺 Diagnóstico (${st.page}):`,
-                `• Services cargados: ${st.loaded.length}, faltantes: ${st.missing.length}`,
-                `• Logs: ${summary.byLevel.error} errores, ${summary.byLevel.warn} advertencias`,
-                latest ? `• Último issue: [${latest.level}] ${latest.msg.slice(0, 160)}` : '• Sin issues recientes',
-                st.missing.length ? `\n💡 Para que ejecuten TODAS mis funciones, faltan services aquí. Escribe "servicios cargados" para el detalle.` : '\n✅ Todos los services core están.'
-            ];
-            return { reply: lines.join('\n'), intent: 'diagnostic', __clientHandled: true };
-        }
-
         return null;
     }
 
@@ -643,7 +630,15 @@
                 if (turnId !== STATE.turnId) return;
                 clearTimeout(safetyTimer);
                 finishTyping();
-                reply(result.reply);
+                reply(result.reply, { privateMemory: true });
+                return;
+            }
+            if (window.GunterDiagnostics?.recognizes?.(text)) {
+                const diagnostic = await window.GunterDiagnostics.answer(text);
+                if (turnId !== STATE.turnId) return;
+                clearTimeout(safetyTimer);
+                finishTyping();
+                reply(diagnostic);
                 return;
             }
             // Navegación y configuración propia de Gunter deben llegar primero
@@ -946,7 +941,7 @@
             { label: 'Agenda', href: 'day.html#events', aliases: ['agenda', 'calendario', 'eventos'] },
             { label: 'Recordatorios', href: 'day.html#reminders', aliases: ['recordatorios'] },
             { label: 'Actividad', href: 'day.html#activity', aliases: ['actividad', 'historial'] },
-            { label: 'Conexiones', href: 'config.html#data', aliases: ['conexiones', 'redes sociales'] },
+            { label: 'Conexiones', href: 'config.html#connections', aliases: ['conexiones', 'redes sociales'] },
             { label: 'Preferencias', href: 'config.html#preferences', aliases: ['preferencias'] },
             { label: 'Configuración', href: 'config.html#preferences', aliases: ['configuracion', 'ajustes'] },
             { label: 'Inicio', href: 'day.html', aliases: ['inicio', 'principal', 'hoy'] }
@@ -1009,11 +1004,14 @@
 
     // Últimos N turnos como transcripción para el LLM.
     function buildConversationTranscript(currentText, maxTurns = 8) {
-        // Excluye el último mensaje user (es "currentText") — ya viene aparte
-        const turns = STATE.log.slice(-maxTurns - 1, -1);
+        // Shared, account-scoped turns from chat, command bar and voice.
+        // Exclude the current user message because it is appended separately.
+        const shared = window.GunterContextProvider?.build?.().conversationHistory || [];
+        const source = shared.length ? shared.map(turn => ({ role: turn.role, text: turn.content })) : STATE.log;
+        const turns = source.slice(-maxTurns - 1, -1);
         if (!turns.length) return '';
         return turns
-            .filter(m => !(m.role === 'user' && window.GunterPersonalMemory?.parseCommand?.(m.text)?.action === 'save'))
+            .filter(m => !m.privateMemory && !(m.role === 'user' && window.GunterPersonalMemory?.parseCommand?.(m.text)))
             .map(m => (m.role === 'user' ? 'Usuario' : 'Gunter') + ': ' + m.text.replace(/\n+/g, ' ').slice(0, 220))
             .join('\n');
     }
@@ -1082,6 +1080,8 @@ Responde SOLO JSON estricto:
     }
 
     async function buildLLMPrompt(text) {
+        const runtime = window.GunterRuntimeState?.getState?.() || {};
+        const localSelected = runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY';
         const pageCtx = {
             dashboard:   'El usuario está en el dashboard viendo sus proyectos.',
             'new-project': 'El usuario está creando una nueva reunión.',
@@ -1092,6 +1092,12 @@ Responde SOLO JSON estricto:
             index:       'El usuario está en la pantalla de bienvenida.'
         };
         const ctx = pageCtx[STATE.currentPage] || '';
+        const availableTools = new Set(window.GunterAssistantTools?.listTools?.().map(tool => tool.id) || []);
+        const suggestions = [
+            availableTools.has('tasks.create') && 'Puedo crear una tarea',
+            availableTools.has('reminder.schedule') && 'Puedo crear un recordatorio',
+            availableTools.has('calendar.create') && 'Puedo agregarlo a la agenda'
+        ].filter(Boolean);
 
         // Bloque 1: transcripción reciente
         const recent = buildConversationTranscript(text, 8);
@@ -1107,8 +1113,6 @@ Responde SOLO JSON estricto:
         try {
             const memSvc = window.GunterMemory;
             const memOn  = window.PremiumFeaturesService?.isEnabled?.('conversationMemory');
-            const runtime = window.GunterRuntimeState?.getState?.() || {};
-            const localSelected = runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY';
             if (localSelected && memOn && memSvc?.recallConversation) {
                 const memTurns = await memSvc.recallConversation(text, { topK: 4, minScore: 0.34 });
                 if (memTurns?.length && window.GunterConversationMemory?.contextSnippet) {
@@ -1119,8 +1123,7 @@ Responde SOLO JSON estricto:
 
         let personalBlock = '';
         try {
-            const runtime = window.GunterRuntimeState?.getState?.() || {};
-            if ((runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY') && window.GunterPersonalMemory?.contextFor) {
+            if (localSelected && window.GunterPersonalMemory?.contextFor) {
                 const context = await window.GunterPersonalMemory.contextFor(text);
                 if (context) personalBlock = '\n\n' + context;
             }
@@ -1130,7 +1133,7 @@ Responde SOLO JSON estricto:
         // + pasajes RAG relacionados a la pregunta actual.
         let tutorBlock = '';
         try {
-            if (window.GunterTutor?.isEnabled?.() && window.GunterTutor.buildTutorContext) {
+            if (localSelected && window.GunterTutor?.isEnabled?.() && window.GunterTutor.buildTutorContext) {
                 const ctx = await window.GunterTutor.buildTutorContext(text);
                 if (ctx) tutorBlock = '\n\n' + ctx;
             }
@@ -1138,7 +1141,7 @@ Responde SOLO JSON estricto:
 
         // Bloque 5 (v31): notas + marcadores + huella de estudio del usuario
         try {
-            if (window.GunterTutor?.isEnabled?.() && window.GunterTutorNotes?.contextBlock) {
+            if (localSelected && window.GunterTutor?.isEnabled?.() && window.GunterTutorNotes?.contextBlock) {
                 const sess = await window.GunterTutor.session?.().catch(() => null);
                 const workN = sess?.currentWorkMeta?.n || null;
                 const notesCtx = window.GunterTutorNotes.contextBlock({ workN });
@@ -1153,17 +1156,17 @@ Responde SOLO JSON estricto:
 
         // v37 · Humor del día (mood engine) — tiñe el tono sin dominar
         let moodLine = '';
-        try { moodLine = window.GunterMood?.promptLine?.() || ''; } catch {}
+        if (localSelected) try { moodLine = window.GunterMood?.promptLine?.() || ''; } catch {}
 
         // v38 · Reglas personales del usuario — SIEMPRE presentes
         let rulesBlock = '';
-        try { rulesBlock = window.GunterRules?.promptBlock?.() || ''; } catch {}
+        if (localSelected) try { rulesBlock = window.GunterRules?.promptBlock?.() || ''; } catch {}
 
         // v38 · Saber personal (RAG): si la query matchea conocimiento que el
         // usuario le enseñó a Gunter, inyectarlo como fuente citable.
         let teachBlock = '';
         try {
-            if (text && text.length >= 4) {
+            if (localSelected && text && text.length >= 4) {
                 const resp = await fetch((window.GUNTER_CONFIG?.PROXY_BASE_URL || '') + '/api/tutor', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ op: 'teach-search', query: text, limit: 3 })
@@ -1185,6 +1188,7 @@ Español neutro latinoamericano (es-419). ${moodLine ? 'Matiz del momento (secun
 # CONTEXTO
 ${ctx}
 ${topicLine}
+${suggestions.length ? 'Sugerencias disponibles si son pertinentes (ofrécelas, no las ejecutes sin petición): ' + suggestions.join('; ') + '.' : 'No ofrezcas acciones sin herramienta disponible.'}
 
 # REGLAS DURAS
 - Mantén coherencia con la conversación reciente (abajo). NO pierdas el hilo. Si el usuario usa pronombres ("eso", "esa", "activalo"), refieren al último tema tratado.
@@ -1255,8 +1259,8 @@ Gunter:`;
         return chunks.length ? chunks : [text];
     }
 
-    function _pushOne(role, text) {
-        STATE.log.push({ role, text, ts: Date.now() });
+    function _pushOne(role, text, options = {}) {
+        STATE.log.push({ role, text, ts: Date.now(), privateMemory: !!options.privateMemory });
         if (STATE.log.length > MAX_LOG) STATE.log.shift();
     }
 
@@ -1265,7 +1269,7 @@ Gunter:`;
         try {
             const memSvc = window.GunterMemory;
             const memOn  = window.PremiumFeaturesService?.isEnabled?.('conversationMemory');
-            if (memOn && memSvc?.rememberConversation) {
+            if (!options.privateMemory && memOn && memSvc?.rememberConversation) {
                 memSvc.rememberConversation({
                     role: 'assistant',
                     text: fullText,
@@ -1314,27 +1318,31 @@ Gunter:`;
     }
 
     function addMessage(role, text, options = {}) {
+        const privateMemory = !!options.privateMemory || (role === 'user' && !!window.GunterPersonalMemory?.parseCommand?.(text));
         // Si es del assistant y es largo, dividimos en varios bubbles
         // con delay para que se vean escalonados y nada se corte.
         if (role === 'assistant') {
             const parts = splitLongMessage(text);
             if (parts.length > 1) {
-                parts.forEach(part => _pushOne(role, part));
+                parts.forEach(part => _pushOne(role, part, { privateMemory }));
                 saveLog(); renderLog(); _afterAssistantMessage(text, options);
+                if (!privateMemory) window.GunterContextProvider?.pushConversationTurn?.(role, text);
                 return;
             }
-            _pushOne(role, text);
+            _pushOne(role, text, { privateMemory });
             saveLog();
             renderLog();
             _afterAssistantMessage(text, options);
+            if (!privateMemory) window.GunterContextProvider?.pushConversationTurn?.(role, text);
             return;
         }
 
         // Usuario → flujo simple
-        _pushOne(role, text);
+        _pushOne(role, text, { privateMemory });
         saveLog();
         renderLog();
         _afterUserMessage(text);
+        if (!privateMemory) window.GunterContextProvider?.pushConversationTurn?.(role, text);
     }
 
     function renderLog() {
@@ -1520,7 +1528,7 @@ Gunter:`;
     // Public API
     // ─────────────────────────────────────
     window.GunterCompanion = {
-        mount, expand, minimize, hide, show, toggle, interrupt,
+        mount, expand, minimize, hide, show, toggle, interrupt, reviewTranscript,
         react,                                        // v66: otros módulos pueden dispararle gestos
         say: (text, options) => addMessage('assistant', text, options),
         showBubble,
