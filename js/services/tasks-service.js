@@ -97,6 +97,8 @@
                     if (!current) failure = new Error('Task no encontrada');
                     else if (guard.ownerId && current.ownerId !== guard.ownerId) failure = new Error('TASK_OWNER_MISMATCH');
                     else if (guard.statuses && !guard.statuses.includes(current.status)) failure = new Error('TASK_STATUS_CHANGED');
+                    else if (guard.expected && Object.entries(guard.expected).some(([key, value]) => (current[key] || null) !== (value || null)))
+                        failure = new Error('TASK_CHANGED');
                     if (failure) { t.abort(); return; }
                     next = { ...current, ...patch, updatedAt: new Date().toISOString() };
                     store.put(next);

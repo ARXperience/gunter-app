@@ -134,6 +134,16 @@ const toolset = assistant.create({
     await assert.rejects(service.complete('task_guard', 'alice'), /TASK_STATUS_CHANGED/);
     assert.equal(persisted.get('task_guard').status, 'done');
     assert.equal((await service.reopen('task_guard', 'alice')).status, 'pending');
+    const beforeEdit = persisted.get('task_guard');
+    const expected = { title: beforeEdit.title, status: beforeEdit.status, updatedAt: beforeEdit.updatedAt };
+    assert.equal((await service.update('task_guard', { title: 'Actualizada' },
+        { ownerId: 'alice', statuses: ['pending'], expected })).title, 'Actualizada');
+    await assert.rejects(service.update('task_guard', { title: 'No aplicar' },
+        { ownerId: 'alice', statuses: ['pending'], expected }), /TASK_CHANGED/);
+    assert.equal(persisted.get('task_guard').title, 'Actualizada');
+    await assert.rejects(service.update('task_guard', { title: 'Ajena' },
+        { ownerId: 'bob', statuses: ['pending'] }), /TASK_OWNER_MISMATCH/);
+    assert.equal(persisted.get('task_guard').title, 'Actualizada');
 
     console.log('task-status-tools: PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });

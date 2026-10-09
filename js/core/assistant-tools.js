@@ -416,6 +416,10 @@
                 && /\b(completa|completar|termina|terminar|finaliza|finalizar|marca|marcar)\b.*\b(tarea|pendiente)\b/.test(t)) {
                 return { toolId: 'tasks.complete', args: { rawText: text } };
             }
+            if (!/^(que|como|por que|para que|puedo|podria)\b/.test(questionText)
+                && /\b(reprograma|reprogramar|reagenda|reagendar|mueve|mover|pospone|posponer|renombra|renombrar|edita|editar|cambia|cambiar)\b.*\b(tarea|pendiente)\b/.test(t)) {
+                return { toolId: 'tasks.update', args: { rawText: text } };
+            }
 
             if (/\b(programa|programame|crea|haz|hacer)\b.*\b(seguimiento|follow up|follow-up)\b/.test(t)) {
                 return { toolId: 'follow_up.schedule', args: { rawText: text } };
@@ -466,7 +470,7 @@
             if (isApp) add(['desktop.apps.open', 'mobile.open_app'], 'Aplicaciones: abrir una aplicación en un dispositivo conectado.');
             if (isAutomation) add(['procedure.execute'], 'Rutas guardadas: ejecutar procedimientos disponibles y aprobados.');
             if (isSettings) add(['settings.list', 'settings.update', 'preferences.update'], 'Configuración: consultar opciones y cambiar ajustes permitidos.');
-            if (/\b(reunion|evento|cita|agenda|recordatorio|tarea)\b/.test(normalized)) add(['calendar.create', 'agenda.list', 'reminder.schedule', 'tasks.create', 'tasks.complete', 'tasks.reopen'], 'Organización: agenda, reuniones, recordatorios y tareas.');
+            if (/\b(reunion|evento|cita|agenda|recordatorio|tarea)\b/.test(normalized)) add(['calendar.create', 'agenda.list', 'reminder.schedule', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.update'], 'Organización: agenda, reuniones, recordatorios y tareas.');
             if (!suggestions.length) {
                 add(['app.navigate'], 'Navegación por las secciones de Gunter.');
                 add(['desktop.apps.open', 'mobile.open_app'], 'Abrir aplicaciones conectadas.');
@@ -528,21 +532,29 @@
                     || (active.length === 1 ? active[0] : null);
                 return { ...match, args: { ...match.args, title, targetId: target?.id || null, target: target || null } };
             }
-            if (match.toolId === 'tasks.complete' || match.toolId === 'tasks.reopen') {
+            if (['tasks.complete', 'tasks.reopen', 'tasks.update'].includes(match.toolId)) {
                 const service = options.tasksService || runtime.GunterTasksService;
                 const ownerId = taskOwnerId();
-                const reference = extractTaskReference(match.args.rawText);
+                const edit = match.toolId === 'tasks.update' ? parseTaskEdit(match.args.rawText) : null;
+                const reference = edit ? edit.reference : extractTaskReference(match.args.rawText);
                 const all = ownerId && service?.list ? await service.list() : [];
                 const eligible = all.filter(item => item.ownerId === ownerId &&
-                    (match.toolId === 'tasks.complete' ? ['pending', 'doing'].includes(item.status) : item.status === 'done'));
+                    (match.toolId === 'tasks.reopen' ? item.status === 'done' : ['pending', 'doing'].includes(item.status)));
                 const needle = normalize(reference);
                 const exact = needle ? eligible.filter(item => normalize(item.title) === needle || item.id === reference) : [];
-                const candidates = exact.length ? exact : needle.length >= 3
+                const candidates = exact.length ? exact : match.toolId === 'tasks.update' ? [] : needle.length >= 3
                     ? eligible.filter(item => normalize(item.title).includes(needle)) : [];
                 const target = candidates.length === 1 ? candidates[0] : null;
+                const resolved = edit?.mode === 'due' && edit.value ? await resolveTime(edit.value) : null;
                 return { ...match, args: { ...match.args, reference, ownerId,
                     targetId: target?.id || null, targetTitle: target?.title || null,
-                    ambiguous: candidates.length > 1 } };
+                    ambiguous: candidates.length > 1,
+                    ...(edit ? { editMode: edit.mode, newTitle: edit.mode === 'title' ? edit.value : null,
+                        dueAt: edit.mode === 'due' ? resolved?.iso || null : null,
+                        dueKind: resolved?.kind || null,
+                        temporalAmbiguity: resolved?.ambiguity || null,
+                        snapshot: target ? { title: target.title, dueAt: target.dueAt || null,
+                            status: target.status, updatedAt: target.updatedAt } : null } : {}) } };
             }
             if (!['tasks.create', 'calendar.create', 'reminder.schedule', 'follow_up.schedule'].includes(match.toolId)) return match;
             // An undated task must not send its title to the temporal LLM, which
@@ -1118,8 +1130,10 @@
                 const tasksService = options.tasksService || runtime.GunterTasksService;
                 const eventsService = options.eventsService || runtime.GunterEventsService;
                 if (!tasksService?.list || !eventsService?.list) throw new Error('Los servicios de agenda no están disponibles en esta pantalla.');
-                const allTasks = await tasksService.list();
-                const allEvents = await eventsService.list();
+                const ownerId = taskOwnerId();
+                if (runtime.GunterAuth && !ownerId) throw new Error('Inicia sesión para consultar tu agenda local.');
+                const allTasks = (await tasksService.list()).filter(item => !runtime.GunterAuth || item.ownerId === ownerId);
+                const allEvents = (await eventsService.list()).filter(item => !runtime.GunterAuth || item.ownerId === ownerId);
                 const target = new Date(now());
                 if (args.scope === 'tomorrow') target.setDate(target.getDate() + 1);
                 const targetKey = dateKey(target, timezone());
@@ -1304,6 +1318,63 @@
         }));
 
         register({
+            id: 'tasks.update',
+            description: 'Corrige el nombre o reprograma el vencimiento de una tarea local existente.',
+            confirm: 'always', reversible: true,
+            validate(args) {
+                if (!args.ownerId || taskOwnerId() !== args.ownerId)
+                    return { ok: false, reply: 'Inicia sesión para editar tareas de tu cuenta.' };
+                if (!args.editMode || !args.reference)
+                    return { ok: false, reply: 'Dime qué tarea quieres cambiar y el nuevo nombre o la fecha. Por ejemplo: reprograma la tarea “Informe” para mañana a las 10.' };
+                if (args.ambiguous)
+                    return { ok: false, reply: 'Hay varias tareas con ese nombre. Usa su identificador o edítala desde Tareas.' };
+                if (!args.targetId)
+                    return { ok: false, reply: `No encontré una tarea activa de esta cuenta que coincida con “${args.reference}”.` };
+                if (args.editMode === 'title') {
+                    if (!args.newTitle || args.newTitle.length < 2 || args.newTitle.length > 180)
+                        return { ok: false, reply: 'Indica un nuevo nombre de 2 a 180 caracteres.' };
+                    if (normalize(args.newTitle) === normalize(args.targetTitle))
+                        return { ok: false, reply: 'La tarea ya tiene ese nombre; no hice cambios.' };
+                } else if (args.editMode === 'due') {
+                    if (!args.dueAt || !Number.isFinite(Date.parse(args.dueAt)) || !['instant', 'allDay'].includes(args.dueKind))
+                        return { ok: false, reply: 'Indica una fecha y hora concretas para reprogramar la tarea.' };
+                    if (Date.parse(args.dueAt) <= now().getTime())
+                        return { ok: false, reply: 'La nueva fecha ya pasó. Dime una fecha futura.' };
+                    if (args.dueAt === args.snapshot?.dueAt)
+                        return { ok: false, reply: 'La tarea ya tiene ese vencimiento; no hice cambios.' };
+                } else return { ok: false, reply: 'Solo puedo cambiar el nombre o el vencimiento de esa tarea.' };
+                return { ok: true };
+            },
+            confirmation(args) {
+                return args.editMode === 'title'
+                    ? `¿Confirmas cambiar el nombre de “${args.targetTitle}” a “${args.newTitle}”?`
+                    : `¿Confirmas mover “${args.targetTitle}” a ${formatDateTime(args.dueAt, timezone())}?`;
+            },
+            async execute(args) {
+                const service = options.tasksService || runtime.GunterTasksService;
+                if (taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué la tarea.');
+                if (!service?.list || !service?.update) throw new Error('El servicio de tareas no está disponible.');
+                const current = (await service.list()).find(item => item.id === args.targetId && item.ownerId === args.ownerId);
+                if (!current || !['pending', 'doing'].includes(current.status)
+                    || Object.entries(args.snapshot || {}).some(([key, value]) => (current[key] || null) !== (value || null)))
+                    throw new Error('La tarea cambió desde la confirmación. Revísala y vuelve a pedir el cambio.');
+                const patch = args.editMode === 'title' ? { title: args.newTitle } : { dueAt: args.dueAt };
+                return service.update(args.targetId, patch, { ownerId: args.ownerId,
+                    statuses: ['pending', 'doing'], expected: args.snapshot });
+            },
+            async verify(result, args) {
+                const service = options.tasksService || runtime.GunterTasksService;
+                const stored = (await service.list()).find(item => item.id === args.targetId && item.ownerId === args.ownerId);
+                return result?.id === args.targetId && !!stored &&
+                    (args.editMode === 'title' ? stored.title === args.newTitle : stored.dueAt === args.dueAt);
+            },
+            formatResult(result, args) {
+                return args.editMode === 'title' ? `Nombre actualizado y verificado: “${result.title}”.`
+                    : `Vencimiento actualizado y verificado: “${result.title}” para ${formatDateTime(result.dueAt, timezone())}.`;
+            }
+        });
+
+        register({
             id: 'calendar.create',
             description: 'Crea un evento local; siempre requiere confirmación.',
             confirm: 'always',
@@ -1413,6 +1484,22 @@
             .replace(/^(?:por favor\s+)?(?:completa|completar|termina|terminar|finaliza|finalizar|reabre|reabrir|reactiva|reactivar|vuelve a abrir|marca|marcar)\s+(?:(?:la|el|una|un)\s+)?(?:tarea|pendiente)\s*(?:de\s+)?/i, '')
             .replace(/\s+como\s+(?:hecha|terminada|completada)\s*$/i, '')
             .replace(/[.!?]+$/, '').trim().slice(0, 180);
+    }
+
+    function parseTaskEdit(text) {
+        const raw = String(text || '').trim().replace(
+            /^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*[,;:!\-]*\s*/i, '');
+        const title = raw.match(/^(?:por favor\s+)?(?:renombra(?:r)?|cambia(?:r)? el nombre de|edita(?:r)? el nombre de)\s+(?:(?:la|el)\s+)?(?:tarea|pendiente)\s+(.+)$/i);
+        const due = raw.match(/^(?:por favor\s+)?(?:reprograma(?:r)?|reagenda(?:r)?|mueve|mover|pospone(?:r)?|cambia(?:r)? la fecha de|cambia(?:r)? el vencimiento de)\s+(?:(?:la|el)\s+)?(?:tarea|pendiente)\s+(.+)$/i);
+        const mode = title ? 'title' : due ? 'due' : null;
+        if (!mode) return { mode: null, reference: '', value: '' };
+        const body = (title || due)[1].trim();
+        const quoted = body.match(/^[“"'](.+?)[”"']\s+(?:a|al|por|para)\s+(.+)$/i);
+        const split = quoted || body.match(/^(.+?)\s+(?:a|al|por|para)\s+(.+)$/i);
+        if (!split) return { mode, reference: '', value: '' };
+        const reference = String(split[1]).trim().slice(0, 180);
+        const value = String(split[2]).trim().replace(/^[“"']|[”"']$/g, '').replace(/[.!?]+$/, '').trim();
+        return { mode, reference, value: mode === 'title' ? value.slice(0, 181) : value };
     }
 
     function parseSocialSend(text) {
