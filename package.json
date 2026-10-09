@@ -16,6 +16,7 @@
     "test:memory": "node test/memory-foundation.js",
     "test:personal-memory": "node test/personal-memory.js",
     "test:personal-memory-backup": "node test/personal-memory-backup.js",
+    "test:personal-memory-conversation": "node test/personal-memory-conversation.js",
     "test:local": "node test/local-brain-core.js",
     "test:local:live": "node test/local-brain-live.js",
     "test:local-stt": "node test/local-stt-core.js && node test/local-stt-browser.js",

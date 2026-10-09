@@ -138,7 +138,8 @@
         }
         // v2 (F1) — Memoria conversacional cross-sesión: fire-and-forget.
         // Silencioso si flag OFF o texto trivial (ver service).
-        if (window.GunterConversationMemory?.remember) {
+        if (window.GunterConversationMemory?.remember &&
+            !(role === 'user' && window.GunterPersonalMemory?.parseCommand?.(text)?.action === 'save')) {
             try {
                 const projectId = window.GunterCurrentProject?.id || null;
                 window.GunterConversationMemory.remember({

@@ -73,8 +73,8 @@ for (const file of ['js/services/gunter-memory.js', 'js/services/personal-memory
     for (const page of ['config.html', 'dashboard.html', 'day.html', 'index.html', 'meeting.html', 'new-project.html', 'results.html']) {
         const source = fs.readFileSync(path.join(root, page), 'utf8');
         const memoryAt = source.indexOf('js/services/gunter-memory.js?v3-backup');
-        const personalAt = source.indexOf('js/services/personal-memory-service.js?v2-backup');
-        const companionAt = source.indexOf('js/services/gunter-companion.js?v116-personal-memory');
+        const personalAt = source.indexOf('js/services/personal-memory-service.js?v3-conversation');
+        const companionAt = source.indexOf('js/services/gunter-companion.js?v117-personal-context');
         assert.ok(memoryAt >= 0 && memoryAt < personalAt && personalAt < companionAt, `incorrect script order: ${page}`);
     }
     console.log('PERSONAL MEMORY: save, dedupe, edit, search, delete, owner and command wiring ✓');

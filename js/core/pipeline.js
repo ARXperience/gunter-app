@@ -10,6 +10,17 @@
     const { startStage, endStage, recordError, persist } = window.GunterTraceLogger;
 
     async function handleUserInput(text) {
+        // Handle explicit memory commands before the context envelope/network,
+        // trace logger and conversation history see the personal content.
+        if (window.GunterPersonalMemory?.parseCommand?.(text)) {
+            const state = window.GunterCoreModels.newPipelineState('[comando de memoria personal]', window.GunterContextProvider.build());
+            const result = await window.GunterPersonalMemory.handleCommand(text);
+            state.intent = { primary: { type: 'personal_memory', confidence: 1 },
+                alternatives: [], multiIntent: false, method: 'explicit-personal-memory' };
+            state.execution = { executed: [], failed: [], pending: [], sideEffects: [],
+                uiResponse: { speech: result.reply, animation: 'nod', panels: [] } };
+            return { state, awaitingConfirmation: false, response: state.execution.uiResponse };
+        }
         const ctx = window.GunterContextProvider.enrich
             ? await window.GunterContextProvider.enrich(text, { channel: 'pipeline' })
             : window.GunterContextProvider.build();

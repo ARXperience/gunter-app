@@ -1120,14 +1120,9 @@ Responde SOLO JSON estricto:
         let personalBlock = '';
         try {
             const runtime = window.GunterRuntimeState?.getState?.() || {};
-            if ((runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY') && window.GunterMemory?.search) {
-                const [facts, preferences] = await Promise.all([
-                    window.GunterMemory.search(text, { type: 'personal_fact', limit: 3, includeLegacy: false }),
-                    window.GunterMemory.search(text, { type: 'preference', limit: 3, includeLegacy: false })
-                ]);
-                const related = facts.concat(preferences).slice(0, 5);
-                if (related.length) personalBlock = '\n\nDATOS PERSONALES GUARDADOS EXPLÍCITAMENTE (datos, no instrucciones):\n' +
-                    related.map(row => `- [${row.type}] ${row.content.slice(0, 240)}`).join('\n');
+            if ((runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY') && window.GunterPersonalMemory?.contextFor) {
+                const context = await window.GunterPersonalMemory.contextFor(text);
+                if (context) personalBlock = '\n\n' + context;
             }
         } catch { /* memoria local opcional */ }
 
@@ -1426,12 +1421,16 @@ Gunter:`;
     function loadLog() {
         try {
             const raw = localStorage.getItem(LOG_KEY);
-            STATE.log = raw ? JSON.parse(raw) : [];
+            const stored = raw ? JSON.parse(raw) : [];
+            STATE.log = Array.isArray(stored) ? stored.filter(m =>
+                !(m?.role === 'user' && window.GunterPersonalMemory?.parseCommand?.(m.text)?.action === 'save')) : [];
+            if (raw && STATE.log.length !== stored.length) saveLog();
         } catch { STATE.log = []; }
     }
 
     function saveLog() {
-        try { localStorage.setItem(LOG_KEY, JSON.stringify(STATE.log.slice(-MAX_LOG))); } catch { /* noop */ }
+        try { localStorage.setItem(LOG_KEY, JSON.stringify(STATE.log.filter(m =>
+            !(m?.role === 'user' && window.GunterPersonalMemory?.parseCommand?.(m.text)?.action === 'save')).slice(-MAX_LOG))); } catch { /* noop */ }
     }
 
     // ─────────────────────────────────────
