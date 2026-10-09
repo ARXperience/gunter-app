@@ -482,7 +482,8 @@ async function test(name, fn) {
         const beeperRuntime = { beeper: { paired: true, reachable: true, accounts: [{ provider: 'instagram', status: 'connected', label: 'Ana' }] } };
         const attachment = socialHub.validateSend(userId, { provider: 'instagram', peerId: 'ana', attachmentPath: 'C:\\Users\\Ana\\Downloads\\foto.png', confirmed: true, source: 'user_click' }, beeperRuntime);
         assert.equal(attachment.ok, true);
-        assert.equal(path.basename(attachment.attachmentPath), 'foto.png');
+        assert.equal(path.win32.basename(attachment.attachmentPath), 'foto.png');
+        assert.equal(socialHub.validateSend(userId, { provider: 'instagram', peerId: 'ana', attachmentPath: 'foto.png', confirmed: true, source: 'user_click' }, beeperRuntime).ok, false);
     });
 
     await test('cuentas personales no fingen conexión sin nodo Beeper verificado', () => {

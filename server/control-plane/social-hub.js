@@ -183,7 +183,9 @@ function replySuggestions(text, name) {
 function clean(value, max) { return String(value || '').trim().replace(/[\u0000-\u001f]/g, '').slice(0, max); }
 function cleanLocalPath(value) {
     const candidate = String(value || '').trim().replace(/[\u0000-\u001f]/g, '').slice(0, 4096);
-    return candidate && path.isAbsolute(candidate) ? path.resolve(candidate) : '';
+    if (path.win32.isAbsolute(candidate)) return path.win32.normalize(candidate);
+    if (path.posix.isAbsolute(candidate)) return path.posix.normalize(candidate);
+    return '';
 }
 function validDate(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? null : date.toISOString(); }
 

@@ -393,7 +393,7 @@ async function handle(req, res, pathname, query = {}) {
                         autonomy: 'L3', confirmed: true, ttlMs: 120000, traceId: req.gunterTraceId
                     }, { ...actor, userId });
                     if (!queued.ok) return sendResult(res, queued);
-                    const displayText = checked.text || `Archivo: ${path.basename(checked.attachmentPath)}`;
+                    const displayText = checked.text || `Archivo: ${path.win32.basename(checked.attachmentPath)}`;
                     socialHub.appendMessage(userId, { id: `pending:${queued.command.id}`, provider: checked.provider, peerId: checked.peerId, peerName: body.peerName || checked.peerId, direction: 'out', text: displayText, status: 'QUEUED' });
                     return send(res, 202, { success: true, data: { ok: true, queued: true, provider: checked.provider, commandId: queued.command.id, sentAt: null } });
                 }
