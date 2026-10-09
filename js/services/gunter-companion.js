@@ -1089,15 +1089,18 @@ Responde SOLO JSON estricto:
             ? `Último tema tratado: ${STATE.lastTopic.feature} (intent=${STATE.lastTopic.intent}).`
             : '';
 
-        // Bloque 3: memoria de largo plazo (si flag ON y service cargado)
+        // Bloque 3: memoria de largo plazo. La fachada conserva los turnos en
+        // su store original; no se inyectan datos personales en el proveedor cloud.
         let memoryBlock = '';
         try {
-            const memSvc = window.GunterConversationMemory;
+            const memSvc = window.GunterMemory;
             const memOn  = window.PremiumFeaturesService?.isEnabled?.('conversationMemory');
-            if (memOn && memSvc?.recall) {
-                const memTurns = await memSvc.recall(text, { topK: 4, minScore: 0.34 });
-                if (memTurns && memTurns.length && memSvc.contextSnippet) {
-                    memoryBlock = '\n\nMEMORIA DE SESIONES PREVIAS:\n' + memSvc.contextSnippet(memTurns);
+            const runtime = window.GunterRuntimeState?.getState?.() || {};
+            const localSelected = runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY';
+            if (localSelected && memOn && memSvc?.recallConversation) {
+                const memTurns = await memSvc.recallConversation(text, { topK: 4, minScore: 0.34 });
+                if (memTurns?.length && window.GunterConversationMemory?.contextSnippet) {
+                    memoryBlock = '\n\nMEMORIA DE SESIONES PREVIAS:\n' + window.GunterConversationMemory.contextSnippet(memTurns);
                 }
             }
         } catch { /* memoria opcional, sigue sin ella */ }
@@ -1239,10 +1242,10 @@ Gunter:`;
     function _afterAssistantMessage(fullText, options = {}) {
         // Memoria de LT
         try {
-            const memSvc = window.GunterConversationMemory;
+            const memSvc = window.GunterMemory;
             const memOn  = window.PremiumFeaturesService?.isEnabled?.('conversationMemory');
-            if (memOn && memSvc?.remember) {
-                memSvc.remember({
+            if (memOn && memSvc?.rememberConversation) {
+                memSvc.rememberConversation({
                     role: 'assistant',
                     text: fullText,
                     channel: 'companion',
@@ -1272,10 +1275,10 @@ Gunter:`;
 
     function _afterUserMessage(text) {
         try {
-            const memSvc = window.GunterConversationMemory;
+            const memSvc = window.GunterMemory;
             const memOn  = window.PremiumFeaturesService?.isEnabled?.('conversationMemory');
-            if (memOn && memSvc?.remember) {
-                memSvc.remember({
+            if (memOn && memSvc?.rememberConversation) {
+                memSvc.rememberConversation({
                     role: 'user',
                     text,
                     channel: 'companion',

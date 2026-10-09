@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><title>Gunter memory fixture</title></head>
+<body>
+<main><h1>Gunter memory fixture</h1><p>Solo para pruebas locales aisladas.</p></main>
+<script>
+    window.GunterAuth = {
+        isVerified: () => true,
+        getUser: () => ({ id: localStorage.getItem('test_memory_user') || 'alice' })
+    };
+    window.PremiumFeaturesService = { isEnabled: () => true };
+    window.GunterEmbeddings = {
+        embed: async () => new Float32Array([1, 0]),
+        cosine: () => 1
+    };
+</script>
+<script src="../../js/services/data-repository.js"></script>
+<script src="../../js/services/conversation-memory-service.js"></script>
+<script src="../../js/services/gunter-memory.js"></script>
+</body>
+</html>

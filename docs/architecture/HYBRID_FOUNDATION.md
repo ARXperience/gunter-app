@@ -23,7 +23,7 @@ Estado: **fundación, no migración de motores ni datos**. La ruta por defecto `
 | Embeddings | `GunterEmbeddings` y gate de `/api/embeddings` | Cloud actual; local `NOT_INSTALLED` | Servicio de embeddings: migrado; caché/vector 1536 y store existentes intactos |
 | Estado | `GunterRuntimeState` en monitor de conectividad y `/api/control/hybrid/status` | Red + backend + preferencias del usuario + catálogo | Diagnóstico interno, sin dashboard falso de telemetría |
 | Herramientas de dispositivos | `skills.authorizeProposal` y `nodes.queueCommand` | Registro/entitlements/confirmación existentes | Puerta determinista ampliada; el LLM no ejecuta por sí solo |
-| Datos | `GunterDataRepository` (contrato) | `WebRepository` delega a un store existente; `SQLiteRepository` `NOT_CONFIGURED` | Ningún consumidor migrado todavía; ninguna base abierta |
+| Datos | `GunterDataRepository` | `WebRepository` conserva su contrato; `MemoryRepository` reutiliza IndexedDB `gunter_conversation_memory` v2; `SQLiteRepository` sigue `NOT_CONFIGURED` | `GunterMemory` aporta CRUD local estructurado y preserva `turns` anteriores; otros dominios no migrados |
 | Sync | `sync.CONTRACT_VERSION=1`, outbox actual | Solo `settings.patch` | Operaciones desconocidas/versiones futuras rechazadas; la cola antigua sin versión sigue válida |
 | Respaldo | `backup.inventory/createTestManifest/validateTestManifest` | Inventario sin contenido y prueba ficticia SHA-256 | Backups reales programados permanecen igual; export/restauración del navegador aún no configurados |
 
