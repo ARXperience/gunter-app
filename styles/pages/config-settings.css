@@ -253,3 +253,12 @@
     border-bottom-color: rgba(251,191,36,0.3);
     margin-top: 36px;        /* separación visual del peligro */
 }
+
+.personal-memory-backup {
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px solid var(--glass-border);
+}
+.personal-memory-backup h4 { margin: 0 0 8px; color: var(--text-primary); }
+.personal-memory-backup input[type="file"] { max-width: 100%; color: var(--text-primary); }
+.personal-memory-backup .personal-memory-actions { align-items: center; flex-wrap: wrap; }

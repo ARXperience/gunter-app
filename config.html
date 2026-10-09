@@ -4,9 +4,9 @@
 <head>
     <script src="js/services/log-buffer.js?v66b-gunter-pixar-1783590000000"></script>
     <script src="js/services/auth-service.js?v115-verified-greeting"></script>
-    <script src="js/services/data-repository.js?v2-memory" defer></script>
-    <script src="js/services/gunter-memory.js?v2-paging" defer></script>
-    <script src="js/services/personal-memory-service.js?v1" defer></script>
+    <script src="js/services/data-repository.js?v3-backup" defer></script>
+    <script src="js/services/gunter-memory.js?v3-backup" defer></script>
+    <script src="js/services/personal-memory-service.js?v2-backup" defer></script>
     <script src="js/core/assistant-presence.js?v115-presence" defer></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="styles/animations.css">
     <link rel="stylesheet" href="styles/pages/config.css">
     <link rel="stylesheet" href="styles/pages/config-polish.css">
-    <link rel="stylesheet" href="styles/pages/config-settings.css?v2-personal-memory">
+    <link rel="stylesheet" href="styles/pages/config-settings.css?v3-backup">
     <link rel="stylesheet" href="styles/pages/advanced-settings.css?v85d-final">
     <!-- (audio-trimmer.css eliminado: pertenecía al flujo Nuevo Proyecto) -->
 
@@ -277,6 +277,20 @@
                 <label for="personal-memory-search">Buscar en mi memoria</label>
                 <input id="personal-memory-search" type="search" placeholder="Busca un hecho o preferencia" autocomplete="off">
                 <div id="personal-memory-list" class="personal-memory-list" aria-live="polite"></div>
+                <div class="personal-memory-backup">
+                    <h4>Respaldo de memoria personal</h4>
+                    <p class="settings-card__hint">El archivo puede contener información personal. Guárdalo en un lugar seguro y no lo compartas. Solo se exportan recuerdos explícitos de esta cuenta; se excluyen los que parecen contener credenciales o tokens.</p>
+                    <div class="personal-memory-actions">
+                        <button type="button" class="btn btn--secondary" id="personal-memory-export">Descargar JSON</button>
+                        <label for="personal-memory-import-file">Seleccionar respaldo JSON</label>
+                        <input id="personal-memory-import-file" type="file" accept=".json,application/json">
+                    </div>
+                    <p id="personal-memory-backup-status" class="settings-card__hint" role="status" aria-live="polite"></p>
+                    <div id="personal-memory-import-preview" hidden>
+                        <p id="personal-memory-import-counts"></p>
+                        <button type="button" class="btn btn--primary" id="personal-memory-import-confirm" disabled>Confirmar importación</button>
+                    </div>
+                </div>
             </div>
 
             <!-- 3.5 Memoria conversacional (v2 — F1) -->
@@ -373,7 +387,7 @@
 
     <script src="js/services/conversation-memory-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/controllers/conversation-memory-panel.js" defer></script>
-    <script src="js/controllers/personal-memory-panel.js?v1" defer></script>
+    <script src="js/controllers/personal-memory-panel.js?v2-backup" defer></script>
 
     <script src="js/config-settings.js?v115-preserve-prefs" defer></script>
     <script src="js/controllers/presence-settings.js?v115-presence" defer></script>

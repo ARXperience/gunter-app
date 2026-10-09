@@ -85,6 +85,44 @@
                 tx.onabort = () => reject(tx.error || new Error('MEMORY_WRITE_ABORTED'));
             });
         }
+        async mergePersonalAtomic(ownerId, rows) {
+            const db = await openMemoryDb();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('records', 'readwrite');
+                const store = tx.objectStore('records');
+                let added = 0, duplicates = 0, failure = null;
+                const signature = row => `${row.type}\u0000${String(row.content).normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es').replace(/\s+/g, ' ').trim()}`;
+                const request = store.getAll();
+                request.onsuccess = () => {
+                    try {
+                        const existing = (request.result || []).filter(row => row.ownerId === ownerId);
+                        const byId = new Map(existing.map(row => [row.id, row]));
+                        const signatures = new Set(existing.filter(row => row.type === 'personal_fact' || row.type === 'preference').map(signature));
+                        for (const row of rows) {
+                            if (row.ownerId !== ownerId || row.key !== `${ownerId}:${row.id}`)
+                                throw new Error('MEMORY_IMPORT_OWNER_INVALID');
+                            const prior = byId.get(row.id);
+                            if (prior) {
+                                if (prior.type !== row.type || signature(prior) !== signature(row))
+                                    throw new Error('MEMORY_IMPORT_ID_CONFLICT');
+                                duplicates++;
+                                continue;
+                            }
+                            const sig = signature(row);
+                            if (signatures.has(sig)) { duplicates++; continue; }
+                            store.add(row);
+                            byId.set(row.id, row);
+                            signatures.add(sig);
+                            added++;
+                        }
+                    } catch (error) { failure = error; tx.abort(); }
+                };
+                tx.oncomplete = () => resolve({ added, duplicates });
+                tx.onabort = () => reject(failure || tx.error || new Error('MEMORY_IMPORT_ABORTED'));
+                tx.onerror = () => { failure ||= tx.error; };
+            });
+        }
         async delete(key, storeName = 'records') {
             const db = await openMemoryDb();
             return new Promise((resolve, reject) => {

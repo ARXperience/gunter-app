@@ -118,6 +118,18 @@
         else await repo.delete(`${owner}:${id}`);
         return true;
     }
+    async function importPersonalAtomic(records, expectedOwner) {
+        const owner = ownerId();
+        if (owner !== expectedOwner) throw new Error('MEMORY_IMPORT_ACCOUNT_CHANGED');
+        if (typeof repo.mergePersonalAtomic !== 'function') throw new Error('MEMORY_IMPORT_UNAVAILABLE');
+        const rows = records.map(record => {
+            if (!['personal_fact', 'preference'].includes(record.type)) throw new TypeError('MEMORY_TYPE_INVALID');
+            const metadata = validate(record);
+            return { ...record, metadata, key: `${owner}:${record.id}`, ownerId: owner };
+        });
+        if (ownerId() !== owner) throw new Error('MEMORY_IMPORT_ACCOUNT_CHANGED');
+        return repo.mergePersonalAtomic(owner, rows);
+    }
     // Adapter for the existing vector-backed turn store. No duplicate record.
     async function rememberConversation(turn) {
         ownerId();
@@ -129,6 +141,7 @@
         return turns.filter(turn => readableTurn(turn, owner));
     }
     root.GunterMemory = Object.freeze({ put, get, search, delete: remove, list,
+        accountId: ownerId, importPersonalAtomic,
         rememberConversation, recallConversation,
         TYPES: Object.freeze([...TYPES]), PRIVACY: Object.freeze([...PRIVACY]) });
 })(typeof window !== 'undefined' ? window : globalThis);

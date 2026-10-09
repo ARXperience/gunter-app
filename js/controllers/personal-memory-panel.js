@@ -3,6 +3,7 @@
     if (root.GunterPersonalMemoryPanel) return;
     let editingId = null;
     let searchTimer = null;
+    let pendingBackup = null;
 
     function status(message, error = false) {
         const target = document.getElementById('personal-memory-status');
@@ -93,6 +94,80 @@
                 'No pude verificar el guardado. Revisa la sesión y el almacenamiento local.', true);
         } finally { saveButton.disabled = false; }
     }
+    function backupStatus(message, error = false) {
+        const target = document.getElementById('personal-memory-backup-status');
+        target.textContent = message;
+        target.style.color = error ? 'var(--error, #fca5a5)' : 'var(--text-secondary)';
+    }
+    function clearPreview() {
+        pendingBackup = null;
+        document.getElementById('personal-memory-import-preview').hidden = true;
+        document.getElementById('personal-memory-import-confirm').disabled = true;
+        document.getElementById('personal-memory-import-counts').textContent = '';
+    }
+    async function exportBackup() {
+        const button = document.getElementById('personal-memory-export');
+        button.disabled = true;
+        try {
+            const { backup, excluded } = await root.GunterPersonalMemory.exportBackup();
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `gunter-memoria-personal-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+            backupStatus(`Archivo descargado: ${backup.records.length} recuerdos. ${excluded} excluidos por seguridad o formato. Guárdalo de forma segura.`);
+        } catch (error) { backupStatus(error?.message === 'PERSONAL_MEMORY_BACKUP_SIZE_INVALID'
+            ? 'El respaldo supera el límite de 5 MB o 10 000 recuerdos; no se descargó un archivo incompleto.'
+            : 'No pude exportar la memoria de esta cuenta. Comprueba tu sesión y el almacenamiento local.', true); }
+        finally { button.disabled = false; }
+    }
+    async function selectBackup(event) {
+        clearPreview();
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (file.size > root.GunterPersonalMemory.MAX_BACKUP_BYTES || file.size === 0) {
+            backupStatus('Archivo vacío o demasiado grande (máximo 5 MB).', true);
+            event.target.value = '';
+            return;
+        }
+        try {
+            const text = await file.text();
+            const preview = await root.GunterPersonalMemory.previewBackup(text, file.size);
+            if (event.target.files?.[0] !== file) return;
+            pendingBackup = { text, size: file.size, accountId: preview.accountId };
+            document.getElementById('personal-memory-import-preview').hidden = false;
+            document.getElementById('personal-memory-import-counts').textContent =
+                `${preview.newCount} nuevos · ${preview.duplicates} duplicados · ${preview.invalid} inválidos`;
+            document.getElementById('personal-memory-import-confirm').disabled = !preview.canImport;
+            backupStatus(preview.invalid ? 'Hay registros inválidos: no se importará ninguno.' :
+                preview.newCount ? 'Revisa la vista previa y confirma para importar.' : 'No hay recuerdos nuevos para importar.', !!preview.invalid);
+        } catch (error) {
+            const message = error?.message === 'PERSONAL_MEMORY_BACKUP_ACCOUNT_MISMATCH'
+                ? 'Este archivo pertenece a otra cuenta. No se puede importar aquí.'
+                : 'El archivo no es un respaldo válido de memoria personal de Gunter.';
+            backupStatus(message, true);
+            event.target.value = '';
+        }
+    }
+    async function confirmImport() {
+        if (!pendingBackup || !root.confirm('¿Importar los recuerdos nuevos a esta cuenta? Los recuerdos actuales se conservarán.')) return;
+        const button = document.getElementById('personal-memory-import-confirm');
+        button.disabled = true;
+        try {
+            const result = await root.GunterPersonalMemory.importBackup(pendingBackup.text, pendingBackup.size);
+            backupStatus(`${result.added} recuerdos importados; ${result.duplicates} duplicados omitidos.`);
+            clearPreview();
+            document.getElementById('personal-memory-import-file').value = '';
+            await render();
+        } catch {
+            backupStatus('No se importó ningún recuerdo. El archivo, la cuenta o el almacenamiento cambiaron; vuelve a seleccionarlo.', true);
+            clearPreview();
+        }
+    }
     function bind() {
         if (!document.getElementById('personal-memory-card')) return;
         document.getElementById('personal-memory-form').addEventListener('submit', submit);
@@ -101,6 +176,10 @@
             clearTimeout(searchTimer);
             searchTimer = setTimeout(render, 150);
         });
+        document.getElementById('personal-memory-export').addEventListener('click', exportBackup);
+        document.getElementById('personal-memory-import-file').addEventListener('change', selectBackup);
+        document.getElementById('personal-memory-import-confirm').addEventListener('click', confirmImport);
+        document.addEventListener('gunter-auth-ready', clearPreview);
         document.addEventListener('gunter-auth-ready', render);
         render();
     }

@@ -72,8 +72,8 @@ for (const file of ['js/services/gunter-memory.js', 'js/services/personal-memory
     assert.ok(html.includes('js/controllers/personal-memory-panel.js'));
     for (const page of ['config.html', 'dashboard.html', 'day.html', 'index.html', 'meeting.html', 'new-project.html', 'results.html']) {
         const source = fs.readFileSync(path.join(root, page), 'utf8');
-        const memoryAt = source.indexOf('js/services/gunter-memory.js?v2-paging');
-        const personalAt = source.indexOf('js/services/personal-memory-service.js?v1');
+        const memoryAt = source.indexOf('js/services/gunter-memory.js?v3-backup');
+        const personalAt = source.indexOf('js/services/personal-memory-service.js?v2-backup');
         const companionAt = source.indexOf('js/services/gunter-companion.js?v116-personal-memory');
         assert.ok(memoryAt >= 0 && memoryAt < personalAt && personalAt < companionAt, `incorrect script order: ${page}`);
     }
