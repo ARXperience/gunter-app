@@ -30,6 +30,7 @@
         ['tasks-changed', 'events-changed'].forEach(ev =>
             window.addEventListener(ev, () => update()));
         window.addEventListener('gunterPremiumFeaturesChange', () => update());
+        document.addEventListener('gunter-auth-ready', update);
         refreshTimer = setInterval(update, 60_000);
     }
 

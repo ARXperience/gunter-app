@@ -15,6 +15,8 @@ const REGISTRY = Object.freeze([
     skill('tasks.update', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.tasks', 'external_write', 'L3', ['tasks.write']),
     skill('calendar.read', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.calendar', 'read', 'L4', ['calendar.read']),
     skill('calendar.create', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.calendar', 'external_write', 'L3', ['calendar.write']),
+    skill('calendar.update', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.calendar', 'external_write', 'L3', ['calendar.write']),
+    skill('calendar.cancel', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.calendar', 'external_write', 'L3', ['calendar.write']),
     skill('reminder.schedule', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'automation.basic', 'external_write', 'L4', ['jobs.write']),
     skill('follow_up.schedule', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'automation.basic', 'external_write', 'L4', ['jobs.write']),
     skill('procedure.execute', ['WEB'], 'automation.procedures', 'external_write', 'L3', ['procedures.execute']),
@@ -148,7 +150,7 @@ function verify(skillName, result = {}) {
     else if (skillName === 'desktop.ui.hotkey') verified = evidence.shortcutSent === true && !!evidence.targetHash;
     else if (skillName === 'desktop.ui.select_file') verified = evidence.fileSelected === true && !!evidence.pathHash;
     else if (skillName === 'desktop.permissions.update') verified = evidence.permissionsUpdated === true && ['standard', 'all'].includes(evidence.filesystemScope) && ['standard', 'all'].includes(evidence.programScope);
-    else if (skillName === 'calendar.create') verified = !!evidence.eventId && evidence.reconsulted === true;
+    else if (['calendar.create', 'calendar.update', 'calendar.cancel'].includes(skillName)) verified = !!evidence.eventId && evidence.reconsulted === true;
     else if (skillName === 'tasks.create' || skillName.includes('reminder') || skillName === 'follow_up.schedule') verified = !!evidence.persistedId;
     else if (skillName === 'mobile.message.send') {
         verified = evidence.channelAccepted === true;

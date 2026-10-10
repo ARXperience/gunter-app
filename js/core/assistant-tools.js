@@ -153,6 +153,7 @@
         const registry = new Map();
         let lastTaskReference = null;
         let pendingReminderReference = null;
+        let pendingEventSelection = null;
         const runtime = options.root || root || {};
         const memoryStorage = new Map();
         const storage = options.storage || safeStorage(runtime.sessionStorage, memoryStorage);
@@ -427,6 +428,13 @@
                 return { toolId: 'tasks.update', args: { rawText: text } };
             }
 
+            if (!browserExplanation && !/^(que|como|por que|para que|puedo|podria)\b/.test(questionText)) {
+                if (/\b(cancela|cancelar|elimina|eliminar)\b.*\b(reunion|evento|cita)\b/.test(t))
+                    return { toolId: 'calendar.cancel', args: { rawText: text } };
+                if (/\b(reprograma|reprogramar|reagenda|reagendar|mueve|mover|pospone|posponer|renombra|renombrar|edita|editar|cambia|cambiar)\b.*\b(reunion|evento|cita)\b/.test(t))
+                    return { toolId: 'calendar.update', args: { rawText: text } };
+            }
+
             if (/\b(programa|programame|crea|haz|hacer)\b.*\b(seguimiento|follow up|follow-up)\b/.test(t)) {
                 return { toolId: 'follow_up.schedule', args: { rawText: text } };
             }
@@ -476,7 +484,7 @@
             if (isApp) add(['desktop.apps.open', 'mobile.open_app'], 'Aplicaciones: abrir una aplicación en un dispositivo conectado.');
             if (isAutomation) add(['procedure.execute'], 'Rutas guardadas: ejecutar procedimientos disponibles y aprobados.');
             if (isSettings) add(['settings.list', 'settings.update', 'preferences.update'], 'Configuración: consultar opciones y cambiar ajustes permitidos.');
-            if (/\b(reunion|evento|cita|agenda|recordatorio|tarea)\b/.test(normalized)) add(['calendar.create', 'agenda.list', 'reminder.schedule', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update'], 'Organización: agenda, reuniones, recordatorios y tareas.');
+            if (/\b(reunion|evento|cita|agenda|recordatorio|tarea)\b/.test(normalized)) add(['calendar.create', 'calendar.update', 'calendar.cancel', 'agenda.list', 'reminder.schedule', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update'], 'Organización: agenda, reuniones, recordatorios y tareas.');
             if (!suggestions.length) {
                 add(['app.navigate'], 'Navegación por las secciones de Gunter.');
                 add(['desktop.apps.open', 'mobile.open_app'], 'Abrir aplicaciones conectadas.');
@@ -562,6 +570,31 @@
                         snapshot: target ? { title: target.title, dueAt: target.dueAt || null,
                             status: target.status, updatedAt: target.updatedAt } : null } : {}) } };
             }
+            if (['calendar.update', 'calendar.cancel'].includes(match.toolId)) {
+                const service = options.eventsService || runtime.GunterEventsService;
+                const ownerId = taskOwnerId();
+                const edit = parseEventEdit(match.args.rawText, match.toolId === 'calendar.cancel');
+                const all = ownerId && service?.list ? await service.list() : [];
+                const active = all.filter(item => item.ownerId === ownerId && (item.status || 'scheduled') === 'scheduled');
+                const needle = normalize(edit.reference);
+                const candidates = match.args.selectedTargetId
+                    ? active.filter(item => item.id === match.args.selectedTargetId)
+                    : needle ? active.filter(item => normalize(item.title) === needle || item.id === edit.reference) : [];
+                const target = candidates.length === 1 ? candidates[0] : null;
+                const resolved = edit.mode === 'start' && edit.value ? await resolveTime(edit.value) : null;
+                const duration = target ? Date.parse(target.endAt) - Date.parse(target.startAt) : NaN;
+                const endAt = resolved?.end || (Number.isFinite(Date.parse(resolved?.iso)) && Number.isFinite(duration) && duration > 0
+                    ? new Date(Date.parse(resolved.iso) + duration).toISOString() : null);
+                return { ...match, args: { ...match.args, reference: edit.reference, ownerId,
+                    editMode: edit.mode, newTitle: edit.mode === 'title' ? edit.value : null,
+                    startAt: resolved?.iso || null, endAt, dueKind: resolved?.kind || null,
+                    temporalAmbiguity: resolved?.ambiguity || null, newRecurrence: resolved?.rrule || null,
+                    targetId: target?.id || null, targetTitle: target?.title || null,
+                    snapshot: target ? eventSnapshot(target) : null,
+                    restricted: target ? eventRestriction(target) : null,
+                    candidates: candidates.length > 1 ? candidates.map(item => ({ id: item.id, title: item.title, startAt: item.startAt })) : [],
+                    ambiguous: candidates.length > 1 } };
+            }
             if (!['tasks.create', 'calendar.create', 'reminder.schedule', 'follow_up.schedule'].includes(match.toolId)) return match;
             // An undated task must not send its title to the temporal LLM, which
             // can invent ambiguity and block an otherwise valid capture command.
@@ -573,6 +606,7 @@
                 args: {
                     ...match.args,
                     title,
+                    ...(match.toolId === 'calendar.create' ? { ownerId: runtime.GunterAuth ? taskOwnerId() : 'local-user' } : {}),
                     ...(['tasks.create', 'reminder.schedule', 'follow_up.schedule'].includes(match.toolId) ? {
                         ...(match.toolId === 'tasks.create' ? { dueAt: resolved?.iso || null } : { runAt: resolved?.iso || null })
                     } : {
@@ -592,6 +626,12 @@
             if (!tool) return { handled: false };
             const validation = tool.validate ? await tool.validate(match.args) : { ok: true };
             if (!validation?.ok) {
+                if (['calendar.update', 'calendar.cancel', 'calendar.create'].includes(tool.id)) {
+                    savePending(null);
+                    pendingEventSelection = match.args.ambiguous && match.args.ownerId ? {
+                        match, ownerId: match.args.ownerId, at: Date.now()
+                    } : null;
+                }
                 state('idle', 'tool-validation-failed', { toolId: tool.id });
                 return { handled: true, intent: tool.id, status: 'needs_input', reply: validation.reply || 'Me faltan datos para hacerlo.' };
             }
@@ -704,6 +744,29 @@
                 notify({ phase: 'cancelled', toolId: pending.toolId });
                 return { handled: true, intent: pending.toolId, status: 'cancelled', reply: 'Cancelado. No hice ningún cambio.' };
             }
+            // A new request supersedes an unconfirmed event proposal. A later
+            // standalone yes must not apply an older, unrelated calendar change.
+            if (pending?.toolId?.startsWith('calendar.')) savePending(null);
+
+            const selection = pendingEventSelection;
+            pendingEventSelection = null;
+            if (selection && selection.ownerId === taskOwnerId() && Date.now() - selection.at < PENDING_TTL_MS) {
+                if (isNegative(normalized)) return { handled: true, status: 'cancelled', reply: 'Cancelado. No hice ningún cambio.' };
+                const ordinal = { primera: 1, primero: 1, segunda: 2, segundo: 2, tercera: 3, tercero: 3, cuarta: 4, cuarto: 4 };
+                const choiceText = normalized.replace(/^(?:la|el|opcion|numero)\s+/, '');
+                const choice = /^\d+$/.test(choiceText) ? Number(choiceText) : ordinal[choiceText];
+                if (choice !== undefined) {
+                    const candidate = selection.match.args.candidates[choice - 1];
+                    if (!candidate) {
+                        pendingEventSelection = selection;
+                        return { handled: true, status: 'needs_input', reply: 'Elige uno de los números de la lista de eventos.' };
+                    }
+                    const prepared = await prepare({ toolId: selection.match.toolId,
+                        args: { rawText: selection.match.args.rawText, selectedTargetId: candidate.id } });
+                    if (options.inputSource === 'voice') prepared.args = { ...prepared.args, inputSource: 'voice', voiceTranscript: text };
+                    return execute(prepared, false);
+                }
+            }
 
             // Resolve only a recent, verified task target. Never guess among
             // several records or execute a side effect from an ambiguous pronoun.
@@ -720,7 +783,7 @@
             if (taskFollowUp || reminderFollowUp) {
                 const target = lastTaskReference?.ownerId === taskOwnerId() && Date.now() - lastTaskReference.at < 10 * 60 * 1000
                     ? lastTaskReference : null;
-                if (!target?.title) return { handled: true, status: 'needs_input', reply: '¿A qué tarea te refieres? Dime su nombre para evitar cambiar otra.' };
+                if (!target?.title) return { handled: true, status: 'needs_input', reply: '¿A qué tarea o evento te refieres? Dime su nombre y el cambio para evitar modificar otro registro.' };
                 if (reminderFollowUp) {
                     pendingReminderReference = { title: target.title, ownerId: target.ownerId, at: Date.now() };
                     return { handled: true, status: 'needs_input',
@@ -730,6 +793,12 @@
             }
             const detected = detect(effectiveText);
             if (!detected) return { handled: false };
+            if (detected.toolId.startsWith('calendar.')) {
+                // An event request must not leave an older task as the target
+                // of a later pronoun while event-specific follow-ups are pending.
+                lastTaskReference = null;
+                pendingReminderReference = null;
+            }
             const prepared = await prepare(detected);
             if (options.inputSource === 'voice') prepared.args = { ...prepared.args, inputSource: 'voice', voiceTranscript: String(text || '') };
             return execute(prepared, false);
@@ -1174,9 +1243,10 @@
                 const tasks = args.scope === 'upcoming'
                     ? activeTasks.filter(item => !item.dueAt || new Date(item.dueAt) >= now()).slice(0, 8)
                     : activeTasks.filter(item => !item.dueAt || dateKey(item.dueAt, timezone()) === targetKey);
+                const activeEvents = allEvents.filter(item => (item.status || 'scheduled') === 'scheduled');
                 const events = args.scope === 'upcoming'
-                    ? allEvents.filter(item => item.startAt && new Date(item.startAt) >= now()).slice(0, 8)
-                    : allEvents.filter(item => item.startAt && dateKey(item.startAt, timezone()) === targetKey);
+                    ? activeEvents.filter(item => item.startAt && new Date(item.startAt) >= now()).slice(0, 8)
+                    : activeEvents.filter(item => item.startAt && dateKey(item.startAt, timezone()) === targetKey);
                 return { scope: args.scope, tasks, events };
             },
             formatResult(result) {
@@ -1410,14 +1480,83 @@
             }
         });
 
+        ['calendar.update', 'calendar.cancel'].forEach(id => register({
+            id,
+            description: id === 'calendar.cancel' ? 'Cancela un evento local de la cuenta, sin borrarlo.' : 'Cambia el nombre o reprograma un evento local de la cuenta.',
+            confirm: 'always', reversible: id === 'calendar.update',
+            validate(args) {
+                if (!args.ownerId || taskOwnerId() !== args.ownerId)
+                    return { ok: false, reply: 'Inicia sesión para cambiar eventos de tu cuenta.' };
+                if (!args.reference || (id === 'calendar.update' && !args.editMode))
+                    return { ok: false, reply: 'Indica el nombre del evento y el cambio. Por ejemplo: reprograma la reunión “Equipo” para mañana a las 10, o renombra la cita “Control” a “Control médico”.' };
+                if (args.ambiguous) return { ok: false, reply: `Hay varios eventos con ese nombre. ¿Cuál quieres cambiar?\n${args.candidates.map((item, index) => `${index + 1}. ${item.title} — ${formatDateTime(item.startAt, timezone())}`).join('\n')}\nDime el número; después pediré confirmación.` };
+                if (!args.targetId || !args.snapshot)
+                    return { ok: false, reply: `No encontré un evento activo de esta cuenta con el nombre o identificador “${args.reference}”.` };
+                if (args.restricted) return { ok: false, reply: args.restricted };
+                if (id === 'calendar.cancel') return { ok: true };
+                if (args.editMode === 'title') {
+                    if (!args.newTitle || args.newTitle.length < 2 || args.newTitle.length > 180)
+                        return { ok: false, reply: 'Indica un nuevo nombre de 2 a 180 caracteres.' };
+                    if (normalize(args.newTitle) === normalize(args.targetTitle))
+                        return { ok: false, reply: 'El evento ya tiene ese nombre; no hice cambios.' };
+                } else if (args.editMode === 'start') {
+                    if (!Number.isFinite(Date.parse(args.startAt)) || !Number.isFinite(Date.parse(args.endAt))
+                        || Date.parse(args.endAt) <= Date.parse(args.startAt) || args.dueKind !== 'instant' || args.newRecurrence)
+                        return { ok: false, reply: 'Dime una fecha y hora concretas para el evento. Debe terminar después de comenzar; este cambio no crea series recurrentes.' };
+                    if (Date.parse(args.startAt) <= now().getTime())
+                        return { ok: false, reply: 'La nueva fecha ya pasó. Dime una fecha y hora futuras.' };
+                    if (Date.parse(args.startAt) === Date.parse(args.snapshot.startAt) && Date.parse(args.endAt) === Date.parse(args.snapshot.endAt))
+                        return { ok: false, reply: 'El evento ya tiene ese horario; no hice cambios.' };
+                } else return { ok: false, reply: 'Puedo cambiar el nombre o la fecha y hora del evento. Dime cuál quieres modificar.' };
+                return { ok: true };
+            },
+            confirmation(args) {
+                const current = `“${args.targetTitle}”, ${formatDateTime(args.snapshot.startAt, timezone())}`;
+                if (id === 'calendar.cancel') return `¿Confirmas cancelar ${current}? Conservaré el registro, pero dejará de aparecer entre los eventos activos.`;
+                if (args.editMode === 'title') return `¿Confirmas renombrar ${current} como “${args.newTitle}”?`;
+                return `¿Confirmas mover ${current} a ${formatDateTime(args.startAt, timezone())}, hasta ${formatTime(args.endAt, timezone())}?`;
+            },
+            async execute(args) {
+                if (taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué el evento.');
+                const service = options.eventsService || runtime.GunterEventsService;
+                if (!service?.list || !service?.update) throw new Error('El servicio de eventos no está disponible.');
+                const current = (await service.list({ includeCancelled: true })).find(item => item.id === args.targetId && item.ownerId === args.ownerId);
+                if (!current || (current.status || 'scheduled') !== 'scheduled' || eventRestriction(current)
+                    || JSON.stringify(eventSnapshot(current)) !== JSON.stringify(args.snapshot))
+                    throw new Error('El evento cambió desde la propuesta o ya no está disponible. Revísalo y vuelve a pedir el cambio.');
+                if (taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué el evento.');
+                const patch = id === 'calendar.cancel' ? { status: 'cancelled', cancelledAt: now().toISOString() }
+                    : args.editMode === 'title' ? { title: args.newTitle } : { startAt: args.startAt, endAt: args.endAt };
+                return service.update(args.targetId, patch, { ownerId: args.ownerId, statuses: ['scheduled'], expected: args.snapshot, skipSync: true });
+            },
+            async verify(result, args) {
+                if (taskOwnerId() !== args.ownerId) return false;
+                const service = options.eventsService || runtime.GunterEventsService;
+                const stored = (await service.list({ includeCancelled: true })).find(item => item.id === args.targetId && item.ownerId === args.ownerId);
+                return result?.id === args.targetId && result?.ownerId === args.ownerId && !!stored
+                    && (id === 'calendar.cancel' ? stored.status === 'cancelled' && Boolean(stored.cancelledAt)
+                        : (stored.status || 'scheduled') === 'scheduled' && (args.editMode === 'title' ? stored.title === args.newTitle
+                            : Date.parse(stored.startAt) === Date.parse(args.startAt) && Date.parse(stored.endAt) === Date.parse(args.endAt)));
+            },
+            formatResult(result, args) {
+                if (id === 'calendar.cancel') return `Evento cancelado y verificado: “${result.title}”. Conservé el registro.`;
+                return args.editMode === 'title' ? `Nombre del evento actualizado y verificado: “${result.title}”.`
+                    : `Evento reprogramado y verificado: “${result.title}”, ${formatDateTime(result.startAt, timezone())}.`;
+            }
+        }));
+
         register({
             id: 'calendar.create',
             description: 'Crea un evento local; siempre requiere confirmación.',
             confirm: 'always',
             reversible: true,
             validate(args) {
+                if (runtime.GunterAuth && (!args.ownerId || taskOwnerId() !== args.ownerId))
+                    return { ok: false, reply: 'Inicia sesión para crear eventos de tu cuenta.' };
                 if (!args.title || args.title.length < 2) return { ok: false, reply: '¿Qué nombre tendrá el evento?' };
                 if (!args.startAt) return { ok: false, reply: '¿Para qué fecha y hora quieres agendarlo?' };
+                if (!Number.isFinite(Date.parse(args.startAt)) || (args.endAt && (!Number.isFinite(Date.parse(args.endAt)) || Date.parse(args.endAt) <= Date.parse(args.startAt))))
+                    return { ok: false, reply: 'El horario no es válido. Indica una fecha y una hora de finalización posterior al inicio.' };
                 if (args.title.length > 180) return { ok: false, reply: 'El nombre del evento es demasiado largo; resúmelo en menos de 180 caracteres.' };
                 return { ok: true };
             },
@@ -1429,6 +1568,7 @@
                 const service = options.eventsService || runtime.GunterEventsService;
                 if (!service?.create) throw new Error('El servicio de eventos no está disponible.');
                 return service.create({
+                    ownerId: args.ownerId || 'local-user',
                     title: args.title,
                     startAt: args.startAt,
                     endAt: args.endAt,
@@ -1438,10 +1578,11 @@
                     source: 'gunter-assistant'
                 });
             },
-            async verify(result) {
+            async verify(result, args) {
+                if (runtime.GunterAuth && taskOwnerId() !== args.ownerId) return false;
                 const service = options.eventsService || runtime.GunterEventsService;
                 const items = await service.list();
-                return items.some(item => item.id === result.id);
+                return items.some(item => item.id === result.id && item.ownerId === (args.ownerId || 'local-user'));
             },
             async formatResult(result, args) {
                 const service = options.eventsService || runtime.GunterEventsService;
@@ -1461,7 +1602,7 @@
             prepareMatch: prepare,
             validatePrepared,
             executeWorkflowStep,
-            clearPending: () => savePending(null), normalize
+            clearPending: () => { savePending(null); pendingEventSelection = null; }, normalize
         };
     }
 
@@ -1483,7 +1624,7 @@
     }
 
     function workflowEvidence(toolId, result = {}) {
-        if (toolId === 'calendar.create') return { eventId: result.id || result.eventId, reconsulted: true };
+        if (toolId.startsWith('calendar.')) return { eventId: result.id || result.eventId, reconsulted: true };
         if (toolId === 'tasks.create' || toolId === 'reminder.schedule' || toolId === 'follow_up.schedule') return { persistedId: result.id };
         return { verified: true };
     }
@@ -1507,7 +1648,8 @@
         title = title.replace(prefix, '').trim();
         title = title.replace(/\s+\b(?:pasado\s+mañana|pasado\s+manana|mañana|manana|hoy|el\s+(?:próximo\s+|proximo\s+|este\s+)?(?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)|\d{1,2}\s+de\s+[a-záéíóúñ]+|\d{1,2}\/\d{1,2})(?:\s+.*)?$/i, '').trim();
         title = title.replace(/\s+\b(?:a\s+las?|a\s+la|en)\s+(?:\d{1,2}|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce).*/i, '').trim();
-        return title.replace(/^[,;:\-]+|[,;:\-]+$/g, '').trim();
+        title = title.replace(/^[,;:\-]+|[,;:\-]+$/g, '').trim();
+        return toolId === 'calendar.create' ? title.replace(/^[“"']|[”"']$/g, '').trim() : title;
     }
 
     function extractTaskReference(text) {
@@ -1520,6 +1662,41 @@
             .replace(/^(?:por favor\s+)?(?:completa|completar|termina|terminar|finaliza|finalizar|reabre|reabrir|reactiva|reactivar|vuelve a abrir|marca|marcar|cancela|cancelar)\s+(?:(?:la|el|una|un)\s+)?(?:tarea|pendiente)\s*(?:de\s+)?/i, '')
             .replace(/\s+como\s+(?:hecha|terminada|completada)\s*$/i, '')
             .replace(/[.!?]+$/, '').trim().slice(0, 180);
+    }
+
+    function eventSnapshot(item) {
+        return { title: item.title, startAt: item.startAt, endAt: item.endAt,
+            status: item.status || 'scheduled', updatedAt: item.updatedAt || null,
+            rrule: item.rrule || null, externalIds: JSON.parse(JSON.stringify(item.externalIds || {})) };
+    }
+
+    function eventRestriction(item) {
+        if (item.rrule || item.kind === 'recurring')
+            return 'Este evento pertenece a una serie recurrente. No cambiaré toda la serie por una orden individual; gestiona la recurrencia desde Agenda.';
+        if (Object.values(item.externalIds || {}).some(Boolean) || (item.syncStatus && item.syncStatus !== 'local'))
+            return 'Este evento está vinculado a un calendario externo o tiene sincronización pendiente. Este cambio conversacional solo modifica eventos locales; usa el calendario conectado para mantener ambos consistentes.';
+        return null;
+    }
+
+    function parseEventEdit(text, cancel = false) {
+        const raw = String(text || '').trim().replace(
+            /^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*[,;:!\-]*\s*/i, '');
+        const event = '(?:reuni[oó]n|evento|cita)';
+        if (cancel) {
+            const body = raw.replace(new RegExp(`^(?:por favor\\s+)?(?:cancela(?:r)?|elimina(?:r)?)\\s+(?:(?:la|el)\\s+)?${event}\\s*`, 'i'), '').trim();
+            const quoted = body.match(/^[“"'](.+?)[”"']\s*[.!?]*$/);
+            return { mode: 'cancel', reference: (quoted?.[1] || body).replace(/[.!?]+$/, '').trim().slice(0, 180), value: '' };
+        }
+        const title = raw.match(new RegExp(`^(?:por favor\\s+)?(?:renombra(?:r)?|cambia(?:r)? el nombre de|edita(?:r)? el nombre de)\\s+(?:(?:la|el)\\s+)?${event}\\s+(.+)$`, 'i'));
+        const start = raw.match(new RegExp(`^(?:por favor\\s+)?(?:reprograma(?:r)?|reagenda(?:r)?|mueve|mover|pospone(?:r)?|cambia(?:r)? (?:la fecha|la hora|el horario) de)\\s+(?:(?:la|el)\\s+)?${event}\\s+(.+)$`, 'i'));
+        const mode = title ? 'title' : start ? 'start' : null;
+        const body = (title || start)?.[1] || '';
+        const split = body.match(/^[“"'](.+?)[”"']\s+(?:a|al|por|para)\s+(.+)$/i)
+            || body.match(/^(.+?)\s+(?:a|al|por|para)\s+(.+)$/i);
+        if (!split) return { mode, reference: '', value: '' };
+        const reference = split[1].trim().slice(0, 180);
+        const value = split[2].trim().replace(/^[“"']|[”"']$/g, '').replace(/[.!?]+$/, '').trim();
+        return { mode, reference, value: mode === 'title' ? value.slice(0, 181) : value };
     }
 
     function parseTaskEdit(text) {
@@ -1684,6 +1861,18 @@
     function explainFailure(error, tool) {
         const code = error?.code || '';
         const message = String(error?.message || 'No recibí un resultado verificable.');
+        if (tool?.id?.startsWith('calendar.')) {
+            const detail = ({
+                EVENT_AUTH_REQUIRED: 'La sesión ya no está verificada.',
+                EVENT_OWNER_MISMATCH: 'La cuenta cambió o el evento no pertenece a esta cuenta.',
+                EVENT_STATUS_CHANGED: 'El evento ya no está activo.',
+                EVENT_CHANGED: 'Los datos del evento cambiaron después de la propuesta.',
+                EVENT_INVALID_TITLE: 'El nombre del evento no es válido.',
+                EVENT_INVALID_DATES: 'La fecha de fin debe ser válida y posterior al inicio.',
+                EVENT_PATCH_FORBIDDEN: 'El cambio incluye campos que este flujo no permite modificar.'
+            })[code || message] || message;
+            return `No pude verificar la acción en tu agenda: ${detail}\nRevisa el evento en Agenda antes de repetir la orden; si cambió, selecciona sus datos actuales y confirma de nuevo.`;
+        }
         const advice = ({
             desktop_program_full_access_required: 'Puedes permitir el acceso general a programas desde Configuración → Centro de control → Dispositivos activos. Ese cambio amplía permisos y requiere tu confirmación; también puedes mantener el acceso limitado y elegir un programa permitido.',
             desktop_app_not_allowed: 'Mantén el acceso limitado y abre una aplicación de la lista permitida, o concede acceso general al PC desde Configuración si realmente lo necesitas.',

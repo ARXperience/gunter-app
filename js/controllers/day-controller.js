@@ -15,7 +15,11 @@
     function init() {
         mountAvatar();
         renderHeader();
-        document.addEventListener('gunter-auth-ready', renderHeader);
+        document.addEventListener('gunter-auth-ready', () => {
+            renderHeader();
+            renderEventsInto(document.getElementById('gday-events-mount'));
+            renderNextUp();
+        });
         window.addEventListener('gunter-location-change', renderHeader);
         wireQuickBar();
         wireNotifications();

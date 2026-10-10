@@ -10,6 +10,7 @@
     "test:api-base": "node test/api-base.js",
     "test:preflight": "node test/preflight-guard.js",
     "test:assistant": "node test/assistant-core.js",
+    "test:agenda": "node test/event-tools.js && node test/event-service.js && node test/event-action-engine.js",
     "test:jobs": "node test/jobs-core.js",
     "test:control": "node test/control-plane-core.js",
     "test:hybrid": "node test/hybrid-foundation.js && node test/hybrid-browser.js",

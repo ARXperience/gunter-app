@@ -204,6 +204,7 @@
         ['tasks-changed', 'events-changed', 'reminders-changed'].forEach(ev => {
             window.addEventListener(ev, () => render());
         });
+        document.addEventListener('gunter-auth-ready', render);
     }
 
     window.GunterTodayWidget = { mount, render };

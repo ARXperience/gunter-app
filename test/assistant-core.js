@@ -369,7 +369,7 @@ function browserModule(relativePath, windowOverrides = {}) {
             'desktop.ui.inspect', 'desktop.ui.focus', 'desktop.ui.click', 'desktop.ui.type',
             'desktop.ui.wait', 'desktop.ui.scroll', 'desktop.ui.hotkey', 'desktop.ui.select_file',
             'agenda.list', 'jobs.list', 'reminder.schedule', 'follow_up.schedule',
-            'jobs.cancel', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update', 'calendar.create'
+            'jobs.cancel', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update', 'calendar.update', 'calendar.cancel', 'calendar.create'
         ]);
     });
 
