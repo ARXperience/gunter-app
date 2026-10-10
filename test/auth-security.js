@@ -30,6 +30,9 @@ try {
     assert.equal(registration.status, 200);
     const oldToken = tokenFrom(registration);
     assert.ok(oldToken, 'register creates an HttpOnly session cookie');
+    assert.equal(registration.body.sessionStartedAt, sessions.get(oldToken).createdAt);
+    assert.equal(auth.handle('me', 'GET', {}, request(`gunter_session=${oldToken}`)).body.sessionStartedAt,
+        registration.body.sessionStartedAt, 'welcome marker is stable across authenticated page loads');
     const otherDeviceToken = sessions.create(registration.body.user.id, 'other-device-test');
 
     const rejected = auth.handle('change-password', 'POST', {

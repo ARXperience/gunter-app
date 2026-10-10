@@ -156,7 +156,7 @@ function handle(sub, method, body, req) {
         return {
             status: 200,
             headers: { 'Set-Cookie': _cookieHeader(token, req) },
-            body: { success: true, user: store.publicUser(r.user), isFirst: r.isFirst }
+            body: { success: true, user: store.publicUser(r.user), isFirst: r.isFirst, sessionStartedAt: sessions.get(token)?.createdAt }
         };
     }
 
@@ -176,7 +176,7 @@ function handle(sub, method, body, req) {
         return {
             status: 200,
             headers: { 'Set-Cookie': _cookieHeader(token, req) },
-            body: { success: true, user: store.publicUser(r.user) }
+            body: { success: true, user: store.publicUser(r.user), sessionStartedAt: sessions.get(token)?.createdAt }
         };
     }
 
@@ -190,7 +190,7 @@ function handle(sub, method, body, req) {
         const who = authenticate(req);
         if (!who) return { status: 401, body: { success: false, error: 'auth_required' } };
         if (who.kind === 'service') return { status: 200, body: { success: true, user: { id: 'service', username: 'service', displayName: 'Service', role: 'admin', status: 'approved' }, service: true } };
-        return { status: 200, body: { success: true, user: store.publicUser(who.user) } };
+        return { status: 200, body: { success: true, user: store.publicUser(who.user), sessionStartedAt: sessions.get(who.token)?.createdAt } };
     }
 
     // Vincular / desvincular el WhatsApp propio (phone vacío = desvincular).

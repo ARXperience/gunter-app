@@ -124,7 +124,8 @@
         if (!el) return;
         const runtime = window.GunterRuntimeState?.getState?.() || {};
         const capture = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
-        el.textContent = !capture ? 'Este navegador no permite capturar audio. Usa el chat de texto.'
+        el.textContent = window.PremiumFeaturesService?.isEnabled?.('dictationEnabled') === false ? 'Dictado desactivado por el usuario.'
+            : !capture ? 'Este navegador no permite capturar audio. Usa el chat de texto.'
             : runtime.loaded !== true ? 'Comprobando el estado de Moonshine y del servidor…'
                 : runtime.localSTTAvailable ? 'Moonshine local listo. La grabación queda en este dispositivo hasta el envío al servidor local.'
                     : 'Moonshine no está listo. En LOCAL_ONLY la transcripción no usará cloud; revisa el modelo y runtime local.';
@@ -136,6 +137,15 @@
         const max = document.getElementById('voice-max-seconds');
         const silence = document.getElementById('voice-silence-seconds');
         if (!button || !label) return;
+        const refreshDictation = () => {
+            const enabled = window.PremiumFeaturesService?.isEnabled?.('dictationEnabled') !== false;
+            button.disabled = !enabled;
+            if (!enabled) label.textContent = 'Desactivada por el usuario';
+            else if (label.textContent === 'Desactivada por el usuario') label.textContent = 'Activada, pendiente de permiso';
+            updateVoiceDependencies();
+        };
+        refreshDictation();
+        window.addEventListener('gunterPremiumFeaturesChange', refreshDictation);
         const prefs = readPrefs();
         max.value = prefs.voiceDictationMaxSeconds || 90;
         silence.value = prefs.voiceDictationSilenceSeconds || 12;
@@ -165,6 +175,18 @@
     }
 
     function initDiagnostics() {
+        const toggle = document.getElementById('config-diagnostics-toggle');
+        const status = document.getElementById('config-diagnostics-state');
+        const run = document.getElementById('config-diagnostics-run');
+        const refresh = () => {
+            const enabled = window.PremiumFeaturesService?.isEnabled?.('diagnosticsEnabled') !== false;
+            toggle?.setAttribute('aria-checked', String(enabled));
+            if (status) status.textContent = enabled ? 'Activada y disponible' : 'Desactivada por el usuario';
+            if (run) run.disabled = !enabled;
+        };
+        toggle?.addEventListener('click', () => window.PremiumFeaturesService?.set?.('diagnosticsEnabled', toggle.getAttribute('aria-checked') !== 'true'));
+        window.addEventListener('gunterPremiumFeaturesChange', refresh);
+        refresh();
         document.getElementById('config-diagnostics-run')?.addEventListener('click', async () => {
             const result = document.getElementById('config-diagnostics-result');
             result.textContent = 'Comprobando…';

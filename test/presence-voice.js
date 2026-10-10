@@ -56,18 +56,27 @@ function voiceRuntime(fetcher, hybrid = null) {
         assert.equal(new Set(variants).size, 3); assert.match(variants[0], /Qué hacemos primero/);
         assert.match(composeGreeting({ mode: 'strategic' }), /objetivo priorizamos/);
     });
-    await test('un solo saludo por sesión, nuevas sesiones cambian la variante', async () => {
+    await test('un solo saludo después de login real, no al recargar ni cambiar de página', async () => {
         const env = runtime(), service = create(env), user = { id: 'u1', displayName: 'Andrea' };
-        const [first, duplicate] = await Promise.all([service.greet(user), service.greet(user)]);
-        assert.ok(first); assert.equal(duplicate, null); assert.equal(await service.greet(user), null);
-        env.sessionStorage.removeItem('gunter_entry_greeting');
-        assert.notEqual(await service.greet(user), first);
-        assert.match(await service.greet({ id: 'u2', username: 'Luis' }), /Luis/);
+        assert.equal(await service.greet(user, 'session-1'), null);
+        env.localStorage.setItem('gunter_entry_pending', JSON.stringify({ userId: 'u1', sessionStartedAt: 'session-1' }));
+        const [first, duplicate] = await Promise.all([service.greet(user, 'session-1'), service.greet(user, 'session-1')]);
+        assert.ok(first); assert.equal(duplicate, null);
+        assert.equal(await create(env).greet(user, 'session-1'), null);
+        assert.equal(await service.greet(user, 'session-2'), null);
+        env.localStorage.setItem('gunter_entry_pending', JSON.stringify({ userId: 'u1', sessionStartedAt: 'session-2' }));
+        assert.notEqual(await service.greet(user, 'session-2'), first);
+        env.localStorage.setItem('gunter_entry_pending', JSON.stringify({ userId: 'u2', sessionStartedAt: 'session-3' }));
+        assert.match(await service.greet({ id: 'u2', username: 'Luis' }, 'session-3'), /Luis/);
+        env.localStorage.setItem('gunter_entry_pending', JSON.stringify({ userId: 'u1', sessionStartedAt: 'session-4' }));
+        assert.equal(await service.greet(user, 'session-4', { enabled: false }), null);
+        assert.equal(await service.greet(user, 'session-4'), null, 'enabling greeting later must not replay the old login');
     });
     await test('no pide geolocalización sin permiso previo ni infiere residencia', async () => {
         const env = runtime(); let calls = 0;
         env.navigator.geolocation = { getCurrentPosition() { calls++; } };
-        const service = create(env); await service.greet({ id: 'u1' }); assert.equal(calls, 0);
+        const service = create(env); env.localStorage.setItem('gunter_entry_pending', JSON.stringify({ userId: 'u1', sessionStartedAt: 'session-1' }));
+        await service.greet({ id: 'u1' }, 'session-1'); assert.equal(calls, 0);
         service.savePreferences({ city: 'Medellín', locationSource: 'device', locationUpdatedAt: 1, useDeviceLocation: true });
         assert.equal((await service.location()).source, 'stored'); assert.equal(calls, 0);
     });

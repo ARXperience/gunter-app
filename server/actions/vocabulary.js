@@ -75,6 +75,36 @@ const FEATURES = [
     shortDesc: 'Que Gunter te escuche al decir "Hi Gunter"',
     longDesc: 'Activa el reconocimiento continuo. Solo funciona con la app abierta en primer plano en Android.'
   },
+  {
+    flag: 'dictationEnabled',
+    aliases: ['dictado por micrófono', 'dictado', 'transcripción por micrófono'],
+    kind: 'boolean', risk: 'safe',
+    shortDesc: 'Permite dictar cuando pulsas Hablar; el micrófono siempre requiere permiso.'
+  },
+  {
+    flag: 'conversationContinuity',
+    aliases: ['continuidad de conversación', 'continuidad del chat', 'mantener el hilo'],
+    kind: 'boolean', risk: 'safe',
+    shortDesc: 'Usa turnos recientes para mantener el hilo de la conversación.'
+  },
+  {
+    flag: 'personalMemoryContext',
+    aliases: ['recuerdos autorizados', 'memoria personal contextual', 'usar mis recuerdos guardados'],
+    kind: 'boolean', risk: 'safe',
+    shortDesc: 'Usa recuerdos guardados explícitamente solo en inferencia local.'
+  },
+  {
+    flag: 'contextualRecommendations',
+    aliases: ['recomendaciones contextuales', 'sugerencias de herramientas', 'sugerencias de acciones'],
+    kind: 'boolean', risk: 'safe',
+    shortDesc: 'Sugiere herramientas pertinentes sin ejecutarlas automáticamente.'
+  },
+  {
+    flag: 'diagnosticsEnabled',
+    aliases: ['diagnóstico de Gunter', 'diagnóstico de funcionamiento', 'explicación de errores'],
+    kind: 'boolean', risk: 'safe',
+    shortDesc: 'Explica el estado y los errores reales cuando lo consultas.'
+  },
 
   // ─────────────────────────────────────────────
   // Productividad

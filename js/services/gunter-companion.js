@@ -165,7 +165,7 @@
         loadLog();
         renderLog();
         renderQuick();
-        if (window.GunterAuth?.isVerified?.()) greetOnEntry(window.GunterAuth.getUser());
+        if (window.GunterAuth?.isVerified?.()) greetOnEntry(window.GunterAuth.getUser(), window.GunterAuth.getSessionStartedAt?.());
 
         // v37 · Mood engine: humor del día → mascota + status del chat
         try {
@@ -223,11 +223,12 @@
         window.addEventListener('gunter-recording-stopped', () => show());
     }
 
-    async function greetOnEntry(user) {
-        if (!STATE.mounted || STATE.currentPage === 'meeting' || !window.GunterPresence || window.GunterPresence.preferences().entryGreeting === false) return;
+    async function greetOnEntry(user, sessionStartedAt) {
+        if (!STATE.mounted || !window.GunterPresence) return;
         const turnId = STATE.turnId;
         try {
-            const greeting = await window.GunterPresence.greet(user);
+            const enabled = STATE.currentPage !== 'meeting' && window.GunterPresence.preferences().entryGreeting !== false;
+            const greeting = await window.GunterPresence.greet(user, sessionStartedAt, { enabled });
             if (!greeting || turnId !== STATE.turnId || STATE.hidden) return;
             addMessage('assistant', greeting, { voiceContext: 'entry', fullVoice: true });
             if (!STATE.expanded) showBubble(greeting, 12000);
@@ -265,13 +266,7 @@
             scrollLogToBottom();
         }, 100);
 
-        // Si no hay log, mostrar welcome (con el humor del día si aplica)
-        if (STATE.log.length === 0) {
-            const welcome = WELCOME_BY_PAGE[STATE.currentPage] || WELCOME_BY_PAGE.default;
-            let moodGreet = '';
-            try { moodGreet = window.GunterMood?.greetLine?.() || ''; } catch {}
-            addMessage('assistant', moodGreet ? moodGreet + '\n\n' + welcome : welcome);
-        }
+        // Abrir el chat no crea una nueva sesión ni repite la bienvenida.
     }
 
     function reviewTranscript(text) {
@@ -383,6 +378,10 @@
             return { reply: temporal.reply, intent: `temporal-${temporal.intent}`, __clientHandled: true };
         }
         const buf = window.GunterLogBuffer;
+        if (window.PremiumFeaturesService?.isEnabled?.('diagnosticsEnabled') === false &&
+            /\b(servicios?|estado de servicios|registros?|logs?|diagn[oó]stico)\b/.test(t)) {
+            return { reply: 'El diagnóstico está desactivado. Puedes habilitarlo en Configuración → Diagnóstico.', intent: 'diagnostics-disabled', __clientHandled: true };
+        }
         if (!buf) return null;
 
         // ¿Qué servicios tienes cargados?
@@ -413,9 +412,9 @@
             if (!supported) {
                 lines.push('⚠️ Tu navegador no soporta reconocimiento de voz. Usá Chrome, Edge o un navegador moderno.');
             } else if (state?.permission !== 'granted') {
-                lines.push('1. Activá la función: escribime "activa wake word" o andá a Configuración → Voz.');
-                lines.push('2. Cuando el navegador te pida permiso de micrófono, aceptá.');
-                lines.push('3. Verás un pill "Escuchando…" en la esquina inferior izquierda.');
+                lines.push('1. La función está habilitada por defecto; si la apagaste, actívala en Configuración → Voz y escucha.');
+                lines.push('2. Pulsa «Probar Hi Gunter» para solicitar el permiso de micrófono.');
+                lines.push('3. Solo cuando la captura se confirme aparecerá como activa en Configuración.');
                 lines.push('4. Decí "Hi Gunter", "Hey Gunter", "Hola Gunter" o solo "Gunter" seguido de tu orden.\n');
                 lines.push('Ejemplos:\n• "Gunter, activa el forecast"\n• "Hi Gunter, qué tengo hoy"\n• "Hey Gunter, apaga el pulso"');
             } else if (flagOn && state?.active) {
@@ -634,7 +633,9 @@
                 return;
             }
             if (window.GunterDiagnostics?.recognizes?.(text)) {
-                const diagnostic = await window.GunterDiagnostics.answer(text);
+                const diagnostic = window.PremiumFeaturesService?.isEnabled?.('diagnosticsEnabled') === false
+                    ? 'El diagnóstico está desactivado. Puedes habilitarlo en Configuración → Diagnóstico.'
+                    : await window.GunterDiagnostics.answer(text);
                 if (turnId !== STATE.turnId) return;
                 clearTimeout(safetyTimer);
                 finishTyping();
@@ -1031,8 +1032,9 @@
         'googleCalendarSync', 'googleCalendarNaturalLanguage', 'googleCalendarAutoReminders',
         'whatsappAssistant', 'documentSync', 'notionSync', 'googleDriveSync',
         'adaptivePersonality', 'personalityMode', 'personalityIntensity',
-        'voiceEnabled', 'voiceMode', 'voiceStyle', 'voiceSpeed', 'voiceInMeetings',
+        'voiceEnabled', 'voiceMode', 'voiceStyle', 'voiceSpeed', 'voiceInMeetings', 'dictationEnabled',
         'wakeWordEnabled', 'wakeWordListeningMode', 'wakeWordResponseMode', 'wakeWord',
+        'conversationContinuity', 'personalMemoryContext', 'contextualRecommendations', 'diagnosticsEnabled',
         'tutorMode',
         'focusCoachEnabled', 'distractionBlocker', 'smartTimer'
     ];
@@ -1097,13 +1099,14 @@ Responde SOLO JSON estricto:
             availableTools.has('tasks.create') && 'Puedo crear una tarea',
             availableTools.has('reminder.schedule') && 'Puedo crear un recordatorio',
             availableTools.has('calendar.create') && 'Puedo agregarlo a la agenda'
-        ].filter(Boolean);
+        ].filter(Boolean).filter(() => window.PremiumFeaturesService?.isEnabled?.('contextualRecommendations') !== false);
 
         // Bloque 1: transcripción reciente
-        const recent = buildConversationTranscript(text, 8);
+        const continuityOn = window.PremiumFeaturesService?.isEnabled?.('conversationContinuity') !== false;
+        const recent = continuityOn ? buildConversationTranscript(text, 8) : '';
 
         // Bloque 2: último tópico (referente para pronombres)
-        const topicLine = STATE.lastTopic
+        const topicLine = continuityOn && STATE.lastTopic
             ? `Último tema tratado: ${STATE.lastTopic.feature} (intent=${STATE.lastTopic.intent}).`
             : '';
 
@@ -1123,7 +1126,7 @@ Responde SOLO JSON estricto:
 
         let personalBlock = '';
         try {
-            if (localSelected && window.GunterPersonalMemory?.contextFor) {
+            if (localSelected && window.PremiumFeaturesService?.isEnabled?.('personalMemoryContext') !== false && window.GunterPersonalMemory?.contextFor) {
                 const context = await window.GunterPersonalMemory.contextFor(text);
                 if (context) personalBlock = '\n\n' + context;
             }
@@ -1191,7 +1194,7 @@ ${topicLine}
 ${suggestions.length ? 'Sugerencias disponibles si son pertinentes (ofrécelas, no las ejecutes sin petición): ' + suggestions.join('; ') + '.' : 'No ofrezcas acciones sin herramienta disponible.'}
 
 # REGLAS DURAS
-- Mantén coherencia con la conversación reciente (abajo). NO pierdas el hilo. Si el usuario usa pronombres ("eso", "esa", "activalo"), refieren al último tema tratado.
+- ${continuityOn ? 'Mantén coherencia con la conversación reciente (abajo). Si el usuario usa pronombres, relaciónalos con el último tema tratado.' : 'La continuidad está desactivada: no presupongas temas de turnos anteriores; pregunta si una referencia es ambigua.'}
 - Responde breve (máx ~70 palabras), tesis primero, evidencia si aporta.
 - Nunca inventes datos, fuentes, estado de una integración, ejecución o resultado. Distingue claramente conocimiento general, datos comprobados en esta app e inferencias; si no puedes verificar, dilo y no lo presentes como hecho.
 - No afirmes que puedes ejecutar una acción solo porque sabes explicarla. Solo declara disponible una acción si existe una herramienta cargada/permitida en esta sesión; nunca inventes nombres de opciones, rutas, permisos ni resultados.
@@ -1401,7 +1404,8 @@ Gunter:`;
     function renderQuick() {
         const el = document.getElementById('gn-comp-quick');
         if (!el) return;
-        const items = quickForPage(STATE.currentPage);
+        const items = window.PremiumFeaturesService?.isEnabled?.('contextualRecommendations') === false
+            ? [] : quickForPage(STATE.currentPage);
         el.innerHTML = items.map(q => `<button data-comp-quick="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join('');
         el.querySelectorAll('button').forEach(b => {
             b.addEventListener('click', () => {
@@ -1541,7 +1545,10 @@ Gunter:`;
         }
     };
 
-    document.addEventListener('gunter-auth-ready', event => greetOnEntry(event.detail?.user));
+    document.addEventListener('gunter-auth-ready', event => greetOnEntry(event.detail?.user, event.detail?.sessionStartedAt));
+    window.addEventListener('gunterPremiumFeaturesChange', event => {
+        if (event.detail?.key === 'contextualRecommendations' || event.detail?.key === null) renderQuick();
+    });
     window.addEventListener('gunter-barge-in', interrupt);
 
     // Auto-mount

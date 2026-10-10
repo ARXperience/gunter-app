@@ -4,7 +4,8 @@
     if (typeof module === 'object' && module.exports) module.exports = api;
     if (root) root.GunterPresence = api.create(root);
 })(typeof window !== 'undefined' ? window : null, function () {
-    const SESSION_KEY = 'gunter_entry_greeting';
+    const PENDING_KEY = 'gunter_entry_pending';
+    const CLAIMED_KEY = 'gunter_entry_greeting_claimed';
     const STYLE = {
         professional: 'Profesional, claro y amable; precisión sin lenguaje corporativo innecesario.',
         direct: 'Directo y breve, sin rodeos; respetuoso y cercano.',
@@ -82,13 +83,18 @@
             const intensity = premium?.get?.('personalityIntensity') || 'normal';
             return `Eres Gunter, un asistente personal atento, amigable y coherente. Personalidad elegida: ${STYLE[mode] || STYLE.professional} Estilo de conversación: ${STYLE[style] || STYLE.professional} Intensidad: ${intensity}. Respeta estos estilos también en texto. El estado de ánimo adapta matices, nunca impone sarcasmo o cambia este carácter. La precisión y las decisiones del usuario siempre tienen prioridad.`;
         }
-        async function greet(user) {
-            if (!user?.id) return null;
-            let previous;
-            try { previous = JSON.parse(runtime.sessionStorage.getItem(SESSION_KEY) || 'null'); } catch { }
-            if (previous?.userId === user.id) return null;
-            // Claim synchronously before location lookup, so navigation does not repeat it.
-            runtime.sessionStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id, at: Date.now() }));
+        async function greet(user, sessionStartedAt, { enabled = true } = {}) {
+            if (!user?.id || !sessionStartedAt) return null;
+            let pending;
+            try { pending = JSON.parse(runtime.localStorage.getItem(PENDING_KEY) || 'null'); } catch { }
+            const claim = `${user.id}:${sessionStartedAt}`;
+            if (pending?.userId !== user.id || pending?.sessionStartedAt !== sessionStartedAt ||
+                runtime.localStorage.getItem(CLAIMED_KEY) === claim) return null;
+            // Only a successful login arms the greeting. Claim before async work;
+            // this shared marker survives navigation, refresh and other tabs.
+            runtime.localStorage.setItem(CLAIMED_KEY, claim);
+            runtime.localStorage.removeItem(PENDING_KEY);
+            if (!enabled) return null;
             const variantKey = 'gunter_greeting_variant_' + user.id;
             const index = (Number(runtime.localStorage.getItem(variantKey) || -1) + 1) % 3;
             runtime.localStorage.setItem(variantKey, String(index));

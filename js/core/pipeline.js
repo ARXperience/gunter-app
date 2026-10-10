@@ -29,7 +29,9 @@
 
         try {
             if (window.GunterDiagnostics?.recognizes?.(text)) {
-                const diagnostic = await window.GunterDiagnostics.answer(text);
+                const diagnostic = window.PremiumFeaturesService?.isEnabled?.('diagnosticsEnabled') === false
+                    ? 'El diagnóstico está desactivado. Puedes habilitarlo en Configuración → Diagnóstico.'
+                    : await window.GunterDiagnostics.answer(text);
                 state.intent = { primary: { type: 'diagnostic', confidence: 1 }, alternatives: [], multiIntent: false, method: 'read-only-local' };
                 state.execution = { executed: [], failed: [], pending: [], sideEffects: [],
                     uiResponse: { speech: diagnostic, animation: 'think', panels: [] } };

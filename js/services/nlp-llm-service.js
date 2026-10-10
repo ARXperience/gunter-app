@@ -133,9 +133,10 @@ ${p.focusCoach ? '- Actúa también como coach de enfoque.' : ''}`);
         if (localSelected && !opts.jsonMode && !opts.skipMemory) {
             try {
                 const query = opts.memoryQuery || prompt.match(/Usuario:\s*([^\n]+)\s*Gunter:\s*$/)?.[1] || prompt.slice(-240);
-                const personal = await window.GunterPersonalMemory?.contextFor?.(query);
+                const personal = window.PremiumFeaturesService?.isEnabled?.('personalMemoryContext') === false
+                    ? '' : await window.GunterPersonalMemory?.contextFor?.(query);
                 if (personal) memoryBlock += '\n\n' + personal;
-                if (window.GunterMemory?.search) {
+                if (window.PremiumFeaturesService?.isEnabled?.('personalMemoryContext') !== false && window.GunterMemory?.search) {
                     const conversationOn = !!window.PremiumFeaturesService?.isEnabled?.('conversationMemory');
                     const records = await window.GunterMemory.search(query, { limit: 10, includeLegacy: conversationOn });
                     const other = records.filter(record => !['personal_fact', 'preference'].includes(record.type) &&

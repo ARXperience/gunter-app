@@ -62,6 +62,7 @@
         getState: () => ({ active: pushToTalk.isActive(), phase, elapsedSeconds: startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0, ...limits() }),
         async start() {
             if (recorder || starting) return;
+            if (root.PremiumFeaturesService?.isEnabled?.('dictationEnabled') === false) throw unavailable('DICTATION_DISABLED_BY_USER');
             if (!root.GunterCompanion?.reviewTranscript) throw unavailable('LOCAL_STT_UNAVAILABLE');
             if (!navigator.mediaDevices?.getUserMedia || !root.MediaRecorder) throw unavailable('LOCAL_STT_UNAVAILABLE');
             starting = true;
@@ -165,4 +166,7 @@
             if (state.privacy === 'LOCAL_ONLY' || state.mode === 'LOCAL') return LocalSTT.transcribe(form, options);
             return CloudSTT.transcribe(form, options);
         } };
+    root.addEventListener?.('gunterPremiumFeaturesChange', event => {
+        if (event.detail?.key === 'dictationEnabled' && event.detail.value === false) pushToTalk.stop();
+    });
 })(typeof window !== 'undefined' ? window : globalThis);

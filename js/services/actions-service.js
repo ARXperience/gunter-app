@@ -15,6 +15,25 @@
 
 (function () {
     if (window.GunterActions) return;
+    const defaultOnFlags = new Set(['voiceEnabled', 'wakeWordEnabled', 'dictationEnabled',
+        'conversationContinuity', 'personalMemoryContext', 'contextualRecommendations', 'diagnosticsEnabled']);
+    const pendingFlags = new Map();
+    let applyingServer = false;
+    let writeChain = Promise.resolve();
+
+    function enqueueWrite(work) {
+        const next = writeChain.then(work);
+        writeChain = next.catch(() => null);
+        return next;
+    }
+
+    function queueFlagWrite(flag, value, source = 'browser') {
+        pendingFlags.set(flag, value);
+        return enqueueWrite(() => call('set', { flag, value, meta: { source } })).then(result => {
+            if (result && pendingFlags.get(flag) === value) pendingFlags.delete(flag);
+            return result;
+        });
+    }
 
     function url() {
         const c = window.GUNTER_CONFIG || {};
@@ -51,7 +70,10 @@
         // Si el dispatcher aplicó un cambio, refleja en localStorage local
         // y agrega una nota honesta sobre si quedó aplicado o no.
         if (result.intent === 'applied' && result.feature) {
-            const applyRes = _applyLocal(result.feature, result.value);
+            applyingServer = true;
+            let applyRes;
+            try { applyRes = _applyLocal(result.feature, result.value); }
+            finally { applyingServer = false; }
             if (!applyRes.ok) {
                 // No pudimos aplicar localmente → decirle al usuario la verdad
                 const hint = applyRes.reason === 'no-service'
@@ -74,9 +96,11 @@
 
     async function setFlag(flag, value, source = 'browser') {
         // Refleja local inmediatamente para UI responsiva
-        _applyLocal(flag, value);
+        applyingServer = true;
+        try { _applyLocal(flag, value); }
+        finally { applyingServer = false; }
         // Persistir en server
-        return call('set', { flag, value, meta: { source } });
+        return queueFlagWrite(flag, value, source);
     }
 
     async function getState() {
@@ -92,8 +116,7 @@
         try {
             const svc = window.PremiumFeaturesService;
             if (!svc?.getAll) return null;
-            const flags = svc.getAll();
-            return call('sync_from_browser', { flags });
+            return enqueueWrite(() => call('sync_from_browser', { flags: svc.getAll() }));
         } catch { return null; }
     }
 
@@ -134,6 +157,8 @@
     async function pollServerState() {
         if (document.hidden) return;
         try {
+            await writeChain;
+            for (const [flag, value] of [...pendingFlags]) await queueFlagWrite(flag, value);
             const remote = await getState();
             if (!remote) return;
             const svc = window.PremiumFeaturesService;
@@ -141,9 +166,10 @@
             const local = svc.getAll();
             let changed = false;
             for (const [k, v] of Object.entries(remote)) {
-                if (k === '__meta') continue;
+                if (k === '__meta' || pendingFlags.has(k)) continue;
                 if (local[k] !== v) {
-                    svc.set(k, v);
+                    applyingServer = true;
+                    try { svc.set(k, v); } finally { applyingServer = false; }
                     changed = true;
                 }
             }
@@ -169,6 +195,10 @@
 
     // Auto-start cuando el DOM está listo
     if (typeof window !== 'undefined') {
+        window.addEventListener('gunterPremiumFeaturesChange', event => {
+            const { key, value } = event.detail || {};
+            if (!applyingServer && defaultOnFlags.has(key) && typeof value === 'boolean') queueFlagWrite(key, value);
+        });
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', startSync);
         } else {

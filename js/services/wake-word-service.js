@@ -242,9 +242,6 @@
                 stop(); setIndicator('error', lastError);
             };
             localRecorder.start(250);
-            running = true;
-            mode = 'wake';
-            setIndicator('wake', `Di "${getConfig().wakeWord}"`);
             localUnsubscribe = window.GunterVoiceActivity.onChange(state => {
                 if (!running || localBusy) return;
                 if (state.reason === 'speech-started' && !window.GunterVoice?.isSpeaking?.()) {
@@ -269,6 +266,9 @@
             });
             const vad = await window.GunterVoiceActivity.start(localStream);
             if (!vad.active) throw new Error(vad.error || 'VAD_NO_DISPONIBLE');
+            running = true;
+            mode = 'wake';
+            setIndicator('wake', `Di "${getConfig().wakeWord}"`);
             maybeShowAndroidWarning();
         } catch (error) {
             lastError = error.name === 'NotAllowedError' ? 'Permiso de micrófono rechazado' : error.message;
@@ -290,7 +290,9 @@
 
         if (!permissionGranted) {
             if (!fromUserGesture) {
-                setIndicator('error', '🎤 Click para activar micrófono');
+                phase = 'permission_pending';
+                indicatorLabel = 'Activa el micrófono desde Voz y escucha para decir «Hi Gunter».';
+                notifyState();
                 return;
             }
             const p = await requestPermission();
@@ -566,7 +568,8 @@
         if (window.GunterCompanion?.__handleFromWake) {
             ensureAssistantOpen();
             await window.GunterCompanion.__handleFromWake(text);
-            if (running && phase === 'processing') { phase = 'waiting_activation'; notifyState(); }
+            if (cfg.listeningMode === 'manual') stop();
+            else if (running && phase === 'processing') { phase = 'waiting_activation'; notifyState(); }
             return;
         }
 
@@ -681,7 +684,7 @@
         }
 
         // v2 (F1) — registrar lo dicho al wake en LTM (canal 'wake')
-        if (window.GunterConversationMemory?.remember &&
+        if (window.PremiumFeaturesService?.isEnabled?.('conversationMemory') && window.GunterConversationMemory?.remember &&
             window.GunterPersonalMemory?.parseCommand?.(text)?.action !== 'save') {
             try {
                 window.GunterConversationMemory.remember({
@@ -773,13 +776,13 @@
 
     function getState() {
         return {
-            active: running,
+            active: running && (localProvider ? !!localStream && localRecorder?.state === 'recording' : !!recognition),
             mode,
             phase,
             label: indicatorLabel,
             provider: localProvider ? 'moonshine.local' : SR ? 'browser.speech-recognition' : 'none',
             supported: !!(SR || localCaptureSupported),
-            permission: permissionGranted ? 'granted' : 'unknown',
+            permission: permissionGranted ? 'granted' : phase === 'error' ? 'error' : 'pending',
             error: lastError,
             lastHeard,
             lastInvocation

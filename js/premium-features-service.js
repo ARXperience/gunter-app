@@ -64,19 +64,20 @@
         smartTimer: false,
 
         // 6. Voice
-        voiceEnabled: false,
-        voiceMode: 'text_only',                // 'text_only'|'notifications_only'|'live_voice'|'wake_word_only'
+        voiceEnabled: true,
+        voiceMode: 'live_voice',                // 'text_only'|'notifications_only'|'live_voice'|'wake_word_only'
+        dictationEnabled: true,
         voiceStyle: 'professional',            // 'professional'|'warm'|'chaotic_scientist'|'energetic_cartoon'|'minimal_penguin'|'executive'|'focus_coach'
         voiceSpeed: 'normal',                  // 'slow'|'normal'|'fast'
         voiceTone: 'neutral',                  // 'calm'|'neutral'|'expressive'|'intense'
         voiceInMeetings: false,
-        voiceOnlyAfterWakeWord: true,
+        voiceOnlyAfterWakeWord: false,
 
         // 7. Wake word
-        wakeWordEnabled: false,
+        wakeWordEnabled: true,
         wakeWord: 'Hi Gunter',
-        wakeWordListeningMode: 'manual',       // 'manual'|'continuous'
-        wakeWordResponseMode: 'text',          // 'voice'|'text'
+        wakeWordListeningMode: 'continuous',   // 'manual'|'continuous'
+        wakeWordResponseMode: 'voice',         // 'voice'|'text'
         wakeWordAutoStopSeconds: 20,
 
         // 8. Premium Intelligence (Sprint A — Fase 11.B)
@@ -134,7 +135,11 @@
         delegationModeFollowUp: false,
 
         // 9. v2 — Funciones avanzadas (LTM, Compromisos, Proactivo, Clima, Espejo, Forecast)
-        conversationMemory: false,
+        conversationMemory: false,            // conservación automática: requiere activación explícita
+        conversationContinuity: true,
+        personalMemoryContext: true,          // solo recuerdos explícitos/autorizados
+        contextualRecommendations: true,
+        diagnosticsEnabled: true,
         commitmentTracker: false,
         proactivePulse: false,
         proactivePulseAggression: 'normal',   // 'soft' | 'normal' | 'high'
@@ -167,7 +172,12 @@
         documentSync: 'Lee tus documentos de Notion y Google Drive como memoria de trabajo.',
         adaptivePersonality: 'Gunter ajusta tono, estilo y comportamiento según el contexto.',
         voiceEnabled: 'Gunter habla con voz natural y expresiva configurable.',
+        dictationEnabled: 'Transcribe el micrófono cuando pulsas Hablar; no lo abre sin permiso.',
         wakeWordEnabled: 'Gunter reconoce cuando dices su nombre y activa una conversación natural.',
+        conversationContinuity: 'Mantiene el hilo de la conversación actual para entender referencias.',
+        personalMemoryContext: 'Consulta recuerdos personales guardados explícitamente en modo local.',
+        contextualRecommendations: 'Sugiere herramientas disponibles cuando son pertinentes; no ejecuta sin autorización.',
+        diagnosticsEnabled: 'Explica fallos y estado real del asistente cuando lo consultas.',
 
         // Premium Intelligence (Sprint A)
         dailyPlanner:            'Organiza tus tareas, reuniones, pagos y proyectos en un plan diario priorizado.',
@@ -215,6 +225,11 @@
         delegationMode:          ['delegationModeMessageDrafts', 'delegationModeWhatsappDrafts', 'delegationModeFollowUp'],
         // v2 — sin subflags por ahora
         conversationMemory: [],
+        conversationContinuity: [],
+        personalMemoryContext: [],
+        contextualRecommendations: [],
+        diagnosticsEnabled: [],
+        dictationEnabled: [],
         commitmentTracker: [],
         proactivePulse: [],
         meetingClimate: [],
@@ -225,6 +240,18 @@
     // ---------- State ----------
     let state = load();
     const subscribers = new Set();
+    let microphonePermission = 'prompt';
+    try {
+        navigator.permissions?.query?.({ name: 'microphone' }).then(permission => {
+            microphonePermission = permission.state;
+            const changed = () => {
+                microphonePermission = permission.state;
+                window.dispatchEvent(new CustomEvent('gunter-microphone-permission-state', { detail: { state: microphonePermission } }));
+            };
+            permission.addEventListener?.('change', changed);
+            changed();
+        }).catch(() => {});
+    } catch { /* permission query is not implemented in every browser */ }
 
     function load() {
         try {
@@ -232,7 +259,11 @@
             if (!raw) return { ...DEFAULTS };
             const parsed = JSON.parse(raw);
             // Merge with DEFAULTS so new flags added later are respected
-            return { ...DEFAULTS, ...sanitize(parsed) };
+            const saved = sanitize(parsed);
+            // A saved text-only mode is an explicit voice choice, even when a
+            // legacy partial export omitted the old voiceEnabled flag.
+            if (saved.voiceMode === 'text_only' && !Object.hasOwn(saved, 'voiceEnabled')) saved.voiceEnabled = false;
+            return { ...DEFAULTS, ...saved };
         } catch {
             return { ...DEFAULTS };
         }
@@ -385,8 +416,28 @@
             if (needsConnection.has(key) && !hasExternalConnection(key)) {
                 return 'requires_connection';
             }
-            if (key === 'voiceEnabled' && !voiceSupported()) return 'unsupported';
-            if (key === 'wakeWordEnabled' && !speechRecognitionSupported()) return 'unsupported';
+            if (key === 'voiceEnabled') {
+                const runtime = window.GunterRuntimeState?.getState?.() || {};
+                const localOnly = runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY';
+                if (localOnly && (runtime.loaded !== true || !runtime.localTTSAvailable)) return 'unavailable';
+                if (!localOnly && !voiceSupported() && !runtime.localTTSAvailable) return 'unavailable';
+            }
+            if (key === 'wakeWordEnabled' || key === 'dictationEnabled') {
+                if (!navigator.mediaDevices?.getUserMedia ||
+                    (key === 'dictationEnabled' && !window.MediaRecorder) ||
+                    (key === 'wakeWordEnabled' && !speechRecognitionSupported())) return 'unavailable';
+                const runtime = window.GunterRuntimeState?.getState?.() || {};
+                const localOnly = runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY';
+                if (localOnly && !window.MediaRecorder) return 'unavailable';
+                if (localOnly && (runtime.loaded !== true || !runtime.localSTTReady)) return 'unavailable';
+                const capture = key === 'wakeWordEnabled' ? window.GunterWakeWord?.getState?.() : window.GunterSTT?.pushToTalk?.getState?.();
+                if (capture?.phase === 'error') return 'error';
+                if (microphonePermission === 'denied') return 'error';
+                if (key === 'wakeWordEnabled' && capture?.active) return 'active';
+                if (key === 'dictationEnabled' && ['recording', 'transcribing', 'review'].includes(capture?.phase)) return 'active';
+                if (capture?.permission === 'granted' || microphonePermission === 'granted') return 'active';
+                return 'pending_permission';
+            }
             return 'active';
         }
 
@@ -423,7 +474,7 @@
             tone: state.voiceTone,
             inMeetings: state.voiceInMeetings,
             onlyAfterWakeWord: state.voiceOnlyAfterWakeWord,
-            supported: voiceSupported()
+            supported: voiceSupported() || !!window.GunterRuntimeState?.getState?.()?.localTTSAvailable
         };
     }
     function getPersonalityConfig() {

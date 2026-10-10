@@ -279,7 +279,7 @@
                 btn.disabled = false;
                 if (status === 200 && json?.success) {
                     const st = json.user.status;
-                    if (st === 'approved') { sessionStorage.removeItem('gunter_entry_greeting'); location.replace(nextPage); }
+                    if (st === 'approved') { if (json.sessionStartedAt) localStorage.setItem('gunter_entry_pending', JSON.stringify({ userId: json.user.id, sessionStartedAt: json.sessionStartedAt })); location.replace(nextPage); }
                     else if (st === 'pending') show('glogin-pending');
                     else show('glogin-blocked');
                 } else if (status === 0) showErr('No se pudo conectar con el servidor. ¿Está encendido?');
@@ -302,7 +302,7 @@
                 }).catch(() => ({ status: 0, json: null }));
                 btn.disabled = false;
                 if (status === 200 && json?.success) {
-                    if (json.isFirst || json.user.status === 'approved') { sessionStorage.removeItem('gunter_entry_greeting'); location.replace(nextPage); }
+                    if (json.isFirst || json.user.status === 'approved') { if (json.sessionStartedAt) localStorage.setItem('gunter_entry_pending', JSON.stringify({ userId: json.user.id, sessionStartedAt: json.sessionStartedAt })); location.replace(nextPage); }
                     else show('glogin-pending');
                 } else if (status === 0) showErr('No se pudo conectar con el servidor. ¿Está encendido?');
                 else showErr(json?.error || 'No se pudo crear la cuenta.');

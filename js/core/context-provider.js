@@ -58,6 +58,7 @@
 
     function getConversationHistory(limit = 8) {
         try {
+            if (window.PremiumFeaturesService?.isEnabled?.('conversationContinuity') === false) return [];
             const ownerId = window.GunterAuth?.canAccessLocalData?.() && window.GunterAuth?.getUser?.()?.id;
             if (!ownerId) return [];
             const raw = JSON.parse(localStorage.getItem('gunter_conversation') || '[]');

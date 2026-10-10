@@ -122,6 +122,8 @@
             description: 'Gunter habla con voz natural, expresiva y configurable — o responde solo por texto.',
             custom: renderVoiceCard
         },
+        { id: 'dictationEnabled', icon: '🎤', title: 'Reconocimiento y dictado',
+          description: 'Transcribe al pulsar Hablar y muestra el texto para revisarlo. El micrófono requiere permiso.', section: 'core' },
         {
             id: 'wakeWordEnabled',
             icon: '🎙️',
@@ -289,6 +291,12 @@
         { id: 'conversationMemory', icon: '🧬', title: 'Memoria conversacional',
           description: 'Gunter recuerda lo que hablan en sesiones anteriores y lo trae cuando es relevante.',
           section: 'advanced' },
+        { id: 'conversationContinuity', icon: '💬', title: 'Continuidad de conversación',
+          description: 'Usa el diálogo reciente para seguir el hilo y entender referencias como «eso».', section: 'core' },
+        { id: 'personalMemoryContext', icon: '🧠', title: 'Recuerdos autorizados',
+          description: 'Consulta recuerdos que guardaste explícitamente, solo en modo local. No guarda conversaciones por sí solo.', section: 'core' },
+        { id: 'contextualRecommendations', icon: '🧭', title: 'Recomendaciones de herramientas',
+          description: 'Sugiere acciones disponibles cuando vienen al caso; ejecutarlas requiere tu autorización.', section: 'core' },
         { id: 'commitmentTracker', icon: '📋', title: 'Rastreador de compromisos',
           description: 'Detecta promesas en reuniones, WhatsApp y mensajes. Avisa cuando te deben algo o se te olvida algo prometido.',
           section: 'advanced' },
@@ -325,7 +333,9 @@
     let hybridListenerBound = false;
     let activeCategory = 'premium';
     const FEATURE_CATEGORIES = {
-        voiceEnabled: 'voice', wakeWordEnabled: 'voice', conversationMemory: 'conversations',
+        voiceEnabled: 'voice', dictationEnabled: 'voice', wakeWordEnabled: 'voice',
+        conversationMemory: 'conversations', conversationContinuity: 'conversations',
+        personalMemoryContext: 'conversations', contextualRecommendations: 'premium',
         meetingMemory: 'conversations', googleCalendarSync: 'connections', whatsappAssistant: 'connections',
         documentSync: 'connections', productivityPanel: 'actions', smartDocuments: 'actions',
         dailyPlanner: 'actions', weeklyPlanner: 'actions', projectAutoFollowUp: 'actions',
@@ -461,23 +471,25 @@
     function renderStatusBoard() {
         const svc = S();
         const voiceCfg = svc.getVoiceConfig?.() || {};
-        const wakeCfg  = svc.getWakeWordConfig?.() || {};
         const personality = svc.getPersonalityConfig?.() || {};
         const gAuth = window.GunterGoogleAuth;
         const wa = window.GunterWhatsApp;
 
         // Voz state
-        const voiceState = !voiceCfg.enabled ? { label: 'Desactivada', cls: 'off' }
-            : voiceCfg.mode === 'text_only' ? { label: 'Solo texto', cls: 'warn' }
-            : { label: 'Activa · ' + (voiceCfg.mode || 'live'), cls: 'on' };
+        const voiceStatus = svc.getFeatureStatus('voiceEnabled');
+        const voiceState = voiceStatus === 'inactive' ? { label: 'Desactivada por el usuario', cls: 'off' }
+            : voiceStatus === 'unavailable' ? { label: 'Sin motor disponible', cls: 'warn' }
+                : voiceCfg.mode === 'text_only' ? { label: 'Configurada solo texto', cls: 'warn' }
+                    : { label: 'Disponible · ' + (voiceCfg.mode || 'live'), cls: 'on' };
 
         // Wake state
-        const wakeSupported = wakeCfg.supported;
         const liveWake = window.GunterWakeWord?.getState?.() || {};
-        const wakeState = !wakeSupported ? { label: 'No compatible', cls: 'off' }
-            : !wakeCfg.enabled ? { label: 'Desactivado', cls: 'off' }
-            : liveWake.active ? { label: liveWake.label || 'Esperando activación', cls: 'on' }
-                : { label: liveWake.phase === 'error' ? 'Error de escucha' : 'Permiso pendiente', cls: 'warn' };
+        const wakeStatus = svc.getFeatureStatus('wakeWordEnabled');
+        const wakeState = wakeStatus === 'inactive' ? { label: 'Desactivada por el usuario', cls: 'off' }
+            : wakeStatus === 'unavailable' ? { label: 'Sin Moonshine o micrófono', cls: 'warn' }
+                : wakeStatus === 'error' ? { label: 'Error de escucha', cls: 'err' }
+                    : liveWake.active ? { label: liveWake.label || 'Captura activa', cls: 'on' }
+                        : { label: wakeStatus === 'pending_permission' ? 'Pendiente de permiso' : 'Disponible; pulsa para escuchar', cls: 'warn' };
 
         // WhatsApp
         let waState = { label: 'Sin asistente', cls: 'off' };
@@ -653,6 +665,17 @@
             window.addEventListener('gunterPremiumFeaturesChange', handler);
             window.addEventListener('gunter-knowledge-sync', handler);
             window.addEventListener('wake-word-state', handler);
+            const liveBadge = () => {
+                for (const id of ['voiceEnabled', 'wakeWordEnabled', 'dictationEnabled']) {
+                    const card = rootEl?.querySelector(`[data-feature="${id}"]`);
+                    const current = card?.querySelector('.gps-card__controls > .gps-badge');
+                    if (current) current.outerHTML = badge(S().getFeatureStatus(id));
+                }
+            };
+            window.addEventListener('wake-word-state', liveBadge);
+            window.addEventListener('gunter-push-to-talk-state', liveBadge);
+            window.addEventListener('gunter-hybrid-state', liveBadge);
+            window.addEventListener('gunter-microphone-permission-state', liveBadge);
             rootEl.__statusBoardWired = true;
         }
     }
@@ -916,7 +939,7 @@
         const motorHint = !ttsState?.loaded ? 'Comprobando el motor local…'
             : localTTS ? 'Disponible localmente en este servidor.'
                 : 'No disponible localmente ahora; en AUTO puede usarse un respaldo, pero LOCAL_ONLY nunca enviará el texto a la nube.';
-        const status = cfg.supported ? S().getFeatureStatus(feature.id) : 'unsupported';
+        const status = S().getFeatureStatus(feature.id);
         const modes = S().ENUMS.voiceMode;
         const speeds = S().ENUMS.voiceSpeed;
         const tones = S().ENUMS.voiceTone;
@@ -929,14 +952,14 @@
                         <p>${esc(feature.description)}</p>
                     </div>
                     <button class="gps-switch" role="switch" aria-checked="${enabled}"
-                        data-switch="${feature.id}" ${cfg.supported ? '' : 'disabled'}></button>
+                        data-switch="${feature.id}"></button>
                 </div>
                 <div class="gps-card__controls">
                     ${badge(status)}
                     <button class="gps-card__toggle-cfg" aria-expanded="false" data-toggle-cfg="${feature.id}">Configurar</button>
                 </div>
                 <div class="gps-card__details" data-details="${feature.id}">
-                    ${cfg.supported ? '' : `<div class="gps-warning gps-warning--error">Este navegador no soporta <code>speechSynthesis</code>. Usa Chrome/Edge/Safari.</div>`}
+                    ${status === 'unavailable' ? `<div class="gps-warning gps-warning--error">El motor de voz configurado no está disponible en este entorno. Revisa el runtime local.</div>` : ''}
                     <div class="gps-sub__hint">Motor seleccionado: Supertonic 3 · voz masculina M1. ${motorHint}</div>
 
                     <div class="gps-sub">
@@ -1003,7 +1026,7 @@
     function renderWakeWordCard(feature) {
         const enabled = S().isEnabled(feature.id);
         const cfg = S().getWakeWordConfig();
-        const status = cfg.supported ? S().getFeatureStatus(feature.id) : 'unsupported';
+        const status = S().getFeatureStatus(feature.id);
         const lm = S().ENUMS.wakeWordListeningMode;
         const rm = S().ENUMS.wakeWordResponseMode;
         return `
@@ -1015,7 +1038,7 @@
                         <p>${esc(feature.description)}</p>
                     </div>
                     <button class="gps-switch" role="switch" aria-checked="${enabled}"
-                        data-switch="${feature.id}" ${cfg.supported ? '' : 'disabled'}></button>
+                        data-switch="${feature.id}"></button>
                 </div>
                 <div class="gps-card__controls">
                     ${badge(status)}
@@ -1425,11 +1448,13 @@
     // ---------- Helpers ----------
     function badge(status) {
         const label = {
-            active: 'Activo',
-            inactive: 'Inactivo',
+            active: 'Activada y disponible',
+            inactive: 'Desactivada por el usuario',
+            pending_permission: 'Activada, pendiente de permiso',
+            unavailable: 'Activada, sin modelo o dispositivo',
             requires_connection: 'Requiere conexión',
             coming_soon: 'Próximamente',
-            error: 'Error',
+            error: 'Error de funcionamiento',
             unsupported: 'No compatible'
         }[status] || 'Inactivo';
         return `<span class="gps-badge gps-badge--${status}">${label}</span>`;

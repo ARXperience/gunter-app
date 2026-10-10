@@ -18,6 +18,7 @@
 
     let _user = null;
     let _verified = false;
+    let _sessionStartedAt = null;
     let _localTrusted = false;
     const _readyCallbacks = [];
 
@@ -36,9 +37,10 @@
             if (resp.status === 401) {
                 _user = null;
                 _verified = false;
+                _sessionStartedAt = null;
                 _localTrusted = false;
                 sessionStorage.removeItem('gunter_auth_user');
-                sessionStorage.removeItem('gunter_entry_greeting');
+                localStorage.removeItem('gunter_entry_pending');
                 if (!isPublic) _goLogin('');
                 return null;
             }
@@ -50,6 +52,7 @@
                 return null;
             }
             const u = json.user;
+            _sessionStartedAt = json.sessionStartedAt || null;
             if (u.status === 'pending') { _verified = false; _localTrusted = false; if (!isPublic) _goLogin('pending'); return null; }
             if (u.status === 'blocked') {
                 _verified = false;
@@ -64,8 +67,15 @@
             const prevUser = localStorage.getItem('gunter_device_user');
             if (prevUser && prevUser !== u.id) {
                 console.warn('[auth] Cambio de usuario detectado — limpiando datos locales del anterior');
+                let pendingEntry = null;
+                try { pendingEntry = JSON.parse(localStorage.getItem('gunter_entry_pending') || 'null'); } catch { }
                 await _wipeLocalData();
                 localStorage.setItem('gunter_device_user', u.id);
+                // The login marker belongs to the newly verified account, not
+                // the data just wiped from the previous account.
+                if (pendingEntry?.userId === u.id && pendingEntry.sessionStartedAt === _sessionStartedAt) {
+                    localStorage.setItem('gunter_entry_pending', JSON.stringify(pendingEntry));
+                }
                 // Never re-assign surviving unowned turns if another tab
                 // blocked deletion of the old IndexedDB database.
                 localStorage.setItem('gunter_memory_legacy_owner', 'UNBOUND');
@@ -82,7 +92,7 @@
             _verified = true;
             _localTrusted = true;
             try { sessionStorage.setItem('gunter_auth_user', JSON.stringify(u)); } catch { }
-            document.dispatchEvent(new CustomEvent('gunter-auth-ready', { detail: { user: u } }));
+            document.dispatchEvent(new CustomEvent('gunter-auth-ready', { detail: { user: u, sessionStartedAt: _sessionStartedAt } }));
             _readyCallbacks.splice(0).forEach(cb => { try { cb(u); } catch { } });
             _mountChip();
             return u;
@@ -102,9 +112,10 @@
         _localTrusted = false;
         _verified = false;
         _user = null;
+        _sessionStartedAt = null;
         try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { }
         sessionStorage.removeItem('gunter_auth_user');
-        sessionStorage.removeItem('gunter_entry_greeting');
+        localStorage.removeItem('gunter_entry_pending');
         location.replace('login.html');
     }
 
@@ -285,6 +296,7 @@
     // ---------- API pública ----------
     window.GunterAuth = {
         getUser: () => _user,
+        getSessionStartedAt: () => _sessionStartedAt,
         isVerified: () => _verified,
         canAccessLocalData: () => _localTrusted,
         isAdmin: () => _user?.role === 'admin',

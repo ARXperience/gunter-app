@@ -233,6 +233,10 @@ body.at-light .gps {
 .gps-badge--inactive::before { background: var(--gps-off); }
 .gps-badge--requires_connection { color: var(--gps-pending); border-color: color-mix(in srgb, var(--gps-pending) 45%, transparent); background: color-mix(in srgb, var(--gps-pending) 14%, transparent); }
 .gps-badge--requires_connection::before { background: var(--gps-pending); }
+.gps-badge--pending_permission,
+.gps-badge--unavailable { color: var(--gps-pending); border-color: color-mix(in srgb, var(--gps-pending) 45%, transparent); background: color-mix(in srgb, var(--gps-pending) 14%, transparent); }
+.gps-badge--pending_permission::before,
+.gps-badge--unavailable::before { background: var(--gps-pending); }
 .gps-badge--coming_soon  { color: var(--gps-soon);   border-color: color-mix(in srgb, var(--gps-soon) 45%, transparent);   background: color-mix(in srgb, var(--gps-soon) 14%, transparent); }
 .gps-badge--coming_soon::before { background: var(--gps-soon); }
 .gps-badge--error        { color: var(--gps-error);  border-color: color-mix(in srgb, var(--gps-error) 45%, transparent);  background: color-mix(in srgb, var(--gps-error) 14%, transparent); }

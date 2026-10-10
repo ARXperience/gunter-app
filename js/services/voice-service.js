@@ -83,6 +83,7 @@
         // automáticamente (caller puede no saberlo). Excepción: notification
         // siempre debe poder sonar (recordatorios urgentes).
         const effectiveContext = (_meetingActive && context !== 'notification') ? 'meeting' : context;
+        if (cfg.onlyAfterWakeWord && !['wake-word-response', 'wake-word-feedback', 'notification'].includes(effectiveContext)) return false;
 
         switch (cfg.mode) {
             case 'text_only':          return false;
@@ -284,7 +285,8 @@
 
         // v2 (F1) — registrar respuestas habladas en la memoria conversacional cross-sesión.
         // Solo para contextos conversacionales (chat/wake), no notificaciones técnicas.
-        if (window.GunterConversationMemory?.remember && (context === 'chat' || context === 'wake')) {
+        if (window.PremiumFeaturesService?.isEnabled?.('conversationMemory') &&
+            window.GunterConversationMemory?.remember && (context === 'chat' || context === 'wake')) {
             try {
                 window.GunterConversationMemory.remember({
                     role: 'assistant',
