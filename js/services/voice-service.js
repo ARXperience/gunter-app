@@ -76,6 +76,7 @@
     // ---------- Filter: should we speak in this context? ----------
     function shouldSpeak(context = 'chat') {
         if (!window.PremiumFeaturesService) return false;
+        if (context === 'entry' && window.PremiumFeaturesService.isEnabled?.('entryVoiceGreeting') === false) return false;
         const cfg = window.PremiumFeaturesService.getVoiceConfig();
         if (!cfg.enabled) return false;
 

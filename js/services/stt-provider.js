@@ -34,6 +34,7 @@
     let silenceTimer = null;
     let unsubscribeVAD = null;
     let starting = false;
+    let captureGeneration = 0;
     let startedAt = 0;
     let phase = 'off';
     function limits() {
@@ -65,6 +66,9 @@
             if (root.PremiumFeaturesService?.isEnabled?.('dictationEnabled') === false) throw unavailable('DICTATION_DISABLED_BY_USER');
             if (!root.GunterCompanion?.reviewTranscript) throw unavailable('LOCAL_STT_UNAVAILABLE');
             if (!navigator.mediaDevices?.getUserMedia || !root.MediaRecorder) throw unavailable('LOCAL_STT_UNAVAILABLE');
+            const generation = ++captureGeneration;
+            const isCurrent = () => generation === captureGeneration
+                && root.PremiumFeaturesService?.isEnabled?.('dictationEnabled') !== false;
             starting = true;
             captureState(false, 'permission_pending');
             root.dispatchEvent(new CustomEvent('gunter-barge-in'));
@@ -76,9 +80,15 @@
                 } });
             } catch (error) {
                 starting = false;
+                if (!isCurrent()) return;
                 captureState(false, 'error', { error: error.name || error.message });
                 root.GunterWakeWord?.resumeAfterCapture?.();
                 throw error;
+            }
+            if (!isCurrent()) {
+                stream.getTracks().forEach(track => track.stop());
+                starting = false;
+                return;
             }
             captureStream = stream;
             const settings = limits();
@@ -99,6 +109,12 @@
                     recorder = null;
                     stream.getTracks().forEach(track => track.stop());
                     captureStream = null;
+                    startedAt = 0;
+                    if (!isCurrent()) {
+                        captureState(false, 'off');
+                        root.GunterWakeWord?.resumeAfterCapture?.();
+                        return;
+                    }
                     captureState(false, 'transcribing');
                     try {
                         const type = current.mimeType.split(';')[0];
@@ -107,6 +123,7 @@
                         const form = new FormData();
                         form.append('file', blob, type === 'audio/ogg' ? 'voice.ogg' : 'voice.webm');
                         const transcript = (await root.GunterSTT.transcribe(form)).trim();
+                        if (!isCurrent()) return;
                         metric('sttFinal');
                         if (transcript) {
                             captureState(false, 'review', { transcript });
@@ -116,6 +133,7 @@
                             root.GunterNotificationsService?.showToast?.('No detecté voz. Inténtalo de nuevo.', { variant: 'info' });
                         }
                     } catch (error) {
+                        if (!isCurrent()) return;
                         captureState(false, 'error', { error: error.code || error.message });
                         root.GunterNotificationsService?.showToast?.(`No pude transcribir: ${error.code || error.message}`, { variant: 'warn' });
                     } finally {
@@ -125,12 +143,6 @@
                 // A deliberate Hablar press interrupts output before recording,
                 // so Moonshine hears the user rather than Gunter's own TTS.
                 root.GunterVoice?.cancel?.('push-to-talk');
-                current.start(500);
-                starting = false;
-                startedAt = Date.now();
-                captureState(true, 'recording', { maxSeconds: settings.maxSeconds });
-                elapsedTimer = setInterval(() => captureState(true, 'recording'), 1000);
-                captureTimer = setTimeout(() => pushToTalk.stop(), settings.maxSeconds * 1000);
                 if (root.GunterVoiceActivity?.start) {
                     unsubscribeVAD = root.GunterVoiceActivity.onChange?.(state => {
                         if (!pushToTalk.isActive()) return;
@@ -141,22 +153,46 @@
                         }
                         if (state.reason === 'level') captureState(true, 'recording', { level: state.rms, threshold: state.threshold });
                     });
-                    root.GunterVoiceActivity.start(stream).catch(() => {});
+                    await root.GunterVoiceActivity.start(stream).catch(() => {});
                 }
+                if (!isCurrent()) {
+                    unsubscribeVAD?.(); unsubscribeVAD = null;
+                    root.GunterVoiceActivity?.stop?.('dictation-cancelled');
+                    stream.getTracks().forEach(track => track.stop());
+                    captureStream = null; recorder = null; starting = false;
+                    return;
+                }
+                current.start(500);
+                starting = false;
+                startedAt = Date.now();
+                captureState(true, 'recording', { maxSeconds: settings.maxSeconds });
+                elapsedTimer = setInterval(() => captureState(true, 'recording'), 1000);
+                captureTimer = setTimeout(() => pushToTalk.stop(), settings.maxSeconds * 1000);
             } catch (error) {
                 stream.getTracks().forEach(track => track.stop());
                 captureStream = null; recorder = null; starting = false;
+                if (!isCurrent()) return;
                 captureState(false, 'error', { error: error.code || error.message });
                 root.GunterWakeWord?.resumeAfterCapture?.();
                 throw error;
             }
         },
-        stop() {
+        stop(options = {}) {
+            const cancelled = starting || options.cancel === true
+                || root.PremiumFeaturesService?.isEnabled?.('dictationEnabled') === false;
+            if (cancelled) captureGeneration++;
             clearTimeout(captureTimer);
             clearTimeout(silenceTimer);
             clearInterval(elapsedTimer);
             if (recorder?.state === 'recording') { metric('userAudioEnd'); recorder.stop(); }
             else if (captureStream) { captureStream.getTracks().forEach(track => track.stop()); captureStream = null; }
+            if (cancelled) {
+                unsubscribeVAD?.(); unsubscribeVAD = null;
+                root.GunterVoiceActivity?.stop?.('dictation-cancelled');
+                startedAt = 0;
+                captureState(false, 'off');
+                root.GunterWakeWord?.resumeAfterCapture?.();
+            }
         }
     };
     root.GunterSTT = { providers: { CloudSTT, LocalSTT }, pushToTalk,
@@ -167,6 +203,6 @@
             return CloudSTT.transcribe(form, options);
         } };
     root.addEventListener?.('gunterPremiumFeaturesChange', event => {
-        if (event.detail?.key === 'dictationEnabled' && event.detail.value === false) pushToTalk.stop();
+        if (event.detail?.key === 'dictationEnabled' && event.detail.value === false) pushToTalk.stop({ cancel: true });
     });
 })(typeof window !== 'undefined' ? window : globalThis);

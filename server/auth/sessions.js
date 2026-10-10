@@ -194,4 +194,43 @@ function listActive() {
     }));
 }
 
-module.exports = { create, get, destroy, destroyAll, destroyAllForUser, activeCount, listActive, getServiceToken, rotateServiceToken, isServiceToken };
+// Entry coordination lives in the existing authenticated session. Synchronous
+// claims serialize concurrent tabs without a second store or client-side lock.
+function visit(token, input = {}) {
+    const session = get(token);
+    if (!session) return { ok: false, error: 'invalid_session' };
+    if (input.userId && input.userId !== session.userId) return { ok: false, error: 'account_changed' };
+    const { op = 'enter', tabId, pageId, entryId, continuation = false } = input;
+    if (!['enter', 'pulse', 'leave'].includes(op) ||
+        !/^[a-zA-Z0-9_-]{1,100}$/.test(tabId || '') || !/^[a-zA-Z0-9_-]{1,100}$/.test(pageId || '')) {
+        return { ok: false, error: 'invalid_entry' };
+    }
+    const now = Date.now();
+    let entry = session.appEntry;
+    if (op !== 'enter') {
+        const member = entry?.tabs?.[pageId];
+        if (!entry || entry.id !== entryId || member?.tabId !== tabId) return { ok: true, active: false };
+        member.seenAt = now;
+        member.departed = op === 'leave';
+        _save();
+        return { ok: true, active: !member.departed, entryId: entry.id };
+    }
+    const members = Object.values(entry?.tabs || {});
+    const alive = members.some(member => !member.departed && now - member.seenAt < 120000);
+    const continuing = continuation === true && entry?.id === entryId && members.some(member => member.tabId === tabId);
+    if (!entry || (!alive && !continuing)) {
+        entry = session.appEntry = { id: 'entry_' + crypto.randomBytes(12).toString('hex'), claimed: false, tabs: {} };
+    }
+    for (const [id, member] of Object.entries(entry.tabs)) {
+        if ((member.departed || now - member.seenAt >= 120000) && id !== pageId) delete entry.tabs[id];
+    }
+    // Avoid unlimited tab metadata in the session file.
+    if (!entry.tabs[pageId] && Object.keys(entry.tabs).length >= 64) return { ok: false, error: 'too_many_tabs' };
+    entry.tabs[pageId] = { tabId, seenAt: now, departed: false };
+    const shouldGreet = !entry.claimed;
+    entry.claimed = true;
+    _save();
+    return { ok: true, entryId: entry.id, shouldGreet };
+}
+
+module.exports = { create, get, destroy, destroyAll, destroyAllForUser, activeCount, listActive, getServiceToken, rotateServiceToken, isServiceToken, visit };

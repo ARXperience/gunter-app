@@ -230,7 +230,7 @@
             const enabled = STATE.currentPage !== 'meeting' && window.GunterPresence.preferences().entryGreeting !== false;
             const greeting = await window.GunterPresence.greet(user, sessionStartedAt, { enabled });
             if (!greeting || turnId !== STATE.turnId || STATE.hidden) return;
-            addMessage('assistant', greeting, { voiceContext: 'entry', fullVoice: true });
+            addMessage('assistant', greeting, { voiceContext: 'entry', fullVoice: true, skipVoice: window.PremiumFeaturesService?.isEnabled?.('entryVoiceGreeting') === false });
             if (!STATE.expanded) showBubble(greeting, 12000);
         } catch (error) { console.warn('[companion] greeting unavailable:', error.message); }
     }
@@ -311,12 +311,13 @@
     // ─────────────────────────────────────
     function scheduleContextualBubble() {
         clearTimeout(STATE.pendingBubbleTimer);
+        if (window.PremiumFeaturesService?.isEnabled?.('contextualRecommendations') === false) return;
         const tips = CONTEXTUAL_TIPS[STATE.currentPage];
         if (!tips || !tips.length) return;
         if (STATE.expanded || STATE.hidden) return;
 
         STATE.pendingBubbleTimer = setTimeout(() => {
-            if (STATE.expanded || STATE.hidden) return;
+            if (STATE.expanded || STATE.hidden || window.PremiumFeaturesService?.isEnabled?.('contextualRecommendations') === false) return;
             const tip = tips[Math.floor(Math.random() * tips.length)];
             showBubble(tip);
         }, BUBBLE_INTERVAL_MS);
@@ -985,6 +986,7 @@
     ];
 
     function resolveAnaphora(text) {
+        if (window.PremiumFeaturesService?.isEnabled?.('conversationContinuity') === false) return text;
         // ¿Es una referencia corta que necesita contexto?
         const isRef = REF_PATTERNS.some(re => re.test(text));
         if (!isRef) return text;
@@ -1035,6 +1037,7 @@
         'voiceEnabled', 'voiceMode', 'voiceStyle', 'voiceSpeed', 'voiceInMeetings', 'dictationEnabled',
         'wakeWordEnabled', 'wakeWordListeningMode', 'wakeWordResponseMode', 'wakeWord',
         'conversationContinuity', 'personalMemoryContext', 'contextualRecommendations', 'diagnosticsEnabled',
+        'contextualHumor', 'humorIntensity', 'entryVoiceGreeting',
         'tutorMode',
         'focusCoachEnabled', 'distractionBlocker', 'smartTimer'
     ];
@@ -1152,14 +1155,7 @@ Responde SOLO JSON estricto:
             }
         } catch { /* opcional */ }
 
-        // Cada 4-6 turnos, aproximadamente, permitimos un chiste seco/humor negro
-        // (dado el usuario, y solo cuando no rompe el flow útil).
-        const turnCount = STATE.log.filter(m => m.role === 'user').length;
-        const jokeWindow = turnCount > 0 && turnCount % 5 === 0;
-
-        // v37 · Humor del día (mood engine) — tiñe el tono sin dominar
-        let moodLine = '';
-        if (localSelected) try { moodLine = window.GunterMood?.promptLine?.() || ''; } catch {}
+        // Personality and contextual humor have one policy in GunterPresence.
 
         // v38 · Reglas personales del usuario — SIEMPRE presentes
         let rulesBlock = '';
@@ -1184,11 +1180,7 @@ Responde SOLO JSON estricto:
             }
         } catch { /* saber opcional */ }
 
-        return `${rulesBlock ? rulesBlock + '\n\n' : ''}# QUIÉN ERES
-${window.GunterPresence?.personalityPrompt?.() || 'Eres Gunter, un asistente personal amigable, atento y preciso.'}
-Español neutro latinoamericano (es-419). ${moodLine ? 'Matiz del momento (secundario al estilo elegido): ' + moodLine : ''}
-
-# CONTEXTO
+        return `${rulesBlock ? rulesBlock + '\n\n' : ''}# CONTEXTO
 ${ctx}
 ${topicLine}
 ${suggestions.length ? 'Sugerencias disponibles si son pertinentes (ofrécelas, no las ejecutes sin petición): ' + suggestions.join('; ') + '.' : 'No ofrezcas acciones sin herramienta disponible.'}
@@ -1200,7 +1192,7 @@ ${suggestions.length ? 'Sugerencias disponibles si son pertinentes (ofrécelas, 
 - No afirmes que puedes ejecutar una acción solo porque sabes explicarla. Solo declara disponible una acción si existe una herramienta cargada/permitida en esta sesión; nunca inventes nombres de opciones, rutas, permisos ni resultados.
 - Si la petición de acción es ambigua o no reconoces el nombre de una herramienta, explica brevemente qué entendiste, sugiere únicamente capacidades que consten en el contexto/herramientas disponibles y pregunta por el resultado deseado, aplicación/dispositivo o una descripción de la herramienta. Si faltan datos, pregunta antes de actuar.
 - Si una capacidad no existe o no está disponible, dilo sin rodeos y ofrece una alternativa realista; no simules que la hiciste.
-- ${jokeWindow ? 'Puedes usar humor ligero si encaja con el estilo elegido y la situación.' : 'Prioriza utilidad y el estilo elegido.'}
+- Prioriza utilidad y la personalidad elegida; el humor se decide por contexto, nunca por número de turnos.
 ${memoryBlock}${personalBlock}${tutorBlock}${teachBlock}
 
 ${recent ? 'CONVERSACIÓN RECIENTE:\n' + recent + '\n\n' : ''}Usuario: ${text}
@@ -1547,7 +1539,11 @@ Gunter:`;
 
     document.addEventListener('gunter-auth-ready', event => greetOnEntry(event.detail?.user, event.detail?.sessionStartedAt));
     window.addEventListener('gunterPremiumFeaturesChange', event => {
-        if (event.detail?.key === 'contextualRecommendations' || event.detail?.key === null) renderQuick();
+        if (event.detail?.key === 'contextualRecommendations' || event.detail?.key === null) {
+            renderQuick();
+            if (window.PremiumFeaturesService?.isEnabled?.('contextualRecommendations') === false) { clearTimeout(STATE.pendingBubbleTimer); hideBubble(); }
+            else scheduleContextualBubble();
+        }
     });
     window.addEventListener('gunter-barge-in', interrupt);
 

@@ -140,6 +140,9 @@
         personalMemoryContext: true,          // solo recuerdos explícitos/autorizados
         contextualRecommendations: true,
         diagnosticsEnabled: true,
+        contextualHumor: true,
+        humorIntensity: 'soft',
+        entryVoiceGreeting: true,
         commitmentTracker: false,
         proactivePulse: false,
         proactivePulseAggression: 'normal',   // 'soft' | 'normal' | 'high'
@@ -159,7 +162,8 @@
         voiceSpeed:             ['slow', 'normal', 'fast'],
         voiceTone:              ['calm', 'neutral', 'expressive', 'intense'],
         wakeWordListeningMode:  ['manual', 'continuous'],
-        wakeWordResponseMode:   ['voice', 'text']
+        wakeWordResponseMode:   ['voice', 'text'],
+        humorIntensity:        ['soft', 'normal']
     });
 
     // ---------- Descriptions + parent/child map ----------
@@ -178,6 +182,8 @@
         personalMemoryContext: 'Consulta recuerdos personales guardados explícitamente en modo local.',
         contextualRecommendations: 'Sugiere herramientas disponibles cuando son pertinentes; no ejecuta sin autorización.',
         diagnosticsEnabled: 'Explica fallos y estado real del asistente cuando lo consultas.',
+        contextualHumor: 'Ingenio ocasional adaptado al tema; seriedad en situaciones delicadas y errores.',
+        entryVoiceGreeting: 'Reproduce la bienvenida con la voz configurada cuando el entorno permite audio.',
 
         // Premium Intelligence (Sprint A)
         dailyPlanner:            'Organiza tus tareas, reuniones, pagos y proyectos en un plan diario priorizado.',
@@ -229,6 +235,8 @@
         personalMemoryContext: [],
         contextualRecommendations: [],
         diagnosticsEnabled: [],
+        contextualHumor: [],
+        entryVoiceGreeting: [],
         dictationEnabled: [],
         commitmentTracker: [],
         proactivePulse: [],
@@ -431,7 +439,7 @@
                 if (localOnly && !window.MediaRecorder) return 'unavailable';
                 if (localOnly && (runtime.loaded !== true || !runtime.localSTTReady)) return 'unavailable';
                 const capture = key === 'wakeWordEnabled' ? window.GunterWakeWord?.getState?.() : window.GunterSTT?.pushToTalk?.getState?.();
-                if (capture?.phase === 'error') return 'error';
+                if (capture?.phase === 'error' || capture?.error) return 'error';
                 if (microphonePermission === 'denied') return 'error';
                 if (key === 'wakeWordEnabled' && capture?.active) return 'active';
                 if (key === 'dictationEnabled' && ['recording', 'transcribing', 'review'].includes(capture?.phase)) return 'active';

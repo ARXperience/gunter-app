@@ -16,7 +16,7 @@
 (function () {
     if (window.GunterActions) return;
     const defaultOnFlags = new Set(['voiceEnabled', 'wakeWordEnabled', 'dictationEnabled',
-        'conversationContinuity', 'personalMemoryContext', 'contextualRecommendations', 'diagnosticsEnabled']);
+        'conversationContinuity', 'personalMemoryContext', 'contextualRecommendations', 'diagnosticsEnabled', 'contextualHumor', 'entryVoiceGreeting']);
     const pendingFlags = new Map();
     let applyingServer = false;
     let writeChain = Promise.resolve();

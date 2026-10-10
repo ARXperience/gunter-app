@@ -4,9 +4,10 @@
    ============================================= */
 
 (function () {
-    const TABS = ['premium', 'voice', 'conversations', 'actions', 'connections', 'preferences', 'data', 'diagnostics'];
+    const TABS = ['account', 'premium', 'voice', 'conversations', 'actions', 'connections', 'preferences', 'data', 'diagnostics'];
     const ADVANCED_TABS = new Set(['premium', 'voice', 'conversations', 'actions', 'connections']);
     const TITLES = {
+        account: { t: 'Mi cuenta', s: 'Tu identidad y cómo quieres que Gunter te llame.' },
         premium: { t: 'Asistente e IA', s: 'Personalidad, conocimiento y decisiones con controles claros.' },
         voice: { t: 'Voz y escucha', s: 'Micrófono, activación y dictado local con estados verificables.' },
         conversations: { t: 'Conversaciones y memoria', s: 'Tus recuerdos e historial bajo tu control.' },
@@ -302,6 +303,34 @@
         }
     }
 
+    function initAccount() {
+        const form = document.getElementById('account-profile-form');
+        if (!form) return;
+        const name = document.getElementById('account-registration-name');
+        const preferred = document.getElementById('account-preferred-name');
+        const save = document.getElementById('account-profile-save');
+        const status = document.getElementById('account-profile-status');
+        const show = () => {
+            const user = window.GunterAuth?.isVerified?.() && window.GunterAuth.getUser();
+            if (!user) return;
+            name.value = user.displayName || ''; preferred.value = user.preferredName || '';
+            document.getElementById('account-login-name').textContent = '@' + user.username;
+            name.disabled = preferred.disabled = save.disabled = false;
+            status.textContent = 'Perfil autenticado listo.';
+        };
+        document.addEventListener('gunter-auth-ready', show);
+        document.addEventListener('gunter-auth-profile-changed', show);
+        show();
+        form.addEventListener('submit', async event => {
+            event.preventDefault(); save.disabled = true; status.textContent = 'Guardando tu perfil…';
+            try {
+                await window.GunterAuth.updateProfile({ displayName: name.value.trim(), preferredName: preferred.value.trim() });
+                show(); status.textContent = 'Nombres guardados. Gunter usará tu nombre preferido.';
+            } catch (error) { status.textContent = error.message || 'No pude guardar el perfil. Revisa la conexión.'; }
+            finally { save.disabled = !window.GunterAuth?.isVerified?.(); }
+        });
+    }
+
     // ---------- Data & Privacy ----------
     function loadDataStatus() {
         const openaiEl = document.getElementById('status-openai');
@@ -551,6 +580,7 @@
         document.getElementById('config-open-assistant')?.addEventListener('click', () => window.GunterCompanion?.expand?.());
         arrangeExistingControls();
         initTabs();
+        initAccount();
         initTrash();
         initData();
         initGoogleCalendar();

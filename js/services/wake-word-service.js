@@ -51,6 +51,8 @@
     let localClip = [];
     let localPreRoll = [];
     let localProvider = false;
+    let localStarting = false;
+    let captureGeneration = 0;
     let suspendedForCapture = false;
     let running = false;
     let mode = 'off';
@@ -169,6 +171,7 @@
 
     async function processLocalClip() {
         if (localBusy || !localClip.length || !running) return;
+        const generation = captureGeneration;
         const chunks = localClip.splice(0);
         localBusy = true;
         phase = 'transcribing';
@@ -180,7 +183,9 @@
             const form = new FormData();
             form.append('file', blob, mime === 'audio/ogg' ? 'wake.ogg' : 'wake.webm');
             const transcript = String(await window.GunterSTT.transcribe(form)).trim();
-            if (!running || !transcript || window.GunterVoice?.isLikelyEcho?.(transcript)) return;
+            if (generation !== captureGeneration || !getConfig().enabled || !running) return;
+            lastError = null;
+            if (!transcript || window.GunterVoice?.isLikelyEcho?.(transcript)) return;
             lastHeard = transcript;
             const invocation = detectInvocation(transcript);
             if (mode === 'wake' && invocation) enterQueryMode(invocation);
@@ -189,13 +194,14 @@
                 else await handleQuery(invocation?.command || transcript);
             }
         } catch (error) {
+            if (generation !== captureGeneration || !getConfig().enabled || !running) return;
             lastError = error.code || error.message;
             phase = 'error';
             notifyState();
             window.GunterNotificationsService?.showToast?.(`Activación local no disponible: ${lastError}`, { variant: 'warn' });
         } finally {
-            localBusy = false;
-            if (running) {
+            if (generation === captureGeneration) localBusy = false;
+            if (generation === captureGeneration && running && phase !== 'error') {
                 phase = mode === 'query' ? 'recording' : 'waiting_activation';
                 notifyState();
             }
@@ -218,12 +224,27 @@
             phase = 'permission_pending'; notifyState();
             return;
         }
+        const generation = ++captureGeneration;
+        const isCurrent = () => generation === captureGeneration && getConfig().enabled && usesLocalAudio()
+            && window.GunterRuntimeState?.getState?.().loaded === true;
+        localStarting = true;
+        let stream;
         try {
             phase = 'permission_pending'; notifyState();
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: {
                 echoCancellation: true, noiseSuppression: true, autoGainControl: true
             } });
             permissionGranted = true;
+            if (!isCurrent()) {
+                stream.getTracks().forEach(track => track.stop());
+                return;
+            }
+            const currentHybrid = window.GunterRuntimeState?.getState?.() || {};
+            if (!currentHybrid.localSTTReady || currentHybrid.flags?.['stt.local'] !== true) {
+                stream.getTracks().forEach(track => track.stop());
+                throw new Error('Moonshine no está instalado o su runtime no está disponible. Usa texto hasta instalarlo.');
+            }
+            localStream = stream;
             userWantsRunning = true;
             localProvider = true;
             const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg']
@@ -241,7 +262,6 @@
                 lastError = event?.error?.message || 'Error de captura local';
                 stop(); setIndicator('error', lastError);
             };
-            localRecorder.start(250);
             localUnsubscribe = window.GunterVoiceActivity.onChange(state => {
                 if (!running || localBusy) return;
                 if (state.reason === 'speech-started' && !window.GunterVoice?.isSpeaking?.()) {
@@ -264,15 +284,29 @@
                     }, 650);
                 }
             });
-            const vad = await window.GunterVoiceActivity.start(localStream);
+            const vad = await window.GunterVoiceActivity.start(stream);
+            if (!isCurrent()) {
+                stream.getTracks().forEach(track => track.stop());
+                window.GunterVoiceActivity?.stop?.('wake-cancelled');
+                return;
+            }
             if (!vad.active) throw new Error(vad.error || 'VAD_NO_DISPONIBLE');
+            const readyHybrid = window.GunterRuntimeState?.getState?.() || {};
+            if (!readyHybrid.localSTTReady || readyHybrid.flags?.['stt.local'] !== true) {
+                throw new Error('Moonshine no está instalado o su runtime no está disponible. Usa texto hasta instalarlo.');
+            }
+            localRecorder.start(250);
+            lastError = null;
             running = true;
             mode = 'wake';
             setIndicator('wake', `Di "${getConfig().wakeWord}"`);
             maybeShowAndroidWarning();
         } catch (error) {
+            if (!isCurrent()) return;
             lastError = error.name === 'NotAllowedError' ? 'Permiso de micrófono rechazado' : error.message;
             stop(); setIndicator('error', lastError);
+        } finally {
+            localStarting = false;
         }
     }
 
@@ -281,13 +315,14 @@
         if (hybrid.loaded !== true) return;
         const cfg = getConfig();
         if (!cfg.enabled) { setIndicator('off', ''); return; }
-        if (running) return;
+        if (running || localStarting) return;
         if (usesLocalAudio()) return startLocal(fromUserGesture);
         if (!SR) { lastError = humanError('unsupported'); setIndicator('error', lastError); return; }
 
         // Aviso Android una vez por sesión (no bloquea, solo informa)
         maybeShowAndroidWarning();
 
+        const generation = captureGeneration;
         if (!permissionGranted) {
             if (!fromUserGesture) {
                 phase = 'permission_pending';
@@ -296,6 +331,7 @@
                 return;
             }
             const p = await requestPermission();
+            if (generation !== captureGeneration || !getConfig().enabled || usesLocalAudio()) return;
             if (p !== 'granted') {
                 // Fase E.E8 — mensaje humano + toast
                 const code = p === 'denied' ? 'rejected' : 'no_mic';
@@ -436,6 +472,7 @@
     }
 
     function stop(options = {}) {
+        captureGeneration++;
         if (!options.preserveIntent) userWantsRunning = false;
         if (queryTimeout) { clearTimeout(queryTimeout); queryTimeout = null; }
         if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
@@ -448,6 +485,7 @@
         localClip = []; localPreRoll = []; localSpeech = false; localBusy = false;
         window.GunterVoiceActivity?.stop?.('wake-stopped');
         if (recognition) {
+            recognition.onstart = null;
             recognition.onend = null;
             recognition.onresult = null;
             recognition.onerror = null;
@@ -529,7 +567,10 @@
         const preText = invocation?.command || '';
         if (preText && preText.length > 1) {
             // Pequeño delay para no pisar el beep
-            setTimeout(() => handleQuery(preText), 300);
+            const generation = captureGeneration;
+            setTimeout(() => {
+                if (generation === captureGeneration && running && getConfig().enabled) handleQuery(preText);
+            }, 300);
         }
 
         try { ensureAssistantOpen(); } catch {}
@@ -795,9 +836,9 @@
         const cfg = getConfig();
         if (cfg.enabled && !running && permissionGranted && userWantsRunning !== false) {
             start();
-        } else if (!cfg.enabled && running) {
+        } else if (!cfg.enabled) {
             stop();
-        } else if (cfg.enabled && !permissionGranted && !running) {
+        } else if (cfg.enabled && !permissionGranted && !running && phase !== 'error') {
             phase = 'permission_pending'; notifyState();
         }
     }
@@ -805,7 +846,7 @@
     function suspendForCapture() {
         // PTT debe ser el único dueño del micrófono, también cuando la
         // activación usa SpeechRecognition en vez de Moonshine local.
-        suspendedForCapture = running;
+        suspendedForCapture = running || localStarting;
         if (suspendedForCapture) stop();
     }
 
@@ -826,7 +867,7 @@
     });
     window.addEventListener('gunter-hybrid-state', event => {
         const hybrid = event.detail || {};
-        if (hybrid.loaded !== true || (running && localProvider !== (hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY'))) stop();
+        if (hybrid.loaded !== true || ((running || localStarting) && localProvider !== (hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY'))) stop();
     });
 
     window.addEventListener('gunter-voice-state', event => {

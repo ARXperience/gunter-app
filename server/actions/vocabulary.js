@@ -105,6 +105,9 @@ const FEATURES = [
     kind: 'boolean', risk: 'safe',
     shortDesc: 'Explica el estado y los errores reales cuando lo consultas.'
   },
+  { flag: 'contextualHumor', aliases: ['humor contextual', 'bromas de Gunter', 'humor de Gunter'], kind: 'boolean', risk: 'safe', shortDesc: 'Humor ocasional adecuado al contexto; seriedad en errores y situaciones delicadas.' },
+  { flag: 'entryVoiceGreeting', aliases: ['bienvenida por voz', 'saludo por voz'], kind: 'boolean', risk: 'safe', shortDesc: 'Hablar la bienvenida con la voz configurada.' },
+  { flag: 'humorIntensity', aliases: ['intensidad del humor'], kind: 'enum', enumValues: ['soft', 'normal'], enumAliases: { soft: ['sutil', 'suave'], normal: ['moderado', 'moderada', 'normal'] }, risk: 'safe', shortDesc: 'Humor sutil o moderado, solo cuando es pertinente.' },
 
   // ─────────────────────────────────────────────
   // Productividad

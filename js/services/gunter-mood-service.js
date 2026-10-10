@@ -188,9 +188,14 @@
         return _current;
     }
 
-    function greetLine()   { const m = current(); return _pick(LINES[m.mood]?.greet || []); }
-    function statusLabel() { const m = current(); return LINES[m.mood]?.status || 'Tu asistente'; }
-    function promptLine()  { const m = current(); return LINES[m.mood]?.prompt || ''; }
+    // Welcome and communication are owned by Presence. Signals may animate the
+    // mascot, but must not impose guilt, scripted jokes or claimed emotions.
+    function greetLine() { return ''; }
+    function statusLabel() {
+        const m = current();
+        return { grumpy: 'Pendientes por revisar', sleepy: 'Disponible en la madrugada', proud: 'Progreso registrado', excited: 'Nuevo logro registrado', zen: 'Repaso completado' }[m.mood] || 'Tu asistente';
+    }
+    function promptLine() { return ''; }
     function moodClass()   { const m = current(); return m.mood !== 'neutral' ? 'is-mood-' + m.mood.replace(/_/g, '-') : ''; }
 
     // ── Event listeners (otros módulos disparan estos) ──

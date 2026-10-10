@@ -30,7 +30,7 @@
         'new meeting': 'new-project.html', meeting: 'dashboard.html', results: 'results.html',
         capture: 'day.html#capture', tasks: 'day.html#tasks', agenda: 'day.html#events',
         reminders: 'day.html#reminders', activity: 'day.html#activity',
-        settings: 'config.html#preferences', preferences: 'config.html#preferences',
+        settings: 'config.html#preferences', preferences: 'config.html#preferences', account: 'config.html#account',
         connections: 'config.html#connections', data: 'config.html#data', assistant: 'config.html#premium',
         'ai assistant': 'config.html#premium', trash: 'config.html#trash',
         'advanced settings': 'config.html#premium', administration: 'admin.html'
@@ -43,7 +43,7 @@
             meetings: ['reuniones', 'reunion', 'dashboard', 'panel de reuniones'], 'new meeting': ['nueva reunion', 'preparar reunion'],
             results: ['resultados', 'transcripciones', 'analisis de reunion'], capture: ['captura rapida', 'captura'],
             tasks: ['tareas', 'pendientes'], agenda: ['agenda', 'calendario', 'eventos'], reminders: ['recordatorios'],
-            activity: ['actividad', 'historial'], settings: ['configuracion', 'ajustes'], preferences: ['preferencias'],
+            activity: ['actividad', 'historial'], settings: ['configuracion', 'ajustes'], preferences: ['preferencias'], account: ['mi cuenta', 'mi perfil', 'nombre preferido'],
             connections: ['conexiones', 'datos y conexiones', 'redes sociales'], assistant: ['asistente ia', 'funciones del asistente', 'configuracion avanzada', 'opciones avanzadas', 'ajustes avanzados', 'configuracion de voz'],
             trash: ['papelera'], administration: ['administracion', 'panel administrativo']
         };

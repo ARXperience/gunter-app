@@ -9,7 +9,15 @@ async function test(name, fn) { await fn(); passed++; console.log('  ✓ ' + nam
 const storage = () => { const values = new Map(); return { getItem: k => values.get(k) ?? null, setItem: (k, v) => values.set(k, String(v)), removeItem: k => values.delete(k) }; };
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function runtime() {
-    return { localStorage: storage(), sessionStorage: storage(), navigator: {}, dispatchEvent() {}, CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init?.detail; } } };
+    const claims = new Set();
+    const env = { localStorage: storage(), sessionStorage: storage(), navigator: {}, dispatchEvent() {}, mockSession: 1,
+        CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init?.detail; } } };
+    env.fetch = async (_url, options) => {
+        const input = JSON.parse(options.body), claim = `${input.userId}:${env.mockSession}`;
+        const shouldGreet = !claims.has(claim); claims.add(claim);
+        return { ok: true, json: async () => ({ ok: true, entryId: 'entry_' + env.mockSession, shouldGreet }) };
+    };
+    return env;
 }
 function voiceRuntime(fetcher, hybrid = null) {
     const audios = [], utterances = [], events = [];
@@ -30,21 +38,21 @@ function voiceRuntime(fetcher, hybrid = null) {
         URL: { createObjectURL: () => 'blob:test', revokeObjectURL() {} }, AbortController, setTimeout, clearTimeout, console: { warn() {} },
         CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init?.detail; } } };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../js/services/voice-service.js'), 'utf8'), sandbox);
-    return { voice: window.GunterVoice, audios, utterances, events };
+    return { voice: window.GunterVoice, window, audios, utterances, events };
 }
 (async () => {
     console.log('GUNTER PRESENCE AND VOICE');
     await test('saludo usa el nombre de la cuenta y límites reales de mañana, tarde y noche', () => {
-        for (const [hour, salutation] of [[4, 'Buenas noches'], [5, 'Buenos días'], [11, 'Buenos días'], [12, 'Buenas tardes'], [18, 'Buenas tardes'], [19, 'Buenas noches']]) {
+        for (const [hour, salutation] of [[4, 'Buena madrugada'], [5, 'Buenos días'], [11, 'Buenos días'], [12, 'Buenas tardes'], [18, 'Buenas tardes'], [19, 'Buenas noches']]) {
             const text = composeGreeting({ user: { displayName: 'Andrea' }, now: new Date(`2026-10-04T${String(hour).padStart(2, '0')}:15:00Z`), timezone: 'UTC' });
             assert.ok(text.startsWith(salutation + ', Andrea.'));
         }
-        assert.match(composeGreeting({ user: { username: 'ana' }, timezone: 'UTC' }), /, ana\./);
+        assert.doesNotMatch(composeGreeting({ user: { username: 'ana' }, timezone: 'UTC' }), /, ana\./);
     });
     await test('la zona horaria cambia la hora y el saludo, no inventa la ciudad', () => {
         const text = composeGreeting({ user: { username: 'ana' }, now: new Date('2026-10-04T16:30:00Z'), timezone: 'America/Bogota' });
         assert.match(text, /^Buenos días/); assert.match(text, /11:30/);
-        assert.match(text, /no tengo tu ciudad confirmada/); assert.doesNotMatch(text, /Estás en Bogotá/);
+        assert.doesNotMatch(text, /Estás en Bogotá/); assert.match(text, /domingo/);
     });
     await test('distingue ubicación actual, manual y desactualizada', () => {
         assert.match(composeGreeting({ location: { city: 'Cali', source: 'device' } }), /Estás en Cali/);
@@ -58,24 +66,21 @@ function voiceRuntime(fetcher, hybrid = null) {
     });
     await test('un solo saludo después de login real, no al recargar ni cambiar de página', async () => {
         const env = runtime(), service = create(env), user = { id: 'u1', displayName: 'Andrea' };
-        assert.equal(await service.greet(user, 'session-1'), null);
-        env.localStorage.setItem('gunter_entry_pending', JSON.stringify({ userId: 'u1', sessionStartedAt: 'session-1' }));
         const [first, duplicate] = await Promise.all([service.greet(user, 'session-1'), service.greet(user, 'session-1')]);
         assert.ok(first); assert.equal(duplicate, null);
         assert.equal(await create(env).greet(user, 'session-1'), null);
-        assert.equal(await service.greet(user, 'session-2'), null);
-        env.localStorage.setItem('gunter_entry_pending', JSON.stringify({ userId: 'u1', sessionStartedAt: 'session-2' }));
+        env.mockSession = 2;
         assert.notEqual(await service.greet(user, 'session-2'), first);
-        env.localStorage.setItem('gunter_entry_pending', JSON.stringify({ userId: 'u2', sessionStartedAt: 'session-3' }));
-        assert.match(await service.greet({ id: 'u2', username: 'Luis' }, 'session-3'), /Luis/);
-        env.localStorage.setItem('gunter_entry_pending', JSON.stringify({ userId: 'u1', sessionStartedAt: 'session-4' }));
+        env.mockSession = 3;
+        assert.match(await service.greet({ id: 'u2', displayName: 'Luis', preferredName: 'Luis' }, 'session-3'), /Luis/);
+        env.mockSession = 4;
         assert.equal(await service.greet(user, 'session-4', { enabled: false }), null);
         assert.equal(await service.greet(user, 'session-4'), null, 'enabling greeting later must not replay the old login');
     });
     await test('no pide geolocalización sin permiso previo ni infiere residencia', async () => {
         const env = runtime(); let calls = 0;
         env.navigator.geolocation = { getCurrentPosition() { calls++; } };
-        const service = create(env); env.localStorage.setItem('gunter_entry_pending', JSON.stringify({ userId: 'u1', sessionStartedAt: 'session-1' }));
+        const service = create(env);
         await service.greet({ id: 'u1' }, 'session-1'); assert.equal(calls, 0);
         service.savePreferences({ city: 'Medellín', locationSource: 'device', locationUpdatedAt: 1, useDeviceLocation: true });
         assert.equal((await service.location()).source, 'stored'); assert.equal(calls, 0);
@@ -147,6 +152,17 @@ function voiceRuntime(fetcher, hybrid = null) {
         setup.voice.speak('Hola Andrea'); await tick();
         assert.equal(setup.utterances.length, 0);
         assert.equal(setup.voice.isSpeaking(), false);
+    });
+    await test('bienvenida por voz apagada no reproduce ni solicita síntesis', async () => {
+        let calls = 0;
+        const setup = voiceRuntime(async () => { calls++; throw new Error('unexpected'); });
+        setup.window.PremiumFeaturesService.isEnabled = key => key !== 'entryVoiceGreeting';
+        await setup.voice.speak('Buenos días, Carlos.', { context: 'entry' }); await tick();
+        assert.equal(calls, 0);
+        assert.equal(setup.audios.length, 0); assert.equal(setup.utterances.length, 0);
+        await setup.voice.speak('Una respuesta del chat.', { context: 'chat' }); await tick();
+        assert.equal(calls, 1, 'turning off welcome audio does not turn off conversation voice');
+        setup.voice.cancel();
     });
     console.log(`═══ PRESENCE / VOICE: ${passed} ✓ · 0 ✗ ═══`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -6,6 +6,8 @@
      POST /api/auth/login         { username, password }
      POST /api/auth/logout
      GET  /api/auth/me
+     POST /api/auth/profile { displayName?, preferredName? } (cuenta propia)
+     POST /api/auth/entry { op, tabId, pageId, entryId?, continuation?, userId? }
      GET  /api/auth/setup-status  → { needsSetup } (público: ¿existe algún usuario?)
      POST /api/auth/change-password { current, next }
      ── Admin ──
@@ -191,6 +193,28 @@ function handle(sub, method, body, req) {
         if (!who) return { status: 401, body: { success: false, error: 'auth_required' } };
         if (who.kind === 'service') return { status: 200, body: { success: true, user: { id: 'service', username: 'service', displayName: 'Service', role: 'admin', status: 'approved' }, service: true } };
         return { status: 200, body: { success: true, user: store.publicUser(who.user), sessionStartedAt: sessions.get(who.token)?.createdAt } };
+    }
+
+    if (sub === 'profile' && method === 'POST') {
+        const who = authenticate(req);
+        if (!who || who.kind !== 'user') return { status: 401, body: { success: false, error: 'auth_required' } };
+        if (who.user.status !== 'approved') return { status: 403, body: { success: false, error: who.user.status === 'blocked' ? 'blocked' : 'pending_approval' } };
+        // A stale tab must not edit a different account after its HttpOnly
+        // cookie changed in another tab. This header never selects an owner.
+        const expectedUserId = req.headers['x-gunter-profile-user'];
+        if (expectedUserId && expectedUserId !== who.user.id) return { status: 409, body: { success: false, error: 'account_changed' } };
+        const result = store.updateProfile(who.user.id, body);
+        if (!result.ok) return { status: 400, body: { success: false, error: result.error } };
+        return { status: 200, body: { success: true, user: store.publicUser(result.user), sessionStartedAt: sessions.get(who.token)?.createdAt } };
+    }
+
+    if (sub === 'entry' && method === 'POST') {
+        const who = authenticate(req);
+        if (!who || who.kind !== 'user') return { status: 401, body: { success: false, error: 'auth_required' } };
+        if (who.user.status !== 'approved') return { status: 403, body: { success: false, error: who.user.status === 'blocked' ? 'blocked' : 'pending_approval' } };
+        const result = sessions.visit(who.token, body);
+        if (!result || result.ok === false) return { status: 400, body: { success: false, error: result?.error || 'invalid_entry' } };
+        return { status: 200, body: { success: true, ...result } };
     }
 
     // Vincular / desvincular el WhatsApp propio (phone vacío = desvincular).

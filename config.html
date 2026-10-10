@@ -3,11 +3,11 @@
 
 <head>
     <script src="js/services/log-buffer.js?v66b-gunter-pixar-1783590000000"></script>
-    <script src="js/services/auth-service.js?v121-entry-defaults"></script>
+    <script src="js/services/auth-service.js?v122-identity-context"></script>
     <script src="js/services/data-repository.js?v3-backup" defer></script>
     <script src="js/services/gunter-memory.js?v3-backup" defer></script>
     <script src="js/services/personal-memory-service.js?v3-conversation" defer></script>
-    <script src="js/core/assistant-presence.js?v121-entry-defaults" defer></script>
+    <script src="js/core/assistant-presence.js?v122-identity-context" defer></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Gunter App - Configuración de Contexto - Selecciona tu entorno de trabajo">
@@ -26,7 +26,7 @@
     <link rel="stylesheet" href="styles/pages/config.css">
     <link rel="stylesheet" href="styles/pages/config-polish.css">
     <link rel="stylesheet" href="styles/pages/config-settings.css?v7-eight-sections">
-    <link rel="stylesheet" href="styles/pages/advanced-settings.css?v121-entry-defaults">
+    <link rel="stylesheet" href="styles/pages/advanced-settings.css?v122-identity-context">
     <!-- (audio-trimmer.css eliminado: pertenecía al flujo Nuevo Proyecto) -->
 
     <!-- Phase 2 Design Enhancements -->
@@ -85,6 +85,7 @@
 
         <!-- Tabs (Nuevo Proyecto vive en dashboard.html, no aquí) -->
         <nav class="config-tabs" role="tablist" aria-label="Secciones de configuración">
+            <button class="config-tab" id="config-tab-account" role="tab" data-tab="account" aria-controls="config-panel-account" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="user" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg> Mi cuenta</button>
             <button class="config-tab" id="config-tab-premium" role="tab" data-tab="premium" aria-controls="config-panel-premium" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="brain" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 18V5a3 3 0 0 0-5.8-1A4 4 0 0 0 4 11a4 4 0 0 0 2 7h6Zm0 0V5a3 3 0 0 1 5.8-1A4 4 0 0 1 20 11a4 4 0 0 1-2 7h-6Z"/></svg> Asistente e IA</button>
             <button class="config-tab" id="config-tab-voice" role="tab" data-tab="voice" aria-controls="config-panel-voice" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="microphone" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5m-4 0h8"/></svg> Voz y escucha</button>
             <button class="config-tab" id="config-tab-conversations" role="tab" data-tab="conversations" aria-controls="config-panel-conversations" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="message" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 1 1 16.1-3.8Z"/></svg> Conversaciones y memoria</button>
@@ -98,8 +99,21 @@
 
 
         <!-- TAB: PREMIUM -->
+        <section class="config-tab-panel" id="config-panel-account" role="tabpanel" aria-labelledby="config-tab-account" tabindex="0" data-panel="account" hidden>
+            <form class="settings-card" id="account-profile-form">
+                <h3>Mi cuenta</h3>
+                <p class="settings-card__hint">El perfil de tu cuenta determina cómo te reconoce Gunter. Los cambios se guardan en tu perfil y se actualizan en tus sesiones conectadas.</p>
+                <div class="settings-row"><label for="account-registration-name">Nombre de registro</label><input id="account-registration-name" class="form-input" autocomplete="name" maxlength="60" disabled></div>
+                <div class="settings-row"><label for="account-preferred-name">Nombre preferido para Gunter</label><input id="account-preferred-name" class="form-input" autocomplete="nickname" maxlength="60" placeholder="Cómo quieres que te llame" disabled></div>
+                <p class="settings-card__hint">Inicialmente usamos tu nombre de pila cuando se identifica. Puedes cambiarlo o dejarlo vacío. Tu usuario de acceso y tus credenciales no cambian.</p>
+                <div class="settings-row"><span>Usuario de acceso</span><span id="account-login-name"></span></div>
+                <button type="submit" class="btn btn--primary" id="account-profile-save" disabled>Guardar nombres</button>
+                <p class="settings-card__hint" id="account-profile-status" role="status" aria-live="polite">Verificando tu cuenta…</p>
+            </form>
+        </section>
         <section class="config-tab-panel" id="config-panel-premium" role="tabpanel" aria-labelledby="config-tab-premium" tabindex="0" data-panel="premium" hidden>
             <div id="premium-panel"></div>
+            <div class="settings-card"><h3>Bienvenida contextual</h3><p class="settings-card__hint">Un saludo por ingreso real, con tu nombre preferido, hora y actividades verificadas. Cambiar de sección o recargar no lo repite.</p><div class="settings-row settings-row--toggle"><label for="pref-entry-greeting">Saludar al entrar</label><input type="checkbox" id="pref-entry-greeting" class="form-toggle" checked></div></div>
         </section>
 
         <section class="config-tab-panel" id="config-panel-voice" role="tabpanel" aria-labelledby="config-tab-voice" tabindex="0" data-panel="voice" hidden>
@@ -120,9 +134,8 @@
         <!-- TAB: PREFERENCES -->
         <section class="config-tab-panel" id="config-panel-preferences" role="tabpanel" aria-labelledby="config-tab-preferences" tabindex="0" data-panel="preferences" hidden>
             <div class="settings-card">
-                <h3>Bienvenida y ubicación</h3>
-                <p class="settings-card__hint">Gunter te saluda con el nombre de tu cuenta y la hora local. La ciudad se toma de la ubicación autorizada o de la que indiques aquí.</p>
-                <div class="settings-row settings-row--toggle"><label for="pref-entry-greeting">Saludar al entrar</label><input type="checkbox" id="pref-entry-greeting" class="form-toggle" checked></div>
+                <h3>Hora y ubicación</h3>
+                <p class="settings-card__hint">La hora sigue esta zona horaria. La ciudad se toma de la ubicación autorizada o de la que indiques aquí.</p>
                 <div class="settings-row"><label for="pref-city">Ciudad</label><input id="pref-city" class="form-input" maxlength="100" placeholder="Tu ciudad"></div>
                 <div class="settings-row"><label for="pref-timezone">Zona horaria</label><input id="pref-timezone" class="form-input" placeholder="America/Bogota"></div>
                 <button type="button" class="btn btn--secondary" id="pref-use-location">Usar ubicación actual</button>
@@ -375,7 +388,7 @@
     <script src="js/services/calendar-service.js" defer></script>
     <script src="js/services/status-bus.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/connectivity-monitor.js?v116-supertonic3" defer></script>
-    <script src="js/services/stt-provider.js?v121-entry-defaults" defer></script>
+    <script src="js/services/stt-provider.js?v122-identity-context" defer></script>
     <script src="js/services/notifications-service.js?v102-background-push" defer></script>
     <script src="js/services/transcript-store.js" defer></script>
     <script src="js/services/local-data-maintenance-service.js" defer></script>
@@ -389,10 +402,10 @@
     <script src="js/core/time-parser.js?v71-assistant" defer></script>
     <script src="js/services/jobs-service.js?v73-assistant" defer></script>
     <script src="js/services/voice-activity-service.js?v120-shared-mic" defer></script>
-    <script src="js/core/assistant-tools.js?v121-reminder-followup" defer></script>
+    <script src="js/core/assistant-tools.js?v122-identity-context" defer></script>
     <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
-    <script src="js/services/voice-service.js?v121-entry-defaults" defer></script>
-    <script src="js/services/wake-word-service.js?v121-entry-defaults" defer></script>
+    <script src="js/services/voice-service.js?v122-identity-context" defer></script>
+    <script src="js/services/wake-word-service.js?v122-identity-context" defer></script>
 
     <!-- Adapters (Fase 7) -->
     <script src="js/adapters/storage-adapter.js" defer></script>
@@ -402,8 +415,8 @@
     <script src="js/adapters/voice-adapter.js?v116-supertonic3" defer></script>
     <script src="js/adapters/index.js" defer></script>
 
-    <script src="js/premium-features-service.js?v121-entry-defaults" defer></script>
-    <script src="js/advanced-settings.js?v121-entry-defaults" defer></script>
+    <script src="js/premium-features-service.js?v122-identity-context" defer></script>
+    <script src="js/advanced-settings.js?v122-identity-context" defer></script>
     <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
     <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
     <script src="js/services/connection-manager.js?v87-context-sync" defer></script>
@@ -417,7 +430,7 @@
     <script src="js/controllers/conversation-memory-panel.js" defer></script>
     <script src="js/controllers/personal-memory-panel.js?v2-backup" defer></script>
 
-    <script src="js/config-settings.js?v121-entry-defaults" defer></script>
+    <script src="js/config-settings.js?v122-identity-context" defer></script>
     <script src="js/controllers/presence-settings.js?v115-presence" defer></script>
     <!-- (ai-analysis, cache-service, audio-chunker, audio-trimmer eliminados:
          pertenecían al flujo Nuevo Proyecto que ahora vive en dashboard.html) -->
@@ -681,9 +694,9 @@
 
     <!-- Medieval Futuristic Theme -->
     <script src="js/services/sw-updater.js?v115-stable-entry" defer></script>
-    <script src="js/services/theme-toggle.js?v80-polar" defer></script>    <script src="js/services/actions-service.js?v121-entry-defaults" defer></script>    <script src="js/services/nlp-llm-service.js?v121-entry-defaults" defer></script>    <script src="js/services/commitments-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/theme-toggle.js?v80-polar" defer></script>    <script src="js/services/actions-service.js?v122-identity-context" defer></script>    <script src="js/services/nlp-llm-service.js?v122-identity-context" defer></script>    <script src="js/services/commitments-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-rules-service.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/gunter-mood-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/gunter-mood-service.js?v122-identity-context" defer></script>
 
 
 
@@ -692,7 +705,7 @@
 
 
     <script src="js/services/diagnostics-service.js?v2-admin-stats" defer></script>
-    <script src="js/services/gunter-companion.js?v121-entry-defaults" defer></script>
+    <script src="js/services/gunter-companion.js?v122-identity-context" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-onboarding.js?v67-security-20260828" defer></script>
 </body>

@@ -78,6 +78,7 @@
     }
 
     function build() {
+        const user = window.GunterAuth?.canAccessLocalData?.() ? window.GunterAuth.getUser?.() : null;
         return {
             userId: localStorage.getItem('gunter_user') || 'local-user',
             timezone: detectTimezone(),
@@ -86,7 +87,9 @@
             preferences: readPrefs(),
             currentProject: currentProject(),
             recentEntities: recentEntities(),
-            conversationHistory: getConversationHistory()
+            conversationHistory: getConversationHistory(),
+            identity: user ? { userId: user.id, preferredName: window.GunterPresence?.nameOf?.(user) || '' } : null,
+            moment: window.GunterPresence?.moment?.() || null
         };
     }
 

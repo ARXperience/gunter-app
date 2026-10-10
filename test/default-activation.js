@@ -33,7 +33,7 @@ function load({ runtime = {}, capture = {}, permission = 'prompt' } = {}) {
 (async () => {
     const defaults = load({ runtime: { loaded: true, mode: 'LOCAL', privacy: 'LOCAL_ONLY', localSTTReady: true, localTTSAvailable: true } });
     for (const key of ['voiceEnabled', 'dictationEnabled', 'wakeWordEnabled', 'conversationContinuity',
-        'personalMemoryContext', 'contextualRecommendations', 'diagnosticsEnabled']) {
+        'personalMemoryContext', 'contextualRecommendations', 'diagnosticsEnabled', 'contextualHumor', 'entryVoiceGreeting']) {
         assert.equal(defaults.isEnabled(key), true, `${key} defaults to enabled`);
     }
     assert.equal(defaults.get('voiceMode'), 'live_voice');
@@ -49,8 +49,10 @@ function load({ runtime = {}, capture = {}, permission = 'prompt' } = {}) {
     defaults.set('dictationEnabled', false);
     defaults.set('voiceEnabled', false);
     defaults.set('personalMemoryContext', false);
+    defaults.set('contextualHumor', false);
+    defaults.set('entryVoiceGreeting', false);
     const saved = load({ runtime: { loaded: true, mode: 'LOCAL', privacy: 'LOCAL_ONLY', localSTTReady: true, localTTSAvailable: true } });
-    for (const key of ['wakeWordEnabled', 'dictationEnabled', 'voiceEnabled', 'personalMemoryContext']) {
+    for (const key of ['wakeWordEnabled', 'dictationEnabled', 'voiceEnabled', 'personalMemoryContext', 'contextualHumor', 'entryVoiceGreeting']) {
         assert.equal(saved.isEnabled(key), false, `${key} explicitly off survives reload`);
         assert.equal(saved.getFeatureStatus(key), 'inactive');
     }
@@ -69,6 +71,9 @@ function load({ runtime = {}, capture = {}, permission = 'prompt' } = {}) {
     const denied = load({ runtime: { loaded: true, mode: 'LOCAL', privacy: 'LOCAL_ONLY', localSTTReady: true, localTTSAvailable: true }, permission: 'denied' });
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(denied.getFeatureStatus('wakeWordEnabled'), 'error');
+    const failedCapture = load({ runtime: { loaded: true, mode: 'LOCAL', privacy: 'LOCAL_ONLY', localSTTReady: true },
+        capture: { phase: 'waiting_activation', active: true, permission: 'granted', error: 'LOCAL_STT_UNAVAILABLE' } });
+    assert.equal(failedCapture.getFeatureStatus('wakeWordEnabled'), 'error', 'a retained Moonshine error cannot become available');
 
     const dictationWindow = { PremiumFeaturesService: { isEnabled: () => false }, addEventListener() {} };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../js/services/stt-provider.js'), 'utf8'),
@@ -82,7 +87,9 @@ function load({ runtime = {}, capture = {}, permission = 'prompt' } = {}) {
         ['desactiva continuidad de conversación', 'conversationContinuity'],
         ['desactiva recuerdos autorizados', 'personalMemoryContext'],
         ['desactiva recomendaciones contextuales', 'contextualRecommendations'],
-        ['desactiva diagnóstico de Gunter', 'diagnosticsEnabled']
+        ['desactiva diagnóstico de Gunter', 'diagnosticsEnabled'],
+        ['desactiva humor contextual', 'contextualHumor'],
+        ['desactiva bienvenida por voz', 'entryVoiceGreeting']
     ]) {
         const intent = vocabulary.classifyActionIntent(command);
         assert.equal(intent?.feature?.flag, flag, `${command} maps to the correct setting`);

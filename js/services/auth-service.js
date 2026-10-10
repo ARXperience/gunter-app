@@ -21,6 +21,9 @@
     let _sessionStartedAt = null;
     let _localTrusted = false;
     const _readyCallbacks = [];
+    let _profileChannel = null;
+    let _profileRefreshPending = false;
+    const PROFILE_NOTICE_KEY = 'gunter_auth_profile_changed';
 
     // Cache de sessionStorage para pintar el chip sin esperar la red
     // (la verificación real via /api/auth/me SIEMPRE corre igual).
@@ -67,15 +70,8 @@
             const prevUser = localStorage.getItem('gunter_device_user');
             if (prevUser && prevUser !== u.id) {
                 console.warn('[auth] Cambio de usuario detectado — limpiando datos locales del anterior');
-                let pendingEntry = null;
-                try { pendingEntry = JSON.parse(localStorage.getItem('gunter_entry_pending') || 'null'); } catch { }
                 await _wipeLocalData();
                 localStorage.setItem('gunter_device_user', u.id);
-                // The login marker belongs to the newly verified account, not
-                // the data just wiped from the previous account.
-                if (pendingEntry?.userId === u.id && pendingEntry.sessionStartedAt === _sessionStartedAt) {
-                    localStorage.setItem('gunter_entry_pending', JSON.stringify(pendingEntry));
-                }
                 // Never re-assign surviving unowned turns if another tab
                 // blocked deletion of the old IndexedDB database.
                 localStorage.setItem('gunter_memory_legacy_owner', 'UNBOUND');
@@ -88,6 +84,7 @@
                 localStorage.setItem('gunter_memory_legacy_owner', prevUser === u.id ? u.id : 'UNBOUND');
             }
             localStorage.setItem('gunter_device_user', u.id);
+            const previousProfile = _user;
             _user = u;
             _verified = true;
             _localTrusted = true;
@@ -95,6 +92,10 @@
             document.dispatchEvent(new CustomEvent('gunter-auth-ready', { detail: { user: u, sessionStartedAt: _sessionStartedAt } }));
             _readyCallbacks.splice(0).forEach(cb => { try { cb(u); } catch { } });
             _mountChip();
+            if (previousProfile?.id === u.id && (previousProfile.displayName !== u.displayName ||
+                previousProfile.preferredName !== u.preferredName || previousProfile.profileUpdatedAt !== u.profileUpdatedAt)) {
+                _profileChanged();
+            }
             return u;
         } catch (e) {
             // Server caído: no bloquear la página (modo local-first);
@@ -107,6 +108,63 @@
             return _user;
         }
     }
+
+    function _profileChanged() {
+        try { sessionStorage.setItem('gunter_auth_user', JSON.stringify(_user)); } catch { }
+        document.getElementById('gauth-chip')?.remove();
+        _mountChip();
+        document.dispatchEvent(new CustomEvent('gunter-auth-profile-changed', {
+            detail: { user: _user, sessionStartedAt: _sessionStartedAt }
+        }));
+    }
+
+    function _receiveProfileNotice(notice) {
+        if (!notice || notice.userId !== _user?.id || !_verified || _profileRefreshPending) return;
+        _profileRefreshPending = true;
+        // Cross-tab messages only invalidate the cache; the authenticated
+        // profile returned by the server remains the source of truth.
+        _verify().finally(() => { _profileRefreshPending = false; });
+    }
+
+    async function updateProfile(patch) {
+        if (!_verified || !_user?.id || _user.status !== 'approved') {
+            throw Object.assign(new Error('Verifica tu sesión para cambiar el perfil.'), { code: 'auth_required' });
+        }
+        const userId = _user.id;
+        const response = await fetch('/api/auth/profile', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Gunter-Profile-User': userId },
+            body: JSON.stringify(patch)
+        });
+        const json = await response.json();
+        if (!response.ok || !json.success) {
+            throw Object.assign(new Error(json.error || 'No se pudo guardar el perfil.'), { code: json.error || 'profile_update_failed' });
+        }
+        if (json.user?.id !== userId || _user?.id !== userId) {
+            throw Object.assign(new Error('La cuenta cambió. Actualiza la página antes de editar.'), { code: 'account_changed' });
+        }
+        _user = json.user;
+        // Profile changes do not start or replace the authentication session.
+        if (json.sessionStartedAt) _sessionStartedAt = json.sessionStartedAt;
+        _profileChanged();
+        const notice = { userId, at: Date.now(), nonce: Math.random().toString(36).slice(2) };
+        try { localStorage.setItem(PROFILE_NOTICE_KEY, JSON.stringify(notice)); } catch { }
+        try { _profileChannel?.postMessage(notice); } catch { }
+        return _user;
+    }
+
+    try {
+        if (typeof window.BroadcastChannel === 'function') {
+            _profileChannel = new window.BroadcastChannel('gunter-auth-profile');
+            _profileChannel.addEventListener('message', event => _receiveProfileNotice(event.data));
+        }
+    } catch { }
+    window.addEventListener('storage', event => {
+        if (event.key !== PROFILE_NOTICE_KEY || !event.newValue) return;
+        try { _receiveProfileNotice(JSON.parse(event.newValue)); } catch { }
+    });
+    window.addEventListener('focus', () => {
+        if (!isPublic && _verified) _receiveProfileNotice({ userId: _user?.id });
+    });
 
     async function logout() {
         _localTrusted = false;
@@ -296,6 +354,7 @@
     // ---------- API pública ----------
     window.GunterAuth = {
         getUser: () => _user,
+        getPreferredName: () => _user?.preferredName || '',
         getSessionStartedAt: () => _sessionStartedAt,
         isVerified: () => _verified,
         canAccessLocalData: () => _localTrusted,
@@ -305,6 +364,7 @@
         isLogged: () => !!_user,
         onReady: (cb) => { _user ? cb(_user) : _readyCallbacks.push(cb); },
         logout,
+        updateProfile,
         refresh: _verify
     };
 

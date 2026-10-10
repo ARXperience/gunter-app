@@ -297,6 +297,10 @@
           description: 'Consulta recuerdos que guardaste explícitamente, solo en modo local. No guarda conversaciones por sí solo.', section: 'core' },
         { id: 'contextualRecommendations', icon: '🧭', title: 'Recomendaciones de herramientas',
           description: 'Sugiere acciones disponibles cuando vienen al caso; ejecutarlas requiere tu autorización.', section: 'core' },
+        { id: 'contextualHumor', icon: '💬', title: 'Humor contextual',
+          description: 'Ingenio breve cuando aporta, con seriedad ante errores y situaciones delicadas.', section: 'core' },
+        { id: 'entryVoiceGreeting', icon: '🔊', title: 'Bienvenida por voz',
+          description: 'Habla al ingresar con tu voz configurada, si el entorno permite audio. El saludo escrito tiene su propio control.', section: 'core' },
         { id: 'commitmentTracker', icon: '📋', title: 'Rastreador de compromisos',
           description: 'Detecta promesas en reuniones, WhatsApp y mensajes. Avisa cuando te deben algo o se te olvida algo prometido.',
           section: 'advanced' },
@@ -333,14 +337,14 @@
     let hybridListenerBound = false;
     let activeCategory = 'premium';
     const FEATURE_CATEGORIES = {
-        voiceEnabled: 'voice', dictationEnabled: 'voice', wakeWordEnabled: 'voice',
+        voiceEnabled: 'voice', dictationEnabled: 'voice', wakeWordEnabled: 'voice', entryVoiceGreeting: 'voice',
         conversationMemory: 'conversations', conversationContinuity: 'conversations',
-        personalMemoryContext: 'conversations', contextualRecommendations: 'premium',
+        personalMemoryContext: 'conversations', contextualRecommendations: 'premium', contextualHumor: 'premium',
         meetingMemory: 'conversations', googleCalendarSync: 'connections', whatsappAssistant: 'connections',
         documentSync: 'connections', productivityPanel: 'actions', smartDocuments: 'actions',
         dailyPlanner: 'actions', weeklyPlanner: 'actions', projectAutoFollowUp: 'actions',
         meetingSmartFollowUp: 'actions', urgencyRanking: 'actions', smartWhatsappAlerts: 'actions',
-        delegationMode: 'actions', commitmentTracker: 'actions', proactivePulse: 'actions'
+        delegationMode: 'actions', commitmentTracker: 'actions', proactivePulse: 'premium'
     };
     function setCategory(category) {
         activeCategory = category || 'premium';
@@ -905,6 +909,10 @@
                     </div>
                     <div class="gps-pills" data-enum="personalityIntensity">
                         ${ints.map(i => `<button class="gps-pill ${p.intensity === i ? 'is-active' : ''}" data-enum-value="${i}">${humanIntensity(i)}</button>`).join('')}
+                    </div>
+                    <div class="gps-sub"><div class="gps-sub__label">Intensidad del humor contextual</div><div class="gps-sub__hint">Solo se aplica cuando el humor está habilitado y es pertinente.</div></div>
+                    <div class="gps-pills" data-enum="humorIntensity">
+                        ${S().ENUMS.humorIntensity.map(i => `<button class="gps-pill ${S().get('humorIntensity') === i ? 'is-active' : ''}" data-enum-value="${i}">${i === 'soft' ? 'Sutil' : 'Moderada'}</button>`).join('')}
                     </div>
 
                     <div class="gps-sub gps-sub--coming" style="margin-top:6px;" title="En preparación">

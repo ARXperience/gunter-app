@@ -74,6 +74,30 @@ function validPassword(p) {
     return typeof p === 'string' && p.length >= 8 && p.length <= 128;
 }
 
+// These are profile names, never authentication identifiers. Keep unnamed
+// accounts unnamed rather than deriving a greeting from a handle or email.
+function normalizeProfileName(value) {
+    if (typeof value !== 'string') return null;
+    const name = value.normalize('NFC').trim().replace(/\s+/g, ' ');
+    if (name.length > 60 || (name && !/^[\p{L}\p{M}][\p{L}\p{M} .'’\-]*$/u.test(name))) return null;
+    return name;
+}
+
+function derivePreferredName(displayName, username = '') {
+    const name = normalizeProfileName(displayName);
+    if (!name || name.toLowerCase() === String(username).toLowerCase()) return '';
+    const first = name.split(' ')[0];
+    return /^[\p{L}][\p{L}\p{M}'’\-]*$/u.test(first) ? first : '';
+}
+
+function profileNames(user) {
+    const displayName = normalizeProfileName(user.displayName) ?? '';
+    const preferredName = Object.prototype.hasOwnProperty.call(user, 'preferredName')
+        ? (normalizeProfileName(user.preferredName) ?? '')
+        : derivePreferredName(displayName, user.username);
+    return { displayName, preferredName };
+}
+
 // ---------- API ----------
 function count() { return _load().length; }
 
@@ -94,7 +118,7 @@ function findById(id) {
     return _load().find(u => u.id === id) || null;
 }
 
-function createUser({ username, password, displayName, email }) {
+function createUser({ username, password, displayName, preferredName, email }) {
     const users = _load();
     const uname = String(username || '').toLowerCase().trim();
 
@@ -107,13 +131,20 @@ function createUser({ username, password, displayName, email }) {
     if (findByUsername(uname)) {
         return { ok: false, error: 'Ese nombre de usuario ya existe.' };
     }
+    const registrationName = displayName === undefined ? '' : normalizeProfileName(displayName);
+    const callName = preferredName === undefined
+        ? derivePreferredName(registrationName) : normalizeProfileName(preferredName);
+    if (registrationName === null || callName === null) {
+        return { ok: false, error: 'Los nombres deben tener hasta 60 caracteres y contener letras, espacios, guiones o apóstrofos.' };
+    }
 
     const isFirst = users.length === 0;
     const { salt, hash } = hashPassword(password);
     const user = {
         id: 'u_' + crypto.randomBytes(8).toString('hex'),
         username: uname,
-        displayName: String(displayName || uname).slice(0, 60),
+        displayName: registrationName,
+        preferredName: callName,
         email: String(email || '').slice(0, 120) || null,
         passSalt: salt,
         passHash: hash,
@@ -128,6 +159,29 @@ function createUser({ username, password, displayName, email }) {
     users.push(user);
     _save();
     return { ok: true, user, isFirst };
+}
+
+function updateProfile(id, patch) {
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return { ok: false, error: 'Perfil inválido.' };
+    const keys = Object.keys(patch);
+    if (!keys.length || keys.some(key => !['displayName', 'preferredName'].includes(key))) {
+        return { ok: false, error: 'Solo puedes modificar el nombre de registro y el nombre preferido.' };
+    }
+    const user = findById(id);
+    if (!user) return { ok: false, error: 'Usuario no encontrado.' };
+    const names = profileNames(user);
+    for (const key of keys) {
+        const name = normalizeProfileName(patch[key]);
+        if (name === null) return { ok: false, error: 'Los nombres deben tener hasta 60 caracteres y contener letras, espacios, guiones o apóstrofos.' };
+        names[key] = name;
+    }
+    // Validate the complete patch before changing anything. An existing chosen
+    // preferred name (including an explicit blank) survives registration edits.
+    user.displayName = names.displayName;
+    user.preferredName = names.preferredName;
+    user.profileUpdatedAt = new Date().toISOString();
+    _save();
+    return { ok: true, user };
 }
 
 function checkCredentials(username, password) {
@@ -247,7 +301,8 @@ function removeUser(id) {
 function publicUser(u) {
     if (!u) return null;
     return {
-        id: u.id, username: u.username, displayName: u.displayName, email: u.email,
+        id: u.id, username: u.username, ...profileNames(u), email: u.email,
+        profileUpdatedAt: u.profileUpdatedAt || null,
         role: u.role, status: u.status, createdAt: u.createdAt,
         approvedAt: u.approvedAt, lastLoginAt: u.lastLoginAt, loginCount: u.loginCount || 0,
         waPhone: u.waPhone || null,
@@ -263,6 +318,6 @@ function listUsers() {
 module.exports = {
     count, findByUsername, findByLogin, findById, createUser, checkCredentials,
     recordLogin, setStatus, setRole, changePassword, removeUser,
-    publicUser, listUsers,
+    publicUser, listUsers, updateProfile, derivePreferredName,
     setPhone, findByPhone, normalizePhone, setTutorAccess
 };
