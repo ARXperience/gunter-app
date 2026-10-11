@@ -119,7 +119,11 @@ function fixture({ authenticated = true, verifiedOnly = false, now = null, intl 
     const fake = fakeIndexedDB();
     const emitted = [];
     const session = { ownerId: 'alice', trusted: true };
-    const window = { dispatchEvent: event => emitted.push(event) };
+    const stored = new Map();
+    const storage = { writes: 0, failRead: false, failWrite: false,
+        getItem(key) { if (this.failRead) throw new Error('STORAGE_READ_FAILED'); return stored.get(key) ?? null; },
+        setItem(key, value) { if (this.failWrite) throw new Error('STORAGE_WRITE_FAILED'); this.writes++; stored.set(key, value); } };
+    const window = { dispatchEvent: event => emitted.push(event), localStorage: storage };
     if (authenticated) window.GunterAuth = {
         getUser: () => ({ id: session.ownerId }),
         [verifiedOnly ? 'isVerified' : 'canAccessLocalData']: () => session.trusted
@@ -131,7 +135,7 @@ function fixture({ authenticated = true, verifiedOnly = false, now = null, intl 
     const context = { window, indexedDB: fake.indexedDB, Date: Clock, Intl: intl, Math, Promise, Number,
         CustomEvent: class { constructor(type, { detail }) { this.type = type; this.detail = detail; } } };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../js/services/events-service.js'), 'utf8'), context);
-    return { fake, window, session, emitted, service: window.GunterEventsService };
+    return { fake, window, session, emitted, storage, stored, service: window.GunterEventsService };
 }
 
 const startAt = '2026-10-11T15:00:00.000Z';
@@ -483,12 +487,195 @@ function snapshot(row) {
     assert.deepEqual(clone(atomicMove.fake.rows.get(secondTarget.id)), secondTarget);
     assert.equal(atomicMove.emitted.length, 1);
 
+    // Planning preferences reuse gunter_prefs without assigning global legacy
+    // preferences or data to whichever account opens the app first.
+    const planning = fixture();
+    const defaults = { respectWorkingHours: false, workingDays: [1, 2, 3, 4, 5],
+        workStart: '09:00', workEnd: '18:00', bufferMinutes: 0 };
+    planning.stored.set('gunter_prefs', JSON.stringify({ theme: 'light', bufferMinutes: 60,
+        calendarPlanningByAccount: { bob: { ...defaults, bufferMinutes: 25 } } }));
+    assert.deepEqual(clone(planning.service.getPlanningPreferences()), defaults);
+    const isolatedDefaults = planning.service.getPlanningPreferences();
+    isolatedDefaults.workingDays.push(0);
+    assert.deepEqual(clone(planning.service.getPlanningPreferences()), defaults);
+    await planning.service.checkSchedule(slot);
+    assert.equal(planning.storage.writes, 0, 'querying defaults does not initialize or migrate preferences');
+    assert.deepEqual(clone(planning.service.validatePlanningPreferences({ bufferMinutes: 20 })),
+        { ...defaults, bufferMinutes: 20 });
+    assert.equal(planning.storage.writes, 0, 'proposal validation has no persistence effects');
+    for (const bad of [null, [], { unknown: true }, { respectWorkingHours: 1 },
+        { workingDays: [] }, { workingDays: [1, 1] }, { workingDays: [7] }, { workingDays: ['1'] },
+        { bufferMinutes: -1 }, { bufferMinutes: 121 }, { bufferMinutes: 1.5 },
+        { workStart: '9:00' }, { workStart: '24:00' }, { workEnd: '08:00' }, { workEnd: '09:00' }]) {
+        assert.throws(() => planning.service.updatePlanningPreferences(bad), /EVENT_PLANNING_INVALID/);
+        assert.throws(() => planning.service.validatePlanningPreferences(bad), /EVENT_PLANNING_INVALID/);
+    }
+    assert.equal(planning.storage.writes, 0);
+    assert.throws(() => planning.service.getPlanningPreferences('bob'), /EVENT_OWNER_MISMATCH/);
+    assert.throws(() => planning.service.updatePlanningPreferences({ bufferMinutes: 10 }, 'bob'), /EVENT_OWNER_MISMATCH/);
+    assert.deepEqual(clone(planning.service.updatePlanningPreferences({ bufferMinutes: 15, workingDays: [5, 1] })),
+        { ...defaults, workingDays: [1, 5], bufferMinutes: 15 });
+    const preserved = JSON.parse(planning.stored.get('gunter_prefs'));
+    assert.equal(preserved.theme, 'light');
+    assert.equal(preserved.bufferMinutes, 60, 'legacy global values are untouched, never reused');
+    assert.equal(preserved.calendarPlanningByAccount.bob.bufferMinutes, 25);
+    assert.equal(planning.emitted.at(-1).type, 'gunter-calendar-preferences-change');
+    assert.deepEqual(clone(planning.emitted.at(-1).detail), { ownerId: 'alice' });
+    planning.session.ownerId = 'bob';
+    assert.equal(planning.service.getPlanningPreferences().bufferMinutes, 25);
+    planning.session.ownerId = 'alice';
+    assert.equal(planning.service.getPlanningPreferences().bufferMinutes, 15);
+    planning.session.trusted = false;
+    assert.throws(() => planning.service.getPlanningPreferences(), /EVENT_AUTH_REQUIRED/);
+    assert.throws(() => planning.service.updatePlanningPreferences({ bufferMinutes: 20 }), /EVENT_AUTH_REQUIRED/);
+    planning.session.trusted = true;
+    const planningRaw = planning.stored.get('gunter_prefs');
+    for (const corrupted of ['{', 'null', '[]', '{"calendarPlanningByAccount":null}',
+        '{"calendarPlanningByAccount":{"alice":null}}',
+        '{"calendarPlanningByAccount":{"alice":{"bufferMinutes":999}}}']) {
+        planning.stored.set('gunter_prefs', corrupted);
+        assert.throws(() => planning.service.getPlanningPreferences(), /EVENT_PLANNING_CORRUPT/);
+        assert.throws(() => planning.service.updatePlanningPreferences({ bufferMinutes: 10 }), /EVENT_PLANNING_CORRUPT/);
+        await assert.rejects(planning.service.checkSchedule(slot), /EVENT_PLANNING_CORRUPT/);
+        assert.equal(planning.stored.get('gunter_prefs'), corrupted, 'corrupted preferences are never silently replaced');
+    }
+    planning.stored.set('gunter_prefs', planningRaw);
+    planning.storage.failRead = true;
+    assert.throws(() => planning.service.getPlanningPreferences(), /EVENT_PLANNING_STORAGE/);
+    planning.storage.failRead = false; planning.storage.failWrite = true;
+    const preferenceEmissions = planning.emitted.length;
+    assert.throws(() => planning.service.updatePlanningPreferences({ bufferMinutes: 10 }), /EVENT_PLANNING_STORAGE/);
+    assert.equal(planning.stored.get('gunter_prefs'), planningRaw);
+    assert.equal(planning.emitted.length, preferenceEmissions);
+    planning.storage.failWrite = false;
+    const originalRead = planning.storage.getItem;
+    planning.storage.getItem = function (key) {
+        const value = originalRead.call(this, key); planning.session.ownerId = 'bob'; return value;
+    };
+    assert.throws(() => planning.service.getPlanningPreferences('alice'), /EVENT_OWNER_MISMATCH/);
+    planning.storage.getItem = originalRead; planning.session.ownerId = 'alice';
+    const policyBaseline = planning.service.getPlanningPreferences();
+    planning.service.updatePlanningPreferences({ bufferMinutes: 30 }, 'alice');
+    const baselineWriteCount = planning.storage.writes, baselineEmissions = planning.emitted.length;
+    const currentPolicyRaw = planning.stored.get('gunter_prefs');
+    assert.throws(() => planning.service.updatePlanningPreferences({ ...policyBaseline, bufferMinutes: 45 },
+        'alice', { expected: policyBaseline }), /EVENT_PLANNING_CHANGED/);
+    assert.equal(planning.storage.writes, baselineWriteCount);
+    assert.equal(planning.emitted.length, baselineEmissions);
+    assert.equal(planning.stored.get('gunter_prefs'), currentPolicyRaw);
+    const freshBaseline = planning.service.getPlanningPreferences();
+    assert.equal(planning.service.updatePlanningPreferences({ bufferMinutes: 45 }, 'alice',
+        { expected: { ...freshBaseline, workingDays: [...freshBaseline.workingDays].reverse() } }).bufferMinutes, 45,
+    'an equivalent normalized baseline permits a guarded save');
+
+    // A buffer is one required gap, not one margin added to each appointment.
+    const margins = fixture();
+    margins.service.updatePlanningPreferences({ bufferMinutes: 15 });
+    margins.fake.rows.set('previous', scheduleRow('previous', '2026-10-12T13:00:00Z', '2026-10-12T14:00:00Z'));
+    margins.fake.rows.set('next', scheduleRow('next', '2026-10-12T15:00:00Z', '2026-10-12T16:00:00Z'));
+    const marginSlot = { ...slot, startAt: '2026-10-12T14:00:00Z', endAt: '2026-10-12T15:00:00Z' };
+    const marginCheck = await margins.service.checkSchedule({ ...marginSlot, planningPreferences: { bufferMinutes: 0 } });
+    assert.equal(marginCheck.conflicts.length, 0);
+    assert.deepEqual(clone(marginCheck.bufferConflicts.map(row => row.id)), ['previous', 'next']);
+    assert.equal(marginCheck.planningPreferences.bufferMinutes, 15, 'query cannot override saved account policy');
+    assert.equal(marginCheck.suggestions[0].startAt, '2026-10-12T16:15:00.000Z');
+    const exactMargin = await margins.service.checkSchedule({ ...marginSlot,
+        startAt: '2026-10-12T14:15:00Z', endAt: '2026-10-12T14:45:00Z' });
+    assert.equal(exactMargin.bufferConflicts.length, 0);
+    assert.equal(exactMargin.conflicts.length, 0);
+    const actualOverlap = await margins.service.checkSchedule({ ...marginSlot,
+        startAt: '2026-10-12T13:59:00Z', endAt: '2026-10-12T14:30:00Z' });
+    assert.deepEqual(clone(actualOverlap.conflicts.map(row => row.id)), ['previous']);
+    assert.equal(actualOverlap.bufferConflicts.length, 0, 'actual overlaps are not listed twice');
+    const marginFingerprint = marginCheck.fingerprint;
+    margins.service.updatePlanningPreferences({ bufferMinutes: 10 });
+    assert.notEqual((await margins.service.checkSchedule(marginSlot)).fingerprint, marginFingerprint);
+
+    // Working hours are opt-in and evaluated in the requested zone, including
+    // configured weekdays and the entire interval rather than only its start.
+    const jornada = fixture();
+    jornada.service.updatePlanningPreferences({ respectWorkingHours: true, workStart: '09:00', workEnd: '12:00' });
+    const earlyWork = { ...slot, startAt: '2026-10-12T13:00:00Z', endAt: '2026-10-12T14:00:00Z' };
+    const workCheck = await jornada.service.checkSchedule(earlyWork);
+    assert.equal(workCheck.outsideWorkingHours, true);
+    assert.deepEqual(clone(workCheck.suggestions), [
+        { startAt: '2026-10-12T14:00:00.000Z', endAt: '2026-10-12T15:00:00.000Z' },
+        { startAt: '2026-10-12T15:00:00.000Z', endAt: '2026-10-12T16:00:00.000Z' },
+        { startAt: '2026-10-12T16:00:00.000Z', endAt: '2026-10-12T17:00:00.000Z' }
+    ]);
+    assert.equal((await jornada.service.checkSchedule({ ...earlyWork,
+        startAt: '2026-10-12T16:00:00Z', endAt: '2026-10-12T17:00:00Z' })).outsideWorkingHours, false);
+    assert.equal((await jornada.service.checkSchedule({ ...earlyWork,
+        startAt: '2026-10-12T16:00:00Z', endAt: '2026-10-12T17:00:00.001Z' })).outsideWorkingHours, true);
+    assert.equal((await jornada.service.checkSchedule({ ...earlyWork,
+        startAt: '2026-10-12T17:00:00Z', endAt: '2026-10-12T18:00:00Z' })).suggestions.length, 0);
+    const sunday = await jornada.service.checkSchedule(slot);
+    assert.equal(sunday.outsideWorkingHours, true);
+    assert.equal(sunday.suggestions.length, 0, 'do not silently move a request to another day');
+    jornada.service.updatePlanningPreferences({ bufferMinutes: 15 });
+    jornada.fake.rows.set('work-blocker', scheduleRow('work-blocker', '2026-10-12T14:00:00Z', '2026-10-12T15:00:00Z'));
+    const workMargin = await jornada.service.checkSchedule(earlyWork);
+    assert.deepEqual(clone(workMargin.suggestions), [
+        { startAt: '2026-10-12T15:15:00.000Z', endAt: '2026-10-12T16:15:00.000Z' }
+    ]);
+    jornada.fake.rows.set('unresolved', scheduleRow('unresolved', '2026-11-12T15:00:00Z',
+        '2026-11-12T16:00:00Z', { rrule: { freq: 'DAILY' } }));
+    assert.equal((await jornada.service.checkSchedule(earlyWork)).suggestions.length, 0);
+
+    // New York's spring-forward missing hour and fall-back repeated hour use
+    // chronological minute segments; host timezone cannot fabricate a slot.
+    const daylight = fixture();
+    daylight.service.updatePlanningPreferences({ respectWorkingHours: true, workingDays: [0], workStart: '01:30', workEnd: '03:30' });
+    const spring = await daylight.service.checkSchedule({ ...slot, timezone: 'America/New_York',
+        startAt: '2026-03-08T06:00:00Z', endAt: '2026-03-08T07:00:00Z' });
+    assert.deepEqual(clone(spring.suggestions), [
+        { startAt: '2026-03-08T06:30:00.000Z', endAt: '2026-03-08T07:30:00.000Z' }
+    ]);
+    daylight.service.updatePlanningPreferences({ workStart: '01:30', workEnd: '02:00' });
+    const fall = await daylight.service.checkSchedule({ ...slot, timezone: 'America/New_York',
+        startAt: '2026-11-01T05:40:00Z', endAt: '2026-11-01T06:50:00Z' });
+    assert.equal(fall.outsideWorkingHours, true, 'interval crosses minutes outside the configured window after DST fall-back');
+    assert.equal(fall.suggestions.length, 0, 'separate repeated-hour windows cannot be stitched into a long appointment');
+    const fallExact = await daylight.service.checkSchedule({ ...slot, timezone: 'America/New_York',
+        startAt: '2026-11-01T06:30:00Z', endAt: '2026-11-01T07:00:00Z' });
+    assert.equal(fallExact.outsideWorkingHours, false);
+
+    // A preference changed after approval, even inside getAll, aborts the
+    // schedule transaction without an add, put, success event, or sync.
+    const policyRace = fixture();
+    const approvedPolicy = await policyRace.service.checkSchedule(slot);
+    const policyGuard = { fingerprint: approvedPolicy.fingerprint, timezone: slot.timezone };
+    policyRace.fake.beforeRequest = op => {
+        if (op === 'getAll') policyRace.service.updatePlanningPreferences({ bufferMinutes: 15 });
+    };
+    await assert.rejects(policyRace.service.create(input, { scheduleExpected: policyGuard }), /EVENT_SCHEDULE_CHANGED/);
+    assert.equal(policyRace.fake.rows.size, 0);
+    assert.deepEqual(policyRace.fake.transactions.at(-1).operations, ['getAll']);
+    assert.equal(policyRace.fake.transactions.at(-1).aborted, true);
+    assert.equal(policyRace.emitted.filter(event => event.type === 'events-changed').length, 0);
+    policyRace.fake.beforeRequest = null;
+    const movablePolicy = scheduleRow('policy-target', '2026-10-11T20:00:00Z', '2026-10-11T21:00:00Z');
+    policyRace.fake.rows.set(movablePolicy.id, movablePolicy);
+    const approvedMovePolicy = await policyRace.service.checkSchedule({ ...slot, excludeId: movablePolicy.id });
+    policyRace.fake.beforeRequest = op => {
+        if (op === 'getAll') policyRace.service.updatePlanningPreferences({ respectWorkingHours: true });
+    };
+    await assert.rejects(policyRace.service.update(movablePolicy.id, { startAt, endAt }, {
+        ownerId: 'alice', skipSync: true, scheduleExpected: { fingerprint: approvedMovePolicy.fingerprint, timezone: slot.timezone }
+    }), /EVENT_SCHEDULE_CHANGED/);
+    assert.deepEqual(clone(policyRace.fake.rows.get(movablePolicy.id)), movablePolicy);
+    assert.deepEqual(policyRace.fake.transactions.at(-1).operations, ['get', 'getAll']);
+    assert.equal(policyRace.emitted.filter(event => event.type === 'events-changed').length, 0);
+
     const standalone = fixture({ authenticated: false });
     const localEvent = await standalone.service.create(input);
     assert.equal(localEvent.ownerId, 'local-user');
     await standalone.service.create({ ...input, ownerId: 'bob' });
     assert.equal((await standalone.service.list()).length, 2);
     assert.equal((await standalone.service.list({ ownerId: 'bob' })).length, 1);
+    assert.deepEqual(clone(standalone.service.getPlanningPreferences('bob')), defaults);
+    assert.throws(() => standalone.service.updatePlanningPreferences({ bufferMinutes: 5 }, 'bob'), /EVENT_AUTH_REQUIRED/);
+    assert.equal(standalone.storage.writes, 0);
     assert.equal((await fixture({ verifiedOnly: true }).service.create(input)).ownerId, 'alice');
-    console.log('event-service: owner isolation, atomic guards, local conflicts, nearby slots, concurrency and sync compatibility PASS');
+    console.log('event-service: scoped planning, buffer, workdays, timezone/DST, atomic policy guards and existing service cases PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });

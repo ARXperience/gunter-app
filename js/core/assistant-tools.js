@@ -150,6 +150,67 @@
         return { rawText };
     }
 
+    function parseCalendarPlanningChange(text) {
+        const value = normalize(text), patch = {};
+        if (/\b(?:y|luego|despues|ademas|pero)\s+(?:activa|desactiva|cambia|configura|ajusta|deja|quita|pon)\b/.test(value))
+            return { rawText: text, key: 'calendarPlanning', planningError: 'Pídeme un ajuste de agenda a la vez para mostrar y confirmar exactamente cada cambio.' };
+        const disabled = /\b(desactiva|desactivar|quita|quitar|no uses)\b/.test(value);
+        if (/\b(margen|pausa|descanso|separacion)\b.*\breuniones\b|\bminutos? entre reuniones\b/.test(value)) {
+            if (disabled) patch.bufferMinutes = 0;
+            else {
+                const minutes = String(text).match(/(?:^|\s)(-?\d+(?:[.,]\d+)?)\s*minutos?\b/i);
+                if (!minutes) return { rawText: text, key: 'calendarPlanning', planningError: 'Dime un margen entero de 0 a 120 minutos entre reuniones.' };
+                patch.bufferMinutes = Number(minutes[1].replace(',', '.'));
+            }
+        } else {
+            if (/\b(activa|activar|habilita|habilitar|usa)\b/.test(value) || disabled) patch.respectWorkingHours = !disabled;
+            const hours = String(text).match(/\b(\d{1,2}:\d{2})\s*(?:a|hasta|[-–])\s*(\d{1,2}:\d{2})\b/i);
+            if (hours) {
+                patch.workStart = hours[1].padStart(5, '0'); patch.workEnd = hours[2].padStart(5, '0');
+            }
+            if (/\bdias (?:laborales|de trabajo)\b/.test(value)) {
+                const input = String(text).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[.!?]+$/, '').trim().replace(/^.*?\bdias (?:laborales|de trabajo)\b\s*(?:(?:a|son|como|en|de)\b)?\s*/, '');
+                const days = { domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6 };
+                const range = input.match(/^(domingo|lunes|martes|miercoles|jueves|viernes|sabado)\s+a\s+(domingo|lunes|martes|miercoles|jueves|viernes|sabado)$/);
+                if (range) {
+                    patch.workingDays = [days[range[1]]];
+                    while (patch.workingDays.at(-1) !== days[range[2]]) patch.workingDays.push((patch.workingDays.at(-1) + 1) % 7);
+                } else {
+                    const words = input.split(/\s*(?:,|;|\by\b)\s*|\s+/).filter(Boolean);
+                    if (!words.length || words.some(word => !Object.hasOwn(days, word)))
+                        return { rawText: text, key: 'calendarPlanning', planningError: 'Dime los días, por ejemplo lunes, martes y viernes, o de lunes a viernes.' };
+                    patch.workingDays = [...new Set(words.map(word => days[word]))];
+                }
+            }
+        }
+        if (/\b(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/.test(value) && !patch.workingDays)
+            return { rawText: text, key: 'calendarPlanning', planningError: 'Para cambiar los días, dime «configura mis días laborales de lunes a viernes», o indica una lista de días. No apliqué parcialmente la orden.' };
+        if (!Object.keys(patch).length) return { rawText: text, key: 'calendarPlanning', planningError: 'Indica qué quieres cambiar: activar la jornada, horario 09:00 a 18:00, días laborales o margen entre reuniones.' };
+        return { rawText: text, key: 'calendarPlanning', value: patch };
+    }
+
+    function calendarPlanningLabel(policy = {}) {
+        const weekdays = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        return `Jornada ${policy.respectWorkingHours ? 'activada' : 'desactivada'}: ${(policy.workingDays || []).map(day => weekdays[day]).join(', ')}, ${policy.workStart}–${policy.workEnd}. Margen entre reuniones: ${policy.bufferMinutes} minutos. Zona horaria de tu agenda. No mueve eventos ni concede permisos.`;
+    }
+
+    function planningErrorMessage(error) {
+        return ({
+            EVENT_PLANNING_INVALID: 'Usa días válidos, horas HH:mm con inicio anterior al fin y un margen entero de 0 a 120 minutos. No guardé cambios.',
+            EVENT_PLANNING_CORRUPT: 'Los ajustes de agenda guardados no son válidos. No los sobrescribí; revisa tu respaldo antes de corregirlos.',
+            EVENT_PLANNING_STORAGE: 'No pude acceder o guardar las preferencias locales. Revisa el almacenamiento del navegador antes de repetirlo.',
+            EVENT_PLANNING_CHANGED: 'La planificación cambió después de la propuesta. Solicita de nuevo el cambio; no sobrescribí los ajustes actuales.',
+            EVENT_AUTH_REQUIRED: 'Inicia sesión con una cuenta verificada para configurar tu agenda.',
+            EVENT_OWNER_MISMATCH: 'La cuenta cambió. Vuelve a solicitar los ajustes desde tu propia sesión.'
+        })[error?.code || error?.message] || String(error?.message || 'No pude comprobar los ajustes de agenda.');
+    }
+
+    function accountPendingTool(pending) {
+        return pending && (pending.toolId?.startsWith('tasks.') || pending.toolId?.startsWith('calendar.')
+            || (pending.toolId === 'preferences.update' && pending.args?.key === 'calendarPlanning'));
+    }
+
     function create(options = {}) {
         const registry = new Map();
         let referenceContext = null;
@@ -180,7 +241,7 @@
                 referenceOwner = ownerId;
             }
             const pending = getPending();
-            if (pending && (pending.toolId.startsWith('tasks.') || pending.toolId.startsWith('calendar.'))
+            if (accountPendingTool(pending)
                 && (pending.actorId || pending.args?.ownerId) !== ownerId) savePending(null);
             if (!continuityEnabled()) {
                 referenceContext = pendingReminderReference = null;
@@ -264,7 +325,7 @@
         function isContextualFollowUp(text) {
             syncReferenceScope();
             const pending = getPending();
-            const domainConfirmation = pending && (pending.toolId.startsWith('tasks.') || pending.toolId.startsWith('calendar.'))
+            const domainConfirmation = accountPendingTool(pending)
                 && (isAffirmative(normalize(text)) || isNegative(normalize(text)));
             const scheduleChoice = usesCalendarSchedule(pending) && pending.args?.scheduleCheck?.suggestions?.length
                 && calendarSuggestionChoice(text) !== null;
@@ -315,13 +376,18 @@
                 lines.push('Este horario se cruza con:');
                 check.conflicts.forEach(item => lines.push(`• “${item.title}” — ${formatDateTime(item.startAt, check.timezone)}, hasta ${formatDateTime(item.endAt, check.timezone)}.`));
             } else if (check.complete) lines.push('No encontré cruces en los registros comprobados.');
+            if (check.bufferConflicts?.length) {
+                lines.push(`No se cumple tu margen de ${check.planningPreferences?.bufferMinutes || 0} minutos con:`);
+                check.bufferConflicts.forEach(item => lines.push(`• “${item.title}” — ${formatDateTime(item.startAt, check.timezone)}.`));
+            }
             check.warnings.forEach(warning => lines.push(warning));
             if (showSuggestions && check.suggestions.length) {
                 lines.push('Alternativas de la misma duración, sin cruces registrados, en ese día:');
                 check.suggestions.forEach((slot, index) => lines.push(`Opción ${index + 1}: ${formatDateTime(slot.startAt, check.timezone)}, hasta ${formatTime(slot.endAt, check.timezone)}.`));
                 lines.push('Dime «opción 1» (o el número de opción) para preparar otro horario; después tendrás que confirmarlo.');
             }
-            if (check.conflicts.length || !check.complete) lines.push('Si confirmas este horario, aceptarás los cruces o límites indicados. No moveré otros eventos.');
+            if (check.conflicts.length || check.bufferConflicts?.length || check.outsideWorkingHours || !check.complete)
+                lines.push('Si confirmas este horario, aceptarás los cruces, márgenes o límites indicados. No moveré otros eventos.');
             return `\n${lines.join('\n')}`;
         }
 
@@ -473,6 +539,17 @@
             const questionText = t.replace(/^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*/, '');
             // Describing a browser or asking how playback works is not permission to act.
             const browserExplanation = /^(?:que (?:es|son|significa)|como (?:funciona|puedo|se)|por que|para que|explica(?:me)?|dime que)\b/.test(questionText);
+
+            const planningMention = /\b(horario laboral|horario de trabajo|jornada(?: laboral)?|dias laborales|dias de trabajo|preferencias de agenda|planificacion de agenda|(?:margen|pausa|descanso|separacion) (?:entre|de) reuniones|minutos? entre reuniones)\b/.test(t);
+            if (planningMention) {
+                if (/^(?:que|cual|cuales|cuanto|como|por que)\b/.test(questionText)
+                    || /\b(muestra|muestrame|consulta|dime|revisa)\b/.test(t)
+                    || /^(?:mis preferencias de agenda|mi horario laboral|mi jornada)$/.test(questionText))
+                    return { toolId: 'settings.list', args: { rawText: text, calendarPlanning: true } };
+                if (/\b(activa|activar|habilita|habilitar|desactiva|desactivar|quita|quitar|cambia|cambiar|ajusta|configura|establece|pon|deja|usa|no uses)\b/.test(t)
+                    || /^mi jornada (?:laboral )?es\b/.test(questionText))
+                    return { toolId: 'preferences.update', args: parseCalendarPlanningChange(text) };
+            }
 
             if (!mobileTarget && !browserExplanation && /\byoutube\b/.test(t) && /\b(pon|ponme|por|reproduce|reproducir|busca|buscar|mix|mezcla)\b/.test(t)) {
                 const args = parseBrowserRequest(text);
@@ -669,6 +746,21 @@
 
         async function prepare(match) {
             if (match.toolId === 'agenda.list' || match.toolId === 'jobs.list') return match;
+            if ((match.toolId === 'preferences.update' && match.args.key === 'calendarPlanning')
+                || (match.toolId === 'settings.list' && match.args.calendarPlanning)) {
+                const ownerId = taskOwnerId();
+                const service = options.eventsService || runtime.GunterEventsService;
+                try {
+                    if (!ownerId || !service?.getPlanningPreferences) throw new Error('Inicia sesión y recarga la aplicación para consultar la planificación local.');
+                    const planningPreferences = await service.getPlanningPreferences(ownerId);
+                    const newPlanningPreferences = match.toolId === 'preferences.update' && match.args.value && service.validatePlanningPreferences
+                        ? await service.validatePlanningPreferences(match.args.value, ownerId) : null;
+                    if (taskOwnerId() !== ownerId) throw new Error('La cuenta cambió durante la consulta.');
+                    return { ...match, args: { ...match.args, ownerId, planningPreferences, newPlanningPreferences } };
+                } catch (error) {
+                    return { ...match, args: { ...match.args, ownerId, planningUnavailable: planningErrorMessage(error) } };
+                }
+            }
             if (match.toolId === 'settings.update' || match.toolId === 'settings.list') {
                 const control = runtime.GunterControlPlane;
                 if (!control?.settings) return { ...match, args: { ...match.args, unavailable: true } };
@@ -815,7 +907,7 @@
             }
 
             const voiceSideEffect = match.args?.inputSource === 'voice' && !VOICE_READ_ONLY_TOOLS.has(tool.id);
-            if ((tool.confirm === 'always' || voiceSideEffect) && !confirmed) {
+            if ((tool.confirm === 'always' || voiceSideEffect || (tool.id === 'preferences.update' && match.args.key === 'calendarPlanning')) && !confirmed) {
                 const prompt = tool.confirmation?.(match.args) || `¿Confirmas que realice ${tool.description || tool.id}?`;
                 const visiblePrompt = voiceSideEffect
                     ? `He entendido: “${String(match.args.voiceTranscript || match.args.rawText || '').slice(0, 500)}”.\n${prompt}\nConfirma por escrito o en pantalla; una respuesta de voz no autoriza esta acción.`
@@ -877,7 +969,8 @@
                 return { ok: false, error: 'temporal_ambiguity', reply: `${match.args.temporalAmbiguity.reason} Dime la fecha u hora exacta antes de crear el plan.` };
             }
             if (usesCalendarSchedule(match) && match.args?.scheduleCheck
-                && (match.args.scheduleCheck.conflicts.length || !match.args.scheduleCheck.complete)) {
+                && (match.args.scheduleCheck.conflicts.length || match.args.scheduleCheck.bufferConflicts?.length
+                    || match.args.scheduleCheck.outsideWorkingHours || !match.args.scheduleCheck.complete)) {
                 return { ok: false, error: 'calendar_schedule_attention',
                     reply: `Ese evento necesita revisar el horario antes de incluirlo en un plan multipaso.${scheduleSummary(match.args, false)}\nPídeme agendarlo como acción individual para elegir otro horario o confirmar esos límites.` };
             }
@@ -931,7 +1024,7 @@
                 return { handled: true, intent: pending.toolId, status: 'cancelled', reply: 'Cancelado. No hice ningún cambio.' };
             }
             // New domain requests replace the earlier proposal, never authorize it.
-            if (pending && (pending.toolId.startsWith('calendar.') || pending.toolId.startsWith('tasks.'))) savePending(null);
+            if (accountPendingTool(pending)) savePending(null);
 
             const selection = pendingEventSelection;
             pendingEventSelection = null;
@@ -1043,9 +1136,29 @@
         });
 
         register({
-            id: 'preferences.update', description: 'Cambia apariencia, accesibilidad, saludo de entrada, ciudad y zona horaria.', confirm: 'never', reversible: true,
-            validate(args) { return args.key && args.value !== undefined ? { ok: true } : { ok: false, reply: 'Puedo cambiar apariencia, idioma, saludo de entrada, ciudad y zona horaria. Dime el valor que quieres.' }; },
-            execute(args) {
+            id: 'preferences.update', description: 'Cambia apariencia, accesibilidad, bienvenida, ubicación y planificación de agenda.', confirm: 'never', reversible: true,
+            validate(args) {
+                if (args.key === 'calendarPlanning') {
+                    if (!args.ownerId || taskOwnerId() !== args.ownerId) return { ok: false, reply: 'Inicia sesión para cambiar la planificación de tu cuenta.' };
+                    if (args.planningError || args.planningUnavailable) return { ok: false, reply: args.planningError || args.planningUnavailable };
+                    if (!args.newPlanningPreferences) return { ok: false, reply: 'No pude validar este ajuste de agenda. Recarga la aplicación antes de guardarlo.' };
+                }
+                return args.key && args.value !== undefined ? { ok: true } : { ok: false, reply: 'Puedo cambiar apariencia, idioma, bienvenida, ubicación y planificación de agenda. Dime el valor que quieres.' };
+            },
+            confirmation(args) { return args.key === 'calendarPlanning'
+                ? `¿Confirmas cambiar la planificación de tu cuenta? ${calendarPlanningLabel(args.newPlanningPreferences)}` : null; },
+            async execute(args) {
+                if (args.key === 'calendarPlanning') {
+                    const service = options.eventsService || runtime.GunterEventsService;
+                    if (!service?.updatePlanningPreferences || taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué la planificación.');
+                    const current = await service.getPlanningPreferences(args.ownerId);
+                    if (taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué la planificación.');
+                    if (JSON.stringify(current) !== JSON.stringify(args.planningPreferences)) throw new Error('Los ajustes de agenda cambiaron después de la propuesta. Revísalos y solicita de nuevo el cambio.');
+                    try {
+                        const value = await service.updatePlanningPreferences(args.value, args.ownerId, { expected: args.planningPreferences });
+                        return { key: args.key, value, ownerId: args.ownerId };
+                    } catch (error) { throw new Error(planningErrorMessage(error)); }
+                }
                 if (!runtime.localStorage) throw new Error('Las preferencias locales no están disponibles en esta pantalla.');
                 let prefs = {};
                 try { prefs = JSON.parse(runtime.localStorage.getItem('gunter_prefs') || '{}'); } catch { prefs = {}; }
@@ -1074,11 +1187,20 @@
                 if (control) ['language', 'city', 'timezone'].includes(args.key) ? control.value = args.value : control.checked = args.key === 'colorMode' ? args.value === 'dark' : !!args.value;
                 return { key: args.key, value: args.value };
             },
-            verify(result, args) {
+            async verify(result, args) {
+                if (args.key === 'calendarPlanning') {
+                    if (taskOwnerId() !== args.ownerId) return false;
+                    const service = options.eventsService || runtime.GunterEventsService;
+                    const saved = await service?.getPlanningPreferences?.(args.ownerId);
+                    return taskOwnerId() === args.ownerId && JSON.stringify(saved) === JSON.stringify(args.newPlanningPreferences)
+                        && JSON.stringify(result.value) === JSON.stringify(saved);
+                }
                 if (args.key === 'colorMode') return runtime.localStorage?.getItem('gunter_color_mode') === args.value;
                 try { return JSON.parse(runtime.localStorage?.getItem('gunter_prefs') || '{}')[args.key] === args.value; } catch { return false; }
             },
-            formatResult(result) { return `Preferencia actualizada: ${{ colorMode: 'modo de color', reduceMotion: 'movimiento reducido', clickFx: 'efectos de clic', language: 'idioma', city: 'ciudad', timezone: 'zona horaria', entryGreeting: 'saludo al entrar' }[result.key]} quedó en ${displaySettingValue(result.value)}.`; }
+            formatResult(result) { return result.key === 'calendarPlanning'
+                ? `Planificación guardada y verificada para tu cuenta. ${calendarPlanningLabel(result.value)}`
+                : `Preferencia actualizada: ${{ colorMode: 'modo de color', reduceMotion: 'movimiento reducido', clickFx: 'efectos de clic', language: 'idioma', city: 'ciudad', timezone: 'zona horaria', entryGreeting: 'saludo al entrar' }[result.key]} quedó en ${displaySettingValue(result.value)}.`; }
         });
 
         register({
@@ -1109,16 +1231,26 @@
 
         register({
             id: 'settings.list', description: 'Consulta ajustes del asistente, incluidos sus campos avanzados.', confirm: 'never', reversible: true,
-            validate(args) { return args.unavailable ? { ok: false, reply: 'El panel de configuración no está disponible en esta sesión.' } : { ok: true }; },
+            validate(args) {
+                if (args.calendarPlanning && (!args.ownerId || taskOwnerId() !== args.ownerId || args.planningUnavailable))
+                    return { ok: false, reply: args.planningUnavailable || 'Inicia sesión para consultar la planificación de tu cuenta.' };
+                return args.unavailable ? { ok: false, reply: 'El panel de configuración no está disponible en esta sesión.' } : { ok: true };
+            },
             execute(args) {
+                if (args.calendarPlanning) {
+                    if (taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió durante la consulta de planificación.');
+                    return { planningPreferences: args.planningPreferences };
+                }
                 const items = args.items || [];
                 if (!items.length) throw new Error('No pude leer el catálogo de configuración.');
                 const setting = resolveSettingChange(args.rawText, items).setting;
                 if (setting) return { setting };
                 return { items };
             },
-            verify(result) { return !!(result.setting || result.items?.length); },
+            verify(result, args) { return args.calendarPlanning
+                ? taskOwnerId() === args.ownerId && !!result.planningPreferences : !!(result.setting || result.items?.length); },
             formatResult(result) {
+                if (result.planningPreferences) return calendarPlanningLabel(result.planningPreferences);
                 if (result.setting) {
                     const fields = (result.setting.advancedFields || []).map(field => `${field}: ${displaySettingValue(result.setting.advanced?.[field])}`).join('; ');
                     return `${result.setting.label}: ${result.setting.enabled ? 'activado' : 'desactivado'}${fields ? `. Opciones avanzadas: ${fields}` : '. No tiene campos avanzados.'}${result.setting.available ? '' : ` (No disponible: ${result.setting.lockedReason || 'plan o despliegue'})`}`;

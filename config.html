@@ -114,6 +114,28 @@
         <section class="config-tab-panel" id="config-panel-premium" role="tabpanel" aria-labelledby="config-tab-premium" tabindex="0" data-panel="premium" hidden>
             <div id="premium-panel"></div>
             <div class="settings-card"><h3>Bienvenida contextual</h3><p class="settings-card__hint">Un saludo por ingreso real, con tu nombre preferido, hora y actividades verificadas. Cambiar de sección o recargar no lo repite.</p><div class="settings-row settings-row--toggle"><label for="pref-entry-greeting">Saludar al entrar</label><input type="checkbox" id="pref-entry-greeting" class="form-toggle" checked></div></div>
+            <form class="settings-card" id="calendar-planning-form" aria-describedby="calendar-planning-hint">
+                <h3>Planificación de agenda</h3>
+                <p class="settings-card__hint" id="calendar-planning-hint">Gunter usa estos ajustes para advertir y sugerir horarios. No mueve otras reuniones ni confirma cambios por ti. Por defecto, no se limita la jornada y el margen es de 0 minutos.</p>
+                <div class="settings-row settings-row--toggle"><label for="calendar-working-hours">Respetar mi jornada al sugerir horarios</label><input type="checkbox" id="calendar-working-hours" class="form-toggle" disabled></div>
+                <fieldset aria-describedby="calendar-planning-timezone">
+                    <legend>Días de jornada</legend>
+                    <label for="calendar-working-day-1"><input type="checkbox" id="calendar-working-day-1" name="calendar-working-day" value="1" checked disabled> Lunes</label>
+                    <label for="calendar-working-day-2"><input type="checkbox" id="calendar-working-day-2" name="calendar-working-day" value="2" checked disabled> Martes</label>
+                    <label for="calendar-working-day-3"><input type="checkbox" id="calendar-working-day-3" name="calendar-working-day" value="3" checked disabled> Miércoles</label>
+                    <label for="calendar-working-day-4"><input type="checkbox" id="calendar-working-day-4" name="calendar-working-day" value="4" checked disabled> Jueves</label>
+                    <label for="calendar-working-day-5"><input type="checkbox" id="calendar-working-day-5" name="calendar-working-day" value="5" checked disabled> Viernes</label>
+                    <label for="calendar-working-day-6"><input type="checkbox" id="calendar-working-day-6" name="calendar-working-day" value="6" disabled> Sábado</label>
+                    <label for="calendar-working-day-0"><input type="checkbox" id="calendar-working-day-0" name="calendar-working-day" value="0" disabled> Domingo</label>
+                </fieldset>
+                <div class="settings-row"><label for="calendar-work-start">Inicio de jornada</label><input type="time" id="calendar-work-start" class="form-input" value="09:00" required disabled></div>
+                <div class="settings-row"><label for="calendar-work-end">Fin de jornada</label><input type="time" id="calendar-work-end" class="form-input" value="18:00" required disabled></div>
+                <p class="settings-card__hint" id="calendar-planning-timezone">Usa la zona horaria configurada en Hora y ubicación. La jornada debe terminar el mismo día.</p>
+                <div class="settings-row"><label for="calendar-buffer-minutes">Margen entre reuniones (minutos)</label><input type="number" id="calendar-buffer-minutes" class="form-input" min="0" max="120" step="1" value="0" required disabled></div>
+                <button type="submit" class="btn btn--primary" id="calendar-planning-save" disabled>Guardar planificación</button>
+                <button type="button" class="btn btn--secondary" id="calendar-planning-reload" disabled>Recargar y descartar borrador</button>
+                <p class="settings-card__hint" id="calendar-planning-status" role="status" aria-live="polite">Verificando tu cuenta y la agenda local…</p>
+            </form>
         </section>
 
         <section class="config-tab-panel" id="config-panel-voice" role="tabpanel" aria-labelledby="config-tab-voice" tabindex="0" data-panel="voice" hidden>
@@ -394,7 +416,7 @@
     <script src="js/services/local-data-maintenance-service.js" defer></script>
     <script src="js/services/error-mapper.js?v116-supertonic3" defer></script>
     <script src="js/services/tasks-service.js?v124-conversational-followups" defer></script>
-    <script src="js/services/events-service.js?v125-calendar-schedule" defer></script>
+    <script src="js/services/events-service.js?v126-calendar-planning" defer></script>
     <script src="js/services/whatsapp-service.js" defer></script>
     <script src="js/core/temporal-context.js?v70-assistant" defer></script>
     <script src="js/core/wake-invocation.js?v110-wake-chat" defer></script>
@@ -402,7 +424,7 @@
     <script src="js/core/time-parser.js?v71-assistant" defer></script>
     <script src="js/services/jobs-service.js?v73-assistant" defer></script>
     <script src="js/services/voice-activity-service.js?v120-shared-mic" defer></script>
-    <script src="js/core/assistant-tools.js?v125-calendar-schedule" defer></script>
+    <script src="js/core/assistant-tools.js?v126-calendar-planning" defer></script>
     <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
     <script src="js/services/voice-service.js?v122-identity-context" defer></script>
     <script src="js/services/wake-word-service.js?v122-identity-context" defer></script>
@@ -430,7 +452,7 @@
     <script src="js/controllers/conversation-memory-panel.js" defer></script>
     <script src="js/controllers/personal-memory-panel.js?v2-backup" defer></script>
 
-    <script src="js/config-settings.js?v122-identity-context" defer></script>
+    <script src="js/config-settings.js?v126-calendar-planning" defer></script>
     <script src="js/controllers/presence-settings.js?v115-presence" defer></script>
     <!-- (ai-analysis, cache-service, audio-chunker, audio-trimmer eliminados:
          pertenecían al flujo Nuevo Proyecto que ahora vive en dashboard.html) -->

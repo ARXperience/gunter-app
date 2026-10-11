@@ -331,6 +331,134 @@
         });
     }
 
+    function initCalendarPlanning() {
+        const form = document.getElementById('calendar-planning-form');
+        if (!form) return;
+        const respect = document.getElementById('calendar-working-hours');
+        const start = document.getElementById('calendar-work-start');
+        const end = document.getElementById('calendar-work-end');
+        const buffer = document.getElementById('calendar-buffer-minutes');
+        const days = [...form.querySelectorAll('[name="calendar-working-day"]')];
+        const save = document.getElementById('calendar-planning-save');
+        const reload = document.getElementById('calendar-planning-reload');
+        const status = document.getElementById('calendar-planning-status');
+        const timezone = document.getElementById('calendar-planning-timezone');
+        const controls = [respect, start, end, buffer, ...days, save, reload];
+        let shownOwner = null, dirty = false, readVersion = 0, savingOwner = null, baseline = null;
+
+        const actor = () => {
+            const auth = window.GunterAuth;
+            const trusted = typeof auth?.canAccessLocalData === 'function'
+                ? auth.canAccessLocalData() : auth?.isVerified?.();
+            const id = trusted && auth?.getUser?.()?.id;
+            return typeof id === 'string' && id && id !== 'local-user' ? id : null;
+        };
+        const enable = available => controls.forEach(control => { control.disabled = !available; });
+        const reset = () => {
+            respect.checked = false; start.value = '09:00'; end.value = '18:00'; buffer.value = '0';
+            days.forEach(day => { day.checked = Number(day.value) >= 1 && Number(day.value) <= 5; });
+            dirty = false; baseline = null;
+        };
+        const showTimezone = () => {
+            const zone = window.GunterPresence?.timezone?.()
+                || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+            timezone.textContent = `Zona horaria: ${zone}. Se usa la misma que en Hora y ubicación. La jornada debe terminar el mismo día.`;
+        };
+        const errorMessage = error => {
+            const code = error?.code || error?.message;
+            if (code === 'EVENT_PLANNING_INVALID') return 'Revisa los días, la jornada y el margen (0–120 minutos). No se guardó ningún cambio.';
+            if (code === 'EVENT_PLANNING_CORRUPT') return 'Los ajustes de agenda guardados no se pueden leer. No se sobrescribieron; revisa Datos y privacidad.';
+            if (code === 'EVENT_PLANNING_STORAGE') return 'No pude guardar la planificación en este dispositivo. Tus ajustes anteriores se conservan.';
+            if (code === 'EVENT_PLANNING_CHANGED') return 'Los ajustes guardados cambiaron en otra pestaña. No se sobrescribieron. Recarga y descarta este borrador antes de volver a editar.';
+            return 'La planificación de agenda no está disponible. No se guardó ningún cambio.';
+        };
+        const refresh = async () => {
+            const ownerId = actor();
+            if (ownerId !== shownOwner) {
+                shownOwner = ownerId; reset(); savingOwner = null; ++readVersion;
+            }
+            if (!ownerId) {
+                reset(); enable(false);
+                timezone.textContent = 'La zona horaria se mostrará al verificar tu cuenta.';
+                status.textContent = 'Inicia sesión con una cuenta verificada para configurar tu agenda local.';
+                return;
+            }
+            showTimezone();
+            const service = window.GunterEventsService;
+            if (!service?.getPlanningPreferences || !service?.updatePlanningPreferences) {
+                enable(false); status.textContent = 'El servicio de agenda local no está disponible.'; return;
+            }
+            // Other preference events must not overwrite this account's unsaved draft.
+            if (savingOwner === ownerId) return;
+            if (dirty) { enable(true); return; }
+            const version = ++readVersion;
+            enable(false); status.textContent = 'Cargando planificación de tu cuenta…';
+            try {
+                const prefs = await service.getPlanningPreferences(ownerId);
+                if (ownerId !== actor() || ownerId !== shownOwner) { void refresh(); return; }
+                if (version !== readVersion || dirty) return;
+                baseline = JSON.parse(JSON.stringify(prefs));
+                respect.checked = prefs.respectWorkingHours === true;
+                start.value = prefs.workStart; end.value = prefs.workEnd; buffer.value = String(prefs.bufferMinutes);
+                days.forEach(day => { day.checked = prefs.workingDays.includes(Number(day.value)); });
+                enable(true); status.textContent = 'Planificación de tu cuenta lista. Solo se guarda al pulsar Guardar planificación.';
+            } catch (error) {
+                if (ownerId !== actor() || ownerId !== shownOwner) { void refresh(); return; }
+                if (version !== readVersion) return;
+                enable(false); status.textContent = errorMessage(error);
+            }
+        };
+        const markDirty = () => {
+            if (actor() !== shownOwner) { void refresh(); return; }
+            dirty = true; status.textContent = 'Cambios sin guardar.';
+        };
+        for (const control of [respect, start, end, buffer, ...days]) {
+            control.addEventListener('input', markDirty);
+            control.addEventListener('change', markDirty);
+        }
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            const ownerId = actor();
+            if (!ownerId || ownerId !== shownOwner) { void refresh(); return; }
+            if (savingOwner || save.disabled || !window.GunterEventsService?.updatePlanningPreferences) return;
+            const patch = {
+                respectWorkingHours: respect.checked,
+                workingDays: days.filter(day => day.checked).map(day => Number(day.value)),
+                workStart: start.value, workEnd: end.value,
+                bufferMinutes: Number(buffer.value)
+            };
+            if (!patch.workingDays.length || !/^([01]\d|2[0-3]):[0-5]\d$/.test(patch.workStart)
+                || !/^([01]\d|2[0-3]):[0-5]\d$/.test(patch.workEnd) || patch.workEnd <= patch.workStart
+                || !buffer.value.trim() || !Number.isInteger(patch.bufferMinutes)
+                || patch.bufferMinutes < 0 || patch.bufferMinutes > 120) {
+                status.textContent = 'Selecciona al menos un día, una jornada que termine después del inicio en el mismo día y un margen entero de 0–120 minutos.';
+                return;
+            }
+            const version = ++readVersion;
+            savingOwner = ownerId; enable(false); status.textContent = 'Guardando planificación de tu cuenta…';
+            try {
+                const saved = await window.GunterEventsService.updatePlanningPreferences(patch, ownerId, { expected: baseline });
+                if (ownerId !== actor() || ownerId !== shownOwner) { void refresh(); return; }
+                if (version !== readVersion) return;
+                baseline = JSON.parse(JSON.stringify(saved));
+                dirty = false; enable(true); status.textContent = 'Planificación guardada. Gunter la usará en sus próximas advertencias y sugerencias.';
+            } catch (error) {
+                if (ownerId !== actor() || ownerId !== shownOwner) { void refresh(); return; }
+                if (version !== readVersion) return;
+                enable(true); status.textContent = errorMessage(error);
+            } finally {
+                if (savingOwner === ownerId && version === readVersion) savingOwner = null;
+            }
+        });
+        reload.addEventListener('click', () => { if (!savingOwner) { dirty = false; void refresh(); } });
+        document.addEventListener('gunter-auth-ready', refresh);
+        document.addEventListener('gunter-auth-profile-changed', refresh);
+        window.addEventListener('gunter-calendar-preferences-change', refresh);
+        window.addEventListener('gunter-location-change', () => { if (actor()) showTimezone(); });
+        window.addEventListener('storage', event => { if (event.key === PREF_KEY || event.key === null) void refresh(); });
+        void refresh();
+    }
+
     // ---------- Data & Privacy ----------
     function loadDataStatus() {
         const openaiEl = document.getElementById('status-openai');
@@ -581,6 +709,7 @@
         arrangeExistingControls();
         initTabs();
         initAccount();
+        initCalendarPlanning();
         initTrash();
         initData();
         initGoogleCalendar();

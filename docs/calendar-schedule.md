@@ -16,7 +16,7 @@ Sin expansión fiable de recurrencias, cobertura de eventos de día completo o f
 
 Los planes multipaso no aceptan un paso de agenda con cruces o cobertura incompleta sin mostrarlo: piden gestionar ese evento como acción individual. Los pasos sin cruces siguen usando el guard atómico; si un paso anterior cambia la disponibilidad, se bloquea el siguiente, sin deshacer pasos ya confirmados y terminados.
 
-Las alternativas no incorporan todavía preferencias de jornada laboral, tiempos de traslado ni buffers. Los consumidores manuales anteriores conservan compatibilidad; el guard de agenda es opcional en el servicio y obligatorio en estas herramientas conversacionales.
+Las alternativas incorporan las preferencias de jornada y margen configuradas por cuenta (ver `calendar-planning.md`). Todavía no incorporan tiempos de traslado ni pausas múltiples por día. Los consumidores manuales anteriores conservan compatibilidad; el guard de agenda es opcional en el servicio y obligatorio en estas herramientas conversacionales.
 
 ## Pruebas específicas
 

@@ -61,6 +61,97 @@
         return ownerId;
     }
 
+    const PLANNING_KEY = 'gunter_prefs';
+    const PLANNING_DEFAULTS = {
+        respectWorkingHours: false, workingDays: [1, 2, 3, 4, 5],
+        workStart: '09:00', workEnd: '18:00', bufferMinutes: 0
+    };
+
+    function planningDefaults() {
+        return { ...PLANNING_DEFAULTS, workingDays: [...PLANNING_DEFAULTS.workingDays] };
+    }
+
+    function planningObject(value) {
+        return value !== null && typeof value === 'object' && !Array.isArray(value);
+    }
+
+    function validatePlanning(patch, base = planningDefaults(), error = 'EVENT_PLANNING_INVALID') {
+        const keys = Object.keys(PLANNING_DEFAULTS);
+        if (!planningObject(patch) || Object.keys(patch).some(key => !keys.includes(key))) throw new Error(error);
+        const next = { ...base, ...patch };
+        if (typeof next.respectWorkingHours !== 'boolean'
+            || !Array.isArray(next.workingDays) || !next.workingDays.length
+            || next.workingDays.some(day => !Number.isInteger(day) || day < 0 || day > 6)
+            || new Set(next.workingDays).size !== next.workingDays.length
+            || typeof next.workStart !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(next.workStart)
+            || typeof next.workEnd !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(next.workEnd)
+            || next.workStart >= next.workEnd
+            || !Number.isInteger(next.bufferMinutes) || next.bufferMinutes < 0 || next.bufferMinutes > 120) {
+            throw new Error(error);
+        }
+        return { ...next, workingDays: [...next.workingDays].sort((a, b) => a - b) };
+    }
+
+    function planningOwner(ownerId) {
+        const authenticatedOwner = currentOwner();
+        if (authenticatedOwner && ownerId != null && ownerId !== authenticatedOwner) {
+            throw new Error('EVENT_OWNER_MISMATCH');
+        }
+        return authenticatedOwner;
+    }
+
+    function readPlanningStorage() {
+        let storage, raw;
+        try { storage = window.localStorage; raw = storage?.getItem(PLANNING_KEY); }
+        catch { throw new Error('EVENT_PLANNING_STORAGE'); }
+        if (raw == null) return { storage, preferences: {}, byAccount: {} };
+        let preferences;
+        try { preferences = JSON.parse(raw); }
+        catch { throw new Error('EVENT_PLANNING_CORRUPT'); }
+        if (!planningObject(preferences)) throw new Error('EVENT_PLANNING_CORRUPT');
+        const byAccount = Object.prototype.hasOwnProperty.call(preferences, 'calendarPlanningByAccount')
+            ? preferences.calendarPlanningByAccount : {};
+        if (!planningObject(byAccount)) throw new Error('EVENT_PLANNING_CORRUPT');
+        return { storage, preferences, byAccount };
+    }
+
+    function getPlanningPreferences(ownerId) {
+        const owner = planningOwner(ownerId);
+        // Standalone consumers have no authenticated profile to assign settings to.
+        if (!owner) return planningDefaults();
+        const { byAccount } = readPlanningStorage();
+        if (currentOwner() !== owner) throw new Error('EVENT_OWNER_MISMATCH');
+        if (!Object.prototype.hasOwnProperty.call(byAccount, owner)) return planningDefaults();
+        return validatePlanning(byAccount[owner], planningDefaults(), 'EVENT_PLANNING_CORRUPT');
+    }
+
+    function validatePlanningPreferences(patch, ownerId) {
+        const owner = planningOwner(ownerId);
+        if (!owner) throw new Error('EVENT_AUTH_REQUIRED');
+        return validatePlanning(patch, getPlanningPreferences(owner));
+    }
+
+    function updatePlanningPreferences(patch, ownerId, opts = {}) {
+        const owner = planningOwner(ownerId);
+        if (!owner) throw new Error('EVENT_AUTH_REQUIRED');
+        const { storage, preferences, byAccount } = readPlanningStorage();
+        const current = Object.prototype.hasOwnProperty.call(byAccount, owner)
+            ? validatePlanning(byAccount[owner], planningDefaults(), 'EVENT_PLANNING_CORRUPT') : planningDefaults();
+        if (Object.prototype.hasOwnProperty.call(opts, 'expected')) {
+            const expected = validatePlanning(opts.expected);
+            if (!sameValue(current, expected)) throw new Error('EVENT_PLANNING_CHANGED');
+        }
+        const next = validatePlanning(patch, current);
+        if (currentOwner() !== owner) throw new Error('EVENT_OWNER_MISMATCH');
+        if (!storage || typeof storage.setItem !== 'function') throw new Error('EVENT_PLANNING_STORAGE');
+        try {
+            storage.setItem(PLANNING_KEY, JSON.stringify({ ...preferences,
+                calendarPlanningByAccount: { ...byAccount, [owner]: next } }));
+        } catch { throw new Error('EVENT_PLANNING_STORAGE'); }
+        emit('gunter-calendar-preferences-change', { ownerId: owner });
+        return { ...next, workingDays: [...next.workingDays] };
+    }
+
     function validateEvent(event) {
         if (typeof event.title !== 'string' || !event.title.trim()) {
             throw new Error('EVENT_INVALID_TITLE');
@@ -101,6 +192,35 @@
         return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalValue(value[key])]));
     }
 
+    // Build bounded real-time segments for the requested local day. Looking at
+    // Intl parts, not host hours, handles skipped and repeated DST minutes.
+    function workingWindows(start, formatter, policy) {
+        if (!policy.respectWorkingHours) return null;
+        const timezone = formatter.resolvedOptions().timeZone;
+        const local = new Intl.DateTimeFormat('en-GB', { timeZone: timezone,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+        const parts = instant => Object.fromEntries(local.formatToParts(new Date(instant))
+            .filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+        const target = parts(start);
+        const weekday = new Date(`${target.year}-${target.month}-${target.day}T12:00:00Z`).getUTCDay();
+        if (!policy.workingDays.includes(weekday)) return [];
+        const minutes = value => Number(value.slice(0, 2)) * 60 + Number(value.slice(3));
+        const fromMinute = minutes(policy.workStart), toMinute = minutes(policy.workEnd);
+        const windows = [], anchor = Math.floor(start / 60000) * 60000;
+        let open = null;
+        for (let instant = anchor - 36 * 3600000; instant <= anchor + 36 * 3600000; instant += 60000) {
+            const item = parts(instant), minute = Number(item.hour) * 60 + Number(item.minute);
+            const allowed = item.year === target.year && item.month === target.month && item.day === target.day
+                && minute >= fromMinute && minute < toMinute;
+            if (allowed) {
+                if (open == null) { open = instant; windows.push({ start: instant, end: instant + 60000 }); }
+                else windows[windows.length - 1].end = instant + 60000;
+            } else open = null;
+        }
+        return windows;
+    }
+
     // Inspect only cached calendar records. Recurrences and legacy all-day rows
     // have no expanded coverage here, so they cannot prove that a slot is free.
     function inspectSchedule(rows, { ownerId, startAt, endAt, excludeId, timezone }) {
@@ -110,6 +230,11 @@
             throw new Error('EVENT_INVALID_DATES');
         }
         const formatter = scheduleDayFormatter(timezone);
+        const planningPreferences = getPlanningPreferences(ownerId);
+        const buffer = planningPreferences.bufferMinutes * 60000;
+        const workWindows = workingWindows(start, formatter, planningPreferences);
+        const outsideWorkingHours = workWindows !== null
+            && !workWindows.some(window => start >= window.start && end <= window.end);
         const active = rows.filter(row => row.ownerId === ownerId && row.id !== excludeId
             && (!row.status || row.status === 'scheduled'));
         const valid = [], unresolved = [];
@@ -126,30 +251,39 @@
         }
         valid.sort((a, b) => a.start - b.start || a.end - b.end || String(a.row.id).localeCompare(String(b.row.id)));
         const overlaps = valid.filter(interval => interval.start < end && interval.end > start);
-        const fingerprintRows = [...new Map([...overlaps.map(item => item.row), ...unresolved]
+        const bufferOnly = valid.filter(interval => interval.start - buffer < end && interval.end + buffer > start
+            && !(interval.start < end && interval.end > start));
+        const fingerprintRows = [...new Map([...overlaps.map(item => item.row), ...bufferOnly.map(item => item.row), ...unresolved]
             .map(row => [row.id, row])).values()].sort((a, b) => String(a.id).localeCompare(String(b.id)));
-        const fingerprint = JSON.stringify(fingerprintRows.map(row => ({
+        const fingerprint = JSON.stringify({ planningPreferences: canonicalValue(planningPreferences), rows: fingerprintRows.map(row => ({
             id: row.id, title: row.title ?? null, startAt: row.startAt ?? null,
             endAt: row.endAt ?? null, status: row.status || 'scheduled',
             updatedAt: row.updatedAt ?? null, rrule: canonicalValue(row.rrule), kind: row.kind ?? null
-        })));
+        })) });
         const warnings = [];
+        if (bufferOnly.length) warnings.push(`Este horario no respeta el margen de ${planningPreferences.bufferMinutes} minutos entre reuniones.`);
+        if (outsideWorkingHours) warnings.push(`Este horario queda fuera de tus días y jornada configurados (${planningPreferences.workStart}–${planningPreferences.workEnd}).`);
         if (recurring) warnings.push('Hay eventos recurrentes sin ocurrencias expandidas; no puedo asegurar los horarios libres.');
         if (allDay) warnings.push('Hay eventos de día completo cuya cobertura no está resuelta; no puedo asegurar los horarios libres.');
         if (invalid) warnings.push('Hay eventos propios con fechas inválidas; corrígelos antes de confiar en los horarios libres.');
         const complete = unresolved.length === 0;
         const suggestions = [];
-        if (complete && overlaps.length) {
+        if (complete && (overlaps.length || bufferOnly.length || outsideWorkingHours)) {
             const duration = end - start, day = formatter.format(new Date(start));
             let candidate = start;
             while (suggestions.length < 3) {
+                if (workWindows !== null) {
+                    const window = workWindows.find(window => Math.max(candidate, window.start) + duration <= window.end);
+                    if (!window) break;
+                    candidate = Math.max(candidate, window.start);
+                }
                 const candidateEnd = candidate + duration;
                 // end - 1ms permits an exact midnight boundary, never the next day.
                 if (formatter.format(new Date(candidate)) !== day
                     || formatter.format(new Date(candidateEnd - 1)) !== day) break;
-                const blockers = valid.filter(interval => interval.start < candidateEnd && interval.end > candidate);
+                const blockers = valid.filter(interval => interval.start - buffer < candidateEnd && interval.end + buffer > candidate);
                 if (blockers.length) {
-                    candidate = Math.max(...blockers.map(interval => interval.end));
+                    candidate = Math.max(...blockers.map(interval => interval.end + buffer));
                     continue;
                 }
                 suggestions.push({ startAt: new Date(candidate).toISOString(), endAt: new Date(candidateEnd).toISOString() });
@@ -159,7 +293,9 @@
         return {
             conflicts: overlaps.map(({ row }) => ({ id: row.id, title: row.title,
                 startAt: row.startAt, endAt: row.endAt })),
-            suggestions, complete, warnings, fingerprint
+            bufferConflicts: bufferOnly.map(({ row }) => ({ id: row.id, title: row.title,
+                startAt: row.startAt, endAt: row.endAt })),
+            outsideWorkingHours, planningPreferences, suggestions, complete, warnings, fingerprint
         };
     }
 
@@ -446,6 +582,7 @@
     }
 
     window.GunterEventsService = {
-        create, update, remove, list, listForToday, listUpcoming, checkSchedule
+        create, update, remove, list, listForToday, listUpcoming, checkSchedule,
+        getPlanningPreferences, validatePlanningPreferences, updatePlanningPreferences
     };
 })();
