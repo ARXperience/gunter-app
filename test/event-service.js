@@ -10,28 +10,32 @@ const clone = value => value === undefined ? undefined : JSON.parse(JSON.stringi
 // callback can enqueue its put in the same transaction; abort discards all writes.
 function fakeIndexedDB() {
     const rows = new Map();
+    const reminderRows = new Map();
+    const stores = new Map([['events', rows], ['reminders', reminderRows], ['tasks', new Map()]]);
     const names = new Set();
     const transactions = [];
     const pending = [];
-    const fake = { rows, transactions, closes: 0, failPut: false, beforeRequest: null };
+    const fake = { rows, reminderRows, transactions, closes: 0, failPut: false, beforeRequest: null };
     let active = false, upgraded = false;
     const db = {
         objectStoreNames: { contains: name => names.has(name) },
         createObjectStore(name) { names.add(name); return { createIndex() {} }; },
         close() { fake.closes++; },
         transaction(name, mode = 'readonly') {
-            assert.ok(names.has(name), `missing store ${name}`);
+            const scope = Array.isArray(name) ? name : [name];
+            scope.forEach(store => assert.ok(names.has(store), `missing store ${store}`));
             const operations = [];
             const log = { mode, operations: [], committed: false, aborted: false };
             transactions.push(log);
             let staged, ended = false;
             const tx = {
                 error: null,
-                objectStore() {
+                objectStore(storeName) {
+                    assert.ok(scope.includes(storeName), `store ${storeName} is not in transaction scope`);
                     const request = (op, input) => {
                         const result = {};
                         log.operations.push(op);
-                        operations.push({ op, input, result });
+                        operations.push({ op, input, result, storeName });
                         return result;
                     };
                     return {
@@ -54,7 +58,10 @@ function fakeIndexedDB() {
                 if (!item) {
                     ended = true;
                     if (mode === 'readwrite') {
-                        rows.clear(); staged.forEach((row, id) => rows.set(id, row));
+                        staged.forEach((stagedRows, storeName) => {
+                            const target = stores.get(storeName);
+                            target.clear(); stagedRows.forEach((row, id) => target.set(id, row));
+                        });
                     }
                     log.committed = true;
                     tx.oncomplete?.();
@@ -64,19 +71,20 @@ function fakeIndexedDB() {
                 setTimeout(() => {
                     if (ended) return;
                     try {
-                        fake.beforeRequest?.(item.op, item.input);
-                        if (item.op === 'get') item.result.result = clone(staged.get(item.input));
-                        else if (item.op === 'getAll') item.result.result = clone([...staged.values()]);
+                        fake.beforeRequest?.(item.op, item.input, item.storeName);
+                        const storeRows = staged.get(item.storeName);
+                        if (item.op === 'get') item.result.result = clone(storeRows.get(item.input));
+                        else if (item.op === 'getAll') item.result.result = clone([...storeRows.values()]);
                         else {
                             assert.equal(mode, 'readwrite');
                             if (item.op === 'put' && fake.failPut) {
                                 fake.failPut = false;
                                 throw new Error('FAKE_PUT_FAILED');
                             }
-                            if (item.op === 'delete') staged.delete(item.input);
+                            if (item.op === 'delete') storeRows.delete(item.input);
                             else {
-                                if (item.op === 'add' && staged.has(item.input.id)) throw new Error('DUPLICATE_ID');
-                                staged.set(item.input.id, item.input);
+                                if (item.op === 'add' && storeRows.has(item.input.id)) throw new Error('DUPLICATE_ID');
+                                storeRows.set(item.input.id, item.input);
                             }
                         }
                         item.result.onsuccess?.();
@@ -90,7 +98,8 @@ function fakeIndexedDB() {
                 }, 0);
             }
             pending.push(() => {
-                staged = new Map([...rows].map(([id, row]) => [id, clone(row)]));
+                staged = new Map(scope.map(storeName => [storeName,
+                    new Map([...stores.get(storeName)].map(([id, row]) => [id, clone(row)]))]));
                 nextRequest();
             });
             nextTransaction();
@@ -206,7 +215,7 @@ function snapshot(row) {
     const removeTransactionCount = fake.transactions.length;
     await service.remove(removable.id);
     assert.equal(fake.transactions.length, removeTransactionCount + 1);
-    assert.deepEqual(fake.transactions.at(-1).operations, ['get', 'delete']);
+    assert.deepEqual(fake.transactions.at(-1).operations, ['get', 'getAll', 'delete']);
     assert.equal(fake.transactions.at(-1).mode, 'readwrite');
     assert.equal(fake.rows.has(removable.id), false);
     assert.equal(deletes, 1);
@@ -233,7 +242,7 @@ function snapshot(row) {
     const changed = await service.update(saved.id, { title: 'Informe final' }, guard);
     assert.equal(changed.title, 'Informe final');
     assert.equal(fake.transactions.length, transactionCount + 1);
-    assert.deepEqual(fake.transactions.at(-1).operations, ['get', 'put']);
+    assert.deepEqual(fake.transactions.at(-1).operations, ['get', 'getAll', 'put']);
     assert.equal(fake.transactions.at(-1).mode, 'readwrite', 'read, comparison and put share one transaction');
     await assert.rejects(service.update(saved.id, { title: 'Stale' }, guard), /EVENT_CHANGED/);
     const raceGuard = { ...guard, expected: snapshot(changed) };
@@ -470,7 +479,7 @@ function snapshot(row) {
     assert.deepEqual(clone(atomicMove.fake.rows.get(secondTarget.id)), secondTarget);
     assert.equal(atomicMove.emitted.length, 1);
     const moveWrites = atomicMove.fake.transactions.filter(tx => tx.mode === 'readwrite');
-    assert.deepEqual(moveWrites.map(tx => tx.operations), [['get', 'getAll', 'put'], ['get', 'getAll']]);
+    assert.deepEqual(moveWrites.map(tx => tx.operations), [['get', 'getAll', 'getAll', 'put'], ['get', 'getAll']]);
     assert.equal(moveWrites[1].aborted, true);
     const currentSchedule = await atomicMove.service.checkSchedule({ ...slot, excludeId: secondTarget.id });
     const changedMoveOptions = { ...moveOptions, scheduleExpected: {

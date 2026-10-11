@@ -10,6 +10,7 @@
     const DB_NAME = 'gunter_daily';
     const DB_VERSION = 2;
     const STORE = 'events';
+    const REMINDERS_STORE = 'reminders';
 
     function openDB() {
         return new Promise((resolve, reject) => {
@@ -177,6 +178,222 @@
         return keys.length === Object.keys(right).length && keys.every(key =>
             Object.prototype.hasOwnProperty.call(right, key) && sameValue(left[key], right[key]));
     }
+
+    function reminderOwner(ownerId) {
+        const owner = currentOwner();
+        if (!owner) throw new Error('EVENT_AUTH_REQUIRED');
+        if (ownerId != null && ownerId !== owner) throw new Error('EVENT_OWNER_MISMATCH');
+        return owner;
+    }
+
+    function reminderLink(reminder) {
+        const link = reminder?.meta?.eventLink;
+        return link && link.version === 1 && typeof link.eventId === 'string' && link.eventId
+            && Number.isSafeInteger(link.offsetMs) && link.offsetMs >= 0
+            && typeof link.startAt === 'string' && Number.isFinite(Date.parse(link.startAt)) ? link : null;
+    }
+
+    function localReminderEvent(event) {
+        return event && (!event.status || event.status === 'scheduled')
+            && !event.rrule && event.kind !== 'recurring' && event.kind !== 'allDay'
+            && !Object.values(event.externalIds || {}).some(Boolean)
+            && (!event.syncStatus || event.syncStatus === 'local')
+            && typeof event.title === 'string' && event.title.trim()
+            && typeof event.startAt === 'string' && typeof event.endAt === 'string'
+            && Number.isFinite(Date.parse(event.startAt)) && Number.isFinite(Date.parse(event.endAt))
+            && Date.parse(event.endAt) > Date.parse(event.startAt);
+    }
+
+    function cancelledReminder(reminder, reason) {
+        const now = new Date().toISOString();
+        return { ...reminder, status: 'cancelled', updatedAt: now, cancelledAt: now,
+            meta: { ...reminder.meta, cancellationReason: reason } };
+    }
+
+    function reminderWrite(store, method, value, owner, fail) {
+        const request = store[method](value);
+        request.onsuccess = () => {
+            try { if (currentOwner() !== owner) throw new Error('EVENT_OWNER_MISMATCH'); }
+            catch (error) { fail(error); }
+        };
+        return request;
+    }
+
+    // Event and linked notices live in the same database. Never leave an old
+    // notice armed after a successful calendar change, even if a write fails.
+    function adjustEventReminders(transaction, before, after, owner, complete, fail) {
+        if (!owner || before?.ownerId !== owner) { complete(); return; }
+        const store = transaction.objectStore(REMINDERS_STORE);
+        const request = store.getAll();
+        request.onsuccess = () => {
+            try {
+                if (currentOwner() !== owner) throw new Error('EVENT_OWNER_MISMATCH');
+                let changed = false;
+                for (const reminder of request.result || []) {
+                    const link = reminderLink(reminder);
+                    if (reminder.ownerId !== owner || reminder.status !== 'scheduled'
+                        || !link || link.eventId !== before.id) continue;
+                    let next;
+                    if (!after || !localReminderEvent(after)
+                        || link.startAt !== before.startAt
+                        || Date.parse(reminder.fireAt) !== Date.parse(before.startAt) - link.offsetMs) {
+                        next = cancelledReminder(reminder, after ? 'event_unavailable' : 'event_removed');
+                    } else {
+                        const fire = Date.parse(after.startAt) - link.offsetMs;
+                        if (fire <= Date.now() && after.startAt !== before.startAt) {
+                            next = cancelledReminder(reminder, 'event_rescheduled_past_notice');
+                        }
+                        else next = { ...reminder, title: after.title, fireAt: new Date(fire).toISOString(),
+                            updatedAt: new Date().toISOString(),
+                            meta: { ...reminder.meta, eventLink: { ...link, startAt: after.startAt } } };
+                    }
+                    if (!sameValue({ ...reminder, updatedAt: null }, { ...next, updatedAt: null })) {
+                        reminderWrite(store, 'put', next, owner, fail); changed = true;
+                    }
+                }
+                complete(changed);
+            } catch (error) { fail(error); }
+        };
+    }
+
+    async function scheduleReminder(eventId, { fireAt, ownerId, expected } = {}) {
+        const owner = reminderOwner(ownerId);
+        const fire = typeof fireAt === 'string' ? Date.parse(fireAt) : NaN;
+        const snapshotKeys = ['title', 'startAt', 'endAt', 'status', 'updatedAt', 'rrule', 'externalIds'];
+        if (typeof eventId !== 'string' || !eventId || !Number.isFinite(fire) || fire <= Date.now()
+            || !expected || typeof expected !== 'object' || Array.isArray(expected)
+            || snapshotKeys.some(key => !Object.prototype.hasOwnProperty.call(expected, key))) {
+            throw new Error('EVENT_REMINDER_INVALID');
+        }
+        const db = await openDB();
+        let saved, created = false;
+        try {
+            saved = await new Promise((resolve, reject) => {
+                if (currentOwner() !== owner) throw new Error('EVENT_OWNER_MISMATCH');
+                const transaction = db.transaction([STORE, REMINDERS_STORE], 'readwrite');
+                const events = transaction.objectStore(STORE), reminders = transaction.objectStore(REMINDERS_STORE);
+                let result, failure = null;
+                const fail = error => { failure = error; transaction.abort(); };
+                const request = events.get(eventId);
+                request.onsuccess = () => {
+                    try {
+                        const event = request.result;
+                        if (currentOwner() !== owner || (event && event.ownerId !== owner)) throw new Error('EVENT_OWNER_MISMATCH');
+                        if (!event) throw new Error('EVENT_REMINDER_NOT_FOUND');
+                        if (snapshotKeys.some(key => !sameValue(snapshotValue(event, key), snapshotValue(expected, key)))) {
+                            throw new Error('EVENT_CHANGED');
+                        }
+                        if (!localReminderEvent(event)) throw new Error('EVENT_REMINDER_UNSUPPORTED');
+                        const start = Date.parse(event.startAt), offsetMs = start - fire;
+                        if (start <= Date.now() || fire <= Date.now() || !Number.isSafeInteger(offsetMs) || offsetMs < 0) {
+                            throw new Error('EVENT_REMINDER_INVALID');
+                        }
+                        const allRequest = reminders.getAll();
+                        allRequest.onsuccess = () => {
+                            try {
+                                if (currentOwner() !== owner) throw new Error('EVENT_OWNER_MISMATCH');
+                                result = (allRequest.result || []).find(reminder => {
+                                    const link = reminderLink(reminder);
+                                    return reminder.ownerId === owner && reminder.status === 'scheduled'
+                                        && link?.eventId === eventId && link.offsetMs === offsetMs;
+                                });
+                                if (result) return;
+                                const now = new Date().toISOString();
+                                result = { id: `rem_evt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`,
+                                    ownerId: owner, title: event.title, priority: 'normal', status: 'scheduled',
+                                    createdAt: now, updatedAt: now, fireAt: new Date(fire).toISOString(), durable: false,
+                                    meta: { eventLink: { version: 1, eventId, offsetMs, startAt: event.startAt } } };
+                                reminderWrite(reminders, 'add', result, owner, fail); created = true;
+                            } catch (error) { fail(error); }
+                        };
+                    } catch (error) { fail(error); }
+                };
+                transaction.oncomplete = () => resolve(result);
+                transaction.onabort = () => reject(failure || transaction.error || new Error('EVENT_REMINDER_ABORTED'));
+                transaction.onerror = () => { failure ||= transaction.error; };
+            });
+        } finally { db.close(); }
+        if (currentOwner() !== owner) throw new Error('EVENT_OWNER_MISMATCH');
+        if (created) emit('reminders-changed', { op: 'create', id: saved.id, eventId, linked: true });
+        return saved;
+    }
+
+    async function getReminder(id) {
+        const owner = reminderOwner();
+        const db = await openDB();
+        let reminder;
+        try {
+            reminder = await new Promise((resolve, reject) => {
+                const request = db.transaction(REMINDERS_STORE).objectStore(REMINDERS_STORE).get(id);
+                request.onsuccess = () => resolve(request.result || null);
+                request.onerror = () => reject(request.error);
+            });
+        } finally { db.close(); }
+        if (currentOwner() !== owner) throw new Error('EVENT_OWNER_MISMATCH');
+        if (reminder && reminder.ownerId !== owner) throw new Error('EVENT_OWNER_MISMATCH');
+        return reminder && reminderLink(reminder) ? reminder : null;
+    }
+
+    async function changeReminder(id, claim) {
+        const owner = reminderOwner();
+        const db = await openDB();
+        let result, changed = false;
+        try {
+            result = await new Promise((resolve, reject) => {
+                if (currentOwner() !== owner) throw new Error('EVENT_OWNER_MISMATCH');
+                const transaction = db.transaction([STORE, REMINDERS_STORE], 'readwrite');
+                const reminders = transaction.objectStore(REMINDERS_STORE), events = transaction.objectStore(STORE);
+                let outcome = { reminder: null, fired: false }, failure = null;
+                const fail = error => { failure = error; transaction.abort(); };
+                const request = reminders.get(id);
+                request.onsuccess = () => {
+                    try {
+                        const reminder = request.result;
+                        if (currentOwner() !== owner || (reminder && reminder.ownerId !== owner)) throw new Error('EVENT_OWNER_MISMATCH');
+                        if (!reminder || !reminderLink(reminder)) {
+                            if (!claim) throw new Error('EVENT_REMINDER_NOT_FOUND');
+                            return;
+                        }
+                        outcome.reminder = reminder;
+                        if (reminder.status !== 'scheduled') return;
+                        if (!claim) {
+                            outcome.reminder = cancelledReminder(reminder, 'user_cancelled');
+                            reminderWrite(reminders, 'put', outcome.reminder, owner, fail); changed = true;
+                            return;
+                        }
+                        const link = reminderLink(reminder), eventRequest = events.get(link.eventId);
+                        eventRequest.onsuccess = () => {
+                            try {
+                                if (currentOwner() !== owner) throw new Error('EVENT_OWNER_MISMATCH');
+                                const event = eventRequest.result;
+                                const valid = event?.ownerId === owner && localReminderEvent(event)
+                                    && link.startAt === event.startAt
+                                    && Date.parse(reminder.fireAt) === Date.parse(event.startAt) - link.offsetMs;
+                                if (!valid || Date.parse(event.endAt) <= Date.now()) {
+                                    outcome = { reminder: cancelledReminder(reminder, valid ? 'event_elapsed' : 'event_unavailable'), cancelled: true };
+                                    reminderWrite(reminders, 'put', outcome.reminder, owner, fail); changed = true;
+                                } else if (Date.parse(reminder.fireAt) > Date.now()) outcome = { reminder, waiting: true };
+                                else {
+                                    const now = new Date().toISOString();
+                                    outcome = { reminder: { ...reminder, status: 'fired', firedAt: now, updatedAt: now }, fired: true };
+                                    reminderWrite(reminders, 'put', outcome.reminder, owner, fail); changed = true;
+                                }
+                            } catch (error) { fail(error); }
+                        };
+                    } catch (error) { fail(error); }
+                };
+                transaction.oncomplete = () => resolve(outcome);
+                transaction.onabort = () => reject(failure || transaction.error || new Error('EVENT_REMINDER_ABORTED'));
+                transaction.onerror = () => { failure ||= transaction.error; };
+            });
+        } finally { db.close(); }
+        if (currentOwner() !== owner) throw new Error('EVENT_OWNER_MISMATCH');
+        if (changed) emit('reminders-changed', { op: claim ? 'claim' : 'cancel', id, linked: true });
+        return claim ? result : result.reminder;
+    }
+
+    const cancelReminder = id => changeReminder(id, false);
+    const claimReminder = id => changeReminder(id, true);
 
     function scheduleDayFormatter(timezone) {
         return new Intl.DateTimeFormat('en-CA', {
@@ -415,10 +632,10 @@
         }
         const expectedSchedule = scheduleGuard(opts);
         const db = await openDB();
-        let merged;
+        let merged, remindersChanged = false;
         try {
             merged = await new Promise((res, rej) => {
-                const t = db.transaction(STORE, 'readwrite');
+                const t = db.transaction([STORE, REMINDERS_STORE], 'readwrite');
                 const store = t.objectStore(STORE);
                 let next = null, failure = null;
                 const request = store.get(id);
@@ -444,6 +661,12 @@
                             next.title = next.title.trim();
                         }
                         validateEvent(next);
+                        const save = () => adjustEventReminders(t, current, next, authenticatedOwner, changed => {
+                            remindersChanged = changed || false;
+                            if (authenticatedOwner) reminderWrite(store, 'put', next, authenticatedOwner,
+                                error => { failure = error; t.abort(); });
+                            else store.put(next);
+                        }, error => { failure = error; t.abort(); });
                         if (expectedSchedule) {
                             const scheduleRequest = store.getAll();
                             scheduleRequest.onsuccess = () => {
@@ -456,10 +679,10 @@
                                     if (schedule.fingerprint !== expectedSchedule.fingerprint) {
                                         throw new Error('EVENT_SCHEDULE_CHANGED');
                                     }
-                                    store.put(next);
+                                    save();
                                 } catch (error) { failure = error; t.abort(); }
                             };
-                        } else store.put(next);
+                        } else save();
                     } catch (error) { failure = error; t.abort(); }
                 };
                 t.oncomplete = () => res(next);
@@ -469,6 +692,7 @@
         } finally { db.close(); }
         if (currentOwner() !== authenticatedOwner) throw new Error('EVENT_OWNER_MISMATCH');
         emit('events-changed', { op: 'update', id });
+        if (remindersChanged) emit('reminders-changed', { op: 'event-update', eventId: id, linked: true });
 
         // Push patch to Google if the event has an external id and caller wants sync
         if (!opts.skipSync
@@ -491,10 +715,10 @@
     async function remove(id) {
         const authenticatedOwner = currentOwner();
         const db = await openDB();
-        let existing;
+        let existing, remindersChanged = false;
         try {
             existing = await new Promise((res, rej) => {
-                const t = db.transaction(STORE, 'readwrite');
+                const t = db.transaction([STORE, REMINDERS_STORE], 'readwrite');
                 const store = t.objectStore(STORE);
                 let record, failure = null;
                 const request = store.get(id);
@@ -505,7 +729,12 @@
                         if (authenticatedOwner && record?.ownerId !== authenticatedOwner) {
                             throw new Error(record ? 'EVENT_OWNER_MISMATCH' : 'Event no encontrado');
                         }
-                        store.delete(id);
+                        adjustEventReminders(t, record, null, authenticatedOwner, changed => {
+                            remindersChanged = changed || false;
+                            if (authenticatedOwner) reminderWrite(store, 'delete', id, authenticatedOwner,
+                                error => { failure = error; t.abort(); });
+                            else store.delete(id);
+                        }, error => { failure = error; t.abort(); });
                     } catch (error) { failure = error; t.abort(); }
                 };
                 t.oncomplete = () => res(record);
@@ -515,6 +744,7 @@
         } finally { db.close(); }
         if (currentOwner() !== authenticatedOwner) throw new Error('EVENT_OWNER_MISMATCH');
         emit('events-changed', { op: 'delete', id });
+        if (remindersChanged) emit('reminders-changed', { op: 'event-delete', eventId: id, linked: true });
 
         if (existing?.externalIds?.google && window.GunterCalendarService?.deleteEvent) {
             try { await window.GunterCalendarService.deleteEvent(existing.externalIds.google); } catch {}
@@ -583,6 +813,7 @@
 
     window.GunterEventsService = {
         create, update, remove, list, listForToday, listUpcoming, checkSchedule,
-        getPlanningPreferences, validatePlanningPreferences, updatePlanningPreferences
+        getPlanningPreferences, validatePlanningPreferences, updatePlanningPreferences,
+        scheduleReminder, getReminder, cancelReminder, claimReminder
     };
 })();

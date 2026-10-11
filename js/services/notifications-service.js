@@ -6,14 +6,50 @@
      2) Notification API (si el usuario concedió permiso)
      3) Web Push del servidor, incluso con la app cerrada
 
-   Los recordatorios nuevos viven en la cola durable del servidor.
-   IndexedDB se conserva como respaldo y para registros heredados.
+   Los recordatorios independientes utilizan la cola durable del servidor.
+   Los vinculados a reuniones locales comparten su transacción IndexedDB
+   y requieren Gunter abierto. Los registros heredados sin dueño se aíslan.
    ============================================= */
 
 (function () {
     const DB_NAME = 'gunter_daily';
     const STORE = 'reminders';
-    const timers = new Map(); // id → setTimeout
+    const timers = new Map();
+    let reconciliation = 0;
+    let invalidationChannel = null;
+
+    function currentOwner() {
+        const auth = window.GunterAuth;
+        const trusted = typeof auth?.canAccessLocalData === 'function'
+            ? auth.canAccessLocalData() : auth?.isVerified?.();
+        const ownerId = trusted && auth.getUser?.()?.id;
+        if (typeof ownerId !== 'string' || !ownerId || ownerId === 'local-user') throw new Error('REMINDER_AUTH_REQUIRED');
+        // A different account signed in in another tab must stop this tab's timers.
+        const deviceOwner = window.localStorage?.getItem('gunter_device_user');
+        if (deviceOwner && deviceOwner !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
+        return ownerId;
+    }
+
+    function owns(reminder, ownerId) { return reminder?.ownerId === ownerId; }
+    function linked(reminder) { return Boolean(reminder?.meta?.eventLink); }
+    function stopTimer(id) {
+        const entry = timers.get(id);
+        if (entry) clearTimeout(entry.timer);
+        timers.delete(id);
+    }
+    function stopTimers() { for (const id of timers.keys()) stopTimer(id); }
+    function clearLocalError() { window.GunterStatusBus?.clear?.('reminders:local'); }
+    function reportLocalError(error) {
+        try { currentOwner(); } catch { stopTimers(); clearLocalError(); return; }
+        if (/AUTH_REQUIRED|ACCOUNT_CHANGED|OWNER_MISMATCH/.test(error?.code || error?.message || '')) {
+            stopTimers(); clearLocalError(); return;
+        }
+        // Never forward reminder contents, account IDs or raw storage errors.
+        window.GunterStatusBus?.set?.('reminders:local', 'error', {
+            label: 'No pude verificar los recordatorios locales.',
+            hint: 'Mantén Gunter abierto y vuelve a abrir Recordatorios para reintentar.'
+        });
+    }
 
     function openDB() {
         return new Promise((resolve, reject) => {
@@ -27,9 +63,24 @@
 
     async function schedule({ title, fireAt, priority = 'normal', meta = {} }) {
         if (!title) throw new Error('Reminder requiere title');
-        if (!fireAt) throw new Error('Reminder requiere fireAt');
+        if (!Number.isFinite(new Date(fireAt).getTime())) throw new Error('Reminder requiere fireAt válido');
+        const ownerId = currentOwner();
+        if (meta.eventLink) {
+            const service = window.GunterEventsService;
+            if (!service?.scheduleReminder) throw new Error('LINKED_REMINDER_SERVICE_UNAVAILABLE');
+            const link = meta.eventLink;
+            if (link.ownerId != null && link.ownerId !== ownerId) throw new Error('REMINDER_OWNER_MISMATCH');
+            const reminder = await service.scheduleReminder(link.eventId, {
+                fireAt, ownerId, expected: link.expected, priority
+            });
+            if (currentOwner() !== ownerId || !owns(reminder, ownerId)) throw new Error('REMINDER_ACCOUNT_CHANGED');
+            arm(reminder);
+            emit('reminders-changed', { op: 'create', id: reminder.id, ownerId, durable: false });
+            return reminder;
+        }
         if (window.GunterJobs?.scheduleReminder) {
             const job = await window.GunterJobs.scheduleReminder({ title, runAt: fireAt, priority, message: meta.message || '', dedupeKey: meta.dedupeKey || null });
+            if (currentOwner() !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
             const reminder = durableToReminder(job);
             emit('reminders-changed', { op: 'create', id: reminder.id, durable: true });
             return reminder;
@@ -40,33 +91,57 @@
             fireAt,
             priority,
             meta,
+            ownerId,
+            durable: false,
             status: 'scheduled',
             createdAt: new Date().toISOString()
         };
         const db = await openDB();
-        await new Promise((res, rej) => {
-            const t = db.transaction(STORE, 'readwrite');
-            t.objectStore(STORE).add(rem);
-            t.oncomplete = res; t.onerror = () => rej(t.error);
-        });
-        db.close();
+        try {
+            await new Promise((res, rej) => {
+                const t = db.transaction(STORE, 'readwrite');
+                if (currentOwner() !== ownerId) { t.abort(); rej(new Error('REMINDER_ACCOUNT_CHANGED')); return; }
+                t.objectStore(STORE).add(rem);
+                t.oncomplete = res; t.onerror = t.onabort = () => rej(t.error || new Error('REMINDER_WRITE_FAILED'));
+            });
+        } finally { db.close(); }
+        if (currentOwner() !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
         arm(rem);
         emit('reminders-changed', { op: 'create', id: rem.id });
         return rem;
     }
 
     function arm(rem) {
+        stopTimer(rem.id);
+        if (rem.status !== 'scheduled' || rem.durable || (linked(rem) && !window.GunterEventsService?.claimReminder)) return;
+        let ownerId;
+        try { ownerId = currentOwner(); } catch { return; }
+        if (!owns(rem, ownerId)) return;
         const delay = new Date(rem.fireAt).getTime() - Date.now();
-        if (delay < 0) { fire(rem); return; }
+        if (!Number.isFinite(delay)) return;
         // Clamp: setTimeout max is ~24.8 days
-        const clamped = Math.min(delay, 2 ** 31 - 1);
-        const id = setTimeout(() => fire(rem), clamped);
-        timers.set(rem.id, id);
+        const clamped = Math.max(0, Math.min(delay, 2 ** 31 - 1));
+        const entry = { ownerId, timer: null };
+        entry.timer = setTimeout(() => {
+            if (timers.get(rem.id) !== entry) return;
+            timers.delete(rem.id);
+            fire(rem).catch(reportLocalError);
+        }, clamped);
+        timers.set(rem.id, entry);
     }
 
     async function fire(rem) {
-        timers.delete(rem.id);
-        try { await update(rem.id, { status: 'fired', firedAt: new Date().toISOString() }); } catch {}
+        const ownerId = currentOwner();
+        if (!owns(rem, ownerId)) return;
+        const claim = linked(rem)
+            ? await window.GunterEventsService?.claimReminder?.(rem.id)
+            : await claimIndependent(rem.id, ownerId);
+        if (!claim) return;
+        if (currentOwner() !== ownerId || !owns(claim.reminder, ownerId)) return;
+        if (claim.waiting) { arm(claim.reminder); return; }
+        if (!claim.fired) return;
+        rem = claim.reminder;
+        emit('reminders-changed', { op: 'fire', id: rem.id, ownerId, durable: false });
         // In-app toast
         showToast(`⏰ ${rem.title}`, { priority: rem.priority });
         // Notification API
@@ -84,6 +159,17 @@
             const av = window.__GUNTER_PRIMARY_AVATAR__;
             if (av && av.playAnimation) av.playAnimation(rem.priority === 'urgent' ? 'alert' : 'nod');
         } catch {}
+    }
+
+    async function claimIndependent(id, ownerId) {
+        return mutateLocal(id, ownerId, row => {
+            if (linked(row) || row.status !== 'scheduled') return { result: null };
+            const dueAt = new Date(row.fireAt).getTime();
+            if (!Number.isFinite(dueAt)) return { result: null };
+            if (dueAt > Date.now()) return { result: { reminder: row, waiting: true } };
+            const next = { ...row, status: 'fired', firedAt: new Date().toISOString() };
+            return { row: next, result: { reminder: next, fired: true } };
+        });
     }
 
     async function requestPermission() {
@@ -151,54 +237,120 @@
         return `${mobile ? 'Móvil' : 'PC'} · ${navigator.platform || 'Navegador'}`.slice(0, 100);
     }
 
-    async function update(id, patch) {
+    // Claims and cancellations must read and write in one transaction so that
+    // another tab cannot deliver an already cancelled or already fired reminder.
+    async function mutateLocal(id, ownerId, transform) {
         const db = await openDB();
-        const current = await new Promise((res, rej) => {
-            const r = db.transaction(STORE).objectStore(STORE).get(id);
-            r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+        try {
+            return await new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readwrite');
+                const store = tx.objectStore(STORE);
+                let result = null, error;
+                const req = store.get(id);
+                req.onsuccess = () => {
+                    try {
+                        if (currentOwner() !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
+                        const row = req.result;
+                        if (!owns(row, ownerId)) return;
+                        const mutation = transform(row);
+                        result = mutation.result;
+                        if (mutation.row) store.put(mutation.row);
+                    } catch (failure) { error = failure; tx.abort(); }
+                };
+                tx.oncomplete = () => resolve(result);
+                tx.onerror = tx.onabort = () => reject(error || tx.error || new Error('REMINDER_WRITE_FAILED'));
+            });
+        } finally { db.close(); }
+    }
+
+    async function get(id) {
+        const ownerId = currentOwner();
+        if (String(id || '').startsWith('job_') && window.GunterJobs?.get) {
+            const job = await window.GunterJobs.get(id);
+            if (currentOwner() !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
+            return job ? durableToReminder(job) : null;
+        }
+        const db = await openDB();
+        let row;
+        try {
+            row = await new Promise((resolve, reject) => {
+                const req = db.transaction(STORE).objectStore(STORE).get(id);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => reject(req.error);
+            });
+        } finally { db.close(); }
+        if (currentOwner() !== ownerId || !owns(row, ownerId)) return null;
+        if (!linked(row)) return row;
+        if (!window.GunterEventsService?.getReminder) return row;
+        const reminder = await window.GunterEventsService.getReminder(id);
+        return currentOwner() === ownerId && owns(reminder, ownerId) ? reminder : null;
+    }
+
+    async function update(id, patch) {
+        const ownerId = currentOwner();
+        const merged = await mutateLocal(id, ownerId, row => {
+            if (linked(row) || patch.meta?.eventLink) throw new Error('LINKED_REMINDER_EDIT_REQUIRES_EVENT');
+            if ((patch.ownerId != null && patch.ownerId !== ownerId) || (patch.id != null && patch.id !== id)) throw new Error('REMINDER_OWNER_MISMATCH');
+            const next = { ...row, ...patch, id: row.id, ownerId: row.ownerId, createdAt: row.createdAt };
+            if (!next.title || !Number.isFinite(new Date(next.fireAt).getTime())) throw new Error('REMINDER_INVALID');
+            return { row: next, result: next };
         });
-        if (!current) { db.close(); throw new Error('Reminder no encontrado'); }
-        const merged = { ...current, ...patch };
-        await new Promise((res, rej) => {
-            const t = db.transaction(STORE, 'readwrite');
-            t.objectStore(STORE).put(merged);
-            t.oncomplete = res; t.onerror = () => rej(t.error);
-        });
-        db.close();
+        if (!merged) throw new Error('Reminder no encontrado');
+        if (currentOwner() !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
+        if (merged.status === 'scheduled') arm(merged); else stopTimer(id);
         emit('reminders-changed', { op: 'update', id });
         return merged;
     }
 
     async function cancel(id) {
+        const ownerId = currentOwner();
         if (String(id || '').startsWith('job_') && window.GunterJobs?.cancel) {
             const job = await window.GunterJobs.cancel(id);
+            if (currentOwner() !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
             emit('reminders-changed', { op: 'update', id, durable: true });
             return durableToReminder(job);
         }
-        const t = timers.get(id);
-        if (t) { clearTimeout(t); timers.delete(id); }
+        const reminder = await get(id);
+        if (!reminder) throw new Error('Reminder no encontrado');
+        if (linked(reminder)) {
+            if (!window.GunterEventsService?.cancelReminder) throw new Error('LINKED_REMINDER_SERVICE_UNAVAILABLE');
+            const cancelled = await window.GunterEventsService.cancelReminder(id);
+            if (currentOwner() !== ownerId || !owns(cancelled, ownerId)) throw new Error('REMINDER_ACCOUNT_CHANGED');
+            stopTimer(id);
+            emit('reminders-changed', { op: 'update', id, ownerId, durable: false });
+            return cancelled;
+        }
         return update(id, { status: 'cancelled' });
     }
 
     async function listLocal({ status } = {}) {
+        const ownerId = currentOwner();
         const db = await openDB();
-        const all = await new Promise((res, rej) => {
-            const r = db.transaction(STORE).objectStore(STORE).getAll();
-            r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error);
-        });
-        db.close();
-        return all.filter(r => !status || r.status === status)
+        let all;
+        try {
+            all = await new Promise((res, rej) => {
+                const r = db.transaction(STORE).objectStore(STORE).getAll();
+                r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error);
+            });
+        } finally { db.close(); }
+        if (currentOwner() !== ownerId) return [];
+        return all.filter(r => owns(r, ownerId) && (!status || r.status === status))
             .sort((a, b) => (a.fireAt || '') < (b.fireAt || '') ? -1 : 1);
     }
 
     async function list({ status } = {}) {
+        let ownerId;
+        try { ownerId = currentOwner(); } catch { return []; }
         const local = await listLocal({ status }).catch(() => []);
         if (!window.GunterJobs?.list) return local;
         try {
             const durable = await window.GunterJobs.list({ status, type: 'reminder', limit: 200 });
+            if (currentOwner() !== ownerId) return [];
             const byId = new Map([...durable.map(durableToReminder), ...local].map(item => [item.id, item]));
             return [...byId.values()].sort((a, b) => String(a.fireAt || '').localeCompare(String(b.fireAt || '')));
-        } catch { return local; }
+        } catch {
+            try { return currentOwner() === ownerId ? local : []; } catch { return []; }
+        }
     }
 
     function durableToReminder(job) {
@@ -206,10 +358,14 @@
     }
 
     async function rehydrate() {
+        const generation = ++reconciliation;
+        stopTimers();
         const scheduled = await listLocal({ status: 'scheduled' });
+        if (generation !== reconciliation) return;
         for (const r of scheduled) {
-            if (!timers.has(r.id)) arm(r);
+            arm(r);
         }
+        clearLocalError();
     }
 
     // In-app toast — soporta variants info/success/warn/error/loading,
@@ -356,14 +512,49 @@
         window.dispatchEvent(new CustomEvent(name, { detail }));
     }
 
+    function reconcile() { rehydrate().catch(reportLocalError); }
+
+    function invalidate(event) {
+        reconcile();
+        if (event?.detail?.remote) return;
+        try {
+            invalidationChannel?.postMessage({ ownerId: currentOwner() });
+        } catch { }
+    }
+
+    // Messages invalidate timers, never carry or attribute reminder contents.
+    // The IndexedDB claim remains the arbiter when several tabs are open.
+    try {
+        if (typeof window.BroadcastChannel === 'function') {
+            invalidationChannel = new window.BroadcastChannel('gunter-reminders-invalidation');
+            invalidationChannel.addEventListener('message', event => {
+                try {
+                    if (event.data?.ownerId !== currentOwner()) return;
+                    emit('reminders-changed', { remote: true });
+                } catch { stopTimers(); clearLocalError(); }
+            });
+        }
+    } catch { }
+    ['events-changed', 'reminders-changed'].forEach(name => window.addEventListener(name, invalidate));
+    document.addEventListener('gunter-auth-ready', reconcile);
+    document.addEventListener('gunter-auth-profile-changed', reconcile);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reconcile(); });
+    window.addEventListener('focus', reconcile);
+    window.addEventListener('storage', event => {
+        if (event.key === 'gunter_device_user' || event.key === 'gunter_auth_user') {
+            stopTimers();
+            reconcile();
+        }
+    });
+
     // Auto-rehydrate on load
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => rehydrate().catch(() => {}));
+        document.addEventListener('DOMContentLoaded', reconcile);
     } else {
-        rehydrate().catch(() => {});
+        reconcile();
     }
 
     window.GunterNotificationsService = {
-        schedule, cancel, update, list, rehydrate, requestPermission, enablePush, disablePush, pushStatus, testPush, showToast, withOperation
+        schedule, get, cancel, update, list, rehydrate, requestPermission, enablePush, disablePush, pushStatus, testPush, showToast, withOperation
     };
 })();
