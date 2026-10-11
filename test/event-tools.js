@@ -444,11 +444,18 @@ test('an event request cannot reuse an older task target or an obsolete event co
     assert.equal((await h.toolset.dispatch('crea la tarea Tarea anterior')).status, 'complete');
     assert.equal((await h.toolset.dispatch('cancela la reunión "Revisión de producto"')).status, 'awaiting_confirmation');
     const followUp = await h.toolset.dispatch('muévela para mañana a las 10');
-    assert.equal(followUp.status, 'needs_input');
-    assert.equal(followUp.intent, undefined, 'an event pronoun must not target the older task');
-    assert.equal(h.toolset.getPending(), null);
-    assert.notEqual((await h.toolset.dispatch('sí')).status, 'complete');
+    assert.equal(followUp.status, 'awaiting_confirmation');
+    assert.equal(followUp.intent, 'calendar.update', 'the pronoun must target the event rather than the older task');
+    assert.equal(h.toolset.getPending().args.targetId, h.rows[0].id);
     assert.equal(h.writes.length, 0);
+    assert.equal((await h.toolset.dispatch('sí')).status, 'complete');
+    assert.equal(h.rows[0].status, 'scheduled');
+    assert.equal(oldTask.dueAt, null, 'the older task is unchanged');
+    assert.equal(Date.parse(h.rows[0].startAt), Date.parse(tomorrowAtTen));
+    assert.equal((await h.toolset.dispatch('cancela la reunión "Revisión de producto"')).status, 'awaiting_confirmation');
+    await h.toolset.dispatch('mi agenda');
+    assert.equal(h.toolset.getPending(), null, 'a new request invalidates the old cancellation proposal');
+    assert.notEqual((await h.toolset.dispatch('sí')).status, 'complete');
     assert.equal(h.rows[0].status, 'scheduled');
 });
 

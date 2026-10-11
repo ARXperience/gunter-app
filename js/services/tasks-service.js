@@ -112,9 +112,9 @@
         } finally { db.close(); }
     }
 
-    async function complete(id, ownerId) {
+    async function complete(id, ownerId, expected) {
         const merged = await update(id, { status: 'done', completedAt: new Date().toISOString() },
-            ownerId ? { ownerId, statuses: ['pending', 'doing'] } : {});
+            ownerId ? { ownerId, statuses: ['pending', 'doing'], expected } : { expected });
         // v2 (F2) — auto-reconcile: ¿esta tarea cumple algún compromiso pendiente?
         try {
             if (window.GunterCommitmentsService?.reconcile) {
@@ -136,10 +136,10 @@
         } catch { /* noop */ }
         return merged;
     }
-    async function reopen(id, ownerId) { return update(id, { status: 'pending', completedAt: null, cancelledAt: null },
-        ownerId ? { ownerId, statuses: ['done', 'cancelled'] } : {}); }
-    async function cancel(id, ownerId) { return update(id, { status: 'cancelled', cancelledAt: new Date().toISOString() },
-        ownerId ? { ownerId, statuses: ['pending', 'doing'] } : {}); }
+    async function reopen(id, ownerId, expected) { return update(id, { status: 'pending', completedAt: null, cancelledAt: null },
+        ownerId ? { ownerId, statuses: ['done', 'cancelled'], expected } : { expected }); }
+    async function cancel(id, ownerId, expected) { return update(id, { status: 'cancelled', cancelledAt: new Date().toISOString() },
+        ownerId ? { ownerId, statuses: ['pending', 'doing'], expected } : { expected }); }
 
     async function remove(id) {
         const db = await openDB();

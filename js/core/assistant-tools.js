@@ -13,6 +13,7 @@
 })(typeof window !== 'undefined' ? window : null, function (root) {
     const PENDING_KEY = 'gunter_pending_tool_v1';
     const PENDING_TTL_MS = 5 * 60 * 1000;
+    const REFERENCE_TTL_MS = 10 * 60 * 1000;
     const VOICE_READ_ONLY_TOOLS = new Set(['app.navigate', 'settings.list', 'agenda.list', 'jobs.list',
         'desktop.files.list', 'desktop.files.search', 'desktop.ui.inspect', 'mobile.files.list', 'mobile.files.search']);
 
@@ -151,7 +152,8 @@
 
     function create(options = {}) {
         const registry = new Map();
-        let lastTaskReference = null;
+        let referenceContext = null;
+        let referenceOwner = null;
         let pendingReminderReference = null;
         let pendingEventSelection = null;
         const runtime = options.root || root || {};
@@ -168,6 +170,106 @@
             const id = trusted && auth.getUser?.()?.id;
             return typeof id === 'string' && id ? id : null;
         }
+
+        function referenceNow() { return new Date(now()).getTime(); }
+        function continuityEnabled() { return runtime.PremiumFeaturesService?.isEnabled?.('conversationContinuity') !== false; }
+        function syncReferenceScope() {
+            const ownerId = taskOwnerId();
+            if (!ownerId || ownerId !== referenceOwner) {
+                referenceContext = pendingReminderReference = pendingEventSelection = null;
+                referenceOwner = ownerId;
+            }
+            const pending = getPending();
+            if (pending && (pending.toolId.startsWith('tasks.') || pending.toolId.startsWith('calendar.'))
+                && (pending.actorId || pending.args?.ownerId) !== ownerId) savePending(null);
+            if (!continuityEnabled()) {
+                referenceContext = pendingReminderReference = null;
+                if (pendingEventSelection?.request) pendingEventSelection = null;
+            }
+            if (referenceContext && referenceNow() - referenceContext.at > REFERENCE_TTL_MS) referenceContext = null;
+            return ownerId;
+        }
+        function rememberReferences(candidates) {
+            const ownerId = taskOwnerId();
+            referenceOwner = ownerId;
+            referenceContext = ownerId && continuityEnabled() && candidates.length
+                ? { ownerId, at: referenceNow(), candidates } : null;
+        }
+        function rememberToolResult(toolId, result) {
+            const ownerId = taskOwnerId();
+            if (toolId === 'agenda.list') {
+                rememberReferences([
+                    ...(result.events || []).filter(row => row.ownerId === ownerId).map(row => ({ id: row.id, kind: 'event', title: row.title })),
+                    ...(result.tasks || []).filter(row => row.ownerId === ownerId).map(row => ({ id: row.id, kind: 'task', title: row.title }))
+                ]);
+            } else if (toolId.startsWith('tasks.') || toolId.startsWith('calendar.')) {
+                rememberReferences(result?.id && result.ownerId === ownerId
+                    ? [{ id: result.id, kind: toolId.startsWith('tasks.') ? 'task' : 'event', title: result.title }] : []);
+            }
+        }
+        async function referencedRow(reference) {
+            const ownerId = syncReferenceScope();
+            const service = reference.kind === 'event' ? options.eventsService || runtime.GunterEventsService
+                : options.tasksService || runtime.GunterTasksService;
+            const rows = ownerId && service?.list ? await service.list({ includeCancelled: true }) : [];
+            if (taskOwnerId() !== ownerId) return null;
+            return rows.find(row => row.id === reference.id && row.ownerId === ownerId) || null;
+        }
+        function referenceQuestion() {
+            return { handled: true, status: 'needs_input', reply: continuityEnabled()
+                ? '¿A qué tarea o evento te refieres? Dime su nombre y el cambio para evitar modificar otro registro.'
+                : 'La continuidad de conversación está desactivada. Dime el nombre de la tarea o evento y el cambio que quieres hacer.' };
+        }
+        async function prepareReferenceRequest(reference, request, text, dispatchOptions, originalPending = null) {
+            const row = await referencedRow(reference);
+            if (!row || !continuityEnabled()) return referenceQuestion();
+            if (reference.kind === 'event' && !['move', 'rename', 'cancel', 'remind'].includes(request.action))
+                return { handled: true, status: 'needs_input', reply: 'No tengo una herramienta para completar o reactivar eventos. Puedo cambiar su nombre, reprogramarlos o cancelarlos.' };
+            if (request.action === 'remind') {
+                const active = reference.kind === 'event' ? (row.status || 'scheduled') === 'scheduled' : ['pending', 'doing'].includes(row.status);
+                if (!active) return { handled: true, status: 'needs_input', reply: 'Ese registro ya no está activo. Dime qué quieres recordar.' };
+                pendingReminderReference = { ...reference, title: row.title, ownerId: taskOwnerId(), at: referenceNow() };
+                return { handled: true, status: 'needs_input', reply: `Puedo crear un recordatorio para “${row.title}”. ¿Cuándo quieres que te avise?` };
+            }
+            let value = request.value || '';
+            if (request.action === 'move') {
+                const previousTime = originalPending?.args?.startAt || originalPending?.args?.dueAt
+                    || (reference.kind === 'event' ? row.startAt : row.dueAt);
+                if (/^(?:a las?|las?|\d{1,2}[:.]\d{2})\b/i.test(normalize(value)) && previousTime) {
+                    const [year, month, day] = dateKey(previousTime, timezone()).split('-');
+                    value = `${day}/${month}/${year} ${value}`;
+                } else if (!/\ba las?\b|\b(?:am|pm|mediodia|medianoche)\b|\d{1,2}[:.]\d{2}/i.test(value)) {
+                    const resolved = value ? await resolveTime(value) : null;
+                    if (resolved?.kind === 'allDay' && !resolved.ambiguity && previousTime) {
+                        const clock = new Intl.DateTimeFormat('en-GB', { timeZone: timezone(), hourCycle: 'h23', hour: '2-digit', minute: '2-digit' }).format(new Date(previousTime));
+                        value = `${value} a las ${clock}`;
+                    }
+                }
+            }
+            const noun = reference.kind === 'event' ? 'evento' : 'tarea';
+            const id = String(reference.id).replace(/[“”"']/g, '');
+            const verb = { move: 'Reprograma', rename: 'Renombra', cancel: 'Cancela', complete: 'Completa', reopen: 'Reabre' }[request.action];
+            const rawText = `${verb} ${noun} "${id}"${request.action === 'move' ? ` para ${value}` : request.action === 'rename' ? ` a "${value.replace(/"/g, '')}"` : ''}`;
+            const match = detect(rawText);
+            if (!match) return referenceQuestion();
+            const prepared = await prepare({ ...match, args: { ...match.args, selectedTargetId: reference.id } });
+            if (originalPending?.args?.snapshot && JSON.stringify(originalPending.args.snapshot) !== JSON.stringify(prepared.args.snapshot))
+                return { handled: true, status: 'needs_input', reply: 'El registro cambió después de la propuesta. Selecciónalo otra vez y confirma sus datos actuales.' };
+            prepared.args = { ...prepared.args, rawText: text,
+                referenceRequest: true,
+                ...(dispatchOptions.inputSource === 'voice' ? { inputSource: 'voice', voiceTranscript: text } : {}) };
+            return execute(prepared, false);
+        }
+
+        function isContextualFollowUp(text) {
+            syncReferenceScope();
+            const pending = getPending();
+            const domainConfirmation = pending && (pending.toolId.startsWith('tasks.') || pending.toolId.startsWith('calendar.'))
+                && (isAffirmative(normalize(text)) || isNegative(normalize(text)));
+            return Boolean(domainConfirmation || parseReferenceRequest(text) || ((pendingEventSelection || referenceContext) && referenceChoice(text) !== null)
+                || (pendingReminderReference && isTimeReply(text)));
+        }
+        runtime.addEventListener?.('gunterPremiumFeaturesChange', syncReferenceScope);
 
         function state(next, reason, meta = {}) {
             try { runtime.GunterConversationState?.transition?.(next, { reason, ...meta }); } catch { /* opcional */ }
@@ -271,7 +373,7 @@
 
         function savePending(value) {
             if (!value) storage.removeItem(PENDING_KEY);
-            else storage.setItem(PENDING_KEY, JSON.stringify({ ...value, createdAt: Date.now() }));
+            else storage.setItem(PENDING_KEY, JSON.stringify({ ...value, createdAt: Date.now(), referenceAt: referenceNow(), actorId: taskOwnerId() }));
         }
 
         function getPending() {
@@ -556,19 +658,20 @@
                     (match.toolId === 'tasks.reopen' ? ['done', 'cancelled'].includes(item.status) : ['pending', 'doing'].includes(item.status)));
                 const needle = normalize(reference);
                 const exact = needle ? eligible.filter(item => normalize(item.title) === needle || item.id === reference) : [];
-                const candidates = exact.length ? exact : match.toolId === 'tasks.update' ? [] : needle.length >= 3
+                const candidates = match.args.selectedTargetId ? eligible.filter(item => item.id === match.args.selectedTargetId)
+                    : exact.length ? exact : match.toolId === 'tasks.update' ? [] : needle.length >= 3
                     ? eligible.filter(item => normalize(item.title).includes(needle)) : [];
                 const target = candidates.length === 1 ? candidates[0] : null;
                 const resolved = edit?.mode === 'due' && edit.value ? await resolveTime(edit.value) : null;
                 return { ...match, args: { ...match.args, reference, ownerId,
                     targetId: target?.id || null, targetTitle: target?.title || null,
                     ambiguous: candidates.length > 1,
+                    snapshot: target ? { title: target.title, dueAt: target.dueAt || null,
+                        status: target.status, updatedAt: target.updatedAt } : null,
                     ...(edit ? { editMode: edit.mode, newTitle: edit.mode === 'title' ? edit.value : null,
                         dueAt: edit.mode === 'due' ? resolved?.iso || null : null,
                         dueKind: resolved?.kind || null,
-                        temporalAmbiguity: resolved?.ambiguity || null,
-                        snapshot: target ? { title: target.title, dueAt: target.dueAt || null,
-                            status: target.status, updatedAt: target.updatedAt } : null } : {}) } };
+                        temporalAmbiguity: resolved?.ambiguity || null } : {}) } };
             }
             if (['calendar.update', 'calendar.cancel'].includes(match.toolId)) {
                 const service = options.eventsService || runtime.GunterEventsService;
@@ -629,7 +732,7 @@
                 if (['calendar.update', 'calendar.cancel', 'calendar.create'].includes(tool.id)) {
                     savePending(null);
                     pendingEventSelection = match.args.ambiguous && match.args.ownerId ? {
-                        match, ownerId: match.args.ownerId, at: Date.now()
+                        match, ownerId: match.args.ownerId, at: referenceNow()
                     } : null;
                 }
                 state('idle', 'tool-validation-failed', { toolId: tool.id });
@@ -679,10 +782,7 @@
                 if (controlRun) controlStage = 'verified';
                 await controlTransition(controlRun, 'completed', { reason: 'legacy_adapter_complete' });
                 const reply = tool.formatResult ? await tool.formatResult(result, match.args) : 'Listo.';
-                if (tool.id.startsWith('tasks.') && result?.id && taskOwnerId()) {
-                    lastTaskReference = { id: result.id, title: result.title || match.args.title || match.args.targetTitle,
-                        ownerId: taskOwnerId(), at: Date.now() };
-                }
+                rememberToolResult(tool.id, result);
                 savePending(null);
                 state('idle', 'tool-complete', { toolId: tool.id, verified: true });
                 notify({ phase: 'complete', toolId: tool.id, result, verified: true });
@@ -723,11 +823,13 @@
             if (!verified) throw new Error('La acción respondió, pero no pude verificar el resultado guardado.');
             const evidence = workflowEvidence(tool.id, result);
             const reply = tool.formatResult ? await tool.formatResult(result, match.args) : 'Paso verificado.';
+            rememberToolResult(tool.id, result);
             notify({ phase: 'workflow_step_complete', toolId: tool.id, stepId: step.stepId, verified: true });
             return { result, evidence, reply };
         }
 
         async function dispatch(text, options = {}) {
+            const ownerId = syncReferenceScope();
             try { await runtime.GunterContextProvider?.enrich?.(text, { channel: 'tool' }); } catch { /* local-first */ }
             const normalized = normalize(text);
             const pending = getPending();
@@ -744,23 +846,21 @@
                 notify({ phase: 'cancelled', toolId: pending.toolId });
                 return { handled: true, intent: pending.toolId, status: 'cancelled', reply: 'Cancelado. No hice ningún cambio.' };
             }
-            // A new request supersedes an unconfirmed event proposal. A later
-            // standalone yes must not apply an older, unrelated calendar change.
-            if (pending?.toolId?.startsWith('calendar.')) savePending(null);
+            // New domain requests replace the earlier proposal, never authorize it.
+            if (pending && (pending.toolId.startsWith('calendar.') || pending.toolId.startsWith('tasks.'))) savePending(null);
 
             const selection = pendingEventSelection;
             pendingEventSelection = null;
-            if (selection && selection.ownerId === taskOwnerId() && Date.now() - selection.at < PENDING_TTL_MS) {
+            if (selection && selection.ownerId === ownerId && referenceNow() - selection.at < PENDING_TTL_MS) {
                 if (isNegative(normalized)) return { handled: true, status: 'cancelled', reply: 'Cancelado. No hice ningún cambio.' };
-                const ordinal = { primera: 1, primero: 1, segunda: 2, segundo: 2, tercera: 3, tercero: 3, cuarta: 4, cuarto: 4 };
-                const choiceText = normalized.replace(/^(?:la|el|opcion|numero)\s+/, '');
-                const choice = /^\d+$/.test(choiceText) ? Number(choiceText) : ordinal[choiceText];
-                if (choice !== undefined) {
-                    const candidate = selection.match.args.candidates[choice - 1];
+                const choice = referenceChoice(text);
+                if (choice !== null) {
+                    const candidate = (selection.candidates || selection.match.args.candidates)[choice - 1];
                     if (!candidate) {
                         pendingEventSelection = selection;
-                        return { handled: true, status: 'needs_input', reply: 'Elige uno de los números de la lista de eventos.' };
+                        return { handled: true, status: 'needs_input', reply: 'Elige uno de los números de la lista.' };
                     }
+                    if (selection.request) return prepareReferenceRequest(candidate, selection.request, text, options);
                     const prepared = await prepare({ toolId: selection.match.toolId,
                         args: { rawText: selection.match.args.rawText, selectedTargetId: candidate.id } });
                     if (options.inputSource === 'voice') prepared.args = { ...prepared.args, inputSource: 'voice', voiceTranscript: text };
@@ -768,37 +868,52 @@
                 }
             }
 
-            // Resolve only a recent, verified task target. Never guess among
-            // several records or execute a side effect from an ambiguous pronoun.
-            let effectiveText = text;
-            const taskFollowUp = /^(?:y\s+)?(?:hazlo|muevela|muevelo|reprogramala|reprogramalo|cambiala|cambialo|ponla|ponlo)\s+(?:para\s+|a\s+)?(.+)$/i.exec(normalized);
-            const reminderFollowUp = /^(?:y\s+)?recuerdame\s+(?:eso|esa|esto|esta)(?:\s+tambien)?$/i.test(normalized);
+            const request = parseReferenceRequest(text);
             const pendingReminder = pendingReminderReference;
             pendingReminderReference = null;
-            const timeReply = /^(?:hoy|manana|pasado manana|el (?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)|a las?|en \d+|dentro de|\d{1,2}[:.]\d{2})\b/.test(normalized);
-            if (pendingReminder?.ownerId === taskOwnerId() && Date.now() - pendingReminder.at < 10 * 60 * 1000
-                && timeReply && !taskFollowUp && !reminderFollowUp) {
-                effectiveText = `Recuérdame ${pendingReminder.title.replace(/"/g, '')} ${text}`;
+            if (pendingReminder?.ownerId === ownerId && referenceNow() - pendingReminder.at < REFERENCE_TTL_MS
+                && isTimeReply(text) && !request && continuityEnabled()) {
+                const row = await referencedRow(pendingReminder);
+                const active = row && (pendingReminder.kind === 'event' ? (row.status || 'scheduled') === 'scheduled' : ['pending', 'doing'].includes(row.status));
+                if (!active) return { handled: true, status: 'needs_input', reply: 'El registro del recordatorio cambió o ya no está activo. Dime qué quieres recordar.' };
+                // Resolve only the newly supplied time; titles can contain
+                // words such as "Tarea" or dates and must not be reparsed.
+                const prepared = await prepare({ toolId: 'reminder.schedule', args: { rawText: text } });
+                prepared.args = { ...prepared.args, title: row.title,
+                    ...(options.inputSource === 'voice' ? { inputSource: 'voice', voiceTranscript: text } : {}) };
+                return execute(prepared, false);
             }
-            if (taskFollowUp || reminderFollowUp) {
-                const target = lastTaskReference?.ownerId === taskOwnerId() && Date.now() - lastTaskReference.at < 10 * 60 * 1000
-                    ? lastTaskReference : null;
-                if (!target?.title) return { handled: true, status: 'needs_input', reply: '¿A qué tarea o evento te refieres? Dime su nombre y el cambio para evitar modificar otro registro.' };
-                if (reminderFollowUp) {
-                    pendingReminderReference = { title: target.title, ownerId: target.ownerId, at: Date.now() };
-                    return { handled: true, status: 'needs_input',
-                        reply: `Puedo crear un recordatorio para “${target.title}”. ¿Cuándo quieres que te avise?` };
+            const choice = referenceChoice(text);
+            if (request || (choice !== null && referenceContext)) {
+                if (!ownerId || !continuityEnabled()) return referenceQuestion();
+                const pendingDomain = pending?.args?.ownerId === ownerId && pending.args.targetId
+                    && referenceNow() - (pending.referenceAt || 0) < REFERENCE_TTL_MS
+                    && (pending.toolId.startsWith('tasks.') || pending.toolId.startsWith('calendar.')) ? pending : null;
+                const candidates = pendingDomain ? [{ id: pendingDomain.args.targetId, title: pendingDomain.args.targetTitle,
+                    kind: pendingDomain.toolId.startsWith('calendar.') ? 'event' : 'task' }]
+                    : referenceContext?.ownerId === ownerId ? referenceContext.candidates : [];
+                const requestedChoice = request?.choice ?? choice;
+                const candidate = requestedChoice !== null && requestedChoice !== undefined ? candidates[requestedChoice - 1]
+                    : candidates.length === 1 ? candidates[0] : null;
+                if (!candidate && candidates.length > 1 && requestedChoice == null && request) {
+                    pendingEventSelection = { request, candidates, ownerId, at: referenceNow() };
+                    return { handled: true, status: 'needs_input', reply: `¿Cuál quieres cambiar?\n${candidates.map((row, index) => `${index + 1}. ${row.kind === 'event' ? 'Evento' : 'Tarea'}: ${row.title}`).join('\n')}\nDime el número; después pediré confirmación.` };
                 }
-                effectiveText = `Reprograma la tarea "${target.title.replace(/"/g, '')}" para ${taskFollowUp[1]}`;
+                if (!candidate) return referenceQuestion();
+                if (!request) {
+                    const row = await referencedRow(candidate);
+                    if (!row) return referenceQuestion();
+                    rememberReferences([{ ...candidate, title: row.title }]);
+                    return { handled: true, status: 'needs_input', reply: `Te refieres a ${candidate.kind === 'event' ? 'el evento' : 'la tarea'} “${row.title}”. ¿Qué cambio quieres hacer?` };
+                }
+                return prepareReferenceRequest(candidate, request, text, options, pendingDomain);
             }
-            const detected = detect(effectiveText);
-            if (!detected) return { handled: false };
-            if (detected.toolId.startsWith('calendar.')) {
-                // An event request must not leave an older task as the target
-                // of a later pronoun while event-specific follow-ups are pending.
-                lastTaskReference = null;
+            const detected = detect(text);
+            if (!detected) { referenceContext = null; return { handled: false }; }
+            if (detected.toolId.startsWith('calendar.') || detected.toolId.startsWith('tasks.')) {
+                referenceContext = null;
                 pendingReminderReference = null;
-            }
+            } else if (!['agenda.list', 'reminder.schedule'].includes(detected.toolId)) referenceContext = null;
             const prepared = await prepare(detected);
             if (options.inputSource === 'voice') prepared.args = { ...prepared.args, inputSource: 'voice', voiceTranscript: String(text || '') };
             return execute(prepared, false);
@@ -1253,8 +1368,8 @@
                 const label = result.scope === 'tomorrow' ? 'mañana' : result.scope === 'upcoming' ? 'próximamente' : 'hoy';
                 if (!result.tasks.length && !result.events.length) return `No tienes tareas ni eventos ${label}.`;
                 const lines = [`Esto tienes ${label}:`];
-                result.events.forEach(event => lines.push(`• ${formatTime(event.startAt, timezone())} — ${event.title}`));
-                result.tasks.forEach(task => lines.push(`• Tarea: ${task.title}${task.dueAt ? ` (${formatTime(task.dueAt, timezone())})` : ''}`));
+                result.events.forEach(event => lines.push(`${lines.length}. Evento: ${formatTime(event.startAt, timezone())} — ${event.title}`));
+                result.tasks.forEach(task => lines.push(`${lines.length}. Tarea: ${task.title}${task.dueAt ? ` (${formatTime(task.dueAt, timezone())})` : ''}`));
                 return lines.join('\n');
             }
         });
@@ -1408,8 +1523,14 @@
                 if (taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué la tarea.');
                 if (!service?.list || !service[action]) throw new Error('El servicio de tareas no está disponible.');
                 const current = (await service.list()).find(item => item.id === args.targetId && item.ownerId === args.ownerId);
+                if (taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué la tarea.');
                 if (!current || (action === 'reopen' ? !['done', 'cancelled'].includes(current.status) : !['pending', 'doing'].includes(current.status)))
                     throw new Error('La tarea cambió o ya no pertenece a esta cuenta. Revísala antes de repetir la orden.');
+                if (args.referenceRequest) {
+                    if (!args.snapshot || Object.entries(args.snapshot).some(([key, value]) => (current[key] || null) !== (value || null)))
+                        throw new Error('La tarea cambió después de la propuesta. Selecciónala otra vez y confirma sus datos actuales.');
+                    return service[action](args.targetId, args.ownerId, args.snapshot);
+                }
                 return service[action](args.targetId, args.ownerId);
             },
             async verify(result, args) {
@@ -1461,6 +1582,7 @@
                 if (taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué la tarea.');
                 if (!service?.list || !service?.update) throw new Error('El servicio de tareas no está disponible.');
                 const current = (await service.list()).find(item => item.id === args.targetId && item.ownerId === args.ownerId);
+                if (taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué la tarea.');
                 if (!current || !['pending', 'doing'].includes(current.status)
                     || Object.entries(args.snapshot || {}).some(([key, value]) => (current[key] || null) !== (value || null)))
                     throw new Error('La tarea cambió desde la confirmación. Revísala y vuelve a pedir el cambio.');
@@ -1598,11 +1720,11 @@
         });
 
         return {
-            dispatch, detect, clarifyRequest, register, listTools, getPending,
+            dispatch, detect, clarifyRequest, register, listTools, getPending, isContextualFollowUp,
             prepareMatch: prepare,
             validatePrepared,
             executeWorkflowStep,
-            clearPending: () => { savePending(null); pendingEventSelection = null; }, normalize
+            clearPending: () => { savePending(null); referenceContext = pendingReminderReference = pendingEventSelection = null; }, normalize
         };
     }
 
@@ -1662,6 +1784,41 @@
             .replace(/^(?:por favor\s+)?(?:completa|completar|termina|terminar|finaliza|finalizar|reabre|reabrir|reactiva|reactivar|vuelve a abrir|marca|marcar|cancela|cancelar)\s+(?:(?:la|el|una|un)\s+)?(?:tarea|pendiente)\s*(?:de\s+)?/i, '')
             .replace(/\s+como\s+(?:hecha|terminada|completada)\s*$/i, '')
             .replace(/[.!?]+$/, '').trim().slice(0, 180);
+    }
+
+    function referenceChoice(text) {
+        const value = normalize(text).replace(/^(?:la|el|opcion|numero)\s+/, '');
+        if (/^\d+$/.test(value)) return Number(value);
+        return ({ primera: 1, primero: 1, segunda: 2, segundo: 2, tercera: 3, tercero: 3,
+            cuarta: 4, cuarto: 4, quinta: 5, quinto: 5, sexta: 6, sexto: 6,
+            septima: 7, septimo: 7, octava: 8, octavo: 8, novena: 9, noveno: 9, decima: 10, decimo: 10 })[value] ?? null;
+    }
+
+    function isTimeReply(text) {
+        return /^(?:hoy|manana|pasado manana|el (?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)|a las?|en \d+|dentro de)\b/.test(normalize(text))
+            || /^\d{1,2}[:.]\d{2}\b/.test(String(text).trim());
+    }
+
+    function parseReferenceRequest(text) {
+        const raw = String(text || '').trim().replace(
+            /^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*[,;:!\-]*\s*/i, '')
+            .replace(/^(?:y\s+|por favor\s+)/i, '').replace(/[.!?]+$/, '').trim();
+        const normalized = normalize(raw);
+        if (/^recuerdame\s+(?:eso|esa|ese|esto|esta)(?:\s+tambien)?$/.test(normalized)) return { action: 'remind' };
+        const status = /^(cancelala|cancelalo|cancela (?:eso|esa|ese|esto|esta)|completala|completalo|terminala|terminalo|reabrela|reabrelo|reactivala|reactivalo)$/.exec(normalized);
+        if (status) return { action: /^(cancel)/.test(status[1]) ? 'cancel' : /^(reabre|reactiva)/.test(status[1]) ? 'reopen' : 'complete' };
+        if (/^(muevela|muevelo|reprogramala|reprogramalo|cambiala|cambialo|posponla|posponlo)$/.test(normalized)) return { action: 'move', value: '' };
+        const move = raw.match(/^(?:mu[eé]vela|mu[eé]velo|reprogr[aá]mala|reprogr[aá]malo|c[aá]mbiala|c[aá]mbialo|ponla|ponlo|hazlo|posponla|posponlo|mejor)\s+(?:para\s+|a\s+(?!las?\b))?(.+)$/i);
+        if (move) return { action: 'move', value: move[1].replace(/^las?\s+/i, 'a las ') };
+        const rename = raw.match(/^(?:ren[oó]mbrala|ren[oó]mbralo|ll[aá]mala|ll[aá]malo)\s+(?:(?:a|como)\s+)?(.+)$/i);
+        if (rename) return { action: 'rename', value: rename[1].replace(/^[“"']|[”"']$/g, '').trim() };
+        const indexedStatus = /^(cancela|completa|reabre|reactiva)\s+(.+)$/.exec(normalized);
+        const choice = indexedStatus ? referenceChoice(indexedStatus[2]) : null;
+        if (choice !== null) return { action: indexedStatus[1] === 'cancela' ? 'cancel' : indexedStatus[1] === 'completa' ? 'complete' : 'reopen', choice };
+        const indexedMove = raw.match(/^(?:mueve|reprograma|pospone)\s+(.+?)\s+(?:para\s+|a\s+(?!las?\b))(.+)$/i);
+        if (indexedMove && referenceChoice(indexedMove[1]) !== null)
+            return { action: 'move', choice: referenceChoice(indexedMove[1]), value: indexedMove[2] };
+        return null;
     }
 
     function eventSnapshot(item) {

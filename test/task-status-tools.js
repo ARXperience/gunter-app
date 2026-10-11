@@ -168,5 +168,28 @@ const toolset = assistant.create({
     assert.equal((await service.reopen('task_guard', 'alice')).status, 'pending');
     assert.equal(persisted.get('task_guard').cancelledAt, null);
 
+    // State helpers must pass snapshots through the same transaction guard.
+    for (const [action, before, after] of [
+        ['complete', 'pending', 'done'],
+        ['cancel', 'pending', 'cancelled'],
+        ['reopen', 'cancelled', 'pending']
+    ]) {
+        if (before === 'cancelled') await service.cancel('task_guard', 'alice');
+        assert.equal(persisted.get('task_guard').status, before);
+        const snapshot = { ...persisted.get('task_guard') };
+        await service.update('task_guard', { title: `Cambio durante ${action}` }, { ownerId: 'alice' });
+        const changedRow = persisted.get('task_guard');
+        await assert.rejects(service[action]('task_guard', 'alice', snapshot), /TASK_CHANGED/);
+        assert.equal(persisted.get('task_guard'), changedRow);
+        const result = await service[action]('task_guard', 'alice', { ...changedRow });
+        assert.equal(result.status, after);
+        if (action === 'complete') assert.ok(result.completedAt);
+        if (action === 'cancel') assert.ok(result.cancelledAt);
+        if (action === 'reopen') {
+            assert.equal(result.completedAt, null);
+            assert.equal(result.cancelledAt, null);
+        } else await service.reopen('task_guard', 'alice');
+    }
+
     console.log('task-status-tools: PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });
