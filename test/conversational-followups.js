@@ -77,6 +77,7 @@ function makeHarness(options = {}) {
         remove: async () => assert.fail('a conversational cancellation must retain the task')
     };
     const eventsService = {
+        checkSchedule: async () => ({ conflicts: [], suggestions: [], complete: true, warnings: [], fingerprint: 'fixture-agenda' }),
         list: async () => clone(events),
         create: async data => {
             eventCreates.push(clone(data));

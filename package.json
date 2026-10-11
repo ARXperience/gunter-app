@@ -12,6 +12,7 @@
     "test:assistant": "node test/assistant-core.js",
     "test:agenda": "node test/event-tools.js && node test/event-service.js && node test/event-action-engine.js",
     "test:followups": "node test/conversational-followups.js",
+    "test:calendar-schedule": "node test/calendar-schedule-tools.js && node test/event-service.js",
     "test:jobs": "node test/jobs-core.js",
     "test:control": "node test/control-plane-core.js",
     "test:hybrid": "node test/hybrid-foundation.js && node test/hybrid-browser.js",

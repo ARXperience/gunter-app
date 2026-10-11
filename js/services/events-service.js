@@ -87,7 +87,104 @@
             Object.prototype.hasOwnProperty.call(right, key) && sameValue(left[key], right[key]));
     }
 
-    async function create(data) {
+    function scheduleDayFormatter(timezone) {
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone || window.GunterPresence?.timezone?.()
+                || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+            year: 'numeric', month: '2-digit', day: '2-digit'
+        });
+    }
+
+    function canonicalValue(value) {
+        if (!value || typeof value !== 'object') return value ?? null;
+        if (Array.isArray(value)) return value.map(canonicalValue);
+        return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalValue(value[key])]));
+    }
+
+    // Inspect only cached calendar records. Recurrences and legacy all-day rows
+    // have no expanded coverage here, so they cannot prove that a slot is free.
+    function inspectSchedule(rows, { ownerId, startAt, endAt, excludeId, timezone }) {
+        const start = typeof startAt === 'string' ? Date.parse(startAt) : NaN;
+        const end = typeof endAt === 'string' ? Date.parse(endAt) : NaN;
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+            throw new Error('EVENT_INVALID_DATES');
+        }
+        const formatter = scheduleDayFormatter(timezone);
+        const active = rows.filter(row => row.ownerId === ownerId && row.id !== excludeId
+            && (!row.status || row.status === 'scheduled'));
+        const valid = [], unresolved = [];
+        let recurring = false, invalid = false, allDay = false;
+        for (const row of active) {
+            const rowStart = typeof row.startAt === 'string' ? Date.parse(row.startAt) : NaN;
+            const rowEnd = typeof row.endAt === 'string' ? Date.parse(row.endAt) : NaN;
+            const badDates = !Number.isFinite(rowStart) || !Number.isFinite(rowEnd) || rowEnd <= rowStart;
+            const recurrence = Boolean(row.rrule) || row.kind === 'recurring';
+            const partialDay = row.kind === 'allDay';
+            if (badDates || recurrence || partialDay) unresolved.push(row);
+            recurring ||= recurrence; invalid ||= badDates; allDay ||= partialDay;
+            if (!badDates) valid.push({ row, start: rowStart, end: rowEnd });
+        }
+        valid.sort((a, b) => a.start - b.start || a.end - b.end || String(a.row.id).localeCompare(String(b.row.id)));
+        const overlaps = valid.filter(interval => interval.start < end && interval.end > start);
+        const fingerprintRows = [...new Map([...overlaps.map(item => item.row), ...unresolved]
+            .map(row => [row.id, row])).values()].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        const fingerprint = JSON.stringify(fingerprintRows.map(row => ({
+            id: row.id, title: row.title ?? null, startAt: row.startAt ?? null,
+            endAt: row.endAt ?? null, status: row.status || 'scheduled',
+            updatedAt: row.updatedAt ?? null, rrule: canonicalValue(row.rrule), kind: row.kind ?? null
+        })));
+        const warnings = [];
+        if (recurring) warnings.push('Hay eventos recurrentes sin ocurrencias expandidas; no puedo asegurar los horarios libres.');
+        if (allDay) warnings.push('Hay eventos de día completo cuya cobertura no está resuelta; no puedo asegurar los horarios libres.');
+        if (invalid) warnings.push('Hay eventos propios con fechas inválidas; corrígelos antes de confiar en los horarios libres.');
+        const complete = unresolved.length === 0;
+        const suggestions = [];
+        if (complete && overlaps.length) {
+            const duration = end - start, day = formatter.format(new Date(start));
+            let candidate = start;
+            while (suggestions.length < 3) {
+                const candidateEnd = candidate + duration;
+                // end - 1ms permits an exact midnight boundary, never the next day.
+                if (formatter.format(new Date(candidate)) !== day
+                    || formatter.format(new Date(candidateEnd - 1)) !== day) break;
+                const blockers = valid.filter(interval => interval.start < candidateEnd && interval.end > candidate);
+                if (blockers.length) {
+                    candidate = Math.max(...blockers.map(interval => interval.end));
+                    continue;
+                }
+                suggestions.push({ startAt: new Date(candidate).toISOString(), endAt: new Date(candidateEnd).toISOString() });
+                candidate = candidateEnd;
+            }
+        }
+        return {
+            conflicts: overlaps.map(({ row }) => ({ id: row.id, title: row.title,
+                startAt: row.startAt, endAt: row.endAt })),
+            suggestions, complete, warnings, fingerprint
+        };
+    }
+
+    function scheduleGuard(opts) {
+        if (!Object.prototype.hasOwnProperty.call(opts, 'scheduleExpected')) return null;
+        const expected = opts.scheduleExpected;
+        if (!expected || typeof expected.fingerprint !== 'string') {
+            throw new Error('EVENT_INVALID_SCHEDULE_GUARD');
+        }
+        scheduleDayFormatter(expected.timezone);
+        return expected;
+    }
+
+    async function checkSchedule({ ownerId, startAt, endAt, excludeId, timezone } = {}) {
+        const authenticatedOwner = currentOwner();
+        if (!ownerId || (authenticatedOwner && ownerId !== authenticatedOwner)) {
+            throw new Error('EVENT_OWNER_MISMATCH');
+        }
+        // Do not filter by start date: an interval may begin on a previous day.
+        const rows = await list({ ownerId, includeCancelled: true });
+        if (currentOwner() !== authenticatedOwner) throw new Error('EVENT_OWNER_MISMATCH');
+        return inspectSchedule(rows, { ownerId, startAt, endAt, excludeId, timezone });
+    }
+
+    async function create(data, opts = {}) {
         const ownerId = currentOwner();
         if (ownerId && data.ownerId != null && data.ownerId !== ownerId) {
             throw new Error('EVENT_OWNER_MISMATCH');
@@ -117,14 +214,32 @@
             updatedAt: new Date().toISOString()
         };
         validateEvent(event);
+        const expectedSchedule = scheduleGuard(opts);
         const db = await openDB();
         try {
             await new Promise((res, rej) => {
                 if (currentOwner() !== ownerId) throw new Error('EVENT_OWNER_MISMATCH');
                 const t = db.transaction(STORE, 'readwrite');
-                t.objectStore(STORE).add(event);
+                const store = t.objectStore(STORE);
+                let failure = null;
+                if (expectedSchedule) {
+                    const request = store.getAll();
+                    request.onsuccess = () => {
+                        try {
+                            if (currentOwner() !== ownerId) throw new Error('EVENT_OWNER_MISMATCH');
+                            const schedule = inspectSchedule(request.result || [], {
+                                ownerId: event.ownerId, startAt: event.startAt, endAt: event.endAt,
+                                timezone: expectedSchedule.timezone
+                            });
+                            if (schedule.fingerprint !== expectedSchedule.fingerprint) {
+                                throw new Error('EVENT_SCHEDULE_CHANGED');
+                            }
+                            store.add(event);
+                        } catch (error) { failure = error; t.abort(); }
+                    };
+                } else store.add(event);
                 t.oncomplete = res;
-                t.onabort = t.onerror = () => rej(t.error || new Error('EVENT_CREATE_ABORTED'));
+                t.onabort = t.onerror = () => rej(failure || t.error || new Error('EVENT_CREATE_ABORTED'));
             });
         } finally { db.close(); }
         emit('events-changed', { op: 'create', id: event.id });
@@ -162,6 +277,7 @@
                 throw new Error('EVENT_PATCH_FORBIDDEN');
             }
         }
+        const expectedSchedule = scheduleGuard(opts);
         const db = await openDB();
         let merged;
         try {
@@ -192,7 +308,22 @@
                             next.title = next.title.trim();
                         }
                         validateEvent(next);
-                        store.put(next);
+                        if (expectedSchedule) {
+                            const scheduleRequest = store.getAll();
+                            scheduleRequest.onsuccess = () => {
+                                try {
+                                    if (currentOwner() !== authenticatedOwner) throw new Error('EVENT_OWNER_MISMATCH');
+                                    const schedule = inspectSchedule(scheduleRequest.result || [], {
+                                        ownerId: next.ownerId, startAt: next.startAt, endAt: next.endAt,
+                                        excludeId: id, timezone: expectedSchedule.timezone
+                                    });
+                                    if (schedule.fingerprint !== expectedSchedule.fingerprint) {
+                                        throw new Error('EVENT_SCHEDULE_CHANGED');
+                                    }
+                                    store.put(next);
+                                } catch (error) { failure = error; t.abort(); }
+                            };
+                        } else store.put(next);
                     } catch (error) { failure = error; t.abort(); }
                 };
                 t.oncomplete = () => res(next);
@@ -315,6 +446,6 @@
     }
 
     window.GunterEventsService = {
-        create, update, remove, list, listForToday, listUpcoming
+        create, update, remove, list, listForToday, listUpcoming, checkSchedule
     };
 })();

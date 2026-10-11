@@ -342,6 +342,147 @@ function snapshot(row) {
     delete calendarDay.window.GunterPresence;
     assert.deepEqual(clone((await calendarDay.service.listForToday()).map(row => row.id)), [sameInstant.id, nextBogotaDay.id]);
 
+    // Conflict checks include previous-day spans, cached external records and
+    // exact account ownership, with half-open boundaries rather than start filters.
+    const schedule = fixture();
+    const slot = { ownerId: 'alice', startAt: '2026-10-11T15:00:00Z',
+        endAt: '2026-10-11T16:00:00Z', timezone: 'America/Bogota' };
+    const scheduleRow = (id, first, last, extra = {}) => ({ id, title: id, ownerId: 'alice',
+        startAt: first, endAt: last, status: 'scheduled', updatedAt: 'revision-1', ...extra });
+    const scheduleRows = [
+        scheduleRow('ends-at-start', '2026-10-11T14:00:00Z', slot.startAt),
+        scheduleRow('overlap', '2026-10-11T09:30:00-05:00', '2026-10-11T10:30:00-05:00'),
+        scheduleRow('cached-external', '2026-10-11T15:30:00Z', '2026-10-11T16:30:00Z', { externalIds: { google: 'cached' } }),
+        scheduleRow('starts-at-end', slot.endAt, '2026-10-11T17:00:00Z'),
+        scheduleRow('legacy', slot.startAt, slot.endAt, { ownerId: undefined }),
+        scheduleRow('other-account', slot.startAt, slot.endAt, { ownerId: 'bob' }),
+        scheduleRow('cancelled', slot.startAt, slot.endAt, { status: 'cancelled' }),
+        scheduleRow('archived', slot.startAt, slot.endAt, { status: 'archived' })
+    ];
+    scheduleRows.forEach(row => schedule.fake.rows.set(row.id, row));
+    const inspected = await schedule.service.checkSchedule(slot);
+    assert.equal(inspected.complete, true);
+    assert.deepEqual(clone(inspected.conflicts.map(row => row.id)), ['overlap', 'cached-external']);
+    assert.deepEqual(clone(inspected.suggestions), [
+        { startAt: '2026-10-11T17:00:00.000Z', endAt: '2026-10-11T18:00:00.000Z' },
+        { startAt: '2026-10-11T18:00:00.000Z', endAt: '2026-10-11T19:00:00.000Z' },
+        { startAt: '2026-10-11T19:00:00.000Z', endAt: '2026-10-11T20:00:00.000Z' }
+    ]);
+    assert.deepEqual(clone((await schedule.service.checkSchedule({ ...slot, excludeId: 'overlap' })).conflicts.map(row => row.id)), ['cached-external']);
+    schedule.fake.rows.get('overlap').arbitraryProfileMetadata = { city: 'new-value' };
+    schedule.fake.rows.get('other-account').title = 'Changed foreign title';
+    schedule.fake.rows.get('starts-at-end').title = 'Changed irrelevant title';
+    assert.equal((await schedule.service.checkSchedule(slot)).fingerprint, inspected.fingerprint,
+        'only overlap and unresolved coverage contribute to the fingerprint');
+    schedule.fake.rows.get('overlap').title = 'Changed actual blocker';
+    assert.notEqual((await schedule.service.checkSchedule(slot)).fingerprint, inspected.fingerprint);
+    schedule.fake.rows.set('previous-day-span', scheduleRow('previous-day-span',
+        '2026-10-10T23:00:00-05:00', '2026-10-11T10:15:00-05:00', { status: undefined }));
+    assert.ok((await schedule.service.checkSchedule(slot)).conflicts.some(row => row.id === 'previous-day-span'));
+    await assert.rejects(schedule.service.checkSchedule({ ...slot, ownerId: 'bob' }), /EVENT_OWNER_MISMATCH/);
+    await assert.rejects(schedule.service.checkSchedule({ ...slot, ownerId: undefined }), /EVENT_OWNER_MISMATCH/);
+    await assert.rejects(schedule.service.checkSchedule({ ...slot, endAt: slot.startAt }), /EVENT_INVALID_DATES/);
+    await assert.rejects(schedule.service.checkSchedule({ ...slot, timezone: 'Invalid/Timezone' }), /Invalid time zone/);
+    schedule.fake.beforeRequest = op => { if (op === 'getAll') throw new Error('FAKE_QUERY_FAILED'); };
+    await assert.rejects(schedule.service.checkSchedule(slot), /FAKE_QUERY_FAILED/);
+    schedule.fake.beforeRequest = op => { if (op === 'getAll') schedule.session.ownerId = 'bob'; };
+    await assert.rejects(schedule.service.checkSchedule(slot), /EVENT_OWNER_MISMATCH/);
+    schedule.fake.beforeRequest = null; schedule.session.ownerId = 'alice';
+    schedule.session.trusted = false;
+    await assert.rejects(schedule.service.checkSchedule(slot), /EVENT_AUTH_REQUIRED/);
+    schedule.session.trusted = true;
+
+    for (const incomplete of [
+        { id: 'unexpanded-recurrence', kind: 'recurring', rrule: { interval: 1, freq: 'WEEKLY' } },
+        { id: 'unresolved-all-day', kind: 'allDay' },
+        { id: 'invalid-own-dates', startAt: 'invalid' }
+    ]) {
+        const row = scheduleRow(incomplete.id, '2026-11-11T15:00:00Z', '2026-11-11T16:00:00Z', incomplete);
+        schedule.fake.rows.set(row.id, row);
+        const limited = await schedule.service.checkSchedule(slot);
+        assert.equal(limited.complete, false);
+        assert.equal(limited.suggestions.length, 0);
+        assert.ok(limited.warnings.length);
+        assert.notEqual(limited.fingerprint, (await schedule.service.checkSchedule({ ...slot, excludeId: row.id })).fingerprint);
+        if (row.rrule) {
+            row.rrule = { freq: 'WEEKLY', interval: 1 };
+            assert.equal((await schedule.service.checkSchedule(slot)).fingerprint, limited.fingerprint,
+                'rrule property order does not invalidate a proposal');
+        }
+        schedule.fake.rows.delete(row.id);
+    }
+
+    // Suggestions use the requested timezone, never crossing the local day;
+    // the exact midnight boundary is safe because the interval is half-open.
+    const late = fixture();
+    const lateSlot = { ...slot, startAt: '2026-10-12T03:30:00Z', endAt: '2026-10-12T04:00:00Z' };
+    late.fake.rows.set('late-blocker', scheduleRow('late-blocker', lateSlot.startAt, '2026-10-12T04:30:00Z'));
+    const lateCheck = await late.service.checkSchedule(lateSlot);
+    assert.deepEqual(clone(lateCheck.suggestions), [
+        { startAt: '2026-10-12T04:30:00.000Z', endAt: '2026-10-12T05:00:00.000Z' }
+    ]);
+    assert.equal((await late.service.checkSchedule({ ...lateSlot, timezone: 'UTC' })).suggestions.length, 3);
+    assert.equal((await late.service.checkSchedule({ ...lateSlot, endAt: '2026-10-12T04:30:00Z' })).suggestions.length, 0);
+
+    // Schedule approval and write share one transaction. A competing create
+    // invalidates the second proposal; no partial write, success event or sync.
+    const atomicSchedule = fixture();
+    const emptySchedule = await atomicSchedule.service.checkSchedule(slot);
+    const scheduleExpected = { fingerprint: emptySchedule.fingerprint, timezone: slot.timezone };
+    let schedulePushes = 0;
+    atomicSchedule.window.GunterCalendarService = { pushEvent: async () => { schedulePushes++; return {}; } };
+    const competing = await Promise.allSettled([
+        atomicSchedule.service.create({ ...input, pushToGoogle: true }, { scheduleExpected }),
+        atomicSchedule.service.create({ ...input, pushToGoogle: true }, { scheduleExpected })
+    ]);
+    assert.deepEqual(competing.map(result => result.status), ['fulfilled', 'rejected']);
+    assert.match(competing[1].reason.message, /EVENT_SCHEDULE_CHANGED/);
+    assert.equal(atomicSchedule.fake.rows.size, 1);
+    assert.equal(atomicSchedule.emitted.length, 1);
+    assert.equal(schedulePushes, 1);
+    const atomicWrites = atomicSchedule.fake.transactions.filter(tx => tx.mode === 'readwrite');
+    assert.deepEqual(atomicWrites.map(tx => tx.operations), [['getAll', 'add'], ['getAll']]);
+    assert.equal(atomicWrites[1].aborted, true);
+    const acceptedConflicts = await atomicSchedule.service.checkSchedule(slot);
+    await atomicSchedule.service.create(input, {
+        scheduleExpected: { fingerprint: acceptedConflicts.fingerprint, timezone: slot.timezone }
+    });
+    assert.equal(atomicSchedule.fake.rows.size, 2, 'an explicitly approved known overlap is not a hidden hard block');
+
+    const atomicMove = fixture();
+    const firstTarget = scheduleRow('first-target', '2026-10-11T20:00:00Z', '2026-10-11T21:00:00Z');
+    const secondTarget = scheduleRow('second-target', '2026-10-11T21:00:00Z', '2026-10-11T22:00:00Z');
+    atomicMove.fake.rows.set(firstTarget.id, firstTarget);
+    atomicMove.fake.rows.set(secondTarget.id, secondTarget);
+    const moveSchedule = await atomicMove.service.checkSchedule({ ...slot, excludeId: firstTarget.id });
+    const moveOptions = { ownerId: 'alice', skipSync: true,
+        scheduleExpected: { fingerprint: moveSchedule.fingerprint, timezone: slot.timezone } };
+    const competingMoves = await Promise.allSettled([
+        atomicMove.service.update(firstTarget.id, { startAt: slot.startAt, endAt: slot.endAt }, moveOptions),
+        atomicMove.service.update(secondTarget.id, { startAt: slot.startAt, endAt: slot.endAt }, moveOptions)
+    ]);
+    assert.deepEqual(competingMoves.map(result => result.status), ['fulfilled', 'rejected']);
+    assert.match(competingMoves[1].reason.message, /EVENT_SCHEDULE_CHANGED/);
+    assert.deepEqual(clone(atomicMove.fake.rows.get(secondTarget.id)), secondTarget);
+    assert.equal(atomicMove.emitted.length, 1);
+    const moveWrites = atomicMove.fake.transactions.filter(tx => tx.mode === 'readwrite');
+    assert.deepEqual(moveWrites.map(tx => tx.operations), [['get', 'getAll', 'put'], ['get', 'getAll']]);
+    assert.equal(moveWrites[1].aborted, true);
+    const currentSchedule = await atomicMove.service.checkSchedule({ ...slot, excludeId: secondTarget.id });
+    const changedMoveOptions = { ...moveOptions, scheduleExpected: {
+        fingerprint: currentSchedule.fingerprint, timezone: slot.timezone } };
+    atomicMove.fake.beforeRequest = op => { if (op === 'getAll') atomicMove.session.ownerId = 'bob'; };
+    await assert.rejects(atomicMove.service.update(secondTarget.id,
+        { startAt: slot.startAt, endAt: slot.endAt }, changedMoveOptions), /EVENT_OWNER_MISMATCH/);
+    assert.deepEqual(clone(atomicMove.fake.rows.get(secondTarget.id)), secondTarget);
+    assert.equal(atomicMove.emitted.length, 1);
+    atomicMove.fake.beforeRequest = null; atomicMove.session.ownerId = 'alice';
+    atomicMove.fake.beforeRequest = op => { if (op === 'getAll') throw new Error('FAKE_QUERY_FAILED'); };
+    await assert.rejects(atomicMove.service.update(secondTarget.id,
+        { startAt: slot.startAt, endAt: slot.endAt }, changedMoveOptions), /FAKE_QUERY_FAILED/);
+    assert.deepEqual(clone(atomicMove.fake.rows.get(secondTarget.id)), secondTarget);
+    assert.equal(atomicMove.emitted.length, 1);
+
     const standalone = fixture({ authenticated: false });
     const localEvent = await standalone.service.create(input);
     assert.equal(localEvent.ownerId, 'local-user');
@@ -349,5 +490,5 @@ function snapshot(row) {
     assert.equal((await standalone.service.list()).length, 2);
     assert.equal((await standalone.service.list({ ownerId: 'bob' })).length, 1);
     assert.equal((await fixture({ verifiedOnly: true }).service.create(input)).ownerId, 'alice');
-    console.log('event-service: owner isolation, atomic guards, concurrency, cancellation and sync compatibility PASS');
+    console.log('event-service: owner isolation, atomic guards, local conflicts, nearby slots, concurrency and sync compatibility PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -179,6 +179,7 @@ function browserModule(relativePath, windowOverrides = {}) {
             list: async () => [...tasks]
         };
         const eventsService = {
+            checkSchedule: async () => ({ conflicts: [], suggestions: [], complete: true, warnings: [], fingerprint: 'fixture-agenda' }),
             create: async data => {
                 const item = { id: `event_${events.length + 1}`, syncStatus: 'local', ...data };
                 events.push(item);
@@ -207,6 +208,7 @@ function browserModule(relativePath, windowOverrides = {}) {
         };
         const toolset = assistantToolsModule.create({
             root: {
+                GunterAuth: { canAccessLocalData: () => true, getUser: () => ({ id: 'core-test-user' }) },
                 GunterConversationState: state,
                 location: controlOverrides.location,
                 localStorage: controlOverrides.localStorage,

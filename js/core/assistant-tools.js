@@ -266,10 +266,74 @@
             const pending = getPending();
             const domainConfirmation = pending && (pending.toolId.startsWith('tasks.') || pending.toolId.startsWith('calendar.'))
                 && (isAffirmative(normalize(text)) || isNegative(normalize(text)));
-            return Boolean(domainConfirmation || parseReferenceRequest(text) || ((pendingEventSelection || referenceContext) && referenceChoice(text) !== null)
+            const scheduleChoice = usesCalendarSchedule(pending) && pending.args?.scheduleCheck?.suggestions?.length
+                && calendarSuggestionChoice(text) !== null;
+            return Boolean(domainConfirmation || scheduleChoice || parseReferenceRequest(text) || ((pendingEventSelection || referenceContext) && referenceChoice(text) !== null)
                 || (pendingReminderReference && isTimeReply(text)));
         }
         runtime.addEventListener?.('gunterPremiumFeaturesChange', syncReferenceScope);
+
+        function usesCalendarSchedule(match) {
+            return match?.toolId === 'calendar.create' || (match?.toolId === 'calendar.update' && match.args?.editMode === 'start');
+        }
+
+        async function inspectCalendarMatch(match) {
+            if (!usesCalendarSchedule(match)) return match;
+            const args = { ...match.args };
+            const start = Date.parse(args.startAt);
+            if (!args.endAt && Number.isFinite(start)) args.endAt = new Date(start + 60 * 60000).toISOString();
+            if (!args.ownerId || !Number.isFinite(start) || !Number.isFinite(Date.parse(args.endAt))
+                || Date.parse(args.endAt) <= start || args.temporalAmbiguity
+                || (match.toolId === 'calendar.update' && (!args.targetId || args.restricted))) return { ...match, args };
+            const service = options.eventsService || runtime.GunterEventsService;
+            try {
+                if (!service?.checkSchedule) throw new Error('El servicio de agenda no permite comprobar horarios en esta vista. Recarga la aplicación.');
+                const tz = timezone();
+                const check = await service.checkSchedule({ ownerId: args.ownerId, startAt: args.startAt,
+                    endAt: args.endAt, excludeId: args.targetId || null, timezone: tz });
+                if (runtime.GunterAuth && taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió durante la consulta de agenda.');
+                if (!check || typeof check.fingerprint !== 'string' || !Array.isArray(check.conflicts)
+                    || !Array.isArray(check.suggestions) || !Array.isArray(check.warnings) || typeof check.complete !== 'boolean')
+                    throw new Error('El servicio de agenda no devolvió una comprobación válida.');
+                args.scheduleCheck = { ...check, timezone: tz };
+                if (args.rrule || args.kind === 'recurring') args.scheduleCheck = { ...args.scheduleCheck,
+                    complete: false, suggestions: [], warnings: [...check.warnings,
+                        'La comprobación cubre solo la primera ocurrencia; no verifica toda la serie recurrente.'] };
+                delete args.scheduleUnavailable;
+            } catch (error) {
+                delete args.scheduleCheck;
+                args.scheduleUnavailable = String(error.message || 'No pude consultar los horarios.');
+            }
+            return { ...match, args };
+        }
+
+        function scheduleSummary(args, showSuggestions = true) {
+            const check = args.scheduleCheck;
+            if (!check) return '';
+            const lines = ['Comprobé únicamente los eventos registrados en tu agenda local; no otros calendarios sin sincronizar.'];
+            if (check.conflicts.length) {
+                lines.push('Este horario se cruza con:');
+                check.conflicts.forEach(item => lines.push(`• “${item.title}” — ${formatDateTime(item.startAt, check.timezone)}, hasta ${formatDateTime(item.endAt, check.timezone)}.`));
+            } else if (check.complete) lines.push('No encontré cruces en los registros comprobados.');
+            check.warnings.forEach(warning => lines.push(warning));
+            if (showSuggestions && check.suggestions.length) {
+                lines.push('Alternativas de la misma duración, sin cruces registrados, en ese día:');
+                check.suggestions.forEach((slot, index) => lines.push(`Opción ${index + 1}: ${formatDateTime(slot.startAt, check.timezone)}, hasta ${formatTime(slot.endAt, check.timezone)}.`));
+                lines.push('Dime «opción 1» (o el número de opción) para preparar otro horario; después tendrás que confirmarlo.');
+            }
+            if (check.conflicts.length || !check.complete) lines.push('Si confirmas este horario, aceptarás los cruces o límites indicados. No moveré otros eventos.');
+            return `\n${lines.join('\n')}`;
+        }
+
+        async function assertScheduleUnchanged(args) {
+            const service = options.eventsService || runtime.GunterEventsService;
+            if (!service?.checkSchedule || !args.scheduleCheck) throw new Error('EVENT_SCHEDULE_UNAVAILABLE');
+            const check = await service.checkSchedule({ ownerId: args.ownerId, startAt: args.startAt, endAt: args.endAt,
+                excludeId: args.targetId || null, timezone: args.scheduleCheck.timezone });
+            if (runtime.GunterAuth && taskOwnerId() !== args.ownerId) throw new Error('EVENT_OWNER_MISMATCH');
+            if (check?.fingerprint !== args.scheduleCheck.fingerprint) throw new Error('EVENT_SCHEDULE_CHANGED');
+            return { fingerprint: args.scheduleCheck.fingerprint, timezone: args.scheduleCheck.timezone };
+        }
 
         function state(next, reason, meta = {}) {
             try { runtime.GunterConversationState?.transition?.(next, { reason, ...meta }); } catch { /* opcional */ }
@@ -688,7 +752,7 @@
                 const duration = target ? Date.parse(target.endAt) - Date.parse(target.startAt) : NaN;
                 const endAt = resolved?.end || (Number.isFinite(Date.parse(resolved?.iso)) && Number.isFinite(duration) && duration > 0
                     ? new Date(Date.parse(resolved.iso) + duration).toISOString() : null);
-                return { ...match, args: { ...match.args, reference: edit.reference, ownerId,
+                return inspectCalendarMatch({ ...match, args: { ...match.args, reference: edit.reference, ownerId,
                     editMode: edit.mode, newTitle: edit.mode === 'title' ? edit.value : null,
                     startAt: resolved?.iso || null, endAt, dueKind: resolved?.kind || null,
                     temporalAmbiguity: resolved?.ambiguity || null, newRecurrence: resolved?.rrule || null,
@@ -696,7 +760,7 @@
                     snapshot: target ? eventSnapshot(target) : null,
                     restricted: target ? eventRestriction(target) : null,
                     candidates: candidates.length > 1 ? candidates.map(item => ({ id: item.id, title: item.title, startAt: item.startAt })) : [],
-                    ambiguous: candidates.length > 1 } };
+                    ambiguous: candidates.length > 1 } });
             }
             if (!['tasks.create', 'calendar.create', 'reminder.schedule', 'follow_up.schedule'].includes(match.toolId)) return match;
             // An undated task must not send its title to the temporal LLM, which
@@ -704,7 +768,7 @@
             const hasTime = /\b(hoy|mañana|manana|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|horas?|minutos?|segundos?|semanas?|mes|meses|año|mediod[ií]a|medianoche|a las?|a la)\b|\b\d{1,2}[:/]\d{1,2}\b|\b\d{4}-\d{2}-\d{2}\b/i.test(match.args.rawText || '');
             const resolved = match.toolId === 'tasks.create' && !hasTime ? null : await resolveTime(match.args.rawText);
             const title = extractTitle(match.args.rawText, match.toolId);
-            return {
+            return inspectCalendarMatch({
                 ...match,
                 args: {
                     ...match.args,
@@ -721,7 +785,7 @@
                     }),
                     temporalAmbiguity: resolved?.ambiguity && (resolved.ambiguity.reason?.trim() || resolved.ambiguity.options?.length > 1) ? resolved.ambiguity : null
                 }
-            };
+            });
         }
 
         async function execute(match, confirmed = false) {
@@ -792,6 +856,11 @@
                 await controlTransition(controlRun, failureState, { error: error.code || error.message, reason: 'legacy_adapter_error' });
                 state('error', 'tool-error', { toolId: tool.id, error: error.message });
                 notify({ phase: 'error', toolId: tool.id, error: error.message });
+                if (usesCalendarSchedule(match) && (error.code || error.message) === 'EVENT_SCHEDULE_CHANGED') {
+                    savePending(null);
+                    const proposal = await execute(await inspectCalendarMatch(match), false);
+                    return { ...proposal, reply: `La agenda cambió antes de guardar; no se aplicó este cambio. Revisa y confirma la nueva propuesta.\n${proposal.reply}` };
+                }
                 return {
                     handled: true, intent: tool.id, status: 'error', verified: false,
                     reply: explainFailure(error, tool)
@@ -806,6 +875,11 @@
             if (!validation?.ok) return { ok: false, error: 'tool_input_invalid', reply: validation.reply || 'Me faltan datos para ese paso.' };
             if (match.args?.temporalAmbiguity) {
                 return { ok: false, error: 'temporal_ambiguity', reply: `${match.args.temporalAmbiguity.reason} Dime la fecha u hora exacta antes de crear el plan.` };
+            }
+            if (usesCalendarSchedule(match) && match.args?.scheduleCheck
+                && (match.args.scheduleCheck.conflicts.length || !match.args.scheduleCheck.complete)) {
+                return { ok: false, error: 'calendar_schedule_attention',
+                    reply: `Ese evento necesita revisar el horario antes de incluirlo en un plan multipaso.${scheduleSummary(match.args, false)}\nPídeme agendarlo como acción individual para elegir otro horario o confirmar esos límites.` };
             }
             return { ok: true, tool: { id: tool.id, description: tool.description, confirm: tool.confirm, reversible: !!tool.reversible } };
         }
@@ -833,6 +907,16 @@
             try { await runtime.GunterContextProvider?.enrich?.(text, { channel: 'tool' }); } catch { /* local-first */ }
             const normalized = normalize(text);
             const pending = getPending();
+            const slotChoice = calendarSuggestionChoice(text);
+            if (usesCalendarSchedule(pending) && pending.args?.scheduleCheck?.suggestions?.length && slotChoice !== null) {
+                const slot = pending.args.scheduleCheck.suggestions[slotChoice - 1];
+                if (!slot) return { handled: true, status: 'needs_input', reply: `Elige una de las opciones de horario mostradas.\n${pending.prompt}` };
+                savePending(null);
+                const match = { toolId: pending.toolId, args: { ...pending.args, ...slot,
+                    inputSource: options.inputSource || 'text', voiceTranscript: String(text),
+                    temporalAmbiguity: null, dueKind: 'instant', rawText: String(text) } };
+                return execute(await inspectCalendarMatch(match), false);
+            }
             if (pending && isAffirmative(normalized)) {
                 if (options.inputSource === 'voice') return { handled: true, intent: pending.toolId,
                     status: 'awaiting_confirmation', requiresConfirmation: true,
@@ -1629,6 +1713,8 @@
                         return { ok: false, reply: 'La nueva fecha ya pasó. Dime una fecha y hora futuras.' };
                     if (Date.parse(args.startAt) === Date.parse(args.snapshot.startAt) && Date.parse(args.endAt) === Date.parse(args.snapshot.endAt))
                         return { ok: false, reply: 'El evento ya tiene ese horario; no hice cambios.' };
+                    if (args.scheduleUnavailable || !args.scheduleCheck)
+                        return { ok: false, reply: `No pude comprobar tu agenda; no modificaré el horario sin esa comprobación. ${args.scheduleUnavailable || 'Vuelve a preparar el cambio.'}` };
                 } else return { ok: false, reply: 'Puedo cambiar el nombre o la fecha y hora del evento. Dime cuál quieres modificar.' };
                 return { ok: true };
             },
@@ -1636,7 +1722,7 @@
                 const current = `“${args.targetTitle}”, ${formatDateTime(args.snapshot.startAt, timezone())}`;
                 if (id === 'calendar.cancel') return `¿Confirmas cancelar ${current}? Conservaré el registro, pero dejará de aparecer entre los eventos activos.`;
                 if (args.editMode === 'title') return `¿Confirmas renombrar ${current} como “${args.newTitle}”?`;
-                return `¿Confirmas mover ${current} a ${formatDateTime(args.startAt, timezone())}, hasta ${formatTime(args.endAt, timezone())}?`;
+                return `¿Confirmas mover ${current} a ${formatDateTime(args.startAt, timezone())}, hasta ${formatTime(args.endAt, timezone())}?${scheduleSummary(args)}`;
             },
             async execute(args) {
                 if (taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué el evento.');
@@ -1649,7 +1735,9 @@
                 if (taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué el evento.');
                 const patch = id === 'calendar.cancel' ? { status: 'cancelled', cancelledAt: now().toISOString() }
                     : args.editMode === 'title' ? { title: args.newTitle } : { startAt: args.startAt, endAt: args.endAt };
-                return service.update(args.targetId, patch, { ownerId: args.ownerId, statuses: ['scheduled'], expected: args.snapshot, skipSync: true });
+                const scheduleExpected = id === 'calendar.update' && args.editMode === 'start' ? await assertScheduleUnchanged(args) : null;
+                return service.update(args.targetId, patch, { ownerId: args.ownerId, statuses: ['scheduled'], expected: args.snapshot, skipSync: true,
+                    ...(scheduleExpected ? { scheduleExpected } : {}) });
             },
             async verify(result, args) {
                 if (taskOwnerId() !== args.ownerId) return false;
@@ -1680,15 +1768,20 @@
                 if (!Number.isFinite(Date.parse(args.startAt)) || (args.endAt && (!Number.isFinite(Date.parse(args.endAt)) || Date.parse(args.endAt) <= Date.parse(args.startAt))))
                     return { ok: false, reply: 'El horario no es válido. Indica una fecha y una hora de finalización posterior al inicio.' };
                 if (args.title.length > 180) return { ok: false, reply: 'El nombre del evento es demasiado largo; resúmelo en menos de 180 caracteres.' };
+                if (Date.parse(args.startAt) <= now().getTime()) return { ok: false, reply: 'Ese horario ya pasó. Dime una fecha y hora futuras.' };
+                if (args.kind === 'allDay') return { ok: false, reply: 'Dime una hora concreta para la reunión; una fecha sin hora no basta para comprobar cruces.' };
+                if (args.scheduleUnavailable || !args.scheduleCheck)
+                    return { ok: false, reply: `No pude comprobar tu agenda; no crearé el evento sin esa comprobación. ${args.scheduleUnavailable || 'Vuelve a preparar el evento.'}` };
                 return { ok: true };
             },
             confirmation(args) {
                 const destination = args.pushToGoogle ? ' Lo guardaré localmente e intentaré sincronizarlo con Google Calendar.' : '';
-                return `¿Confirmas que agende “${args.title}” para ${formatDateTime(args.startAt, timezone())}?${destination}`;
+                return `¿Confirmas que agende “${args.title}” para ${formatDateTime(args.startAt, timezone())}, hasta ${formatTime(args.endAt, timezone())}?${destination}${scheduleSummary(args)}`;
             },
             async execute(args) {
                 const service = options.eventsService || runtime.GunterEventsService;
                 if (!service?.create) throw new Error('El servicio de eventos no está disponible.');
+                const scheduleExpected = await assertScheduleUnchanged(args);
                 return service.create({
                     ownerId: args.ownerId || 'local-user',
                     title: args.title,
@@ -1698,7 +1791,7 @@
                     rrule: args.rrule,
                     pushToGoogle: !!args.pushToGoogle,
                     source: 'gunter-assistant'
-                });
+                }, { scheduleExpected });
             },
             async verify(result, args) {
                 if (runtime.GunterAuth && taskOwnerId() !== args.ownerId) return false;
@@ -1797,6 +1890,14 @@
     function isTimeReply(text) {
         return /^(?:hoy|manana|pasado manana|el (?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)|a las?|en \d+|dentro de)\b/.test(normalize(text))
             || /^\d{1,2}[:.]\d{2}\b/.test(String(text).trim());
+    }
+
+    function calendarSuggestionChoice(text) {
+        const value = normalize(text).replace(/^(?:elige|usa|prefiero|selecciona)\s+(?:la\s+)?/, '').replace(/^(?:la|el)\s+/, '');
+        const numeric = value.match(/^opcion\s+(\d+)$/);
+        if (numeric) return Number(numeric[1]);
+        const ordinal = value.match(/^(primera|segunda|tercera)\s+opcion$/);
+        return ordinal ? { primera: 1, segunda: 2, tercera: 3 }[ordinal[1]] : null;
     }
 
     function parseReferenceRequest(text) {
@@ -2026,6 +2127,8 @@
                 EVENT_CHANGED: 'Los datos del evento cambiaron después de la propuesta.',
                 EVENT_INVALID_TITLE: 'El nombre del evento no es válido.',
                 EVENT_INVALID_DATES: 'La fecha de fin debe ser válida y posterior al inicio.',
+                EVENT_SCHEDULE_CHANGED: 'Los eventos del horario cambiaron después de la propuesta; prepara y confirma el horario otra vez.',
+                EVENT_SCHEDULE_UNAVAILABLE: 'No pude comprobar los cruces de tu agenda. No guardé el cambio.',
                 EVENT_PATCH_FORBIDDEN: 'El cambio incluye campos que este flujo no permite modificar.'
             })[code || message] || message;
             return `No pude verificar la acción en tu agenda: ${detail}\nRevisa el evento en Agenda antes de repetir la orden; si cambió, selecciona sus datos actuales y confirma de nuevo.`;

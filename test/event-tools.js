@@ -45,6 +45,7 @@ function makeHarness(options = {}) {
     const writes = [];
     const creates = [];
     const service = {
+        checkSchedule: async () => ({ conflicts: [], suggestions: [], complete: true, warnings: [], fingerprint: 'fixture-agenda' }),
         list: async () => clone(rows),
         create: async data => {
             assert.equal(data.ownerId, 'alice', 'calendar.create must save the authenticated owner');
