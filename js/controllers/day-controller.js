@@ -236,7 +236,7 @@
                 ${all.slice(0, 10).map(r => `
                     <div class="gday__reminder">
                         <span class="gday__reminder-time">${fmtTime(r.fireAt)}</span>
-                        <span class="gday__reminder-title">${escapeHtml(r.title)}</span>
+                        <span class="gday__reminder-title">${escapeHtml(r.title)}${r.meta?.eventLink ? '<small style="display:block; margin-top:4px; color:var(--text-secondary); font-size:11px; line-height:1.4">Vinculado a reunión · requiere Gunter abierto</small>' : ''}</span>
                         <button class="gday__reminder-cancel" data-rem-cancel="${r.id}" title="Cancelar">✕</button>
                     </div>
                 `).join('')}

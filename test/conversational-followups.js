@@ -40,6 +40,7 @@ function makeHarness(options = {}) {
     const eventWrites = [];
     const reminders = [];
     const saved = new Map();
+    let deviceOwner = 'alice';
     const storage = { getItem: key => saved.get(key) || null,
         setItem: (key, value) => saved.set(key, value), removeItem: key => saved.delete(key) };
     const tasksService = {
@@ -101,7 +102,21 @@ function makeHarness(options = {}) {
             Object.assign(row, clone(patch), { updatedAt: `event-rev${eventWrites.length + 1}` });
             return clone(row);
         },
-        remove: async () => assert.fail('a conversational cancellation must retain the event')
+        remove: async () => assert.fail('a conversational cancellation must retain the event'),
+        scheduleReminder: async (id, guard) => {
+            const event = events.find(row => row.id === id && row.ownerId === guard.ownerId);
+            assert.ok(event);
+            assert.equal(guard.ownerId, userId);
+            assert.deepEqual(guard.expected, eventSnapshot(event));
+            const duplicate = reminders.find(row => row.meta?.eventLink?.eventId === id && row.fireAt === guard.fireAt && row.status === 'scheduled');
+            if (duplicate) return clone(duplicate);
+            const row = { id: `linked-${reminders.length + 1}`, title: event.title, ownerId: userId,
+                fireAt: guard.fireAt, status: 'scheduled', durable: false,
+                meta: { eventLink: { version: 1, eventId: id, startAt: event.startAt, offsetMs: Date.parse(event.startAt) - Date.parse(guard.fireAt) } } };
+            reminders.push(clone(row));
+            return clone(row);
+        },
+        getReminder: async id => clone(reminders.find(row => row.id === id && row.ownerId === userId) || null)
     };
     const jobsService = {
         scheduleReminder: async args => {
@@ -109,14 +124,27 @@ function makeHarness(options = {}) {
             reminders.push(clone(row));
             return clone(row);
         },
-        get: async id => clone(reminders.find(row => row.id === id) || null)
+        get: async id => clone(reminders.find(row => row.id === id) || null),
+        list: async () => clone(reminders.filter(row => !row.meta?.eventLink)),
+        cancel: async id => {
+            const row = reminders.find(row => row.id === id); row.status = 'cancelled'; return clone(row);
+        }
+    };
+    const notificationsService = {
+        schedule: async args => eventsService.scheduleReminder(args.meta.eventLink.eventId, { ...args.meta.eventLink, fireAt: args.fireAt }),
+        list: async () => clone(reminders),
+        cancel: async id => {
+            const row = reminders.find(row => row.id === id && row.ownerId === userId);
+            assert.ok(row); row.status = 'cancelled'; return clone(row);
+        }
     };
     const runtime = {
         GunterAuth: { canAccessLocalData: () => trusted, getUser: () => userId ? { id: userId } : null },
+        localStorage: { getItem: key => key === 'gunter_device_user' ? deviceOwner : null },
         PremiumFeaturesService: { isEnabled: key => key === 'conversationContinuity' ? continuity : true }
     };
     const toolset = assistant.create({
-        root: runtime, tasksService, eventsService, jobsService, storage,
+        root: runtime, tasksService, eventsService, jobsService, notificationsService, storage,
         now: () => new Date(currentTime), timezone: () => 'America/Bogota',
         timeParser: options.timeParser || { parse: async text => {
             const phrase = assistant.normalize(text);
@@ -127,7 +155,8 @@ function makeHarness(options = {}) {
         } }
     });
     return { toolset, tasks, events, taskCreates, eventCreates, taskWrites, eventWrites, reminders, storage,
-        setUser: value => { userId = value; }, setTrusted: value => { trusted = value; },
+        setUser: value => { userId = value; deviceOwner = value; }, setDeviceOwner: value => { deviceOwner = value; },
+        setTrusted: value => { trusted = value; },
         setContinuity: value => { continuity = value; },
         advance: ms => { currentTime = new Date(currentTime.getTime() + ms); } };
 }
@@ -311,7 +340,7 @@ for (const kind of ['event', 'task']) {
         assert.equal(h[writesKey][0].id, row.id);
     });
 
-    test(`${kind}: reminder follow-up asks for a time then uses the existing jobs service`, async () => {
+    test(`${kind}: reminder follow-up reuses the appropriate existing service`, async () => {
         const h = makeHarness();
         const row = await seed(h, kind);
         const request = await h.toolset.dispatch('Y recuérdame eso también');
@@ -320,13 +349,20 @@ for (const kind of ['event', 'task']) {
         assert.ok(request.reply.includes(row.title));
         assert.equal(h.reminders.length, 0);
         assert.equal(writeCount(h), 0);
-        const result = await h.toolset.dispatch('mañana a las 10');
+        const proposal = await h.toolset.dispatch(kind === 'event' ? '15 minutos antes' : 'mañana a las 10');
+        if (kind === 'event') {
+            assert.equal(proposal.status, 'awaiting_confirmation');
+            assert.match(proposal.reply, /Gunter abierto|app cerrada/i);
+            assert.equal(h.reminders.length, 0);
+        }
+        const result = kind === 'event' ? await h.toolset.dispatch('confirmo') : proposal;
         assert.equal(result.status, 'complete');
         assert.equal(result.intent, 'reminder.schedule');
         assert.equal(result.verified, true);
         assert.equal(h.reminders.length, 1);
         assert.equal(h.reminders[0].title, row.title);
-        assert.equal(Date.parse(h.reminders[0].runAt), Date.parse(tomorrowAtTen));
+        assert.equal(Date.parse(h.reminders[0].fireAt || h.reminders[0].runAt),
+            kind === 'event' ? Date.parse(row.startAt) - 15 * 60000 : Date.parse(tomorrowAtTen));
         assert.equal(writeCount(h), 0);
     });
 
@@ -596,6 +632,111 @@ test('disabling continuity clears remembered numbered selections and reminder co
     reminder.setContinuity(true);
     assert.notEqual((await reminder.toolset.dispatch('mañana a las 10')).status, 'complete');
     assert.equal(reminder.reminders.length, 0);
+});
+
+test('named event reminder links exact owned event without needing conversational context', async () => {
+    const h = makeHarness();
+    const proposal = await h.toolset.dispatch('recuérdame la reunión "Revisión de producto" 15 minutos antes');
+    assert.equal(proposal.status, 'awaiting_confirmation');
+    assert.equal(h.toolset.getPending().args.eventLink.eventId, 'own-event');
+    assert.equal(h.reminders.length, 0);
+    assert.match(proposal.reply, /15 minutos antes/);
+    assert.doesNotMatch(proposal.reply, /BOB_SECRET/);
+    const result = await h.toolset.dispatch('confirmo');
+    assert.equal(result.status, 'complete');
+    assert.match(result.reply, /requiere Gunter abierto/);
+    assert.equal(h.reminders[0].meta.eventLink.offsetMs, 900000);
+    const duplicate = await h.toolset.dispatch('recuérdame la reunión "Revisión de producto" 15 minutos antes');
+    assert.equal(duplicate.status, 'awaiting_confirmation');
+    assert.equal((await h.toolset.dispatch('confirmo')).status, 'complete');
+    assert.equal(h.reminders.length, 1);
+});
+
+test('inline and numbered event reminders support relative time without interpreting event titles as dates', async () => {
+    const h = makeHarness();
+    await seed(h, 'event', 'Reunión mañana 2029');
+    const inline = await h.toolset.dispatch('recuérdame esa reunión 1 hora antes');
+    assert.equal(inline.status, 'awaiting_confirmation');
+    assert.equal(h.toolset.getPending().args.runAt, new Date(Date.parse(todayAtFour) - 3600000).toISOString());
+    await h.toolset.dispatch('no');
+    await h.toolset.dispatch('mi agenda');
+    const numbered = await h.toolset.dispatch('recuérdame la primera al inicio');
+    assert.equal(numbered.status, 'awaiting_confirmation');
+    assert.equal(h.toolset.getPending().args.eventLink.eventId, 'own-event');
+    assert.equal(Date.parse(h.toolset.getPending().args.runAt), Date.parse(todayAtFour));
+});
+
+test('named event ambiguity asks for selection and missing time keeps the existing follow-up', async () => {
+    const h = makeHarness();
+    h.events[1].title = h.events[0].title;
+    const ambiguous = await h.toolset.dispatch('recuérdame la reunión "Revisión de producto" 15 minutos antes');
+    assert.equal(ambiguous.status, 'needs_input');
+    assert.match(ambiguous.reply, /1\.|2\./);
+    assert.equal(h.reminders.length, 0);
+    assert.equal((await h.toolset.dispatch('la segunda')).status, 'awaiting_confirmation');
+    assert.equal(h.toolset.getPending().args.eventLink.eventId, 'second-event');
+    await h.toolset.dispatch('no');
+    const missing = await h.toolset.dispatch('recuérdame la reunión "own-event"');
+    assert.equal(missing.status, 'needs_input');
+    assert.match(missing.reply, /Cuándo|cuándo/);
+    assert.equal(h.toolset.isContextualFollowUp('15 minutos antes'), true);
+    assert.equal((await h.toolset.dispatch('15 minutos antes')).status, 'awaiting_confirmation');
+});
+
+test('linked reminder rejects past/after-start times, recurring events and stale confirmed snapshots', async () => {
+    const h = makeHarness();
+    assert.equal((await h.toolset.dispatch('recuérdame la reunión "Revisión de producto" mañana a las 10')).status, 'needs_input');
+    assert.equal((await h.toolset.dispatch('recuérdame la reunión "Revisión de producto" 999 horas antes')).status, 'needs_input');
+    h.events[0].rrule = 'FREQ=WEEKLY';
+    assert.equal((await h.toolset.dispatch('recuérdame la reunión "Revisión de producto" 15 minutos antes')).status, 'needs_input');
+    h.events[0].rrule = null;
+    assert.equal((await h.toolset.dispatch('recuérdame la reunión "Revisión de producto" 15 minutos antes')).status, 'awaiting_confirmation');
+    h.events[0].updatedAt = 'event-other-tab-revision';
+    assert.equal((await h.toolset.dispatch('confirmo')).status, 'needs_input');
+    assert.equal(h.reminders.length, 0);
+});
+
+test('voice linked reminder cannot authorize itself and account changes clear its pending proposal', async () => {
+    const h = makeHarness();
+    const proposal = await h.toolset.dispatch('recuérdame la reunión "Revisión de producto" 15 minutos antes', { inputSource: 'voice' });
+    assert.equal(proposal.status, 'awaiting_confirmation');
+    assert.match(proposal.reply, /por escrito/);
+    assert.equal((await h.toolset.dispatch('sí', { inputSource: 'voice' })).status, 'awaiting_confirmation');
+    assert.equal(h.reminders.length, 0);
+    h.setUser('bob');
+    const denied = await h.toolset.dispatch('confirmo');
+    assert.notEqual(denied.status, 'complete');
+    assert.doesNotMatch(JSON.stringify(denied), /Revisión de producto/);
+    assert.equal(h.reminders.length, 0);
+});
+
+test('existing reminder listing and confirmed cancellation include linked local reminders', async () => {
+    const h = makeHarness();
+    await h.toolset.dispatch('recuérdame la reunión "Revisión de producto" 15 minutos antes');
+    await h.toolset.dispatch('confirmo');
+    h.reminders.push({ id: 'foreign-reminder', ownerId: 'bob', title: 'BOB_SECRET_REMINDER', fireAt: todayAtFour,
+        status: 'scheduled', meta: { eventLink: { version: 1, eventId: 'foreign-event' } } });
+    const listing = await h.toolset.dispatch('mis recordatorios');
+    assert.equal(listing.status, 'complete');
+    assert.match(listing.reply, /vinculado a reunión/);
+    assert.doesNotMatch(listing.reply, /BOB_SECRET/);
+    assert.equal((await h.toolset.dispatch('cancela el recordatorio "Revisión de producto"')).status, 'awaiting_confirmation');
+    assert.equal(h.reminders[0].status, 'scheduled');
+    assert.equal((await h.toolset.dispatch('confirmo')).status, 'complete');
+    assert.equal(h.reminders[0].status, 'cancelled');
+    assert.equal(h.reminders[1].status, 'scheduled');
+});
+
+test('an older verified tab does not read or confirm reminders after another account signs in', async () => {
+    const h = makeHarness();
+    await h.toolset.dispatch('recuérdame la reunión "Revisión de producto" 15 minutos antes');
+    h.setDeviceOwner('bob');
+    const denied = await h.toolset.dispatch('confirmo');
+    assert.notEqual(denied.status, 'complete');
+    assert.equal(h.reminders.length, 0);
+    assert.equal(h.toolset.getPending(), null);
+    const listed = await h.toolset.dispatch('mis recordatorios');
+    assert.doesNotMatch(JSON.stringify(listed), /Revisión de producto|BOB_SECRET/);
 });
 
 (async () => {
