@@ -14,7 +14,7 @@
     const PENDING_KEY = 'gunter_pending_tool_v1';
     const PENDING_TTL_MS = 5 * 60 * 1000;
     const REFERENCE_TTL_MS = 10 * 60 * 1000;
-    const VOICE_READ_ONLY_TOOLS = new Set(['app.navigate', 'settings.list', 'agenda.list', 'jobs.list',
+    const VOICE_READ_ONLY_TOOLS = new Set(['app.navigate', 'settings.list', 'agenda.list', 'jobs.list', 'reminder.inspect',
         'desktop.files.list', 'desktop.files.search', 'desktop.ui.inspect', 'mobile.files.list', 'mobile.files.search']);
 
     function normalize(value) {
@@ -208,7 +208,7 @@
 
     function accountPendingTool(pending) {
         return pending && (pending.toolId?.startsWith('tasks.') || pending.toolId?.startsWith('calendar.')
-            || pending.toolId === 'reminder.update' || pending.toolId === 'jobs.cancel'
+            || pending.toolId === 'reminder.update' || pending.toolId === 'reminder.retry' || pending.toolId === 'jobs.cancel'
             || !!pending.args?.eventLink || !!pending.args?.target?.meta?.eventLink
             || (pending.toolId === 'preferences.update' && pending.args?.key === 'calendarPlanning'));
     }
@@ -274,7 +274,7 @@
                 ]);
             } else if (toolId === 'jobs.list') {
                 rememberReferences((result.items || []).map(row => ({ id: row.id, kind: 'reminder', title: row.title })));
-            } else if (toolId === 'reminder.update') {
+            } else if (['reminder.update', 'reminder.retry', 'reminder.inspect'].includes(toolId)) {
                 rememberReferences(result?.id ? [{ id: result.id, kind: 'reminder', title: result.title }] : []);
             } else if (toolId.startsWith('tasks.') || toolId.startsWith('calendar.')) {
                 rememberReferences(result?.id && result.ownerId === ownerId
@@ -314,14 +314,14 @@
         function reminderTimeQuestion(row) {
             return `Puedo vincular un aviso a “${row.title}”. ¿Cuándo quieres que te avise? Puedes decir “15 minutos antes” o una fecha y hora anterior al inicio. Se ajustará si la reunión cambia y requiere Gunter abierto.`;
         }
-        async function reminderItems() {
+        async function reminderItems(filters = {}) {
             const ownerId = taskOwnerId();
             if (runtime.GunterAuth && !ownerId) return { items: [], durableUnavailable: true };
             const jobs = options.jobsService || runtime.GunterJobs;
             const notifications = options.notificationsService || runtime.GunterNotificationsService;
             let durable = [], durableUnavailable = !jobs?.list;
             if (jobs?.list) {
-                try { durable = await jobs.list({ limit: 200 }); }
+                try { durable = await jobs.list({ ...filters, limit: 200 }); }
                 catch { durableUnavailable = true; }
             }
             const local = ownerId && notifications?.list ? (await notifications.list()).filter(row =>
@@ -338,10 +338,12 @@
         async function prepareReferenceRequest(reference, request, text, dispatchOptions, originalPending = null) {
             const row = await referencedRow(reference);
             if (!row || !continuityEnabled()) return referenceQuestion();
-            if (reference.kind === 'reminder' && !['move', 'rename', 'cancel'].includes(request.action))
+            if (reference.kind === 'reminder' && !['move', 'rename', 'cancel', 'retry', 'inspect'].includes(request.action))
                 return { handled: true, status: 'needs_input', reply: 'Ese registro ya es un aviso. Puedo reprogramarlo, cambiar su nombre o cancelarlo; no lo duplicaré ni lo marcaré como tarea completada.' };
             if (reference.kind === 'event' && !['move', 'rename', 'cancel', 'remind'].includes(request.action))
                 return { handled: true, status: 'needs_input', reply: 'No tengo una herramienta para completar o reactivar eventos. Puedo cambiar su nombre, reprogramarlos o cancelarlos.' };
+            if (reference.kind === 'task' && ['retry', 'inspect'].includes(request.action))
+                return { handled: true, status: 'needs_input', reply: 'Ese registro es una tarea, no un aviso fallido. Dime el recordatorio concreto para consultar o reintentar su entrega.' };
             if (request.action === 'remind') {
                 const active = reference.kind === 'event' ? (row.status || 'scheduled') === 'scheduled' : ['pending', 'doing'].includes(row.status);
                 if (!active) return { handled: true, status: 'needs_input', reply: 'Ese registro ya no está activo. Dime qué quieres recordar.' };
@@ -370,7 +372,7 @@
             }
             const noun = reference.kind === 'event' ? 'evento' : reference.kind === 'reminder' ? 'recordatorio' : 'tarea';
             const id = String(reference.id).replace(/[“”"']/g, '');
-            const verb = { move: 'Reprograma', rename: 'Renombra', cancel: 'Cancela', complete: 'Completa', reopen: 'Reabre' }[request.action];
+            const verb = { move: 'Reprograma', rename: 'Renombra', cancel: 'Cancela', complete: 'Completa', reopen: 'Reabre', retry: 'Reintenta', inspect: 'Estado del' }[request.action];
             const rawText = `${verb} ${noun} "${id}"${request.action === 'move' ? ` para ${value}` : request.action === 'rename' ? ` a "${value.replace(/"/g, '')}"` : ''}`;
             const match = detect(rawText);
             if (!match) return referenceQuestion();
@@ -598,6 +600,14 @@
             if (!t) return null;
             const mobileTarget = /\b(en|desde|a|mi)\b.*\b(movil|celular|telefono|iphone|ipad|android)\b/.test(t);
             const questionText = t.replace(/^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*/, '');
+            // A literal reminder title can contain commands or feature names;
+            // its anchored operation must win over broad application routing.
+            const reminderOperation = parseReminderOperation(text);
+            if (reminderOperation) return { toolId: reminderOperation.mode === 'retry' ? 'reminder.retry' : 'reminder.inspect', args: { rawText: text } };
+            if (/^(?:por favor )?(?:reintenta|reintentar|vuelve a intentar)\b.*\b(?:todos|varios|recordatorios|avisos)\b/.test(questionText))
+                return { toolId: 'reminder.retry', args: { rawText: text, compound: true } };
+            if (/^(?:por favor )?(?:mis|los|que|cuales|lista|muestra|muestrame|ver|revisa)\b.*\b(recordatorios|avisos|seguimientos|procesos)\b.*\b(fallidos|fallaron|fallan|errores|fallos)\b/.test(questionText))
+                return { toolId: 'jobs.list', args: { status: 'failed' } };
             // Describing a browser or asking how playback works is not permission to act.
             const browserExplanation = /^(?:que (?:es|son|significa)|como (?:funciona|puedo|se)|por que|para que|explica(?:me)?|dime que)\b/.test(questionText);
 
@@ -706,6 +716,7 @@
                 return mobileTarget ? { toolId: 'mobile.open_app', args } : { toolId: 'desktop.apps.open', args };
             }
 
+
             if (/\b(mis|los|que|lista|muestra|ver)\b.*\b(recordatorios|seguimientos|procesos)\s+(?:programados|pendientes|activos)\b/.test(t)
                 || /^(mis recordatorios|procesos programados|seguimientos programados)$/.test(t)) {
                 return { toolId: 'jobs.list', args: {} };
@@ -793,7 +804,7 @@
             if (isApp) add(['desktop.apps.open', 'mobile.open_app'], 'Aplicaciones: abrir una aplicación en un dispositivo conectado.');
             if (isAutomation) add(['procedure.execute'], 'Rutas guardadas: ejecutar procedimientos disponibles y aprobados.');
             if (isSettings) add(['settings.list', 'settings.update', 'preferences.update'], 'Configuración: consultar opciones y cambiar ajustes permitidos.');
-            if (/\b(reunion|evento|cita|agenda|recordatorio|tarea)\b/.test(normalized)) add(['calendar.create', 'calendar.update', 'calendar.cancel', 'agenda.list', 'reminder.schedule', 'reminder.update', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update'], 'Organización: agenda, reuniones, recordatorios y tareas.');
+            if (/\b(reunion|evento|cita|agenda|recordatorio|tarea)\b/.test(normalized)) add(['calendar.create', 'calendar.update', 'calendar.cancel', 'agenda.list', 'jobs.list', 'reminder.inspect', 'reminder.retry', 'reminder.schedule', 'reminder.update', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update'], 'Organización: agenda, reuniones, recordatorios y tareas; estado y reintento confirmado de avisos fallidos.');
             if (!suggestions.length) {
                 add(['app.navigate'], 'Navegación por las secciones de Gunter.');
                 add(['desktop.apps.open', 'mobile.open_app'], 'Abrir aplicaciones conectadas.');
@@ -872,6 +883,28 @@
                 const target = matching.length === 1 ? matching[0] : null;
                 return { ...match, args: { ...match.args, title, ownerId: taskOwnerId(), ambiguous: matching.length > 1,
                     targetId: target?.id || null, target: target || null } };
+            }
+            if (['reminder.inspect', 'reminder.retry'].includes(match.toolId)) {
+                const ownerId = taskOwnerId();
+                const operation = parseReminderOperation(match.args.rawText) || {};
+                const { items, durableUnavailable } = await reminderItems();
+                let exactById = null;
+                if (ownerId && taskOwnerId() === ownerId && /^job_[\w-]{1,100}$/.test(operation.reference || '')) {
+                    try {
+                        const row = await (options.jobsService || runtime.GunterJobs)?.get?.(operation.reference);
+                        if (taskOwnerId() === ownerId && row?.id === operation.reference && (row.ownerId == null || row.ownerId === ownerId)) exactById = row;
+                    } catch { /* The unavailable state is explained without inventing a cause. */ }
+                }
+                const needle = normalize(operation.reference);
+                const candidates = (exactById ? [exactById] : items).filter(row => match.args.selectedTargetId
+                    ? row.id === match.args.selectedTargetId : needle && (row.id === operation.reference || normalize(row.title) === needle));
+                const target = candidates.length === 1 ? candidates[0] : null;
+                return { ...match, args: { ...match.args, ownerId, compound: match.args.compound || operation.compound,
+                    unavailable: durableUnavailable && !exactById, targetId: target?.id || null,
+                    targetTitle: target?.title || null, snapshot: target ? reminderSnapshot(target) : null,
+                    restricted: target && match.toolId === 'reminder.retry' ? reminderRetryRestriction(target) : null,
+                    ambiguous: candidates.length > 1,
+                    candidates: candidates.map(row => ({ id: row.id, title: row.title, runAt: row.runAt, status: row.status })) } };
             }
             if (match.toolId === 'reminder.update') {
                 const ownerId = taskOwnerId();
@@ -998,7 +1031,7 @@
             if (!tool) return { handled: false };
             const validation = tool.validate ? await tool.validate(match.args) : { ok: true };
             if (!validation?.ok) {
-                if (['calendar.update', 'calendar.cancel', 'calendar.create', 'reminder.update'].includes(tool.id) || match.args.eventReminderRequest) {
+                if (['calendar.update', 'calendar.cancel', 'calendar.create', 'reminder.update', 'reminder.retry', 'reminder.inspect'].includes(tool.id) || match.args.eventReminderRequest) {
                     savePending(null);
                     pendingEventSelection = match.args.ambiguous && match.args.ownerId ? {
                         match, ownerId: match.args.ownerId, at: referenceNow()
@@ -1048,7 +1081,8 @@
                 const verified = tool.verify ? await tool.verify(result, match.args) : true;
                 if (!verified) throw new Error('La acción respondió, pero no pude verificar el resultado guardado.');
                 await controlTransition(controlRun, 'verified', { evidence: { verified: true, source: 'legacy_adapter',
-                    ...(tool.id === 'reminder.update' ? { persistedId: result.id, reconsulted: true, revision: result.revision } : {}) }, reason: 'legacy_adapter_verified' });
+                    ...(['reminder.update', 'reminder.retry'].includes(tool.id) ? { persistedId: result.id, reconsulted: true, revision: result.revision } : {}),
+                    ...(tool.id === 'reminder.inspect' ? { persistedId: result.id, reconsulted: true } : {}) }, reason: 'legacy_adapter_verified' });
                 if (controlRun) controlStage = 'verified';
                 await controlTransition(controlRun, 'completed', { reason: 'legacy_adapter_complete' });
                 const reply = tool.formatResult ? await tool.formatResult(result, match.args) : 'Listo.';
@@ -1182,9 +1216,9 @@
                 if (!ownerId || !continuityEnabled()) return referenceQuestion();
                 const pendingDomain = pending?.args?.ownerId === ownerId && pending.args.targetId
                     && referenceNow() - (pending.referenceAt || 0) < REFERENCE_TTL_MS
-                    && (pending.toolId.startsWith('tasks.') || pending.toolId.startsWith('calendar.') || pending.toolId === 'reminder.update') ? pending : null;
+                    && (pending.toolId.startsWith('tasks.') || pending.toolId.startsWith('calendar.') || ['reminder.update', 'reminder.retry'].includes(pending.toolId)) ? pending : null;
                 const candidates = pendingDomain ? [{ id: pendingDomain.args.targetId, title: pendingDomain.args.targetTitle,
-                    kind: pendingDomain.toolId.startsWith('calendar.') ? 'event' : pendingDomain.toolId === 'reminder.update' ? 'reminder' : 'task' }]
+                    kind: pendingDomain.toolId.startsWith('calendar.') ? 'event' : ['reminder.update', 'reminder.retry'].includes(pendingDomain.toolId) ? 'reminder' : 'task' }]
                     : referenceContext?.ownerId === ownerId ? referenceContext.candidates : [];
                 const requestedChoice = request?.choice ?? choice;
                 const candidate = requestedChoice !== null && requestedChoice !== undefined ? candidates[requestedChoice - 1]
@@ -1712,21 +1746,96 @@
             description: 'Lista recordatorios y seguimientos persistentes.',
             confirm: 'never',
             reversible: true,
-            async execute() {
-                const result = await reminderItems();
-                return { ...result, items: result.items.filter(job => !['completed', 'fired', 'failed', 'cancelled'].includes(job.status))
-                    .sort((a, b) => Date.parse(a.runAt) - Date.parse(b.runAt)).slice(0, 12) };
+            async execute(args) {
+                const result = await reminderItems(args.status === 'failed' ? { status: 'failed' } : {});
+                const items = result.items.filter(job => args.status === 'failed' ? job.status === 'failed'
+                    : !['completed', 'fired', 'failed', 'cancelled'].includes(job.status))
+                    .sort((a, b) => Date.parse(a.runAt) - Date.parse(b.runAt)).slice(0, 12);
+                return { ...result, failed: args.status === 'failed', items: args.status === 'failed' ? items.map(reminderPublicRecord) : items };
             },
             formatResult(result) {
                 const warning = result.durableUnavailable ? '\nNo pude consultar los avisos del servidor; los vinculados locales requieren Gunter abierto.' : '';
-                if (!result.items.length) return (result.durableUnavailable ? 'No hay avisos locales vinculados activos.' : 'No tienes recordatorios ni seguimientos programados.') + warning;
-                const lines = ['Procesos programados:'];
+                if (!result.items.length) return (result.failed ? 'No encontré avisos fallidos en los registros consultados.' : result.durableUnavailable ? 'No hay avisos locales vinculados activos.' : 'No tienes recordatorios ni seguimientos programados.') + warning;
+                const lines = [result.failed ? 'Avisos fallidos registrados:' : 'Procesos programados:'];
                 result.items.forEach((job, index) => {
                     const kind = job.type === 'follow_up' ? 'Seguimiento' : 'Recordatorio';
                     lines.push(`${index + 1}. ${kind}: ${job.title} — ${withoutFinalPeriod(formatDateTime(job.runAt, timezone()))}${job.meta?.eventLink ? ' · vinculado a reunión, requiere Gunter abierto' : ''}`);
                 });
+                if (result.failed) lines.push('Puedes preguntar “por qué falló el primero” o solicitar “reintenta el primero”. Cada reintento necesita confirmación; no reactivaré todos los avisos.');
                 return lines.join('\n') + warning;
             }
+        });
+
+        function validateReminderOperation(args, retry = false) {
+            if (!args.ownerId || taskOwnerId() !== args.ownerId) return { ok: false, reply: 'Inicia sesión con tu cuenta antes de consultar o reintentar tus recordatorios.' };
+            if (args.compound) return { ok: false, reply: 'Dime un aviso y una acción por orden. No reintentaré todos los avisos ni aplicaré solo una parte de una solicitud compuesta.' };
+            const service = options.jobsService || runtime.GunterJobs;
+            if (args.unavailable || !service?.get || (retry && !service?.retryReminder))
+                return { ok: false, reply: 'No pude consultar el servicio local de recordatorios. Comprueba que el servidor de Gunter esté disponible; no deduciré la causa ni crearé otro aviso.' };
+            if (args.ambiguous) return { ok: false, reply: `Hay varios avisos con ese nombre. Elige el número:\n${args.candidates.map((row, i) => `${i + 1}. ${row.title} — ${reminderStateLabel(row.status)}, ${formatDateTime(row.runAt, timezone())}`).join('\n')}` };
+            if (!args.targetId || !args.snapshot) return { ok: false, reply: 'No encontré un aviso con ese nombre exacto. Consulta “mis recordatorios fallidos” o indica su identificador; no escogeré otro por aproximación.' };
+            if (retry && args.restricted) return { ok: false, reply: args.restricted };
+            return { ok: true };
+        }
+
+        register({
+            id: 'reminder.inspect',
+            description: 'Consulta el estado registrado de un aviso y explica sus límites sin inventar causas.',
+            confirm: 'never', reversible: true,
+            validate: args => validateReminderOperation(args),
+            async execute(args) {
+                if (taskOwnerId() !== args.ownerId) throw new Error('job_owner_mismatch');
+                const row = await referencedRow({ id: args.targetId, kind: 'reminder' });
+                if (taskOwnerId() !== args.ownerId) throw new Error('job_owner_mismatch');
+                // IDs can be outside the bounded list; a direct account-scoped
+                // lookup is still read-only and must be rechecked after await.
+                const current = row || (/^job_[\w-]{1,100}$/.test(args.targetId)
+                    ? await (options.jobsService || runtime.GunterJobs).get(args.targetId) : null);
+                if (taskOwnerId() !== args.ownerId || (current?.ownerId != null && current.ownerId !== args.ownerId)) throw new Error('job_owner_mismatch');
+                if (!current) throw new Error('job_not_found');
+                return { ...reminderPublicRecord(current), diagnosis: reminderDiagnosis(current, timezone()) };
+            },
+            verify(result, args) { return taskOwnerId() === args.ownerId && result?.id === args.targetId && typeof result.diagnosis === 'string'; },
+            formatResult: result => `“${result.title}” — ${reminderStateLabel(result.status)}.\n${result.diagnosis}`
+        });
+
+        register({
+            id: 'reminder.retry',
+            description: 'Vuelve a programar un recordatorio independiente fallido, con confirmación y verificación.',
+            confirm: 'always', reversible: false,
+            validate: args => validateReminderOperation(args, true),
+            confirmation(args) {
+                return `¿Confirmas reintentar ahora “${args.targetTitle}”? Conservaré el mismo aviso y reiniciaré sus intentos. El servidor local debe seguir funcionando; esto no garantiza la entrega al teléfono y, si ya recibiste el aviso por otro canal, podrías verlo otra vez.`;
+            },
+            async execute(args) {
+                if (taskOwnerId() !== args.ownerId) throw new Error('job_owner_mismatch');
+                const service = options.jobsService || runtime.GunterJobs;
+                const current = await service.get(args.targetId);
+                if (taskOwnerId() !== args.ownerId) throw new Error('job_owner_mismatch');
+                if (!current || (current.ownerId != null && current.ownerId !== args.ownerId)
+                    || reminderRetryRestriction(current) || JSON.stringify(reminderSnapshot(current)) !== JSON.stringify(args.snapshot))
+                    throw new Error('job_changed');
+                const result = await service.retryReminder(args.targetId, { ownerId: args.ownerId, expected: args.snapshot, confirmed: true });
+                if (taskOwnerId() !== args.ownerId || (result?.ownerId != null && result.ownerId !== args.ownerId)) throw new Error('job_owner_mismatch');
+                if (!result || result.id !== args.targetId || result.type !== 'reminder' || result.status !== 'scheduled'
+                    || result.attempts !== 0 || result.lastError != null || result.result != null || result.nextAttemptAt != null)
+                    throw new Error('REMINDER_RETRY_NOT_VERIFIED');
+                return { ...reminderPublicRecord(result), lastError: null, result: null };
+            },
+            async verify(result, args) {
+                if (taskOwnerId() !== args.ownerId || result?.id !== args.targetId || result.type !== 'reminder'
+                    || result.status !== 'scheduled' || result.attempts !== 0 || result.lastError != null
+                    || result.result != null || result.nextAttemptAt != null) return false;
+                const stored = await (options.jobsService || runtime.GunterJobs).get(args.targetId);
+                if (taskOwnerId() !== args.ownerId || !stored || (stored.ownerId != null && stored.ownerId !== args.ownerId)) return false;
+                return stored.type === 'reminder' && stored.status === 'scheduled' && stored.attempts === 0
+                    && stored.lastError == null && stored.result == null && stored.nextAttemptAt == null
+                    && stored.title === args.snapshot.title && (stored.priority || 'normal') === args.snapshot.priority
+                    && Number.isSafeInteger(stored.revision) && stored.revision > args.snapshot.revision
+                    && Number.isFinite(Date.parse(stored.runAt))
+                    && JSON.stringify(reminderSnapshot(stored)) === JSON.stringify(reminderSnapshot(result));
+            },
+            formatResult: result => `Reintento programado y guardado para “${result.title}”. Conservé el mismo aviso. Aún no puedo afirmar que se haya entregado; consulta su estado después de que lo procese el servidor local.`
         });
 
         register({
@@ -2288,6 +2397,12 @@
             /^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*[,;:!\-]*\s*/i, '')
             .replace(/^(?:y\s+|por favor\s+)/i, '').replace(/[.!?]+$/, '').trim();
         const normalized = normalize(raw);
+        if (/^(?:reintentalo|reintentala|vuelve a intentarlo|vuelve a intentarla)$/.test(normalized)) return { action: 'retry' };
+        if (/^(?:por que fallo|que paso con|estado de)\s+(?:eso|ese|esa|esto|esta)$/.test(normalized)) return { action: 'inspect' };
+        const indexedRetry = /^(?:reintenta|reintentar|vuelve a intentar)\s+(.+)$/.exec(normalized);
+        if (indexedRetry && referenceChoice(indexedRetry[1]) !== null) return { action: 'retry', choice: referenceChoice(indexedRetry[1]) };
+        const indexedInspect = /^(?:por que fallo|que paso con|estado de|revisa)\s+(.+)$/.exec(normalized);
+        if (indexedInspect && referenceChoice(indexedInspect[1]) !== null) return { action: 'inspect', choice: referenceChoice(indexedInspect[1]) };
         const remind = raw.match(/^(?:recu[eé]rdame|av[ií]same)\s+(?:eso|esa(?:\s+reuni[oó]n)?|ese(?:\s+evento)?|esto|esta(?:\s+reuni[oó]n)?)(?:\s+tambi[eé]n)?(?:\s+(.+))?$/i);
         if (remind) return { action: 'remind', value: remind[1] || '' };
         const indexedRemind = raw.match(/^(?:recu[eé]rdame|av[ií]same)\s+((?:(?:la|el)\s+)?(?:primera|primero|segunda|segundo|tercera|tercero|\d+))(?:\s+(.+))?$/i);
@@ -2318,6 +2433,78 @@
         return { id: item.id, type: item.type, title: item.title, runAt: item.runAt,
             priority: item.priority || 'normal', status: item.status, updatedAt: item.updatedAt || null,
             revision: Number.isSafeInteger(item.revision) && item.revision >= 0 ? item.revision : 0 };
+    }
+
+    function reminderPublicRecord(item) {
+        // Only account-scoped identity/state, never payload, tokens, raw errors
+        // or push results that may carry provider credentials or local paths.
+        return { ...reminderSnapshot(item), attempts: Number.isSafeInteger(item.attempts) ? item.attempts : 0,
+            maxAttempts: Number.isSafeInteger(item.maxAttempts) ? item.maxAttempts : null,
+            nextAttemptAt: Number.isFinite(Date.parse(item.nextAttemptAt)) ? item.nextAttemptAt : null };
+    }
+
+    function reminderStateLabel(status) {
+        return ({ scheduled: 'programado', running: 'en ejecución', retry_wait: 'esperando reintento automático',
+            failed: 'fallido', completed: 'procesado por el servidor', fired: 'disparado en este navegador', cancelled: 'cancelado' })[status] || 'estado no reconocido';
+    }
+
+    function reminderRetryRestriction(item) {
+        if (item.meta?.eventLink || item.payload?.eventLink || item.payload?.meta?.eventLink || !String(item.id || '').startsWith('job_'))
+            return 'Este aviso está vinculado a una reunión local. Revisa la reunión y sus permisos en Agenda; no lo reactivaré como recordatorio independiente.';
+        if (item.type !== 'reminder') return 'Ese proceso es un seguimiento, no un recordatorio independiente. No reactivaré otro tipo de proceso con esta orden.';
+        if (item.status === 'retry_wait') return 'Este aviso ya tiene un reintento automático pendiente. No crearé uno paralelo. Puedes consultar su estado para ver cuándo se intentará de nuevo.';
+        if (item.status !== 'failed') return 'Solo puedo reintentar avisos fallidos. Ese recordatorio está programado, en ejecución, procesado o cancelado; no lo volveré a enviar como si hubiera fallado.';
+        return null;
+    }
+
+    function reminderDiagnosis(item, tz) {
+        const linked = item.meta?.eventLink || item.payload?.eventLink || item.payload?.meta?.eventLink || !String(item.id || '').startsWith('job_');
+        const advice = reminderRetryRestriction(item);
+        const state = item.status;
+        const attempts = Number.isSafeInteger(item.attempts) && item.attempts >= 0 ? item.attempts : 0;
+        let detail;
+        if (state === 'scheduled') detail = linked
+            ? `Este navegador tiene un aviso para ${formatDateTime(item.runAt, tz)}. Necesita Gunter abierto y los permisos de notificaciones; no hay una entrega registrada todavía.`
+            : `Está programado para ${formatDateTime(item.runAt, tz)}. No hay una entrega registrada todavía. El servidor local debe estar funcionando para procesarlo.`;
+        else if (state === 'running') detail = 'El servidor está procesando el aviso. Todavía no hay un resultado final; no lanzaré otro intento mientras sigue en ejecución.';
+        else if (state === 'retry_wait') detail = `El intento anterior no terminó correctamente; hay un reintento automático${Number.isFinite(Date.parse(item.nextAttemptAt)) ? ` previsto para ${formatDateTime(item.nextAttemptAt, tz)}` : ' pendiente, sin una fecha válida registrada'}. El servidor local debe seguir funcionando; no programaré un intento paralelo.`;
+        else if (state === 'failed') detail = `Se registró un fallo${attempts > 0 ? ` tras ${attempts} intento${attempts === 1 ? '' : 's'}` : ', sin un número de intentos verificable'}. ${!advice ? 'Puedo reintentarlo ahora si lo solicitas y confirmas.' : advice}`;
+        else if (state === 'completed') {
+            if (item.result?.interventionId) {
+                detail = 'El servidor registró el aviso en la bandeja de Gunter.';
+                const push = item.result?.push;
+                if (Number(push?.delivered) > 0) detail += ' El proveedor aceptó una notificación push; eso no demuestra que la hayas recibido o leído.';
+                else detail += ' No hay una notificación push aceptada registrada; comprueba Conexiones y los permisos de notificaciones si quieres avisos en el teléfono.';
+            } else detail = 'El servidor marcó el proceso como completado, pero no hay evidencia suficiente para afirmar que llegó a la bandeja o al teléfono.';
+            detail += ' No lo reintentaré como un fallo; podría duplicar un aviso ya procesado.';
+        } else if (state === 'fired') detail = 'El navegador registró el disparo del aviso. Esto no demuestra que lo hayas oído o leído.';
+        else if (state === 'cancelled') detail = 'El aviso está cancelado. No lo reactivaré mediante un reintento; puedes crear uno nuevo si todavía lo necesitas.';
+        else detail = 'No tengo un estado reconocido suficiente para deducir qué ocurrió. Revisa Actividad; no ejecutaré acciones basándome en una suposición.';
+        if (['failed', 'retry_wait'].includes(state)) {
+            const error = String(item.lastError || '');
+            const cause = /^ENOSPC\b/.test(error) ? 'El error registrado indica falta de espacio de almacenamiento. Libera espacio y revisa el servidor local antes de reintentar.'
+                : /^(?:EACCES|EPERM)\b/.test(error) ? 'El error registrado indica un problema de permisos de almacenamiento. Revisa los permisos del servidor local antes de reintentar.'
+                : error === 'No se pudo crear la intervención persistente.' ? 'No se pudo guardar el aviso en la bandeja persistente. Revisa el almacenamiento del servidor local antes de reintentar.'
+                : error === 'recovered_after_restart' ? 'El proceso se recuperó después de un reinicio del servidor.'
+                : 'La causa registrada no está clasificada con suficiente precisión. Revisa los registros locales del servidor; no inventaré un diagnóstico ni mostraré datos sensibles del error.';
+            detail += `\n${cause}`;
+        }
+        if (linked) detail += '\nEste aviso está vinculado a una reunión y requiere Gunter abierto en este navegador; se gestiona desde Agenda, no como proceso independiente.';
+        return detail;
+    }
+
+    function parseReminderOperation(text) {
+        const raw = String(text || '').trim().replace(
+            /^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*[,;:!\-]*\s*/i, '')
+            .replace(/^[¿¡]+|[.!?]+$/g, '').trim();
+        const retry = raw.match(/^(?:por favor\s+)?(?:reintenta(?:r)?|vuelve a intentar)\s+(?:(?:el|un)\s+)?(?:recordatorio|aviso|seguimiento|proceso)(?:\s+fallido)?(?:\s+(?:de|para))?\s*(.*)$/i);
+        const inspect = raw.match(/^(?:por qu[eé] fall[oó]|qu[eé] pas[oó] con|estado (?:de|del)|(?:consulta|revisa|diagnostica) (?:el )?estado (?:de|del))\s+(?:(?:el|un)\s+)?(?:recordatorio|aviso|seguimiento|proceso)\s*(.*)$/i);
+        if (!retry && !inspect) return null;
+        const body = (retry || inspect)[1].trim();
+        const quoted = body.match(/^[“"']([^”"']+)[”"']\s*$/);
+        const unquoted = normalize(raw.replace(/[“"'][^”"']*[”"']/g, ''));
+        const compound = /\b(?:y|tambien|luego|ademas)\s+(?:reintenta\w*|reprograma\w*|renombra\w*|cambia\w*|cancela\w*|elimina\w*|mueve|abre|envia|crea)\b/.test(unquoted);
+        return { mode: retry ? 'retry' : 'inspect', reference: (quoted?.[1] || body).trim().slice(0, 180), compound };
     }
 
     function reminderRestriction(item) {
@@ -2533,7 +2720,7 @@
     function explainFailure(error, tool) {
         const code = error?.code || '';
         const message = String(error?.message || 'No recibí un resultado verificable.');
-        if (tool?.id === 'reminder.schedule' || tool?.id === 'reminder.update' || tool?.id === 'jobs.cancel') {
+        if (['reminder.schedule', 'reminder.update', 'reminder.retry', 'reminder.inspect', 'jobs.cancel'].includes(tool?.id)) {
             const detail = ({
                 job_confirmation_required: 'El cambio requiere tu confirmación explícita.',
                 REMINDER_CONFIRMATION_REQUIRED: 'Confirma el cambio por escrito o en pantalla.',
@@ -2545,6 +2732,10 @@
                 job_duplicate: 'Ya existe un aviso activo equivalente. Conservé ambos registros sin crear ni sustituir otro.',
                 job_not_found: 'No encontré ese aviso en los datos de esta cuenta.',
                 job_not_editable: 'El aviso no es un recordatorio independiente pendiente, o su entrega ya empezó. No lo reactivé ni lo reprogramé.',
+                job_not_retryable: 'Solo se pueden reintentar recordatorios independientes fallidos. Consulta el estado actual; no reactivé avisos procesados o cancelados.',
+                job_params_invalid: 'La solicitud no contiene una propuesta válida de reintento. Recarga Gunter y vuelve a seleccionar el aviso.',
+                job_id_invalid: 'El identificador del aviso no es válido. Selecciona un aviso de esta cuenta.',
+                REMINDER_RETRY_NOT_VERIFIED: 'No recibí un reintento verificable. Consulta el estado del aviso antes de repetir la orden; podría haber quedado programado.',
                 job_patch_invalid: 'Esta edición solo permite el nombre o la fecha y hora del recordatorio.',
                 job_title_invalid: 'El nombre necesita entre 2 y 180 caracteres.',
                 job_run_at_invalid: 'Indica una fecha y hora exactas con zona horaria.',
@@ -2562,8 +2753,9 @@
                 REMINDER_AUTH_REQUIRED: 'Inicia sesión antes de programar o consultar tus avisos.',
                 REMINDER_ACCOUNT_CHANGED: 'La cuenta cambió durante la operación. Revisa los avisos desde la sesión correcta.',
                 REMINDER_OWNER_MISMATCH: 'El aviso no pertenece a la cuenta actual.'
-            })[code || message] || message;
-            return `No pude verificar el recordatorio: ${detail}\nRevisa Recordatorios antes de repetir la orden.${tool?.id === 'reminder.update' ? '' : ' Los avisos vinculados necesitan Gunter abierto en este navegador.'}`;
+            })[code || message] || (['reminder.retry', 'reminder.inspect'].includes(tool?.id)
+                ? 'El servicio local no devolvió un resultado verificable. No tengo una causa clasificada; consulta el estado antes de repetir la orden, porque el cambio podría haberse guardado. No mostraré datos sensibles del error.' : message);
+            return `No pude verificar el recordatorio: ${detail}\nRevisa Recordatorios antes de repetir la orden.${['reminder.update', 'reminder.retry', 'reminder.inspect'].includes(tool?.id) ? '' : ' Los avisos vinculados necesitan Gunter abierto en este navegador.'}`;
         }
         if (tool?.id?.startsWith('calendar.')) {
             const detail = ({

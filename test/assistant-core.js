@@ -370,7 +370,7 @@ function browserModule(relativePath, windowOverrides = {}) {
             'desktop.media.volume_up', 'desktop.media.volume_down', 'desktop.media.mute',
             'desktop.ui.inspect', 'desktop.ui.focus', 'desktop.ui.click', 'desktop.ui.type',
             'desktop.ui.wait', 'desktop.ui.scroll', 'desktop.ui.hotkey', 'desktop.ui.select_file',
-            'agenda.list', 'jobs.list', 'reminder.update', 'reminder.schedule', 'follow_up.schedule',
+            'agenda.list', 'jobs.list', 'reminder.inspect', 'reminder.retry', 'reminder.update', 'reminder.schedule', 'follow_up.schedule',
             'jobs.cancel', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update', 'calendar.update', 'calendar.cancel', 'calendar.create'
         ]);
     });

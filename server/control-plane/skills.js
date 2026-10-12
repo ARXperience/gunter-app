@@ -19,6 +19,8 @@ const REGISTRY = Object.freeze([
     skill('calendar.cancel', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.calendar', 'external_write', 'L3', ['calendar.write']),
     skill('reminder.schedule', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'automation.basic', 'external_write', 'L4', ['jobs.write']),
     skill('reminder.update', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'automation.basic', 'external_write', 'L3', ['jobs.write']),
+    skill('reminder.inspect', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'automation.basic', 'read', 'L4', []),
+    skill('reminder.retry', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'automation.basic', 'external_write', 'L3', ['jobs.write']),
     skill('follow_up.schedule', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'automation.basic', 'external_write', 'L4', ['jobs.write']),
     skill('procedure.execute', ['WEB'], 'automation.procedures', 'external_write', 'L3', ['procedures.execute']),
     skill('desktop.apps.open', ['DESKTOP'], 'desktop.apps', 'local_device_action', 'L3', ['desktop.apps.open']),
@@ -152,7 +154,8 @@ function verify(skillName, result = {}) {
     else if (skillName === 'desktop.ui.select_file') verified = evidence.fileSelected === true && !!evidence.pathHash;
     else if (skillName === 'desktop.permissions.update') verified = evidence.permissionsUpdated === true && ['standard', 'all'].includes(evidence.filesystemScope) && ['standard', 'all'].includes(evidence.programScope);
     else if (['calendar.create', 'calendar.update', 'calendar.cancel'].includes(skillName)) verified = !!evidence.eventId && evidence.reconsulted === true;
-    else if (skillName === 'reminder.update') verified = !!evidence.persistedId && evidence.reconsulted === true
+    else if (skillName === 'reminder.inspect') verified = !!evidence.persistedId && evidence.reconsulted === true;
+    else if (['reminder.update', 'reminder.retry'].includes(skillName)) verified = !!evidence.persistedId && evidence.reconsulted === true
         && Number.isSafeInteger(evidence.revision) && evidence.revision >= 1;
     else if (skillName === 'tasks.create' || skillName.includes('reminder') || skillName === 'follow_up.schedule') verified = !!evidence.persistedId;
     else if (skillName === 'mobile.message.send') {
