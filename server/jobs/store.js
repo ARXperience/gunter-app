@@ -207,6 +207,28 @@ function list({ status = null, type = null, limit = 100 } = {}) {
     return jobs.slice(0, Math.max(1, Math.min(Number(limit) || 100, 200)));
 }
 
+// Cancelar el snapshot confirmado, sin sustituir una ejecución ni perder historial.
+function cancelReminder(id, expected) {
+    if (!validSnapshot(expected) || expected.id !== id) return { ok: false, error: 'job_snapshot_required' };
+    const jobs = loadAll();
+    const index = jobs.findIndex(job => job.id === id);
+    if (index === -1) return { ok: false, error: 'job_not_found' };
+    const current = jobs[index];
+    if (current.type !== 'reminder' || !['scheduled', 'retry_wait'].includes(current.status)
+        || current.payload?.eventLink || current.payload?.meta?.eventLink) {
+        return { ok: false, error: 'job_not_cancellable' };
+    }
+    if (JSON.stringify(snapshot(current)) !== JSON.stringify(snapshot(expected))) {
+        return { ok: false, error: 'job_changed' };
+    }
+    const timestamp = new Date().toISOString();
+    const next = { ...current, status: 'cancelled', cancelledAt: timestamp,
+        updatedAt: timestamp, revision: revision(current) + 1 };
+    jobs[index] = next;
+    if (!saveAll(jobs)) return { ok: false, error: 'job_persist_failed' };
+    return { ok: true, job: next };
+}
+
 function cancel(id) {
     const current = get(id);
     if (!current) return { ok: false, reason: 'not_found' };
@@ -222,4 +244,4 @@ function clear() {
     return true;
 }
 
-module.exports = { add, get, update, updateReminder, retryReminder, snapshot, validSnapshot, list, cancel, clear, _loadAll: loadAll, _saveAll: saveAll };
+module.exports = { add, get, update, updateReminder, retryReminder, cancelReminder, snapshot, validSnapshot, list, cancel, clear, _loadAll: loadAll, _saveAll: saveAll };

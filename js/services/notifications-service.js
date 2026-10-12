@@ -268,7 +268,10 @@
         if (String(id || '').startsWith('job_') && window.GunterJobs?.get) {
             const job = await window.GunterJobs.get(id);
             if (currentOwner() !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
-            return job ? durableToReminder(job) : null;
+            if (!job || job.type !== 'reminder' || (job.ownerId !== undefined && job.ownerId !== ownerId)) return null;
+            const reminder = { ...durableToReminder(job), ownerId };
+            if (currentOwner() !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
+            return reminder;
         }
         const db = await openDB();
         let row;
@@ -302,19 +305,54 @@
         return merged;
     }
 
-    async function cancel(id) {
+    async function cancel(id, { ownerId: requestedOwner, expected } = {}) {
         const ownerId = currentOwner();
+        const guarded = requestedOwner !== undefined || expected !== undefined;
+        if (guarded && requestedOwner !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
+        function checkSnapshot(reminder) {
+            if (currentOwner() !== ownerId || !owns(reminder, ownerId)) throw new Error('REMINDER_ACCOUNT_CHANGED');
+            if (reminder.status !== 'scheduled') throw new Error('REMINDER_NOT_CANCELLABLE');
+            if (!expected || expected.id !== id || typeof expected.title !== 'string' ||
+                typeof expected.fireAt !== 'string' || expected.status !== 'scheduled' ||
+                ['id', 'title', 'fireAt', 'status'].some(key => reminder[key] !== expected[key]) ||
+                (reminder.updatedAt ?? null) !== (expected.updatedAt ?? null)) {
+                throw new Error('REMINDER_CHANGED');
+            }
+        }
         if (String(id || '').startsWith('job_') && window.GunterJobs?.cancel) {
+            // The durable caller has its own server CAS/confirmation contract;
+            // do not silently downgrade a local guarded request to legacy cancel.
+            if (guarded) throw new Error('REMINDER_DURABLE_CANCEL_REQUIRES_JOB');
             const job = await window.GunterJobs.cancel(id);
             if (currentOwner() !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
             emit('reminders-changed', { op: 'update', id, durable: true });
             return durableToReminder(job);
         }
         const reminder = await get(id);
-        if (!reminder) throw new Error('Reminder no encontrado');
+        if (guarded && currentOwner() !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
+        if (!reminder) throw new Error(guarded ? 'REMINDER_CHANGED' : 'Reminder no encontrado');
+        if (guarded) checkSnapshot(reminder);
         if (linked(reminder)) {
             if (!window.GunterEventsService?.cancelReminder) throw new Error('LINKED_REMINDER_SERVICE_UNAVAILABLE');
             const cancelled = await window.GunterEventsService.cancelReminder(id);
+            if (currentOwner() !== ownerId || !owns(cancelled, ownerId)) throw new Error('REMINDER_ACCOUNT_CHANGED');
+            if (guarded && (cancelled.status !== 'cancelled' ||
+                ['id', 'title', 'fireAt'].some(key => cancelled[key] !== expected[key]))) {
+                throw new Error('REMINDER_CHANGED');
+            }
+            stopTimer(id);
+            emit('reminders-changed', { op: 'update', id, ownerId, durable: false });
+            return cancelled;
+        }
+        if (guarded) {
+            const cancelled = await mutateLocal(id, ownerId, row => {
+                checkSnapshot(row);
+                if (linked(row)) throw new Error('REMINDER_CHANGED');
+                const now = new Date().toISOString();
+                const next = { ...row, status: 'cancelled', cancelledAt: now, updatedAt: now };
+                return { row: next, result: next };
+            });
+            if (!cancelled) throw new Error('REMINDER_CHANGED');
             if (currentOwner() !== ownerId || !owns(cancelled, ownerId)) throw new Error('REMINDER_ACCOUNT_CHANGED');
             stopTimer(id);
             emit('reminders-changed', { op: 'update', id, ownerId, durable: false });
@@ -328,29 +366,80 @@
         const db = await openDB();
         let all;
         try {
+            if (currentOwner() !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
             all = await new Promise((res, rej) => {
                 const r = db.transaction(STORE).objectStore(STORE).getAll();
                 r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error);
             });
         } finally { db.close(); }
-        if (currentOwner() !== ownerId) return [];
+        if (currentOwner() !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
         return all.filter(r => owns(r, ownerId) && (!status || r.status === status))
             .sort((a, b) => (a.fireAt || '') < (b.fireAt || '') ? -1 : 1);
     }
 
-    async function list({ status } = {}) {
-        let ownerId;
-        try { ownerId = currentOwner(); } catch { return []; }
-        const local = await listLocal({ status }).catch(() => []);
-        if (!window.GunterJobs?.list) return local;
-        try {
-            const durable = await window.GunterJobs.list({ status, type: 'reminder', limit: 200 });
-            if (currentOwner() !== ownerId) return [];
-            const byId = new Map([...durable.map(durableToReminder), ...local].map(item => [item.id, item]));
-            return [...byId.values()].sort((a, b) => String(a.fireAt || '').localeCompare(String(b.fireAt || '')));
-        } catch {
-            try { return currentOwner() === ownerId ? local : []; } catch { return []; }
+    // A view snapshot distinguishes an empty collection from an unavailable
+    // source. It never persists an owner onto legacy or server records.
+    async function listSnapshot({ status, statuses } = {}) {
+        let ownerId, local = [], durable = [], limited = false;
+        const sources = {
+            local: { available: false, error: 'REMINDER_LOCAL_UNAVAILABLE' },
+            durable: { available: false, error: 'REMINDER_DURABLE_UNAVAILABLE' }
+        };
+        function assertOwner() {
+            if (currentOwner() !== ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
         }
+        function unavailable(error) {
+            const code = /REMINDER_AUTH_REQUIRED/.test(error?.message || '')
+                ? 'REMINDER_AUTH_REQUIRED' : 'REMINDER_ACCOUNT_CHANGED';
+            return { items: [], ownerId: null, sources: {
+                local: { available: false, error: code }, durable: { available: false, error: code }
+            }, limited: false };
+        }
+        try { ownerId = currentOwner(); } catch (error) { return unavailable(error); }
+        try {
+            assertOwner();
+            // job_ identities belong to the server source, never to a stale
+            // local mirror whose delivery state could differ from the server.
+            local = (await listLocal()).filter(row => !String(row.id || '').startsWith('job_'));
+            assertOwner();
+            sources.local = { available: true };
+        } catch {
+            try { assertOwner(); } catch (error) { return unavailable(error); }
+        }
+        if (typeof window.GunterJobs?.list === 'function') {
+            try {
+                assertOwner();
+                const requested = Array.isArray(statuses) ? [...new Set(statuses)].filter(value =>
+                    ['scheduled', 'running', 'retry_wait', 'failed', 'completed', 'cancelled'].includes(value)) : status ? [status] : [null];
+                const collections = await Promise.all((requested.length ? requested : [null]).map(value =>
+                    window.GunterJobs.list({ ...(value ? { status: value } : {}), type: 'reminder', limit: 200 })));
+                assertOwner();
+                if (collections.some(rows => !Array.isArray(rows))) throw new Error('REMINDER_DURABLE_UNAVAILABLE');
+                const jobs = collections.flat();
+                limited = collections.some(rows => rows.length >= 200);
+                durable = jobs.filter(job => job?.type === 'reminder' &&
+                    (job.ownerId === undefined || job.ownerId === ownerId))
+                    .map(job => ({ ...durableToReminder(job), ownerId }));
+                sources.durable = { available: true };
+            } catch {
+                try { assertOwner(); } catch (error) { return unavailable(error); }
+            }
+        }
+        try { assertOwner(); } catch (error) { return unavailable(error); }
+        const byId = new Map();
+        // Durable status wins if an old local row mirrors the same server ID.
+        for (const item of [...local, ...durable]) {
+            if (typeof item?.id === 'string' && item.id && owns(item, ownerId)) byId.set(item.id, item);
+        }
+        const items = [...byId.values()].filter(item => (!status || item.status === status)
+            && (!Array.isArray(statuses) || statuses.includes(item.status)))
+            .sort((a, b) => String(a.fireAt || '').localeCompare(String(b.fireAt || '')));
+        try { assertOwner(); } catch (error) { return unavailable(error); }
+        return { items, ownerId, sources, limited };
+    }
+
+    async function list(options = {}) {
+        return (await listSnapshot(options)).items;
     }
 
     function durableToReminder(job) {
@@ -555,6 +644,6 @@
     }
 
     window.GunterNotificationsService = {
-        schedule, get, cancel, update, list, rehydrate, requestPermission, enablePush, disablePush, pushStatus, testPush, showToast, withOperation
+        schedule, get, cancel, update, list, listSnapshot, rehydrate, requestPermission, enablePush, disablePush, pushStatus, testPush, showToast, withOperation
     };
 })();

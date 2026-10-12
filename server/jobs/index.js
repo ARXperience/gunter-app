@@ -147,6 +147,30 @@ function retryReminder(params = {}) {
     }
 }
 
+function cancelReminder(params = {}) {
+    if (!params || typeof params !== 'object' || Array.isArray(params)
+        || Object.keys(params).some(key => !['id', 'ownerId', 'expected', 'confirmed'].includes(key))) {
+        return { ok: false, error: 'job_params_invalid' };
+    }
+    if (params.confirmed !== true) return { ok: false, error: 'job_confirmation_required' };
+    if (userContext.contextKind() !== 'session' || typeof params.ownerId !== 'string'
+        || !params.ownerId || params.ownerId !== userContext.currentUserId()) {
+        return { ok: false, error: 'job_owner_mismatch' };
+    }
+    if (typeof params.id !== 'string' || !params.id || params.id.length > 200
+        || params.id !== params.id.trim() || /[\u0000-\u001f\u007f]/.test(params.id)) {
+        return { ok: false, error: 'job_params_invalid' };
+    }
+    if (!store.validSnapshot(params.expected) || params.expected.id !== params.id) {
+        return { ok: false, error: 'job_snapshot_required' };
+    }
+    try {
+        return store.cancelReminder(params.id, params.expected);
+    } catch (error) {
+        return { ok: false, error: 'job_persist_failed' };
+    }
+}
+
 async function defaultExecutor(job) {
     const isReminder = job.type === 'reminder';
     const intervention = proactiveStore.add({
@@ -192,11 +216,13 @@ async function runDue(internal = {}) {
         }
     }
 
-    const due = store.list({ limit: 200 }).filter(job => {
+    // History must not occupy the scheduler's bounded working set. Otherwise
+    // 200 old completed records could indefinitely hide a newly queued notice.
+    const due = [...store.list({ status: 'scheduled', limit: 200 }), ...store.list({ status: 'retry_wait', limit: 200 })].filter(job => {
         if (job.status === 'scheduled') return new Date(job.runAt).getTime() <= nowMs;
         if (job.status === 'retry_wait') return new Date(job.nextAttemptAt || job.runAt).getTime() <= nowMs;
         return false;
-    }).slice(0, limit);
+    }).sort((a, b) => Date.parse(a.nextAttemptAt || a.runAt) - Date.parse(b.nextAttemptAt || b.runAt)).slice(0, limit);
 
     const outcomes = [];
     for (const queued of due) {
@@ -269,6 +295,6 @@ function stats() {
 function clear() { return store.clear(); }
 
 module.exports = {
-    create, list, get, cancel, updateReminder, snapshot: store.snapshot, retry, retryReminder, runDue, tickAllUsers, start, stop, stats, clear,
+    create, list, get, cancel, cancelReminder, updateReminder, snapshot: store.snapshot, retry, retryReminder, runDue, tickAllUsers, start, stop, stats, clear,
     TYPES, TERMINAL, _store: store, _validateCreate: validateCreate
 };

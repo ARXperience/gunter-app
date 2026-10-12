@@ -1359,6 +1359,7 @@ const handleRequest = async (req, res) => {
                     case 'list':    result = { items: jobs.list(params) }; break;
                     case 'get':     result = { job: jobs.get(params.id) }; break;
                     case 'cancel':  result = jobs.cancel(params.id); break;
+                    case 'cancel_reminder': result = jobs.cancelReminder(params); break;
                     case 'update_reminder': result = jobs.updateReminder(params); break;
                     case 'retry_reminder': result = jobs.retryReminder(params); break;
                     case 'retry':   result = jobs.retry(params.id); break;

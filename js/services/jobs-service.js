@@ -95,6 +95,36 @@
         return result.job || null;
     }
 
+    async function cancelReminder(id, { ownerId, expected, confirmed } = {}) {
+        if (confirmed !== true) {
+            throw jobsError('REMINDER_CONFIRMATION_REQUIRED', 'Confirma la cancelación del recordatorio antes de guardarla.');
+        }
+        if (typeof ownerId !== 'string' || !ownerId) {
+            throw jobsError('JOBS_OWNER_MISMATCH', 'La cancelación necesita la cuenta que la autorizó.');
+        }
+        requireOwner(ownerId);
+        const keys = ['id', 'type', 'title', 'runAt', 'priority', 'status', 'updatedAt', 'revision'];
+        if (!expected || typeof expected !== 'object' || Array.isArray(expected) || expected.id !== id
+            || Object.keys(expected).length !== keys.length || !keys.every(key => Object.hasOwn(expected, key))
+            || !keys.slice(0, -1).every(key => typeof expected[key] === 'string')
+            || !Number.isSafeInteger(expected.revision) || expected.revision < 0) {
+            throw jobsError('job_snapshot_required', 'Consulta el estado actual del recordatorio antes de confirmar la cancelación.');
+        }
+        const result = await call('cancel_reminder', { id, ownerId, expected, confirmed: true });
+        assertCurrentOwner(ownerId);
+        const job = result?.job;
+        if (!job || job.id !== id || job.type !== 'reminder' || job.status !== 'cancelled'
+            || !Number.isSafeInteger(job.revision) || job.revision !== expected.revision + 1
+            || ['title', 'runAt', 'priority'].some(key => job[key] !== expected[key])
+            || typeof job.cancelledAt !== 'string' || !Number.isFinite(new Date(job.cancelledAt).getTime())) {
+            throw jobsError('REMINDER_CANCEL_NOT_VERIFIED', 'El servidor no confirmó el recordatorio cancelado.');
+        }
+        window.dispatchEvent(new CustomEvent('reminders-changed', { detail: { type: 'cancelled', id: job.id, ownerId, durable: true } }));
+        assertCurrentOwner(ownerId);
+        window.dispatchEvent(new CustomEvent('gunter-jobs-changed', { detail: { type: 'cancelled', id: job.id, ownerId } }));
+        return job;
+    }
+
     async function updateReminder(id, patch, { ownerId, expected, confirmed } = {}) {
         if (confirmed !== true) {
             throw jobsError('REMINDER_CONFIRMATION_REQUIRED', 'Confirma los cambios del recordatorio antes de guardarlos.');
@@ -206,7 +236,7 @@
     }
 
     window.GunterJobs = {
-        scheduleReminder, scheduleFollowUp, list, get, cancel, updateReminder, retry, retryReminder, runDue, stats,
+        scheduleReminder, scheduleFollowUp, list, get, cancel, cancelReminder, updateReminder, retry, retryReminder, runDue, stats,
         startPolling, stopPolling, pollCompleted
     };
 
