@@ -74,6 +74,7 @@ function labelSkill(name) {
         'agenda.list': 'Consultar agenda', 'tasks.create': 'Crear tarea', 'calendar.read': 'Consultar calendario',
         'calendar.create': 'Crear evento', 'calendar.update': 'Editar evento', 'calendar.cancel': 'Cancelar evento',
         'reminder.schedule': 'Programar recordatorio',
+        'reminder.update': 'Editar recordatorio',
         'follow_up.schedule': 'Programar seguimiento', 'desktop.apps.open': 'Abrir aplicación',
         'procedure.execute': 'Ejecutar ruta aprendida',
         'desktop.files.open': 'Abrir archivo', 'desktop.files.list': 'Listar carpeta', 'desktop.files.search': 'Buscar archivos',

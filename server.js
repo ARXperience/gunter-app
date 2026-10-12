@@ -1346,11 +1346,16 @@ const handleRequest = async (req, res) => {
             try {
                 const { op, params = {} } = JSON.parse(body || '{}');
                 let result;
+                if (params.ownerId !== undefined && params.ownerId !== userContext.currentUserId()) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ success: false, error: 'job_owner_mismatch' }));
+                }
                 switch (op) {
                     case 'create':  result = jobs.create(params); break;
                     case 'list':    result = { items: jobs.list(params) }; break;
                     case 'get':     result = { job: jobs.get(params.id) }; break;
                     case 'cancel':  result = jobs.cancel(params.id); break;
+                    case 'update_reminder': result = jobs.updateReminder(params); break;
                     case 'retry':   result = jobs.retry(params.id); break;
                     case 'run_due': result = await jobs.runDue(); break;
                     case 'stats':   result = jobs.stats(); break;

@@ -67,6 +67,50 @@ function cancel(id) {
     return store.cancel(String(id || ''));
 }
 
+function explicitDate(value) {
+    if (typeof value !== 'string') return null;
+    const parts = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/);
+    if (!parts) return null;
+    const [, year, month, day, hour, minute, second, offset] = parts;
+    const calendar = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+    if (calendar.getUTCFullYear() !== Number(year) || calendar.getUTCMonth() !== Number(month) - 1
+        || calendar.getUTCDate() !== Number(day) || Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) return null;
+    if (offset !== 'Z' && (Number(offset.slice(1, 3)) > 14 || Number(offset.slice(4)) > 59
+        || (Number(offset.slice(1, 3)) === 14 && Number(offset.slice(4)) !== 0))) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function updateReminder(params = {}) {
+    if (params.confirmed !== true) return { ok: false, error: 'job_confirmation_required' };
+    if (userContext.contextKind() !== 'session' || typeof params.ownerId !== 'string'
+        || !params.ownerId || params.ownerId !== userContext.currentUserId()) {
+        return { ok: false, error: 'job_owner_mismatch' };
+    }
+    const patch = params.patch;
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch) || !Object.keys(patch).length
+        || Object.keys(patch).some(key => !['title', 'runAt'].includes(key))) return { ok: false, error: 'job_patch_invalid' };
+    const normalized = {};
+    if (Object.hasOwn(patch, 'title')) {
+        if (typeof patch.title !== 'string' || patch.title.trim().length < 2 || patch.title.trim().length > 180) {
+            return { ok: false, error: 'job_title_invalid' };
+        }
+        normalized.title = patch.title.trim();
+    }
+    if (!store.validSnapshot(params.expected)) return { ok: false, error: 'job_snapshot_required' };
+    const date = explicitDate(Object.hasOwn(patch, 'runAt') ? patch.runAt : params.expected.runAt);
+    if (!date) return { ok: false, error: 'job_run_at_invalid' };
+    const delta = date.getTime() - Date.now();
+    if (delta <= 0) return { ok: false, error: 'job_run_at_not_future' };
+    if (delta > 366 * 24 * 3600 * 1000) return { ok: false, error: 'job_run_at_too_far' };
+    if (Object.hasOwn(patch, 'runAt')) normalized.runAt = date.toISOString();
+    try {
+        return store.updateReminder(String(params.id || ''), params.expected, normalized, defaultDedupe);
+    } catch (error) {
+        return { ok: false, error: 'job_persist_failed' };
+    }
+}
+
 function retry(id) {
     const current = get(id);
     if (!current) return { ok: false, reason: 'not_found' };
@@ -131,8 +175,14 @@ async function runDue(internal = {}) {
 
     const outcomes = [];
     for (const queued of due) {
-        const attempt = Number(queued.attempts || 0) + 1;
-        const running = store.update(queued.id, {
+        // Otra petición puede cancelar/reprogramar el siguiente job mientras
+        // esperamos al anterior: nunca ejecutar el snapshot antiguo de due.
+        const current = store.get(queued.id);
+        const effectiveAt = current?.status === 'retry_wait' ? current.nextAttemptAt || current.runAt : current?.runAt;
+        if (!current || !['scheduled', 'retry_wait'].includes(current.status)
+            || !Number.isFinite(new Date(effectiveAt).getTime()) || new Date(effectiveAt).getTime() > nowMs) continue;
+        const attempt = Number(current.attempts || 0) + 1;
+        const running = store.update(current.id, {
             status: 'running', attempts: attempt, startedAt: clock.toISOString(), nextAttemptAt: null
         });
         try {
@@ -194,6 +244,6 @@ function stats() {
 function clear() { return store.clear(); }
 
 module.exports = {
-    create, list, get, cancel, retry, runDue, tickAllUsers, start, stop, stats, clear,
+    create, list, get, cancel, updateReminder, snapshot: store.snapshot, retry, runDue, tickAllUsers, start, stop, stats, clear,
     TYPES, TERMINAL, _store: store, _validateCreate: validateCreate
 };
