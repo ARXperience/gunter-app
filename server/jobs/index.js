@@ -122,6 +122,31 @@ function retry(id) {
     return { ok: true, job };
 }
 
+function retryReminder(params = {}) {
+    if (!params || typeof params !== 'object' || Array.isArray(params)
+        || Object.keys(params).some(key => !['id', 'ownerId', 'expected', 'confirmed'].includes(key))) {
+        return { ok: false, error: 'job_params_invalid' };
+    }
+    if (params.confirmed !== true) return { ok: false, error: 'job_confirmation_required' };
+    if (userContext.contextKind() !== 'session' || typeof params.ownerId !== 'string'
+        || !params.ownerId || params.ownerId !== userContext.currentUserId()) {
+        return { ok: false, error: 'job_owner_mismatch' };
+    }
+    if (typeof params.id !== 'string' || !params.id || params.id.length > 200
+        || params.id !== params.id.trim() || /[\u0000-\u001f\u007f]/.test(params.id)) {
+        return { ok: false, error: 'job_id_invalid' };
+    }
+    if (!store.validSnapshot(params.expected) || params.expected.id !== params.id
+        || params.expected.type !== 'reminder' || params.expected.status !== 'failed') {
+        return { ok: false, error: 'job_snapshot_required' };
+    }
+    try {
+        return store.retryReminder(params.id, params.expected, defaultDedupe);
+    } catch (error) {
+        return { ok: false, error: 'job_persist_failed' };
+    }
+}
+
 async function defaultExecutor(job) {
     const isReminder = job.type === 'reminder';
     const intervention = proactiveStore.add({
@@ -244,6 +269,6 @@ function stats() {
 function clear() { return store.clear(); }
 
 module.exports = {
-    create, list, get, cancel, updateReminder, snapshot: store.snapshot, retry, runDue, tickAllUsers, start, stop, stats, clear,
+    create, list, get, cancel, updateReminder, snapshot: store.snapshot, retry, retryReminder, runDue, tickAllUsers, start, stop, stats, clear,
     TYPES, TERMINAL, _store: store, _validateCreate: validateCreate
 };

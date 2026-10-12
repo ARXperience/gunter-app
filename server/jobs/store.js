@@ -151,6 +151,54 @@ function updateReminder(id, expected, patch, deriveDedupe) {
     return { ok: true, job: next };
 }
 
+// El reintento confirmado es una transición del mismo registro, no un job nuevo.
+// Releer/CAS/persistir sin awaits conserva la atomicidad frente al scheduler.
+function retryReminder(id, expected, deriveDedupe) {
+    if (!validSnapshot(expected) || expected.id !== id || expected.type !== 'reminder'
+        || expected.status !== 'failed') return { ok: false, error: 'job_snapshot_required' };
+    const jobs = loadAll();
+    const index = jobs.findIndex(job => job.id === id);
+    if (index === -1) return { ok: false, error: 'job_not_found' };
+    const current = jobs[index];
+    if (current.type !== 'reminder' || current.status !== 'failed'
+        || current.payload?.eventLink || current.payload?.meta?.eventLink) {
+        return { ok: false, error: 'job_not_retryable' };
+    }
+    if (JSON.stringify(snapshot(current)) !== JSON.stringify(snapshot(expected))) {
+        return { ok: false, error: 'job_changed' };
+    }
+    const previousDate = new Date(current.runAt);
+    if (typeof current.title !== 'string' || current.title.trim().length < 2
+        || current.title.length > 180 || !Number.isFinite(previousDate.getTime())) {
+        return { ok: false, error: 'job_not_retryable' };
+    }
+    const timestamp = new Date().toISOString();
+    const next = {
+        ...current, status: 'scheduled', attempts: 0, runAt: timestamp,
+        nextAttemptAt: null, lastError: null, result: null,
+        startedAt: null, completedAt: null, cancelledAt: null,
+        lastFailure: {
+            attempts: Number(current.attempts || 0), lastError: current.lastError || null,
+            runAt: current.runAt, failedAt: current.updatedAt, retriedAt: timestamp
+        },
+        updatedAt: timestamp, revision: revision(current) + 1
+    };
+    if (current.dedupeKey === deriveDedupe(current.type, current.title, previousDate)) {
+        next.dedupeKey = deriveDedupe(next.type, next.title, new Date(next.runAt));
+    }
+    const duplicate = jobs.some(job => job.id !== current.id
+        && ['scheduled', 'retry_wait', 'running'].includes(job.status)
+        && ((current.dedupeKey && job.dedupeKey === current.dedupeKey)
+            || (next.dedupeKey && job.dedupeKey === next.dedupeKey)
+            || (job.type === current.type && typeof job.title === 'string'
+                && job.title.toLowerCase() === current.title.toLowerCase()
+                && [previousDate.getTime(), new Date(next.runAt).getTime()].includes(new Date(job.runAt).getTime()))));
+    if (duplicate) return { ok: false, error: 'job_duplicate' };
+    jobs[index] = next;
+    if (!saveAll(jobs)) return { ok: false, error: 'job_persist_failed' };
+    return { ok: true, job: next };
+}
+
 function list({ status = null, type = null, limit = 100 } = {}) {
     let jobs = loadAll();
     if (status) jobs = jobs.filter(job => job.status === status);
@@ -174,4 +222,4 @@ function clear() {
     return true;
 }
 
-module.exports = { add, get, update, updateReminder, snapshot, validSnapshot, list, cancel, clear, _loadAll: loadAll, _saveAll: saveAll };
+module.exports = { add, get, update, updateReminder, retryReminder, snapshot, validSnapshot, list, cancel, clear, _loadAll: loadAll, _saveAll: saveAll };

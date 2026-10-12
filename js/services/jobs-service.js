@@ -118,6 +118,29 @@
         return result.job || null;
     }
 
+    async function retryReminder(id, { ownerId, expected, confirmed } = {}) {
+        if (confirmed !== true) {
+            throw jobsError('REMINDER_CONFIRMATION_REQUIRED', 'Confirma el reintento del recordatorio antes de programarlo.');
+        }
+        if (typeof ownerId !== 'string' || !ownerId) {
+            throw jobsError('JOBS_OWNER_MISMATCH', 'El reintento necesita la cuenta que lo autorizó.');
+        }
+        requireOwner(ownerId);
+        if (!expected || typeof expected !== 'object' || Array.isArray(expected) || expected.id !== id) {
+            throw jobsError('job_snapshot_required', 'Consulta el estado actual del recordatorio antes de confirmar el reintento.');
+        }
+        const result = await call('retry_reminder', { id, ownerId, expected, confirmed: true });
+        assertCurrentOwner(ownerId);
+        const job = result?.job;
+        if (!job || job.id !== id || job.type !== 'reminder' || job.status !== 'scheduled') {
+            throw jobsError('REMINDER_RETRY_NOT_VERIFIED', 'El servidor no confirmó el recordatorio reprogramado para reintento.');
+        }
+        window.dispatchEvent(new CustomEvent('reminders-changed', { detail: { type: 'retried', id: job.id, ownerId, durable: true } }));
+        assertCurrentOwner(ownerId);
+        window.dispatchEvent(new CustomEvent('gunter-jobs-changed', { detail: { type: 'retried', id: job.id, ownerId } }));
+        return job;
+    }
+
     async function runDue() {
         return call('run_due');
     }
@@ -183,7 +206,7 @@
     }
 
     window.GunterJobs = {
-        scheduleReminder, scheduleFollowUp, list, get, cancel, updateReminder, retry, runDue, stats,
+        scheduleReminder, scheduleFollowUp, list, get, cancel, updateReminder, retry, retryReminder, runDue, stats,
         startPolling, stopPolling, pollCompleted
     };
 

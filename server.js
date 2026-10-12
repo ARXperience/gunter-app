@@ -1346,6 +1346,10 @@ const handleRequest = async (req, res) => {
             try {
                 const { op, params = {} } = JSON.parse(body || '{}');
                 let result;
+                if (!params || typeof params !== 'object' || Array.isArray(params)) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ success: false, error: 'job_params_invalid' }));
+                }
                 if (params.ownerId !== undefined && params.ownerId !== userContext.currentUserId()) {
                     res.writeHead(400, { 'Content-Type': 'application/json' });
                     return res.end(JSON.stringify({ success: false, error: 'job_owner_mismatch' }));
@@ -1356,6 +1360,7 @@ const handleRequest = async (req, res) => {
                     case 'get':     result = { job: jobs.get(params.id) }; break;
                     case 'cancel':  result = jobs.cancel(params.id); break;
                     case 'update_reminder': result = jobs.updateReminder(params); break;
+                    case 'retry_reminder': result = jobs.retryReminder(params); break;
                     case 'retry':   result = jobs.retry(params.id); break;
                     case 'run_due': result = await jobs.runDue(); break;
                     case 'stats':   result = jobs.stats(); break;
