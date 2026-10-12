@@ -208,6 +208,7 @@
 
     function accountPendingTool(pending) {
         return pending && (pending.toolId?.startsWith('tasks.') || pending.toolId?.startsWith('calendar.')
+            || pending.toolId === 'reminder.update' || pending.toolId === 'jobs.cancel'
             || !!pending.args?.eventLink || !!pending.args?.target?.meta?.eventLink
             || (pending.toolId === 'preferences.update' && pending.args?.key === 'calendarPlanning'));
     }
@@ -271,6 +272,10 @@
                     ...(result.events || []).filter(row => row.ownerId === ownerId).map(row => ({ id: row.id, kind: 'event', title: row.title })),
                     ...(result.tasks || []).filter(row => row.ownerId === ownerId).map(row => ({ id: row.id, kind: 'task', title: row.title }))
                 ]);
+            } else if (toolId === 'jobs.list') {
+                rememberReferences((result.items || []).map(row => ({ id: row.id, kind: 'reminder', title: row.title })));
+            } else if (toolId === 'reminder.update') {
+                rememberReferences(result?.id ? [{ id: result.id, kind: 'reminder', title: result.title }] : []);
             } else if (toolId.startsWith('tasks.') || toolId.startsWith('calendar.')) {
                 rememberReferences(result?.id && result.ownerId === ownerId
                     ? [{ id: result.id, kind: toolId.startsWith('tasks.') ? 'task' : 'event', title: result.title }] : []);
@@ -278,6 +283,12 @@
         }
         async function referencedRow(reference) {
             const ownerId = syncReferenceScope();
+            if (reference.kind === 'reminder') {
+                if (!ownerId) return null;
+                const { items } = await reminderItems();
+                if (taskOwnerId() !== ownerId) return null;
+                return items.find(row => row.id === reference.id) || null;
+            }
             const service = reference.kind === 'event' ? options.eventsService || runtime.GunterEventsService
                 : options.tasksService || runtime.GunterTasksService;
             const rows = ownerId && service?.list ? await service.list({ includeCancelled: true }) : [];
@@ -316,17 +327,19 @@
             const local = ownerId && notifications?.list ? (await notifications.list()).filter(row =>
                 row.ownerId === ownerId && row.meta?.eventLink?.version === 1) : [];
             if (taskOwnerId() !== ownerId) return { items: [], durableUnavailable: true };
-            return { items: [...new Map([...durable, ...local.map(row => ({ ...row, runAt: row.fireAt, type: 'reminder' }))]
+            return { items: [...new Map([...durable.filter(row => row.ownerId == null || row.ownerId === ownerId), ...local.map(row => ({ ...row, runAt: row.fireAt, type: 'reminder' }))]
                 .map(row => [row.id, row])).values()], durableUnavailable };
         }
         function referenceQuestion() {
             return { handled: true, status: 'needs_input', reply: continuityEnabled()
-                ? '¿A qué tarea o evento te refieres? Dime su nombre y el cambio para evitar modificar otro registro.'
-                : 'La continuidad de conversación está desactivada. Dime el nombre de la tarea o evento y el cambio que quieres hacer.' };
+                ? '¿A qué tarea, evento o recordatorio te refieres? Dime su nombre y el cambio para evitar modificar otro registro.'
+                : 'La continuidad de conversación está desactivada. Dime el nombre de la tarea, evento o recordatorio y el cambio que quieres hacer.' };
         }
         async function prepareReferenceRequest(reference, request, text, dispatchOptions, originalPending = null) {
             const row = await referencedRow(reference);
             if (!row || !continuityEnabled()) return referenceQuestion();
+            if (reference.kind === 'reminder' && !['move', 'rename', 'cancel'].includes(request.action))
+                return { handled: true, status: 'needs_input', reply: 'Ese registro ya es un aviso. Puedo reprogramarlo, cambiar su nombre o cancelarlo; no lo duplicaré ni lo marcaré como tarea completada.' };
             if (reference.kind === 'event' && !['move', 'rename', 'cancel', 'remind'].includes(request.action))
                 return { handled: true, status: 'needs_input', reply: 'No tengo una herramienta para completar o reactivar eventos. Puedo cambiar su nombre, reprogramarlos o cancelarlos.' };
             if (request.action === 'remind') {
@@ -342,8 +355,8 @@
             }
             let value = request.value || '';
             if (request.action === 'move') {
-                const previousTime = originalPending?.args?.startAt || originalPending?.args?.dueAt
-                    || (reference.kind === 'event' ? row.startAt : row.dueAt);
+                const previousTime = originalPending?.args?.startAt || originalPending?.args?.dueAt || originalPending?.args?.runAt
+                    || (reference.kind === 'event' ? row.startAt : reference.kind === 'reminder' ? row.runAt : row.dueAt);
                 if (/^(?:a las?|las?|\d{1,2}[:.]\d{2})\b/i.test(normalize(value)) && previousTime) {
                     const [year, month, day] = dateKey(previousTime, timezone()).split('-');
                     value = `${day}/${month}/${year} ${value}`;
@@ -355,7 +368,7 @@
                     }
                 }
             }
-            const noun = reference.kind === 'event' ? 'evento' : 'tarea';
+            const noun = reference.kind === 'event' ? 'evento' : reference.kind === 'reminder' ? 'recordatorio' : 'tarea';
             const id = String(reference.id).replace(/[“”"']/g, '');
             const verb = { move: 'Reprograma', rename: 'Renombra', cancel: 'Cancela', complete: 'Completa', reopen: 'Reabre' }[request.action];
             const rawText = `${verb} ${noun} "${id}"${request.action === 'move' ? ` para ${value}` : request.action === 'rename' ? ` a "${value.replace(/"/g, '')}"` : ''}`;
@@ -702,6 +715,10 @@
                 return { toolId: 'jobs.cancel', args: { rawText: text } };
             }
 
+            if (parseReminderEdit(text).mode && !/^(que|como|por que|para que|puedo|podria)\b/.test(questionText)) {
+                return { toolId: 'reminder.update', args: { rawText: text } };
+            }
+
             if (!/^(que|como|por que|para que|puedo|podria)\b/.test(questionText)
                 && /\b(reabre|reabrir|reactiva|reactivar|vuelve a abrir)\b.*\b(tarea|pendiente)\b/.test(t)) {
                 return { toolId: 'tasks.reopen', args: { rawText: text } };
@@ -776,7 +793,7 @@
             if (isApp) add(['desktop.apps.open', 'mobile.open_app'], 'Aplicaciones: abrir una aplicación en un dispositivo conectado.');
             if (isAutomation) add(['procedure.execute'], 'Rutas guardadas: ejecutar procedimientos disponibles y aprobados.');
             if (isSettings) add(['settings.list', 'settings.update', 'preferences.update'], 'Configuración: consultar opciones y cambiar ajustes permitidos.');
-            if (/\b(reunion|evento|cita|agenda|recordatorio|tarea)\b/.test(normalized)) add(['calendar.create', 'calendar.update', 'calendar.cancel', 'agenda.list', 'reminder.schedule', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update'], 'Organización: agenda, reuniones, recordatorios y tareas.');
+            if (/\b(reunion|evento|cita|agenda|recordatorio|tarea)\b/.test(normalized)) add(['calendar.create', 'calendar.update', 'calendar.cancel', 'agenda.list', 'reminder.schedule', 'reminder.update', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update'], 'Organización: agenda, reuniones, recordatorios y tareas.');
             if (!suggestions.length) {
                 add(['app.navigate'], 'Navegación por las secciones de Gunter.');
                 add(['desktop.apps.open', 'mobile.open_app'], 'Abrir aplicaciones conectadas.');
@@ -843,16 +860,49 @@
                 return { ...match, args: { ...match.args, ...parsed, target } };
             }
             if (match.toolId === 'jobs.cancel') {
-                const title = extractTitle(match.args.rawText, match.toolId);
+                const title = String(match.args.rawText || '').match(/[“"'](.+?)[”"']/)?.[1]
+                    || extractTitle(match.args.rawText, match.toolId);
                 const { items: candidates } = await reminderItems();
                 const active = candidates.filter(job => !['completed', 'fired', 'failed', 'cancelled'].includes(job.status));
                 const needle = normalize(title);
                 const exact = active.filter(job => job.id === title || normalize(job.title) === needle);
-                const matching = exact.length ? exact : needle.length >= 3 ? active.filter(job =>
+                const matching = match.args.selectedTargetId ? active.filter(job => job.id === match.args.selectedTargetId)
+                    : exact.length ? exact : needle.length >= 3 ? active.filter(job =>
                     normalize(job.title).includes(needle) || needle.includes(normalize(job.title))) : [];
                 const target = matching.length === 1 ? matching[0] : null;
                 return { ...match, args: { ...match.args, title, ownerId: taskOwnerId(), ambiguous: matching.length > 1,
                     targetId: target?.id || null, target: target || null } };
+            }
+            if (match.toolId === 'reminder.update') {
+                const ownerId = taskOwnerId();
+                const edit = parseReminderEdit(match.args.rawText);
+                const { items, durableUnavailable } = await reminderItems();
+                let exactById = null;
+                if (ownerId && taskOwnerId() === ownerId && /^job_[\w-]{1,100}$/.test(edit.reference)) {
+                    const service = options.jobsService || runtime.GunterJobs;
+                    try {
+                        const row = await service?.get?.(edit.reference);
+                        if (taskOwnerId() === ownerId && row?.id === edit.reference && (row.ownerId == null || row.ownerId === ownerId))
+                            exactById = row;
+                    } catch { /* Preserve the existing unavailable/no-target explanation. */ }
+                }
+                const needle = normalize(edit.reference);
+                const candidates = (exactById ? [exactById] : items).filter(row => !['completed', 'failed', 'cancelled', 'fired'].includes(row.status)
+                    && (match.args.selectedTargetId ? row.id === match.args.selectedTargetId
+                        : needle && (row.id === edit.reference || normalize(row.title) === needle)));
+                const target = candidates.length === 1 ? candidates[0] : null;
+                const resolved = edit.mode === 'time' && edit.value ? await resolveTime(edit.value) : null;
+                return { ...match, args: { ...match.args, ownerId, targetId: target?.id || null,
+                    targetTitle: target?.title || null, snapshot: target ? reminderSnapshot(target) : null,
+                    unavailable: durableUnavailable && !exactById, restricted: target ? reminderRestriction(target) : null,
+                    compound: edit.compound,
+                    editMode: edit.mode, newTitle: edit.mode === 'title' ? edit.value : null,
+                    runAt: edit.mode === 'time' ? resolved?.iso || null : null, timeKind: resolved?.kind || null,
+                    invalidTime: resolved?.invalid === true,
+                    newRecurrence: resolved?.rrule || null, temporalAmbiguity: resolved?.ambiguity &&
+                        (resolved.ambiguity.reason?.trim() || resolved.ambiguity.options?.length > 1) ? resolved.ambiguity : null,
+                    ambiguous: candidates.length > 1,
+                    candidates: candidates.map(row => ({ id: row.id, title: row.title, runAt: row.runAt })) } };
             }
             if (match.toolId === 'reminder.schedule' && match.args.eventReminderRequest) {
                 const parsed = parseEventReminder(match.args.rawText);
@@ -948,7 +998,7 @@
             if (!tool) return { handled: false };
             const validation = tool.validate ? await tool.validate(match.args) : { ok: true };
             if (!validation?.ok) {
-                if (['calendar.update', 'calendar.cancel', 'calendar.create'].includes(tool.id) || match.args.eventReminderRequest) {
+                if (['calendar.update', 'calendar.cancel', 'calendar.create', 'reminder.update'].includes(tool.id) || match.args.eventReminderRequest) {
                     savePending(null);
                     pendingEventSelection = match.args.ambiguous && match.args.ownerId ? {
                         match, ownerId: match.args.ownerId, at: referenceNow()
@@ -997,7 +1047,8 @@
                 if (controlRun) controlStage = 'verifying';
                 const verified = tool.verify ? await tool.verify(result, match.args) : true;
                 if (!verified) throw new Error('La acción respondió, pero no pude verificar el resultado guardado.');
-                await controlTransition(controlRun, 'verified', { evidence: { verified: true, source: 'legacy_adapter' }, reason: 'legacy_adapter_verified' });
+                await controlTransition(controlRun, 'verified', { evidence: { verified: true, source: 'legacy_adapter',
+                    ...(tool.id === 'reminder.update' ? { persistedId: result.id, reconsulted: true, revision: result.revision } : {}) }, reason: 'legacy_adapter_verified' });
                 if (controlRun) controlStage = 'verified';
                 await controlTransition(controlRun, 'completed', { reason: 'legacy_adapter_complete' });
                 const reply = tool.formatResult ? await tool.formatResult(result, match.args) : 'Listo.';
@@ -1131,23 +1182,23 @@
                 if (!ownerId || !continuityEnabled()) return referenceQuestion();
                 const pendingDomain = pending?.args?.ownerId === ownerId && pending.args.targetId
                     && referenceNow() - (pending.referenceAt || 0) < REFERENCE_TTL_MS
-                    && (pending.toolId.startsWith('tasks.') || pending.toolId.startsWith('calendar.')) ? pending : null;
+                    && (pending.toolId.startsWith('tasks.') || pending.toolId.startsWith('calendar.') || pending.toolId === 'reminder.update') ? pending : null;
                 const candidates = pendingDomain ? [{ id: pendingDomain.args.targetId, title: pendingDomain.args.targetTitle,
-                    kind: pendingDomain.toolId.startsWith('calendar.') ? 'event' : 'task' }]
+                    kind: pendingDomain.toolId.startsWith('calendar.') ? 'event' : pendingDomain.toolId === 'reminder.update' ? 'reminder' : 'task' }]
                     : referenceContext?.ownerId === ownerId ? referenceContext.candidates : [];
                 const requestedChoice = request?.choice ?? choice;
                 const candidate = requestedChoice !== null && requestedChoice !== undefined ? candidates[requestedChoice - 1]
                     : candidates.length === 1 ? candidates[0] : null;
                 if (!candidate && candidates.length > 1 && requestedChoice == null && request) {
                     pendingEventSelection = { request, candidates, ownerId, at: referenceNow() };
-                    return { handled: true, status: 'needs_input', reply: `¿Cuál quieres cambiar?\n${candidates.map((row, index) => `${index + 1}. ${row.kind === 'event' ? 'Evento' : 'Tarea'}: ${row.title}`).join('\n')}\nDime el número; después pediré confirmación.` };
+                    return { handled: true, status: 'needs_input', reply: `¿Cuál quieres cambiar?\n${candidates.map((row, index) => `${index + 1}. ${row.kind === 'event' ? 'Evento' : row.kind === 'reminder' ? 'Aviso' : 'Tarea'}: ${row.title}`).join('\n')}\nDime el número; después pediré confirmación.` };
                 }
                 if (!candidate) return referenceQuestion();
                 if (!request) {
                     const row = await referencedRow(candidate);
                     if (!row) return referenceQuestion();
                     rememberReferences([{ ...candidate, title: row.title }]);
-                    return { handled: true, status: 'needs_input', reply: `Te refieres a ${candidate.kind === 'event' ? 'el evento' : 'la tarea'} “${row.title}”. ¿Qué cambio quieres hacer?` };
+                    return { handled: true, status: 'needs_input', reply: `Te refieres a ${candidate.kind === 'event' ? 'el evento' : candidate.kind === 'reminder' ? 'el aviso' : 'la tarea'} “${row.title}”. ¿Qué cambio quieres hacer?` };
                 }
                 return prepareReferenceRequest(candidate, request, text, options, pendingDomain);
             }
@@ -1670,11 +1721,72 @@
                 const warning = result.durableUnavailable ? '\nNo pude consultar los avisos del servidor; los vinculados locales requieren Gunter abierto.' : '';
                 if (!result.items.length) return (result.durableUnavailable ? 'No hay avisos locales vinculados activos.' : 'No tienes recordatorios ni seguimientos programados.') + warning;
                 const lines = ['Procesos programados:'];
-                result.items.forEach(job => {
+                result.items.forEach((job, index) => {
                     const kind = job.type === 'follow_up' ? 'Seguimiento' : 'Recordatorio';
-                    lines.push(`• ${kind}: ${job.title} — ${withoutFinalPeriod(formatDateTime(job.runAt, timezone()))}${job.meta?.eventLink ? ' · vinculado a reunión, requiere Gunter abierto' : ''}`);
+                    lines.push(`${index + 1}. ${kind}: ${job.title} — ${withoutFinalPeriod(formatDateTime(job.runAt, timezone()))}${job.meta?.eventLink ? ' · vinculado a reunión, requiere Gunter abierto' : ''}`);
                 });
                 return lines.join('\n') + warning;
+            }
+        });
+
+        register({
+            id: 'reminder.update',
+            description: 'Edita o reprograma un recordatorio independiente guardado, con confirmación.',
+            confirm: 'always', reversible: true,
+            validate(args) {
+                if (!args.ownerId || taskOwnerId() !== args.ownerId) return { ok: false, reply: 'Inicia sesión con tu cuenta antes de editar tus recordatorios.' };
+                if (args.compound) return { ok: false, reply: 'Dime un cambio por orden: el nombre o la fecha y hora. No aplicaré solo una parte de una solicitud compuesta.' };
+                const service = options.jobsService || runtime.GunterJobs;
+                if (args.unavailable || !service?.get || !service?.updateReminder)
+                    return { ok: false, reply: 'No pude consultar el servicio local de recordatorios persistentes. Comprueba que el servidor de Gunter esté disponible; no cambié ni creé otro aviso.' };
+                if (args.ambiguous) return { ok: false, reply: `Hay varios avisos con ese nombre. Elige el número:\n${args.candidates.map((row, i) => `${i + 1}. ${row.title} — ${formatDateTime(row.runAt, timezone())}`).join('\n')}` };
+                if (!args.targetId || !args.snapshot) return { ok: false, reply: 'No encontré un recordatorio activo con ese nombre exacto. Puedes consultar “mis recordatorios” o indicar su identificador.' };
+                if (args.restricted) return { ok: false, reply: args.restricted };
+                if (args.editMode === 'title') {
+                    if (typeof args.newTitle !== 'string' || args.newTitle.trim().length < 2 || args.newTitle.length > 180)
+                        return { ok: false, reply: 'Dime un nombre de 2 a 180 caracteres para el recordatorio.' };
+                } else if (args.editMode === 'time') {
+                    if (args.invalidTime) return { ok: false, reply: 'Esa fecha no existe en el calendario. Dime una fecha válida; no cambié el aviso.' };
+                    const instant = Date.parse(args.runAt);
+                    if (!Number.isFinite(instant) || args.timeKind === 'allDay' || args.newRecurrence)
+                        return { ok: false, reply: 'Dime una fecha y hora exactas para el aviso, sin recurrencia. No inventaré un horario.' };
+                    if (instant <= referenceNow() || instant > referenceNow() + 366 * 86400000)
+                        return { ok: false, reply: 'La nueva fecha debe ser futura y estar dentro de los próximos 366 días.' };
+                } else return { ok: false, reply: 'Puedo cambiar el nombre o la fecha y hora del recordatorio. Indica qué quieres modificar.' };
+                return { ok: true };
+            },
+            confirmation(args) {
+                const current = `“${args.targetTitle}”, programado para ${formatDateTime(args.snapshot.runAt, timezone())}`;
+                return args.editMode === 'title'
+                    ? `¿Confirmas renombrar el recordatorio ${current} como “${args.newTitle}”? Conservaré su horario y los demás datos.`
+                    : `¿Confirmas reprogramar el recordatorio ${current} para ${formatDateTime(args.runAt, timezone())}? Actualizaré el mismo aviso, sin crear otro.`;
+            },
+            async execute(args) {
+                if (taskOwnerId() !== args.ownerId) throw new Error('job_owner_mismatch');
+                const service = options.jobsService || runtime.GunterJobs;
+                const current = await service.get(args.targetId);
+                if (taskOwnerId() !== args.ownerId) throw new Error('job_owner_mismatch');
+                if (!current || (current.ownerId != null && current.ownerId !== args.ownerId)
+                    || reminderRestriction(current) || JSON.stringify(reminderSnapshot(current)) !== JSON.stringify(args.snapshot))
+                    throw new Error('job_changed');
+                const patch = args.editMode === 'title' ? { title: args.newTitle.trim() } : { runAt: args.runAt };
+                return service.updateReminder(args.targetId, patch, { ownerId: args.ownerId, expected: args.snapshot, confirmed: true });
+            },
+            async verify(result, args) {
+                if (taskOwnerId() !== args.ownerId || result?.id !== args.targetId) return false;
+                const service = options.jobsService || runtime.GunterJobs;
+                const stored = await service.get(args.targetId);
+                if (taskOwnerId() !== args.ownerId || !stored || (stored.ownerId != null && stored.ownerId !== args.ownerId)
+                    || stored.type !== 'reminder' || stored.status !== 'scheduled'
+                    || !Number.isSafeInteger(stored.revision) || stored.revision <= args.snapshot.revision
+                    || (stored.priority || 'normal') !== args.snapshot.priority) return false;
+                return stored.title === (args.editMode === 'title' ? args.newTitle.trim() : args.snapshot.title)
+                    && Date.parse(stored.runAt) === Date.parse(args.editMode === 'time' ? args.runAt : args.snapshot.runAt)
+                    && JSON.stringify(reminderSnapshot(stored)) === JSON.stringify(reminderSnapshot(result));
+            },
+            formatResult(result, args) {
+                return args.editMode === 'title' ? `Nombre del recordatorio actualizado y verificado: “${result.title}”. Conservé su horario.`
+                    : `Recordatorio reprogramado y verificado: “${result.title}”, ${withoutFinalPeriod(formatDateTime(result.runAt, timezone()))}. Conservé el mismo aviso y no se entregará a la hora anterior.`;
             }
         });
 
@@ -2202,6 +2314,34 @@
             rrule: item.rrule || null, externalIds: JSON.parse(JSON.stringify(item.externalIds || {})) };
     }
 
+    function reminderSnapshot(item) {
+        return { id: item.id, type: item.type, title: item.title, runAt: item.runAt,
+            priority: item.priority || 'normal', status: item.status, updatedAt: item.updatedAt || null,
+            revision: Number.isSafeInteger(item.revision) && item.revision >= 0 ? item.revision : 0 };
+    }
+
+    function reminderRestriction(item) {
+        if (item.meta?.eventLink || item.payload?.eventLink || !String(item.id || '').startsWith('job_'))
+            return 'Este aviso está vinculado a una reunión local. Reprograma la reunión en Agenda para conservar la antelación del aviso; no editaré otro recordatorio en su lugar.';
+        if (item.type !== 'reminder') return 'Ese proceso es un seguimiento, no un recordatorio independiente. Esta edición no cambia seguimientos.';
+        if (item.status !== 'scheduled' || Number(item.attempts || 0) !== 0)
+            return 'Ese aviso ya se está ejecutando, está esperando un reintento o ya fue atendido. No puedo reprogramarlo como si su entrega no hubiera empezado; revisa su estado en Recordatorios.';
+        return null;
+    }
+
+    // Reuse the event edit grammar; only the target noun and time mode differ.
+    // Replace its first command noun, never words inside the quoted title.
+    function parseReminderEdit(text) {
+        const raw = String(text || '').trim().replace(
+            /^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*[,;:!\-]*\s*/i, '');
+        const translated = raw.replace(/^(.+?\s)(?:recordatorio|aviso)\s+/i, '$1evento ');
+        if (translated === raw) return { mode: null, reference: '', value: '' };
+        const parsed = parseEventEdit(translated);
+        const unquoted = normalize(raw.replace(/[“"'][^”"']*[”"']/g, ''));
+        const compound = /\b(?:y|tambien|luego|ademas)\s+(?:reprograma(?:r|lo|la)?|reagenda(?:r|lo|la)?|mueve|pospone|renombra(?:r|lo|la)?|cambia(?:r|lo|la)?|edita(?:r|lo|la)?|ponlo|ponla)\b/.test(unquoted);
+        return { ...parsed, mode: parsed.mode === 'start' ? 'time' : parsed.mode, compound };
+    }
+
     function eventRestriction(item) {
         if (item.rrule || item.kind === 'recurring')
             return 'Este evento pertenece a una serie recurrente. No cambiaré toda la serie por una orden individual; gestiona la recurrencia desde Agenda.';
@@ -2393,8 +2533,25 @@
     function explainFailure(error, tool) {
         const code = error?.code || '';
         const message = String(error?.message || 'No recibí un resultado verificable.');
-        if (tool?.id === 'reminder.schedule' || tool?.id === 'jobs.cancel') {
+        if (tool?.id === 'reminder.schedule' || tool?.id === 'reminder.update' || tool?.id === 'jobs.cancel') {
             const detail = ({
+                job_confirmation_required: 'El cambio requiere tu confirmación explícita.',
+                REMINDER_CONFIRMATION_REQUIRED: 'Confirma el cambio por escrito o en pantalla.',
+                job_owner_mismatch: 'La cuenta cambió. Solicita el cambio desde la sesión correcta.',
+                JOBS_AUTH_REQUIRED: 'Inicia sesión con una cuenta verificada.',
+                JOBS_OWNER_MISMATCH: 'El aviso no pertenece a la cuenta actual.',
+                JOBS_ACCOUNT_CHANGED: 'La cuenta cambió durante la operación. Revisa tus avisos antes de repetirla.',
+                job_changed: 'El recordatorio cambió después de la propuesta. Consulta su estado y confirma una nueva propuesta; no sobrescribí el cambio anterior.',
+                job_duplicate: 'Ya existe un aviso activo equivalente. Conservé ambos registros sin crear ni sustituir otro.',
+                job_not_found: 'No encontré ese aviso en los datos de esta cuenta.',
+                job_not_editable: 'El aviso no es un recordatorio independiente pendiente, o su entrega ya empezó. No lo reactivé ni lo reprogramé.',
+                job_patch_invalid: 'Esta edición solo permite el nombre o la fecha y hora del recordatorio.',
+                job_title_invalid: 'El nombre necesita entre 2 y 180 caracteres.',
+                job_run_at_invalid: 'Indica una fecha y hora exactas con zona horaria.',
+                job_run_at_not_future: 'La hora indicada ya pasó. Pide una fecha futura.',
+                job_run_at_too_far: 'La nueva fecha debe estar dentro de los próximos 366 días.',
+                job_snapshot_required: 'No tengo una propuesta verificable. Vuelve a seleccionar el aviso y confirma el cambio.',
+                job_persist_failed: 'No pude guardar el cambio. El archivo anterior se conservó; revisa el almacenamiento del servidor local.',
                 EVENT_AUTH_REQUIRED: 'Necesitas una sesión verificada para acceder a tus avisos.',
                 EVENT_OWNER_MISMATCH: 'La cuenta cambió; no puedo usar la reunión de otra cuenta.',
                 EVENT_CHANGED: 'La reunión cambió desde la propuesta. Solicita el aviso otra vez con el horario actual.',
@@ -2406,7 +2563,7 @@
                 REMINDER_ACCOUNT_CHANGED: 'La cuenta cambió durante la operación. Revisa los avisos desde la sesión correcta.',
                 REMINDER_OWNER_MISMATCH: 'El aviso no pertenece a la cuenta actual.'
             })[code || message] || message;
-            return `No pude verificar el recordatorio: ${detail}\nRevisa Recordatorios antes de repetir la orden. Los avisos vinculados necesitan Gunter abierto en este navegador.`;
+            return `No pude verificar el recordatorio: ${detail}\nRevisa Recordatorios antes de repetir la orden.${tool?.id === 'reminder.update' ? '' : ' Los avisos vinculados necesitan Gunter abierto en este navegador.'}`;
         }
         if (tool?.id?.startsWith('calendar.')) {
             const detail = ({

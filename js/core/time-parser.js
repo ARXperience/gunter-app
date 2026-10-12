@@ -269,8 +269,11 @@
             const m = MONTHS_ES[dateM[2]];
             const y = dateM[3] ? parseInt(dateM[3], 10) : today.getFullYear();
             const date = new Date(y, m, d, tod?.hour ?? 9, tod?.minute ?? 0);
+            if (date.getFullYear() !== y || date.getMonth() !== m || date.getDate() !== d)
+                return invalidCalendarDate(raw, tz);
             // If date is in the past and no year provided → next year
             if (!dateM[3] && date < today) date.setFullYear(y + 1);
+            if (date.getMonth() !== m || date.getDate() !== d) return invalidCalendarDate(raw, tz);
             return result(raw, toIsoWithTz(date, tz), tod ? 'instant' : 'allDay', tz);
         }
 
@@ -281,7 +284,10 @@
             const m = parseInt(numM[2], 10) - 1;
             const y = numM[3] ? (numM[3].length === 2 ? 2000 + parseInt(numM[3], 10) : parseInt(numM[3], 10)) : today.getFullYear();
             const date = new Date(y, m, d, tod?.hour ?? 9, tod?.minute ?? 0);
+            if (date.getFullYear() !== y || date.getMonth() !== m || date.getDate() !== d)
+                return invalidCalendarDate(raw, tz);
             if (!numM[3] && date < today) date.setFullYear(y + 1);
+            if (date.getMonth() !== m || date.getDate() !== d) return invalidCalendarDate(raw, tz);
             return result(raw, toIsoWithTz(date, tz), tod ? 'instant' : 'allDay', tz);
         }
 
@@ -309,6 +315,11 @@
     }
 
     // ---------- LLM fallback ----------
+    function invalidCalendarDate(raw, tz) {
+        return { ...result(raw, null, 'instant', tz, { confidence: 0,
+            ambiguity: { options: [], reason: 'Esa fecha no existe en el calendario. Indica una fecha válida.' } }), invalid: true };
+    }
+
     async function parseWithLlm(raw, referenceDate, tz) {
         if (!window.GunterNlpLlm) return null;
         const prompt = `Convierte la siguiente expresión temporal en español a fecha/hora ISO 8601.
@@ -335,6 +346,8 @@ Si no puedes resolverlo, "iso" debe ser null.`;
     async function parse(raw, referenceDate = new Date(), tz = 'UTC') {
         if (!raw) return result('', null, 'instant', tz, { confidence: 0 });
         const regex = parseWithRegex(raw, referenceDate, tz);
+        // A nonexistent explicit date is not uncertainty for an LLM to repair.
+        if (regex?.invalid) return regex;
         if (regex && regex.iso && regex.confidence >= 0.7) return regex;
         const llm = await parseWithLlm(raw, referenceDate, tz);
         return llm || regex || result(raw, null, 'instant', tz, { confidence: 0 });
