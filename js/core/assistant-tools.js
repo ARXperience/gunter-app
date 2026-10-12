@@ -319,13 +319,29 @@
             if (runtime.GunterAuth && !ownerId) return { items: [], durableUnavailable: true };
             const jobs = options.jobsService || runtime.GunterJobs;
             const notifications = options.notificationsService || runtime.GunterNotificationsService;
+            if (ownerId && notifications?.listSnapshot) {
+                const snapshot = await notifications.listSnapshot(filters);
+                if (taskOwnerId() !== ownerId || snapshot.ownerId !== ownerId) return { items: [], durableUnavailable: true };
+                let followUps = [], durableUnavailable = !snapshot.sources?.durable?.available;
+                try {
+                    if (jobs?.list) {
+                        const statuses = filters.statuses || [filters.status || null];
+                        followUps = (await Promise.all(statuses.map(status => jobs.list({ ...(status ? { status } : {}), type: 'follow_up', limit: 200 })))).flat();
+                    }
+                } catch { durableUnavailable = true; }
+                if (taskOwnerId() !== ownerId) return { items: [], durableUnavailable: true };
+                return { items: [...snapshot.items.filter(row => row.ownerId === ownerId)
+                    .map(row => ({ ...row, type: 'reminder', runAt: row.runAt || row.fireAt })),
+                    ...followUps.filter(row => row.type === 'follow_up' && (row.ownerId == null || row.ownerId === ownerId))], durableUnavailable,
+                    localUnavailable: !snapshot.sources?.local?.available, limited: !!snapshot.limited };
+            }
             let durable = [], durableUnavailable = !jobs?.list;
             if (jobs?.list) {
                 try { durable = await jobs.list({ ...filters, limit: 200 }); }
                 catch { durableUnavailable = true; }
             }
             const local = ownerId && notifications?.list ? (await notifications.list()).filter(row =>
-                row.ownerId === ownerId && row.meta?.eventLink?.version === 1) : [];
+                row.ownerId === ownerId && !row.durable) : [];
             if (taskOwnerId() !== ownerId) return { items: [], durableUnavailable: true };
             return { items: [...new Map([...durable.filter(row => row.ownerId == null || row.ownerId === ownerId), ...local.map(row => ({ ...row, runAt: row.fireAt, type: 'reminder' }))]
                 .map(row => [row.id, row])).values()], durableUnavailable };
@@ -871,9 +887,21 @@
                 return { ...match, args: { ...match.args, ...parsed, target } };
             }
             if (match.toolId === 'jobs.cancel') {
+                const ownerId = taskOwnerId();
                 const title = String(match.args.rawText || '').match(/[“"'](.+?)[”"']/)?.[1]
                     || extractTitle(match.args.rawText, match.toolId);
                 const { items: candidates } = await reminderItems();
+                if (match.args.requireReminderGuard && ownerId && taskOwnerId() === ownerId) {
+                    const service = /^job_/.test(title) ? options.jobsService || runtime.GunterJobs
+                        : options.notificationsService || runtime.GunterNotificationsService;
+                    try {
+                        const row = await service?.get?.(title);
+                        if (row && row.id === title && taskOwnerId() === ownerId && (row.ownerId == null || row.ownerId === ownerId)) {
+                            const index = candidates.findIndex(item => item.id === title);
+                            if (index < 0) candidates.push(row); else candidates[index] = row;
+                        }
+                    } catch { /* Validation explains unavailable or no matching reminder. */ }
+                }
                 const active = candidates.filter(job => !['completed', 'fired', 'failed', 'cancelled'].includes(job.status));
                 const needle = normalize(title);
                 const exact = active.filter(job => job.id === title || normalize(job.title) === needle);
@@ -881,8 +909,14 @@
                     : exact.length ? exact : needle.length >= 3 ? active.filter(job =>
                     normalize(job.title).includes(needle) || needle.includes(normalize(job.title))) : [];
                 const target = matching.length === 1 ? matching[0] : null;
-                return { ...match, args: { ...match.args, title, ownerId: taskOwnerId(), ambiguous: matching.length > 1,
-                    targetId: target?.id || null, target: target || null } };
+                const localTarget = target && !String(target.id).startsWith('job_');
+                const snapshot = target ? localTarget ? localReminderSnapshot(target) : reminderSnapshot(target) : null;
+                const visibleTarget = match.args.requireReminderGuard && target
+                    ? { id: target.id, title: target.title, type: target.type || 'reminder', runAt: target.runAt,
+                        status: target.status, ownerId: target.ownerId, durable: target.durable,
+                        meta: target.meta?.eventLink || target.payload?.eventLink || target.payload?.meta?.eventLink ? { eventLink: true } : {} } : target;
+                return { ...match, args: { ...match.args, title, ownerId, ambiguous: matching.length > 1,
+                    localTarget: !!localTarget, snapshot, targetId: target?.id || null, target: visibleTarget || null } };
             }
             if (['reminder.inspect', 'reminder.retry'].includes(match.toolId)) {
                 const ownerId = taskOwnerId();
@@ -1082,7 +1116,7 @@
                 if (!verified) throw new Error('La acción respondió, pero no pude verificar el resultado guardado.');
                 await controlTransition(controlRun, 'verified', { evidence: { verified: true, source: 'legacy_adapter',
                     ...(['reminder.update', 'reminder.retry'].includes(tool.id) ? { persistedId: result.id, reconsulted: true, revision: result.revision } : {}),
-                    ...(tool.id === 'reminder.inspect' ? { persistedId: result.id, reconsulted: true } : {}) }, reason: 'legacy_adapter_verified' });
+                    ...(['reminder.inspect', 'jobs.cancel'].includes(tool.id) ? { persistedId: result.id, reconsulted: true } : {}) }, reason: 'legacy_adapter_verified' });
                 if (controlRun) controlStage = 'verified';
                 await controlTransition(controlRun, 'completed', { reason: 'legacy_adapter_complete' });
                 const reply = tool.formatResult ? await tool.formatResult(result, match.args) : 'Listo.';
@@ -1242,7 +1276,9 @@
                 referenceContext = null;
                 pendingReminderReference = null;
             } else if (!['agenda.list', 'reminder.schedule'].includes(detected.toolId)) referenceContext = null;
-            const prepared = await prepare(detected);
+            const prepared = await prepare(options.requireReminderGuard ? { ...detected,
+                args: { ...detected.args, requireReminderGuard: true,
+                    ...(typeof options.viewRequestId === 'string' ? { viewRequestId: options.viewRequestId.slice(0, 100) } : {}) } } : detected);
             if (options.inputSource === 'voice') prepared.args = { ...prepared.args, inputSource: 'voice', voiceTranscript: String(text || '') };
             return execute(prepared, false);
         }
@@ -1747,14 +1783,16 @@
             confirm: 'never',
             reversible: true,
             async execute(args) {
-                const result = await reminderItems(args.status === 'failed' ? { status: 'failed' } : {});
+                const result = await reminderItems(args.status === 'failed' ? { status: 'failed' } : { statuses: ['scheduled', 'running', 'retry_wait'] });
                 const items = result.items.filter(job => args.status === 'failed' ? job.status === 'failed'
                     : !['completed', 'fired', 'failed', 'cancelled'].includes(job.status))
                     .sort((a, b) => Date.parse(a.runAt) - Date.parse(b.runAt)).slice(0, 12);
                 return { ...result, failed: args.status === 'failed', items: args.status === 'failed' ? items.map(reminderPublicRecord) : items };
             },
             formatResult(result) {
-                const warning = result.durableUnavailable ? '\nNo pude consultar los avisos del servidor; los vinculados locales requieren Gunter abierto.' : '';
+                const warning = [result.durableUnavailable ? 'No pude consultar los avisos del servidor; los vinculados locales requieren Gunter abierto.' : '',
+                    result.localUnavailable ? 'No pude consultar los avisos de este navegador; la consulta está incompleta.' : '',
+                    result.limited ? 'Alguna colección alcanzó el límite de lectura; esta lista puede estar incompleta.' : ''].filter(Boolean).map(line => `\n${line}`).join('');
                 if (!result.items.length) return (result.failed ? 'No encontré avisos fallidos en los registros consultados.' : result.durableUnavailable ? 'No hay avisos locales vinculados activos.' : 'No tienes recordatorios ni seguimientos programados.') + warning;
                 const lines = [result.failed ? 'Avisos fallidos registrados:' : 'Procesos programados:'];
                 result.items.forEach((job, index) => {
@@ -2003,6 +2041,17 @@
             validate(args) {
                 if (args.ambiguous) return { ok: false, reply: 'Hay varios avisos con ese nombre. No elegí uno por ti: cancela el aviso concreto desde Recordatorios o indica su identificador.' };
                 if (!args.targetId || !args.target) return { ok: false, reply: 'No encontré un proceso activo con ese nombre. Puedes decir “mis recordatorios programados”.' };
+                if (runtime.GunterAuth && (!args.ownerId || taskOwnerId() !== args.ownerId))
+                    return { ok: false, reply: 'La cuenta cambió; solicita la cancelación desde tu sesión.' };
+                if (args.requireReminderGuard) {
+                    const notifications = options.notificationsService || runtime.GunterNotificationsService;
+                    const jobs = options.jobsService || runtime.GunterJobs;
+                    if (args.target.meta?.eventLink) return { ok: false, reply: 'Gestiona el aviso vinculado desde Agenda; no lo cancelaré como independiente.' };
+                    if (args.target.type !== 'reminder' || !['scheduled', ...(args.localTarget ? [] : ['retry_wait'])].includes(args.target.status))
+                        return { ok: false, reply: 'Solo puedo cancelar avisos independientes pendientes; no interrumpiré una entrega ya iniciada.' };
+                    if (!args.snapshot || (args.localTarget ? !notifications?.get || !notifications?.cancel : !jobs?.get || !jobs?.cancelReminder))
+                        return { ok: false, reply: 'La cancelación protegida no está disponible. Recarga Gunter y comprueba el servidor local; no usaré una cancelación sin protección.' };
+                }
                 if (args.target.meta?.eventLink && (!args.ownerId || taskOwnerId() !== args.ownerId || args.target.ownerId !== args.ownerId))
                     return { ok: false, reply: 'La cuenta cambió; solicita el aviso desde tu propia sesión.' };
                 return { ok: true };
@@ -2011,6 +2060,18 @@
                 return `¿Confirmas que cancele “${args.target.title}”, programado para ${formatDateTime(args.target.runAt, timezone())}?`;
             },
             async execute(args) {
+                if (args.requireReminderGuard || (args.localTarget && !args.target.meta?.eventLink)) {
+                    if (taskOwnerId() !== args.ownerId) throw new Error('REMINDER_ACCOUNT_CHANGED');
+                    const service = args.localTarget ? options.notificationsService || runtime.GunterNotificationsService : options.jobsService || runtime.GunterJobs;
+                    const current = await service.get(args.targetId);
+                    if (taskOwnerId() !== args.ownerId || (current?.ownerId != null && current.ownerId !== args.ownerId)) throw new Error('REMINDER_ACCOUNT_CHANGED');
+                    if (!current || JSON.stringify(args.localTarget ? localReminderSnapshot(current) : reminderSnapshot(current)) !== JSON.stringify(args.snapshot))
+                        throw new Error('REMINDER_CHANGED');
+                    const result = args.localTarget ? await service.cancel(args.targetId, { ownerId: args.ownerId, expected: args.snapshot })
+                        : await service.cancelReminder(args.targetId, { ownerId: args.ownerId, expected: args.snapshot, confirmed: true });
+                    if (taskOwnerId() !== args.ownerId || result?.id !== args.targetId || result.status !== 'cancelled') throw new Error('REMINDER_CANCEL_NOT_VERIFIED');
+                    return reminderPublicRecord({ ...result, type: result.type || 'reminder', runAt: result.runAt || result.fireAt });
+                }
                 if (args.target.meta?.eventLink) {
                     if (taskOwnerId() !== args.ownerId) throw new Error('EVENT_OWNER_MISMATCH');
                     const service = options.notificationsService || runtime.GunterNotificationsService;
@@ -2021,6 +2082,17 @@
                 return service.cancel(args.targetId);
             },
             async verify(result, args) {
+                if (args.requireReminderGuard || (args.localTarget && !args.target.meta?.eventLink)) {
+                    if (taskOwnerId() !== args.ownerId || result?.id !== args.targetId || result.status !== 'cancelled') return false;
+                    const service = args.localTarget ? options.notificationsService || runtime.GunterNotificationsService : options.jobsService || runtime.GunterJobs;
+                    const stored = await service.get(args.targetId);
+                    if (taskOwnerId() !== args.ownerId || stored?.status !== 'cancelled' || stored.id !== args.targetId
+                        || (stored.ownerId != null && stored.ownerId !== args.ownerId)) return false;
+                    return stored.title === args.snapshot.title
+                        && Date.parse(stored.runAt || stored.fireAt) === Date.parse(args.snapshot.runAt || args.snapshot.fireAt)
+                        && JSON.stringify(args.localTarget ? localReminderSnapshot(stored) : reminderSnapshot(stored))
+                            === JSON.stringify(args.localTarget ? localReminderSnapshot(result) : reminderSnapshot(result));
+                }
                 if (args.target.meta?.eventLink) {
                     if (taskOwnerId() !== args.ownerId) return false;
                     const service = options.eventsService || runtime.GunterEventsService;
@@ -2435,6 +2507,11 @@
             revision: Number.isSafeInteger(item.revision) && item.revision >= 0 ? item.revision : 0 };
     }
 
+    function localReminderSnapshot(item) {
+        return { id: item.id, title: item.title, fireAt: item.fireAt || item.runAt,
+            status: item.status, updatedAt: item.updatedAt || null };
+    }
+
     function reminderPublicRecord(item) {
         // Only account-scoped identity/state, never payload, tokens, raw errors
         // or push results that may carry provider credentials or local paths.
@@ -2733,6 +2810,12 @@
                 job_not_found: 'No encontré ese aviso en los datos de esta cuenta.',
                 job_not_editable: 'El aviso no es un recordatorio independiente pendiente, o su entrega ya empezó. No lo reactivé ni lo reprogramé.',
                 job_not_retryable: 'Solo se pueden reintentar recordatorios independientes fallidos. Consulta el estado actual; no reactivé avisos procesados o cancelados.',
+                job_not_cancellable: 'El aviso ya no está pendiente o está vinculado a otro registro. Consulta su estado; no interrumpí su ejecución.',
+                REMINDER_CHANGED: 'El aviso cambió después de la propuesta. Actualiza la lista y vuelve a confirmar sus datos actuales.',
+                REMINDER_NOT_CANCELLABLE: 'El aviso ya no está pendiente. No cancelé una entrega ya iniciada.',
+                REMINDER_CANCEL_NOT_VERIFIED: 'No pude verificar la cancelación. Consulta el estado antes de repetirla.',
+                REMINDER_DURABLE_CANCEL_REQUIRES_JOB: 'Este aviso necesita la cancelación protegida del servidor local. Recarga Gunter; no usaré un método sin protección.',
+                REMINDER_DURABLE_CANCEL_NOT_VERIFIED: 'No pude verificar la cancelación del servidor. Consulta el estado antes de repetirla.',
                 job_params_invalid: 'La solicitud no contiene una propuesta válida de reintento. Recarga Gunter y vuelve a seleccionar el aviso.',
                 job_id_invalid: 'El identificador del aviso no es válido. Selecciona un aviso de esta cuenta.',
                 REMINDER_RETRY_NOT_VERIFIED: 'No recibí un reintento verificable. Consulta el estado del aviso antes de repetir la orden; podría haber quedado programado.',
@@ -2753,7 +2836,7 @@
                 REMINDER_AUTH_REQUIRED: 'Inicia sesión antes de programar o consultar tus avisos.',
                 REMINDER_ACCOUNT_CHANGED: 'La cuenta cambió durante la operación. Revisa los avisos desde la sesión correcta.',
                 REMINDER_OWNER_MISMATCH: 'El aviso no pertenece a la cuenta actual.'
-            })[code || message] || (['reminder.retry', 'reminder.inspect'].includes(tool?.id)
+            })[code || message] || (['reminder.retry', 'reminder.inspect', 'jobs.cancel'].includes(tool?.id)
                 ? 'El servicio local no devolvió un resultado verificable. No tengo una causa clasificada; consulta el estado antes de repetir la orden, porque el cambio podría haberse guardado. No mostraré datos sensibles del error.' : message);
             return `No pude verificar el recordatorio: ${detail}\nRevisa Recordatorios antes de repetir la orden.${['reminder.update', 'reminder.retry', 'reminder.inspect'].includes(tool?.id) ? '' : ' Los avisos vinculados necesitan Gunter abierto en este navegador.'}`;
         }

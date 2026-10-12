@@ -11,6 +11,9 @@
 
 (function () {
     let brandAvatar = null;
+    let remindersViewReady = false, reminderRenderId = 0, reminderViewOwner = null;
+    let reminderViewRows = [], reminderViewLimit = 25, reminderActionBusy = false, reminderProposal = null;
+    let reminderOwnerEpoch = 0, reminderActionId = 0;
 
     function init() {
         mountAvatar();
@@ -19,6 +22,7 @@
             renderHeader();
             renderEventsInto(document.getElementById('gday-events-mount'));
             renderNextUp();
+            renderReminders();
         });
         window.addEventListener('gunter-location-change', renderHeader);
         wireQuickBar();
@@ -45,11 +49,12 @@
             });
         }
 
+        initRemindersView();
         renderReminders();
         renderNextUp();
 
         // Refresh on any changes
-        ['tasks-changed', 'events-changed', 'reminders-changed'].forEach(ev => {
+        ['tasks-changed', 'events-changed', 'reminders-changed', 'gunter-jobs-changed'].forEach(ev => {
             window.addEventListener(ev, () => {
                 refreshStats();
                 renderReminders();
@@ -223,30 +228,216 @@
     }
 
     // ---------- Reminders ----------
+    function reminderOwner() {
+        try {
+            const auth = window.GunterAuth;
+            const trusted = auth?.canAccessLocalData?.() ?? auth?.isVerified?.();
+            const id = trusted && auth.getUser?.()?.id;
+            if (typeof id !== 'string' || !id || id === 'local-user') return null;
+            const device = window.localStorage?.getItem('gunter_device_user');
+            return device && device !== id ? null : id;
+        } catch { return null; }
+    }
+    function reminderLinked(row) { return !!(row.meta?.eventLink || row.payload?.eventLink || row.payload?.meta?.eventLink); }
+    function reminderState(status) {
+        return ({ scheduled: 'Programado', retry_wait: 'Reintento automático pendiente', running: 'En ejecución',
+            failed: 'Fallido', completed: 'Procesado · entrega no confirmada', fired: 'Disparado · lectura no confirmada', cancelled: 'Cancelado' })[status] || 'Estado no reconocido';
+    }
+    function reminderDate(value) {
+        const date = new Date(value);
+        if (!value || !Number.isFinite(date.getTime())) return 'Sin fecha válida';
+        try { return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short',
+            timeZone: window.GunterPresence?.timezone?.() || Intl.DateTimeFormat().resolvedOptions().timeZone }).format(date); }
+        catch { return 'Sin fecha válida'; }
+    }
+    function reminderOrigin(row) {
+        return reminderLinked(row) ? 'Vinculado a reunión · requiere Gunter abierto'
+            : row.durable ? 'Persistente · requiere servidor local encendido' : 'En este navegador · requiere Gunter abierto';
+    }
+    function setReminderStatus(text) {
+        const status = document.getElementById('gday-reminders-status');
+        if (status) status.textContent = text;
+    }
+    function proposalIsCurrent(proposal = reminderProposal) {
+        return !!proposal && reminderOwner() === proposal.ownerId
+            && proposal.ownerEpoch === reminderOwnerEpoch
+            && JSON.stringify(window.GunterAssistantTools?.getPending?.()) === proposal.fingerprint;
+    }
+    function closeReminderDetail() {
+        reminderActionId++;
+        if (reminderProposal && JSON.stringify(window.GunterAssistantTools?.getPending?.()) === reminderProposal.fingerprint)
+            window.GunterAssistantTools?.clearPending?.();
+        reminderProposal = null;
+        const detail = document.getElementById('gday-reminder-detail');
+        if (detail) detail.hidden = true;
+        const actions = document.getElementById('gday-reminder-confirm-actions');
+        if (actions) actions.hidden = true;
+    }
+    function syncReminderOwner() {
+        const ownerId = reminderOwner();
+        if (ownerId !== reminderViewOwner) {
+            reminderOwnerEpoch++;
+            closeReminderDetail(); reminderViewOwner = ownerId;
+            reminderViewRows = []; reminderViewLimit = 25; reminderRenderId++;
+            const mount = document.getElementById('gday-reminders-mount');
+            if (mount) mount.innerHTML = '';
+            const text = document.getElementById('gday-reminder-detail-text');
+            if (text) text.textContent = '';
+        }
+        return ownerId;
+    }
+    function showReminderDetail(text, confirmation = false) {
+        const detail = document.getElementById('gday-reminder-detail');
+        const content = document.getElementById('gday-reminder-detail-text');
+        const actions = document.getElementById('gday-reminder-confirm-actions');
+        if (content) content.textContent = text;
+        if (actions) actions.hidden = !confirmation;
+        if (detail) { detail.hidden = false; detail.focus?.(); }
+    }
+    function initRemindersView() {
+        const mount = document.getElementById('gday-reminders-mount');
+        if (!mount || remindersViewReady) return;
+        remindersViewReady = true;
+        document.getElementById('gday-reminder-filter')?.addEventListener('change', () => {
+            reminderViewLimit = 25; renderReminders();
+        });
+        document.getElementById('gday-refresh-reminders')?.addEventListener('click', () => renderReminders());
+        document.getElementById('gday-reminder-close')?.addEventListener('click', closeReminderDetail);
+        document.getElementById('gday-reminder-confirm')?.addEventListener('click', () => resolveReminderProposal(true));
+        document.getElementById('gday-reminder-reject')?.addEventListener('click', () => resolveReminderProposal(false));
+        mount.addEventListener('click', event => {
+            const button = event.target.closest?.('[data-rem-action]');
+            if (button) reminderAction(button.dataset.remAction, Number(button.dataset.remIndex));
+            else if (event.target.closest?.('[data-rem-more]')) { reminderViewLimit += 25; renderReminders(); }
+        });
+        window.addEventListener('storage', event => {
+            if (!event.key || event.key === 'gunter_device_user') { syncReminderOwner(); renderReminders(); }
+        });
+        window.addEventListener('focus', () => { syncReminderOwner(); renderReminders(); });
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) { syncReminderOwner(); renderReminders(); }
+        });
+        // Only this visible working surface polls. No microphone, permissions,
+        // notifications, or cloud services are enabled by opening this view.
+        setInterval(() => {
+            syncReminderOwner();
+            if (!document.hidden && mount.offsetParent !== null && !reminderActionBusy
+                && !mount.contains?.(document.activeElement)) renderReminders();
+        }, 30_000);
+    }
     async function renderReminders() {
         const mount = document.getElementById('gday-reminders-mount');
         if (!mount) return;
-        const all = await window.GunterNotificationsService.list({ status: 'scheduled' });
-        if (all.length === 0) {
-            mount.innerHTML = '<p class="gday__empty">No tienes recordatorios activos.</p>';
-            return;
-        }
-        mount.innerHTML = `
-            <div class="gday__reminders">
-                ${all.slice(0, 10).map(r => `
-                    <div class="gday__reminder">
-                        <span class="gday__reminder-time">${fmtTime(r.fireAt)}</span>
-                        <span class="gday__reminder-title">${escapeHtml(r.title)}${r.meta?.eventLink ? '<small style="display:block; margin-top:4px; color:var(--text-secondary); font-size:11px; line-height:1.4">Vinculado a reunión · requiere Gunter abierto</small>' : ''}</span>
-                        <button class="gday__reminder-cancel" data-rem-cancel="${r.id}" title="Cancelar">✕</button>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-        mount.querySelectorAll('[data-rem-cancel]').forEach(b =>
-            b.addEventListener('click', async () => {
-                await window.GunterNotificationsService.cancel(b.dataset.remCancel);
-                renderReminders();
-            }));
+        const ownerId = syncReminderOwner(), generation = ++reminderRenderId;
+        if (!ownerId) { mount.innerHTML = ''; setReminderStatus('Verifica tu sesión para consultar los recordatorios de tu cuenta.'); return; }
+        mount.setAttribute('aria-busy', 'true');
+        setReminderStatus('Actualizando recordatorios…');
+        try {
+            const service = window.GunterNotificationsService;
+            if (!service?.listSnapshot) throw new Error('REMINDER_VIEW_UNAVAILABLE');
+            const filter = document.getElementById('gday-reminder-filter')?.value || 'active';
+            const snapshot = await service.listSnapshot(filter === 'active' ? { statuses: ['scheduled', 'running', 'retry_wait'] }
+                : filter === 'failed' ? { status: 'failed' } : filter === 'history' ? { statuses: ['completed', 'cancelled', 'fired'] } : {});
+            if (generation !== reminderRenderId) return;
+            if (reminderOwner() !== ownerId) { syncReminderOwner(); setReminderStatus('La cuenta cambió. Verifica tu sesión antes de consultar avisos.'); return; }
+            if (snapshot.ownerId !== ownerId) throw new Error('REMINDER_VIEW_UNAVAILABLE');
+            const all = snapshot.items.filter(row => row.ownerId === ownerId);
+            const selected = all.filter(row => filter === 'all' || (filter === 'failed' ? row.status === 'failed'
+                : filter === 'history' ? ['completed', 'fired', 'cancelled'].includes(row.status)
+                : ['scheduled', 'running', 'retry_wait'].includes(row.status)));
+            selected.sort((a, b) => (filter === 'history' ? -1 : 1) * (Date.parse(a.fireAt || a.runAt) - Date.parse(b.fireAt || b.runAt)) || String(a.id).localeCompare(String(b.id)));
+            const focused = document.activeElement?.dataset;
+            const focusedId = focused?.remAction ? reminderViewRows[Number(focused.remIndex)]?.id : null;
+            reminderViewRows = selected.slice(0, reminderViewLimit);
+            const warnings = [];
+            if (!snapshot.sources.local.available) warnings.push('No pude consultar los avisos de este navegador.');
+            if (!snapshot.sources.durable.available) warnings.push('No pude consultar los avisos persistentes; comprueba el servidor local.');
+            if (snapshot.limited) warnings.push('El servidor devolvió el límite de 200 registros; esta vista puede estar incompleta.');
+            const count = `Mostrando ${reminderViewRows.length} de ${selected.length} registros consultados. Actualizado: ${reminderDate(new Date().toISOString())}.`;
+            setReminderStatus([count, ...warnings].join(' '));
+            mount.innerHTML = reminderViewRows.length ? `<div class="gday__reminders">${reminderViewRows.map((row, index) => {
+                const actions = [`<button type="button" class="gday__btn" data-rem-action="detail" data-rem-index="${index}" aria-label="Ver detalle de ${escapeHtml(row.title)}">Ver detalle</button>`];
+                const linked = reminderLinked(row);
+                if (linked) actions.push('<a class="gday__btn" href="day.html#events">Ir a Agenda</a>');
+                else {
+                    if (row.durable && row.type === 'reminder' && row.status === 'failed' && window.GunterJobs?.retryReminder)
+                        actions.push(`<button type="button" class="gday__btn" data-rem-action="retry" data-rem-index="${index}">Reintentar</button>`);
+                    if ((row.status === 'scheduled' || (row.durable && row.status === 'retry_wait')) && row.type !== 'follow_up'
+                        && (!row.durable || window.GunterJobs?.cancelReminder))
+                        actions.push(`<button type="button" class="gday__btn" data-rem-action="cancel" data-rem-index="${index}">Cancelar</button>`);
+                }
+                return `<div class="gday__reminder" data-rem-status="${escapeHtml(row.status)}"><div class="gday__reminder-content">
+                    <strong class="gday__reminder-title">${escapeHtml(row.title)}</strong>
+                    <span class="gday__reminder-time">${escapeHtml(reminderDate(row.status === 'retry_wait' ? row.nextAttemptAt : row.fireAt || row.runAt))}</span>
+                    <span class="gday__reminder-status">${escapeHtml(reminderState(row.status))}</span>
+                    <span class="gday__reminder-meta">${escapeHtml(reminderOrigin(row))}</span></div>
+                    <div class="gday__reminder-actions">${actions.join('')}</div></div>`;
+            }).join('')}</div>${selected.length > reminderViewRows.length ? '<button type="button" class="gday__btn" id="gday-reminder-more" data-rem-more>Mostrar más</button>' : ''}`
+                : `<p class="gday__empty">${warnings.length ? 'No encontré registros en las fuentes consultadas. La consulta está incompleta.' : filter === 'failed' ? 'No hay avisos fallidos registrados.' : filter === 'history' ? 'No hay avisos procesados o cancelados registrados.' : filter === 'all' ? 'No tienes recordatorios registrados.' : 'No tienes recordatorios activos.'}</p>`;
+            if (focusedId) {
+                const index = reminderViewRows.findIndex(row => row.id === focusedId);
+                const button = index >= 0 ? mount.querySelector(`[data-rem-action="${focused.remAction}"][data-rem-index="${index}"]`) : null;
+                (button || document.getElementById('gday-refresh-reminders'))?.focus?.();
+            }
+        } catch {
+            if (generation !== reminderRenderId) return;
+            reminderViewRows = []; mount.innerHTML = '';
+            if (reminderOwner() !== ownerId) syncReminderOwner();
+            setReminderStatus('No pude consultar tus recordatorios. Verifica tu sesión, recarga Gunter y comprueba el almacenamiento y el servidor local.');
+        } finally { if (generation === reminderRenderId) mount.setAttribute('aria-busy', 'false'); }
+    }
+    async function reminderAction(action, index) {
+        if (reminderActionBusy) return;
+        const ownerId = syncReminderOwner(), row = reminderViewRows[index];
+        if (!ownerId || !row || row.ownerId !== ownerId || !['detail', 'retry', 'cancel'].includes(action)) return;
+        const tools = window.GunterAssistantTools;
+        if (tools?.getPending?.()) { showReminderDetail('Hay una confirmación pendiente en Gunter. Resuélvela antes de solicitar otra acción.'); return; }
+        const ownerEpoch = reminderOwnerEpoch, actionId = ++reminderActionId;
+        const viewRequestId = `${ownerEpoch}:${actionId}`;
+        reminderActionBusy = true;
+        try {
+            const current = await window.GunterNotificationsService.get(row.id);
+            if (reminderOwner() !== ownerId || reminderOwnerEpoch !== ownerEpoch || reminderActionId !== actionId) { syncReminderOwner(); return; }
+            if (!current || current.ownerId !== ownerId || current.id !== row.id) throw new Error('REMINDER_CHANGED');
+            if (action === 'detail' && !row.durable) {
+                showReminderDetail(`“${current.title}” — ${reminderState(current.status)}.\n${reminderDate(current.fireAt)}.\n${reminderOrigin(current)}.\n${['fired', 'completed'].includes(current.status) ? 'Este estado no demuestra que hayas oído o leído el aviso.' : 'Solo se muestra el estado registrado; no hay entrega confirmada.'}`);
+                return;
+            }
+            if ((action === 'retry' && (!current.durable || current.type !== 'reminder' || current.status !== 'failed' || reminderLinked(current)))
+                || (action === 'cancel' && (reminderLinked(current) || !['scheduled', ...(current.durable ? ['retry_wait'] : [])].includes(current.status)))) throw new Error('REMINDER_CHANGED');
+            if (!tools?.dispatch) throw new Error('REMINDER_VIEW_UNAVAILABLE');
+            const id = String(row.id);
+            if (/[“”"'\r\n]/.test(id)) throw new Error('REMINDER_CHANGED');
+            const verb = ({ detail: 'Estado del', retry: 'Reintenta el', cancel: 'Cancela el' })[action];
+            const result = await tools.dispatch(`${verb} recordatorio "${id}"`, { inputSource: 'text', requireReminderGuard: true, viewRequestId });
+            const pending = tools.getPending?.();
+            if (reminderOwner() !== ownerId || reminderOwnerEpoch !== ownerEpoch || reminderActionId !== actionId) {
+                if (pending?.args?.viewRequestId === viewRequestId) tools.clearPending?.();
+                syncReminderOwner(); return;
+            }
+            if (result.status === 'awaiting_confirmation' && pending?.args?.ownerId === ownerId && pending.args.targetId === id
+                && pending.toolId === result.intent) {
+                reminderProposal = { ownerId, ownerEpoch, fingerprint: JSON.stringify(pending) };
+                showReminderDetail(result.reply, true);
+            } else { reminderProposal = null; showReminderDetail(result.reply || 'No recibí un resultado verificable. Consulta el estado antes de repetir.'); }
+        } catch { if (reminderOwner() === ownerId && reminderOwnerEpoch === ownerEpoch && reminderActionId === actionId) showReminderDetail('El aviso cambió o no pude verificar su estado. Actualiza la lista antes de repetir la acción; no mostraré datos sensibles del error.'); else syncReminderOwner(); }
+        finally { reminderActionBusy = false; }
+    }
+    async function resolveReminderProposal(accepted) {
+        if (reminderActionBusy) return;
+        const proposal = reminderProposal;
+        if (!proposalIsCurrent(proposal)) { reminderProposal = null; syncReminderOwner(); showReminderDetail('Esta confirmación ya no corresponde al aviso actual. No autoricé otra acción; consulta de nuevo su estado.'); return; }
+        reminderActionBusy = true;
+        const actions = document.getElementById('gday-reminder-confirm-actions');
+        if (actions) actions.hidden = true;
+        try {
+            const result = await window.GunterAssistantTools.dispatch(accepted ? 'confirmo' : 'no', { inputSource: 'text' });
+            reminderProposal = null;
+            if (reminderOwner() !== proposal.ownerId || reminderOwnerEpoch !== proposal.ownerEpoch) { syncReminderOwner(); return; }
+            showReminderDetail(result.reply || 'No pude verificar el resultado. Consulta el estado antes de repetir.');
+            await renderReminders();
+        } catch { reminderProposal = null; if (reminderOwner() === proposal.ownerId && reminderOwnerEpoch === proposal.ownerEpoch) showReminderDetail('No pude verificar la operación. Consulta el estado antes de repetir: podría haberse guardado.'); else syncReminderOwner(); }
+        finally { reminderActionBusy = false; }
     }
 
     // ---------- Next up ribbon ----------
@@ -672,5 +863,5 @@
         init();
     }
 
-    window.GunterDayController = { refreshStats, renderReminders, renderNextUp };
+    window.GunterDayController = { refreshStats, renderReminders, renderNextUp, initRemindersView };
 })();

@@ -18,7 +18,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="styles/design-system.css">
-    <link rel="stylesheet" href="styles/pages/day.css">
+    <link rel="stylesheet" href="styles/pages/day.css?v130-reminders-view">
     <link rel="stylesheet" href="styles/pages/activity.css?v88-workflows">
     <link rel="stylesheet" href="styles/pages/conversations.css?v101-attachments">
     <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
@@ -196,11 +196,31 @@
                     <div class="gday-today__row">
                         <div class="gday__card" id="reminders-card">
                             <div class="gday__card-actions">
-                                <h3><span class="gday__card-icon">⏰</span> Recordatorios activos</h3>
-                                <button class="gday__btn" id="gday-enable-notifications">🔔 Activar</button>
+                                <h3><span class="gday__card-icon" aria-hidden="true">⏰</span> Recordatorios</h3>
+                                <button class="gday__btn" id="gday-enable-notifications" type="button">Notificaciones</button>
                             </div>
+                            <p class="gday__reminders-hint">Avisos locales y persistentes de esta cuenta, con su estado y acciones disponibles.</p>
+                            <div class="gday__reminders-toolbar">
+                                <label for="gday-reminder-filter">Mostrar</label>
+                                <select id="gday-reminder-filter">
+                                    <option value="active">Activos</option>
+                                    <option value="failed">Fallidos</option>
+                                    <option value="history">Historial</option>
+                                    <option value="all">Todos</option>
+                                </select>
+                                <button class="gday__btn" id="gday-refresh-reminders" type="button">Actualizar</button>
+                            </div>
+                            <p class="gday__reminders-status" id="gday-reminders-status" role="status" aria-live="polite"></p>
                             <div id="gday-reminders-mount">
-                                <p class="gday__empty">No tienes recordatorios activos.</p>
+                                <p class="gday__empty">Cargando recordatorios…</p>
+                            </div>
+                            <div class="gday__reminder-detail" id="gday-reminder-detail" hidden tabindex="-1" role="region" aria-label="Detalle del recordatorio">
+                                <p id="gday-reminder-detail-text"></p>
+                                <div class="gday__reminder-confirm-actions" id="gday-reminder-confirm-actions" hidden>
+                                    <button class="gday__btn gday__btn--primary" id="gday-reminder-confirm" type="button">Confirmar</button>
+                                    <button class="gday__btn" id="gday-reminder-reject" type="button">No, conservar</button>
+                                </div>
+                                <button class="gday__btn" id="gday-reminder-close" type="button">Cerrar detalle</button>
                             </div>
                         </div>
                         <div class="gday__card gday-today__chat" id="chat-card">
@@ -337,7 +357,7 @@
     <script src="js/services/status-bus.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/connectivity-monitor.js?v116-supertonic3" defer></script>
     <script src="js/services/stt-provider.js?v122-identity-context" defer></script>
-    <script src="js/services/notifications-service.js?v127-event-reminders" defer></script>
+    <script src="js/services/notifications-service.js?v130-reminders-view" defer></script>
     <script src="js/services/transcript-store.js" defer></script>
     <script src="js/services/error-mapper.js?v116-supertonic3" defer></script>
     <script src="js/services/document-service.js" defer></script>
@@ -365,8 +385,8 @@
     <script src="js/adapters/index.js" defer></script>
 
     <script src="js/core/time-parser.js?v128-reminder-edit" defer></script>
-    <script src="js/services/jobs-service.js?v129-reminder-retry" defer></script>
-    <script src="js/core/assistant-tools.js?v129-reminder-retry" defer></script>
+    <script src="js/services/jobs-service.js?v130-reminders-view" defer></script>
+    <script src="js/core/assistant-tools.js?v130-reminders-view" defer></script>
     <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
     <script src="js/core/intent-engine.js" defer></script>
     <script src="js/core/entity-extractor.js?v68-assistant" defer></script>
@@ -427,7 +447,7 @@
     <script src="js/controllers/day-tabs.js?v96-nav-hash" defer></script>
 
     <!-- Gunter Día controller -->
-    <script src="js/controllers/day-controller.js?v127-event-reminders" defer></script>
+    <script src="js/controllers/day-controller.js?v130-reminders-view" defer></script>
 
     <!-- PWA registration (Fase 8) -->
     <script src="js/services/pwa-register.js?v115-presence-stability" defer></script>

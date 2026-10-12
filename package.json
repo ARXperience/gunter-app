@@ -15,6 +15,7 @@
     "test:event-reminders": "node test/event-reminders.js && node test/event-reminder-notifications.js && node test/conversational-followups.js",
     "test:reminder-edit": "node test/jobs-reminder-edit.js && node test/jobs-reminder-edit-client.js && node test/reminder-edit-tools.js && node test/reminder-update-policy.js",
     "test:reminder-retry": "node test/jobs-reminder-retry.js && node test/jobs-reminder-retry-client.js && node test/reminder-retry-tools.js && node test/reminder-retry-policy.js",
+    "test:reminders-view": "node test/reminders-snapshot.js && node test/reminders-cancel-local.js && node test/reminders-cancel-durable.js && node test/reminders-view-action-tools.js && node test/reminders-view.js",
     "test:calendar-schedule": "node test/calendar-schedule-tools.js && node test/event-service.js",
     "test:calendar-planning": "node test/calendar-planning-tools.js && node test/calendar-planning-ui.js && node test/event-service.js",
     "test:jobs": "node test/jobs-core.js",

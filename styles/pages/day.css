@@ -412,26 +412,109 @@
 }
 
 /* ---------- Reminders list ---------- */
+.gday__reminders-hint,
+.gday__reminders-status {
+    margin: 0 0 12px;
+    color: var(--gday-text-dim);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+.gday__reminders-status:empty { display: none; }
+.gday__reminders-status.is-error { color: var(--gd-error, var(--gday-danger)); }
+.gday__reminders-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.gday__reminders-toolbar label { color: var(--gday-text-dim); font-size: 12px; }
+.gday__reminders-toolbar select {
+    min-height: 44px;
+    max-width: 100%;
+    padding: 8px 32px 8px 12px;
+    border: 1px solid var(--gd-outline-var, var(--gday-border-hi));
+    border-radius: var(--gday-radius-sm);
+    background-color: var(--gday-surface);
+    color: var(--gday-text);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+#reminders-card .gday__card-actions { flex-wrap: wrap; gap: 10px; }
+#reminders-card .gday__btn { min-height: 44px; justify-content: center; }
+#reminders-card :is(button, select, [tabindex]):focus-visible {
+    outline: 2px solid var(--gd-primary, var(--gday-accent));
+    outline-offset: 3px;
+}
+#reminders-card .gday__btn:disabled,
+#reminders-card select:disabled { cursor: not-allowed; opacity: 0.65; }
 .gday__reminders { display: flex; flex-direction: column; gap: 8px; }
 .gday__reminder {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 14px;
-    background: var(--gday-surface-2);
+    display: flex; align-items: flex-start; flex-wrap: wrap; gap: 10px 12px;
+    padding: 14px;
+    background: var(--gd-surface-lo, var(--gday-surface-2));
     border-radius: var(--gday-radius-sm);
     border: 1px solid var(--gday-border);
     font-size: 13px;
 }
 .gday__reminder-time {
     font-family: 'JetBrains Mono', monospace;
-    color: var(--gday-amber); font-weight: 600;
-    min-width: 60px;
+    color: var(--gd-warn, var(--gday-amber)); font-weight: 600;
+    min-width: 60px; max-width: 100%;
+    font-size: 12px; line-height: 1.5;
+    overflow-wrap: anywhere;
 }
-.gday__reminder-title { flex: 1; color: var(--gday-text); }
+.gday__reminder-content { flex: 1 1 160px; min-width: 0; }
+.gday__reminder-title { display: block; flex: 1; color: var(--gday-text); font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.gday__reminder-meta {
+    display: block;
+    margin-top: 4px;
+    color: var(--gday-text-dim);
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+.gday__reminder-status { display: inline-block; color: var(--gday-text-dim); font-size: 12px; line-height: 1.5; font-weight: 600; }
+.gday__reminder-status--active,
+.gday__reminder[data-rem-status="scheduled"] .gday__reminder-status { color: var(--gd-primary, var(--gday-accent)); }
+.gday__reminder-status--failed,
+.gday__reminder[data-rem-status="failed"] .gday__reminder-status { color: var(--gd-error, var(--gday-danger)); }
+.gday__reminder-status--warning,
+.gday__reminder[data-rem-status="retry_wait"] .gday__reminder-status,
+.gday__reminder[data-rem-status="running"] .gday__reminder-status { color: var(--gd-warn, var(--gday-amber)); }
+.gday__reminder-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+.gday__reminder-detail {
+    margin-top: 16px;
+    padding: 16px 0 0;
+    border-top: 1px solid var(--gday-border-hi);
+    scroll-margin: 24px;
+}
+.gday__reminder-detail p {
+    margin: 0 0 14px;
+    color: var(--gday-text);
+    font-size: 13px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.gday__reminder-confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.gday__reminder-detail[hidden],
+.gday__reminder-confirm-actions[hidden] { display: none; }
 .gday__reminder-cancel {
     background: transparent; border: none; color: var(--gday-text-mute);
     cursor: pointer; padding: 4px 6px; border-radius: 4px;
 }
 .gday__reminder-cancel:hover { color: var(--gday-danger); }
+@media (max-width: 480px) {
+    .gday__reminder { padding: 12px; }
+    .gday__reminder-time { width: 100%; }
+    .gday__reminders-toolbar { column-gap: 6px; }
+    .gday__reminders-toolbar select { flex: 1 1 120px; }
+    .gday__reminder-actions .gday__btn,
+    .gday__reminder-confirm-actions .gday__btn { flex: 1 1 auto; }
+}
 
 /* ---------- Suppress global click-fx on this page (overlay too loud) ---------- */
 .gday #gunter-click-fx { opacity: 0.6; }
