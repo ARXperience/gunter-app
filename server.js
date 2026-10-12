@@ -1387,31 +1387,55 @@ const handleRequest = async (req, res) => {
     // v2 — COMMITMENTS (F2) — promesas y cumplimiento
     // ============================================
     if (parsedUrl.pathname === '/api/commitments' && req.method === 'POST' && commitments) {
+        if (userContext.contextKind() !== 'session') {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ success: false, error: 'commitment_auth_required' }));
+        }
         let body = '';
-        req.on('data', c => { body += c.toString(); });
+        let oversized = false;
+        req.on('data', c => { if (!oversized) { body += c.toString(); oversized = Buffer.byteLength(body, 'utf8') > 65536; } });
         req.on('end', async () => {
             try {
+                if (oversized) {
+                    res.writeHead(413, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ success: false, error: 'commitment_request_too_large' }));
+                }
                 const { op, params = {} } = JSON.parse(body || '{}');
                 let result;
+                if (!params || typeof params !== 'object' || Array.isArray(params)) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ success: false, error: 'commitment_params_invalid' }));
+                }
+                if (params.ownerId !== undefined && params.ownerId !== userContext.currentUserId()) {
+                    res.writeHead(403, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ success: false, error: 'commitment_owner_mismatch' }));
+                }
                 switch (op) {
                     case 'ingest':         result = await commitments.ingestText(params); break;
                     case 'reconcile':      result = await commitments.reconcile(params.event || {}); break;
                     case 'list':           result = { items: commitments.listAll(params) }; break;
                     case 'stats':          result = commitments.statsAll(); break;
-                    case 'mark_fulfilled': result = commitments.markFulfilled(params.id, params.note || ''); break;
-                    case 'mark_cancelled': result = commitments.markCancelled(params.id, params.reason || ''); break;
+                    case 'get': { const item = commitments.get(params.id); result = { item, snapshot: commitments.snapshot(item) }; break; }
+                    case 'mark_fulfilled': result = commitments.markFulfilled(params); break;
+                    case 'mark_cancelled': result = commitments.markCancelled(params); break;
                     case 'add_manual':     result = commitments.addManual(params); break;
-                    case 'remove':         result = { ok: commitments.remove(params.id) }; break;
-                    case 'clear':          result = { ok: commitments.clear() }; break;
+                    case 'remove':         result = commitments.remove(params); break;
+                    case 'clear':          result = commitments.clear(); break;
                     default:
                         res.writeHead(400, { 'Content-Type': 'application/json' });
                         return res.end(JSON.stringify({ success: false, warnings: ['unknown-op:' + op] }));
+                }
+                if (result?.ok === false) {
+                    const code = /changed|not_pending/.test(result.error) ? 409
+                        : /owner_mismatch|confirmation_required/.test(result.error) ? 403 : 400;
+                    res.writeHead(code, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ success: false, error: result.error, data: result }));
                 }
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true, data: result }));
             } catch (err) {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: false, warnings: [err.message] }));
+                res.end(JSON.stringify({ success: false, error: err.code || 'commitment_operation_failed' }));
             }
         });
         return;

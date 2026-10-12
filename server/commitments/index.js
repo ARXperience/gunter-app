@@ -7,11 +7,21 @@
 
 const store = require('./store');
 const extractor = require('./extractor');
+const userContext = require('../user-context');
+const settings = require('../control-plane/settings');
+const openai = require('../openai-client');
 
 /**
  * Procesa texto entrante: extrae compromisos y los persiste.
  */
 async function ingestText(opts = {}) {
+    const preferences = settings.hybridStatus(userContext.currentUserId());
+    if (preferences.privacy === 'LOCAL_ONLY' || preferences.mode === 'LOCAL') {
+        return { ok: false, error: 'LOCAL_ONLY_MODE', detected: 0, created: [] };
+    }
+    if (settings._load(userContext.currentUserId()).values['ai.cloud']?.enabled === false || !openai.hasKey()) {
+        return { ok: false, error: 'commitment_provider_unavailable', detected: 0, created: [] };
+    }
     const detected = await extractor.extractCommitments(opts);
     if (!detected.length) return { detected: 0, created: [] };
     const enriched = detected.map(c => ({
@@ -25,49 +35,23 @@ async function ingestText(opts = {}) {
 
 /**
  * Verifica si un evento (nuevo doc, nueva tarea, mensaje saliente) cumple commitments.
- * Marca como fulfilled los que el LLM identifique.
+ * El cumplimiento solo se marca con una confirmación explícita y snapshot.
  */
 async function reconcile(event = {}) {
-    const pending = store.list({ status: 'pending' });
-    if (!pending.length) return { matched: [], updated: 0 };
-    const ids = await extractor.checkFulfillmentLLM({ pendingCommitments: pending, event });
-    const updated = [];
-    const now = new Date().toISOString();
-    for (const id of ids) {
-        const u = store.update(id, {
-            status: 'fulfilled',
-            fulfilledAt: now,
-            fulfillmentNote: event.title || event.id || 'auto-detected'
-        });
-        if (u) updated.push(u);
-    }
-    return { matched: ids, updated: updated.length, items: updated };
+    return { matched: [], updated: 0, items: [], reviewRequired: true };
 }
 
 function listAll(opts) {
-    store.recomputeOverdue();
     return store.list(opts);
 }
 
 function statsAll() {
-    store.recomputeOverdue();
     return store.stats();
 }
 
-function markFulfilled(id, note = '') {
-    return store.update(id, {
-        status: 'fulfilled',
-        fulfilledAt: new Date().toISOString(),
-        fulfillmentNote: note
-    });
-}
+function markFulfilled(input) { return store.markFulfilled(input); }
 
-function markCancelled(id, reason = '') {
-    return store.update(id, {
-        status: 'cancelled',
-        fulfillmentNote: reason
-    });
-}
+function markCancelled(input) { return store.markCancelled(input); }
 
 function addManual(payload) {
     return store.add({
@@ -81,6 +65,8 @@ module.exports = {
     reconcile,
     listAll,
     statsAll,
+    get: store.get,
+    snapshot: store.snapshot,
     markFulfilled,
     markCancelled,
     addManual,

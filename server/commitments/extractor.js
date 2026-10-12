@@ -72,7 +72,7 @@ ${truncated}
             maxTokens: 800,
             jsonMode: true
         });
-        if (!raw) return [];
+        if (!raw) throw new Error('commitment_extraction_failed');
         let parsed;
         try { parsed = JSON.parse(raw); }
         catch {
@@ -80,7 +80,7 @@ ${truncated}
             parsed = m ? JSON.parse(m[0]) : null;
         }
         const arr = parsed?.commitments;
-        if (!Array.isArray(arr)) return [];
+        if (!Array.isArray(arr)) throw new Error('commitment_extraction_failed');
         return arr
             .filter(c => c && c.action && (c.confidence == null || c.confidence >= 0.5))
             .map(c => ({
@@ -93,7 +93,9 @@ ${truncated}
             }));
     } catch (e) {
         console.warn('[commitments/extractor] failed:', e.message);
-        return [];
+        const error = new Error('commitment_extraction_failed');
+        error.code = 'commitment_extraction_failed';
+        throw error;
     }
 }
 

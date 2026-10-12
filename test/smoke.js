@@ -106,7 +106,10 @@ async function testEndpointsRegistered() {
             const { status } = await jpost(ep, {});
             // Registration smoke: optional cloud/model providers may be unavailable
             // in a clean checkout. Their live behavior has separate gated tests.
-            (status === 400 || status === 200 || (optionalProviders.has(ep) && status === 503))
+            // Personal commitments require a user session, not the administrative
+            // service token used by this registration-only check.
+            (ep === '/api/commitments' ? status === 401
+                : status === 400 || status === 200 || (optionalProviders.has(ep) && status === 503))
                 ? ok(`POST ${ep} (${status})`)
                 : ko(`POST ${ep}`, `status=${status}`);
         } catch (e) { ko(`POST ${ep}`, e.message); }
