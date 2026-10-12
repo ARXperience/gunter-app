@@ -72,6 +72,7 @@ function summarize(items) {
 function labelSkill(name) {
     return ({
         'agenda.list': 'Consultar agenda', 'tasks.create': 'Crear tarea', 'calendar.read': 'Consultar calendario',
+        'commitments.list': 'Consultar compromisos', 'commitments.task': 'Crear tarea desde compromiso',
         'calendar.create': 'Crear evento', 'calendar.update': 'Editar evento', 'calendar.cancel': 'Cancelar evento',
         'reminder.schedule': 'Programar recordatorio',
         'reminder.update': 'Editar recordatorio',

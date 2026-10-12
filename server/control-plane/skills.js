@@ -13,6 +13,8 @@ const REGISTRY = Object.freeze([
     skill('tasks.reopen', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.tasks', 'external_write', 'L3', ['tasks.write']),
     skill('tasks.cancel', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.tasks', 'external_write', 'L3', ['tasks.write']),
     skill('tasks.update', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.tasks', 'external_write', 'L3', ['tasks.write']),
+    skill('commitments.list', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.tasks', 'read', 'L4', []),
+    skill('commitments.task', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.tasks', 'external_write', 'L3', ['tasks.write']),
     skill('calendar.read', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.calendar', 'read', 'L4', ['calendar.read']),
     skill('calendar.create', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.calendar', 'external_write', 'L3', ['calendar.write']),
     skill('calendar.update', ['WEB', 'DESKTOP', 'ANDROID', 'IOS'], 'gunter.calendar', 'external_write', 'L3', ['calendar.write']),
@@ -155,6 +157,7 @@ function verify(skillName, result = {}) {
     else if (skillName === 'desktop.ui.select_file') verified = evidence.fileSelected === true && !!evidence.pathHash;
     else if (skillName === 'desktop.permissions.update') verified = evidence.permissionsUpdated === true && ['standard', 'all'].includes(evidence.filesystemScope) && ['standard', 'all'].includes(evidence.programScope);
     else if (['calendar.create', 'calendar.update', 'calendar.cancel'].includes(skillName)) verified = !!evidence.eventId && evidence.reconsulted === true;
+    else if (skillName === 'commitments.task') verified = !!evidence.persistedId && !!evidence.commitmentId && evidence.reconsulted === true;
     else if (['reminder.inspect', 'jobs.cancel'].includes(skillName)) verified = !!evidence.persistedId && evidence.reconsulted === true;
     else if (['reminder.update', 'reminder.retry'].includes(skillName)) verified = !!evidence.persistedId && evidence.reconsulted === true
         && Number.isSafeInteger(evidence.revision) && evidence.revision >= 1;

@@ -60,6 +60,28 @@
 }
 .gpi-btn:hover { background: color-mix(in srgb, var(--gpi-accent) 30%, transparent); border-color: var(--gpi-accent); }
 .gpi-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Commitment review is a compact working list, not a second dashboard. */
+.gpi-commitments .gpi-btn,
+.gpi-commitments .gpi-select { min-height: 44px; }
+.gpi-commitments :is(button, select, input, textarea, a):focus-visible {
+    outline: 2px solid var(--gpi-accent); outline-offset: 3px;
+}
+.gpi-commitments .gpi-cmt-item { border-color: var(--gpi-border) !important; overflow-wrap: anywhere; }
+.gpi-commitments .gpi-cmt-item :is(p, div, span) { color: inherit; }
+.gpi-commitments .gpi-cmt-item a { color: var(--gpi-accent); }
+.gpi-cmt-confirm {
+    margin-block: 14px; padding: 14px;
+    border-left: 2px solid var(--gpi-accent); background: var(--gpi-bg-soft);
+}
+.gpi-cmt-confirm[hidden] { display: none; }
+.gpi-cmt-confirm p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
+#gpi-cmt-notice { color: var(--gpi-text-dim); line-height: 1.5; }
+@media (max-width: 600px) {
+    .gpi-commitments .gpi-card__actions { width: 100%; }
+    .gpi-commitments .gpi-cmt-filters select { max-width: 100%; }
+    .gpi-commitments #gpi-cmt-add-form > div:first-child { grid-template-columns: 1fr !important; }
+}
 .gpi-btn--ghost {
     background: transparent;
     border-color: var(--gpi-border);

@@ -84,6 +84,125 @@
         return task;
     }
 
+    // A reviewed commitment becomes one task in the existing store. Read and
+    // dedupe inside the write transaction so competing tabs cannot add twice.
+    function commitmentOwner(expectedOwner) {
+        const auth = window.GunterAuth;
+        let trusted, ownerId, deviceOwner;
+        try {
+            trusted = typeof auth?.canAccessLocalData === 'function'
+                ? auth.canAccessLocalData() : auth?.isVerified?.();
+            ownerId = trusted === true && auth?.getUser?.()?.id;
+            deviceOwner = window.localStorage?.getItem('gunter_device_user');
+        } catch { throw new Error('TASK_AUTH_REQUIRED'); }
+        if (typeof ownerId !== 'string' || !ownerId.trim() || ownerId === 'local-user') {
+            throw new Error('TASK_AUTH_REQUIRED');
+        }
+        if (ownerId !== expectedOwner || (deviceOwner != null && deviceOwner !== ownerId)) {
+            throw new Error('TASK_ACCOUNT_CHANGED');
+        }
+        return ownerId;
+    }
+
+    function commitmentText(value, limit, required = false, multiline = false) {
+        if (value == null && !required) return '';
+        if (typeof value !== 'string' || value.length > limit
+            || (multiline ? /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/ : /[\u0000-\u001f\u007f]/).test(value)
+            || (required && !value.trim())) throw new Error('TASK_INVALID_DATA');
+        return value.trim();
+    }
+
+    function commitmentTask(data, ownerId) {
+        if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('TASK_INVALID_DATA');
+        if (data.ownerId != null && data.ownerId !== ownerId) throw new Error('TASK_ACCOUNT_CHANGED');
+        if (typeof data.title !== 'string' || !data.title.trim() || data.title.length > 500
+            || /[\u0000-\u001f\u007f]/.test(data.title)) throw new Error('TASK_INVALID_TITLE');
+        let dueAt = null;
+        if (data.dueAt != null) {
+            if (typeof data.dueAt !== 'string' || data.dueAt.length > 64 || !Number.isFinite(Date.parse(data.dueAt))) {
+                throw new Error('TASK_INVALID_DATE');
+            }
+            dueAt = new Date(data.dueAt).toISOString();
+        }
+        const sourceMeta = data.meta;
+        if (!sourceMeta || typeof sourceMeta !== 'object' || Array.isArray(sourceMeta)
+            || typeof sourceMeta.commitmentId !== 'string' || !/^cmt_[A-Za-z0-9_-]{1,150}$/.test(sourceMeta.commitmentId)) {
+            throw new Error('TASK_INVALID_COMMITMENT');
+        }
+        const meta = { commitmentId: sourceMeta.commitmentId };
+        if (sourceMeta.sourceType != null) {
+            if (!['meeting', 'chat', 'whatsapp', 'manual', 'transcript', 'message'].includes(sourceMeta.sourceType)) {
+                throw new Error('TASK_INVALID_DATA');
+            }
+            meta.sourceType = sourceMeta.sourceType;
+        }
+        if (sourceMeta.sourceRefId != null) meta.sourceRefId = commitmentText(sourceMeta.sourceRefId, 160);
+        if (sourceMeta.excerpt != null) meta.excerpt = commitmentText(sourceMeta.excerpt, 600, false, true);
+        if (sourceMeta.sourceTs != null) {
+            const stamp = sourceMeta.sourceTs;
+            if ((typeof stamp !== 'string' && typeof stamp !== 'number')
+                || (typeof stamp === 'string' && stamp.length > 64)
+                || !Number.isFinite(new Date(stamp).getTime())) throw new Error('TASK_INVALID_DATE');
+            meta.sourceTs = new Date(stamp).toISOString();
+        }
+        if (data.priority != null && !['low', 'normal', 'high'].includes(data.priority)) throw new Error('TASK_INVALID_DATA');
+        const list = value => {
+            if (value == null) return [];
+            if (!Array.isArray(value) || value.length > 20) throw new Error('TASK_INVALID_DATA');
+            return value.map(item => commitmentText(item, 80, true));
+        };
+        const timestamp = new Date().toISOString();
+        return {
+            id: newId(), title: data.title.trim(), notes: commitmentText(data.notes, 5000, false, true),
+            status: 'pending', priority: data.priority || 'normal', dueAt,
+            projectId: data.projectId == null ? null : commitmentText(data.projectId, 160, true),
+            projectName: data.projectName == null ? null : commitmentText(data.projectName, 200, true),
+            ownerId, people: list(data.people), tags: list(data.tags), source: 'commitment', meta,
+            createdAt: timestamp, updatedAt: timestamp
+        };
+    }
+
+    async function createFromCommitment(data, guard = {}) {
+        if (!guard || typeof guard !== 'object' || Array.isArray(guard) || guard.confirmed !== true) {
+            throw new Error('TASK_CONFIRM_REQUIRED');
+        }
+        const ownerId = commitmentOwner(guard.ownerId);
+        const task = commitmentTask(data, ownerId);
+        const db = await openDB();
+        try {
+            commitmentOwner(ownerId);
+            const result = await new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE, 'readwrite');
+                const store = transaction.objectStore(STORE);
+                let outcome, failure;
+                const fail = error => { failure = error; transaction.abort(); };
+                const request = store.getAll();
+                request.onsuccess = () => {
+                    try {
+                        commitmentOwner(ownerId);
+                        const existing = (request.result || []).find(row => row.ownerId === ownerId
+                            && row.source === 'commitment' && row.meta?.commitmentId === task.meta.commitmentId);
+                        outcome = { task: existing || task, created: !existing };
+                        if (!existing) {
+                            const write = store.add(task);
+                            write.onsuccess = () => {
+                                try { commitmentOwner(ownerId); } catch (error) { fail(error); }
+                            };
+                        }
+                    } catch (error) { fail(error); }
+                };
+                transaction.oncomplete = () => {
+                    try { commitmentOwner(ownerId); resolve(outcome); } catch (error) { reject(error); }
+                };
+                transaction.onerror = () => { failure ||= transaction.error; };
+                transaction.onabort = () => reject(failure || transaction.error || new Error('TASK_COMMITMENT_CREATE_ABORTED'));
+            });
+            commitmentOwner(ownerId);
+            if (result.created) emit('tasks-changed', { op: 'create', id: result.task.id, ownerId });
+            return result;
+        } finally { db.close(); }
+    }
+
     async function update(id, patch, guard = {}) {
         const db = await openDB();
         try {
@@ -115,25 +234,6 @@
     async function complete(id, ownerId, expected) {
         const merged = await update(id, { status: 'done', completedAt: new Date().toISOString() },
             ownerId ? { ownerId, statuses: ['pending', 'doing'], expected } : { expected });
-        // v2 (F2) — auto-reconcile: ¿esta tarea cumple algún compromiso pendiente?
-        try {
-            if (window.GunterCommitmentsService?.reconcile) {
-                window.GunterCommitmentsService.reconcile({
-                    id: merged.id,
-                    title: merged.title,
-                    description: merged.notes || '',
-                    type: 'task'
-                }).then(r => {
-                    if (r?.updated > 0) {
-                        (window.GunterNotificationsService?.showToast || (() => {}))(
-                            `🤝 ${r.updated} compromiso${r.updated > 1 ? 's' : ''} cumplido${r.updated > 1 ? 's' : ''} con esta tarea.`,
-                            { variant: 'success', duration: 4000 }
-                        );
-                        window.dispatchEvent(new CustomEvent('gunter-commitments-changed'));
-                    }
-                }).catch(() => {});
-            }
-        } catch { /* noop */ }
         return merged;
     }
     async function reopen(id, ownerId, expected) { return update(id, { status: 'pending', completedAt: null, cancelledAt: null },
@@ -212,6 +312,6 @@
     }
 
     window.GunterTasksService = {
-        create, update, complete, reopen, cancel, remove, list, listForToday, listOverdue, listBySource
+        create, createFromCommitment, update, complete, reopen, cancel, remove, list, listForToday, listOverdue, listBySource
     };
 })();

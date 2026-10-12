@@ -14,7 +14,7 @@
     const PENDING_KEY = 'gunter_pending_tool_v1';
     const PENDING_TTL_MS = 5 * 60 * 1000;
     const REFERENCE_TTL_MS = 10 * 60 * 1000;
-    const VOICE_READ_ONLY_TOOLS = new Set(['app.navigate', 'settings.list', 'agenda.list', 'jobs.list', 'reminder.inspect',
+    const VOICE_READ_ONLY_TOOLS = new Set(['app.navigate', 'settings.list', 'agenda.list', 'jobs.list', 'reminder.inspect', 'commitments.list',
         'desktop.files.list', 'desktop.files.search', 'desktop.ui.inspect', 'mobile.files.list', 'mobile.files.search']);
 
     function normalize(value) {
@@ -30,7 +30,7 @@
         home: 'day.html', conversations: 'day.html#conversations', meetings: 'dashboard.html',
         'new meeting': 'new-project.html', meeting: 'dashboard.html', results: 'results.html',
         capture: 'day.html#capture', tasks: 'day.html#tasks', agenda: 'day.html#events',
-        reminders: 'day.html#reminders', activity: 'day.html#activity',
+        reminders: 'day.html#reminders', commitments: 'day.html#commitments', activity: 'day.html#activity',
         settings: 'config.html#preferences', preferences: 'config.html#preferences', account: 'config.html#account',
         connections: 'config.html#connections', data: 'config.html#data', assistant: 'config.html#premium',
         'ai assistant': 'config.html#premium', trash: 'config.html#trash',
@@ -44,6 +44,7 @@
             meetings: ['reuniones', 'reunion', 'dashboard', 'panel de reuniones'], 'new meeting': ['nueva reunion', 'preparar reunion'],
             results: ['resultados', 'transcripciones', 'analisis de reunion'], capture: ['captura rapida', 'captura'],
             tasks: ['tareas', 'pendientes'], agenda: ['agenda', 'calendario', 'eventos'], reminders: ['recordatorios'],
+            commitments: ['compromisos', 'promesas'],
             activity: ['actividad', 'historial'], settings: ['configuracion', 'ajustes'], preferences: ['preferencias'], account: ['mi cuenta', 'mi perfil', 'nombre preferido'],
             connections: ['conexiones', 'datos y conexiones', 'redes sociales'], assistant: ['asistente ia', 'funciones del asistente', 'configuracion avanzada', 'opciones avanzadas', 'ajustes avanzados', 'configuracion de voz'],
             trash: ['papelera'], administration: ['administracion', 'panel administrativo']
@@ -207,7 +208,7 @@
     }
 
     function accountPendingTool(pending) {
-        return pending && (pending.toolId?.startsWith('tasks.') || pending.toolId?.startsWith('calendar.')
+        return pending && (pending.toolId?.startsWith('tasks.') || pending.toolId?.startsWith('calendar.') || pending.toolId?.startsWith('commitments.')
             || pending.toolId === 'reminder.update' || pending.toolId === 'reminder.retry' || pending.toolId === 'jobs.cancel'
             || !!pending.args?.eventLink || !!pending.args?.target?.meta?.eventLink
             || (pending.toolId === 'preferences.update' && pending.args?.key === 'calendarPlanning'));
@@ -616,6 +617,13 @@
             if (!t) return null;
             const mobileTarget = /\b(en|desde|a|mi)\b.*\b(movil|celular|telefono|iphone|ipad|android)\b/.test(t);
             const questionText = t.replace(/^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*/, '');
+            // Commitment references may contain tool names. Interpret the anchored
+            // operation first, never a command embedded in its literal action.
+            const commitmentRequest = parseCommitmentRequest(text);
+            if (commitmentRequest) return { toolId: 'commitments.task', args: { rawText: text, reference: commitmentRequest.reference } };
+            if (/^(?:por favor )?(?:mis compromisos|(?:muestra|muestrame|lista|listar|consulta|consultar|revisa|ver)(?: (?:mis|los))? compromisos)(?: (?:pendientes|de reuniones))?$/.test(questionText))
+                return { toolId: 'commitments.list', args: { rawText: text } };
+            if (/\bcompromisos?\b/.test(questionText) && /^(?:que|como|por que|para que|puedo|podria|explica(?:me)?)\b/.test(questionText)) return null;
             // A literal reminder title can contain commands or feature names;
             // its anchored operation must win over broad application routing.
             const reminderOperation = parseReminderOperation(text);
@@ -821,6 +829,7 @@
             if (isAutomation) add(['procedure.execute'], 'Rutas guardadas: ejecutar procedimientos disponibles y aprobados.');
             if (isSettings) add(['settings.list', 'settings.update', 'preferences.update'], 'Configuración: consultar opciones y cambiar ajustes permitidos.');
             if (/\b(reunion|evento|cita|agenda|recordatorio|tarea)\b/.test(normalized)) add(['calendar.create', 'calendar.update', 'calendar.cancel', 'agenda.list', 'jobs.list', 'reminder.inspect', 'reminder.retry', 'reminder.schedule', 'reminder.update', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update'], 'Organización: agenda, reuniones, recordatorios y tareas; estado y reintento confirmado de avisos fallidos.');
+            if (/\b(compromiso|compromisos|promesa|promesas)\b/.test(normalized)) add(['commitments.list', 'commitments.task'], 'Compromisos: consultar promesas registradas y convertir una en una tarea local vinculada, con tu confirmación.');
             if (!suggestions.length) {
                 add(['app.navigate'], 'Navegación por las secciones de Gunter.');
                 add(['desktop.apps.open', 'mobile.open_app'], 'Abrir aplicaciones conectadas.');
@@ -839,6 +848,26 @@
 
         async function prepare(match) {
             if (match.toolId === 'agenda.list' || match.toolId === 'jobs.list') return match;
+            if (match.toolId === 'commitments.list' || match.toolId === 'commitments.task') {
+                const ownerId = taskOwnerId(), service = options.commitmentsService || runtime.GunterCommitmentsService;
+                const args = { ...match.args, ownerId };
+                if (match.toolId === 'commitments.list' || !ownerId || !service?.flagOn?.() || !service?.list || !service?.get || !service?.snapshot)
+                    return { ...match, args };
+                try {
+                    const reference = String(args.reference || '').trim(), needle = normalize(reference);
+                    const byId = /^cmt_[\w-]+$/.test(reference) ? await service.get(reference) : null;
+                    const rows = byId ? [byId] : await service.list();
+                    if (taskOwnerId() !== ownerId) return { ...match, args: { ...args, ownerId: null } };
+                    if (!Array.isArray(rows)) throw new Error('COMMITMENT_UNAVAILABLE');
+                    const matches = rows.filter(row => row?.ownerId === ownerId
+                        && (row.id === reference || (needle && normalize(row.action) === needle)));
+                    const target = matches.length === 1 ? matches[0] : null;
+                    return { ...match, args: { ...args, ambiguous: matches.length > 1,
+                        targetId: target?.id || null, targetTitle: String(target?.action || '').trim().slice(0, 180),
+                        snapshot: target ? service.snapshot(target) : null,
+                        candidates: matches.map(commitmentPublic) } };
+                } catch { return { ...match, args: { ...args, unavailable: true } }; }
+            }
             if ((match.toolId === 'preferences.update' && match.args.key === 'calendarPlanning')
                 || (match.toolId === 'settings.list' && match.args.calendarPlanning)) {
                 const ownerId = taskOwnerId();
@@ -1115,6 +1144,7 @@
                 const verified = tool.verify ? await tool.verify(result, match.args) : true;
                 if (!verified) throw new Error('La acción respondió, pero no pude verificar el resultado guardado.');
                 await controlTransition(controlRun, 'verified', { evidence: { verified: true, source: 'legacy_adapter',
+                    ...(tool.id === 'commitments.task' ? { persistedId: result.task.id, commitmentId: match.args.targetId, reconsulted: true } : {}),
                     ...(['reminder.update', 'reminder.retry'].includes(tool.id) ? { persistedId: result.id, reconsulted: true, revision: result.revision } : {}),
                     ...(['reminder.inspect', 'jobs.cancel'].includes(tool.id) ? { persistedId: result.id, reconsulted: true } : {}) }, reason: 'legacy_adapter_verified' });
                 if (controlRun) controlStage = 'verified';
@@ -1276,9 +1306,9 @@
                 referenceContext = null;
                 pendingReminderReference = null;
             } else if (!['agenda.list', 'reminder.schedule'].includes(detected.toolId)) referenceContext = null;
-            const prepared = await prepare(options.requireReminderGuard ? { ...detected,
-                args: { ...detected.args, requireReminderGuard: true,
-                    ...(typeof options.viewRequestId === 'string' ? { viewRequestId: options.viewRequestId.slice(0, 100) } : {}) } } : detected);
+            const prepared = await prepare({ ...detected, args: { ...detected.args,
+                ...(options.requireReminderGuard ? { requireReminderGuard: true } : {}),
+                ...(typeof options.viewRequestId === 'string' ? { viewRequestId: options.viewRequestId.slice(0, 100) } : {}) } });
             if (options.inputSource === 'voice') prepared.args = { ...prepared.args, inputSource: 'voice', voiceTranscript: String(text || '') };
             return execute(prepared, false);
         }
@@ -2109,6 +2139,95 @@
         });
 
         register({
+            id: 'commitments.list',
+            description: 'Consulta los compromisos registrados de la cuenta actual.',
+            confirm: 'never', reversible: true,
+            validate(args) {
+                const service = options.commitmentsService || runtime.GunterCommitmentsService;
+                if (!args.ownerId || taskOwnerId() !== args.ownerId)
+                    return { ok: false, reply: 'Inicia sesión para consultar los compromisos de tu cuenta.' };
+                if (!service?.list || !service?.flagOn)
+                    return { ok: false, reply: 'El servicio de compromisos no está disponible en esta vista. Recarga Gunter.' };
+                if (!service.flagOn()) return { ok: false, reply: 'El seguimiento de compromisos está desactivado. Puedes activarlo en Configuración → Asistente e IA.' };
+                return { ok: true };
+            },
+            async execute(args) {
+                const service = options.commitmentsService || runtime.GunterCommitmentsService;
+                if (taskOwnerId() !== args.ownerId || !service?.flagOn?.()) throw new Error('COMMITMENT_ACCOUNT_CHANGED');
+                const rows = await service.list();
+                if (taskOwnerId() !== args.ownerId) throw new Error('COMMITMENT_ACCOUNT_CHANGED');
+                if (!service.flagOn()) throw new Error('COMMITMENT_DISABLED');
+                if (!Array.isArray(rows)) throw new Error('COMMITMENT_UNAVAILABLE');
+                return { ownerId: args.ownerId, items: rows.filter(row => row?.ownerId === args.ownerId).map(commitmentPublic) };
+            },
+            verify(result, args) { return result?.ownerId === args.ownerId && taskOwnerId() === args.ownerId && Array.isArray(result.items); },
+            formatResult(result) {
+                if (!result.items.length) return 'No encontré compromisos registrados en esta cuenta. No significa que no existan promesas fuera de los registros de Gunter.';
+                const labels = { pending: 'pendiente', fulfilled: 'cumplido', cancelled: 'cancelado', overdue: 'vencido', at_risk: 'en riesgo' };
+                return `Compromisos registrados en tu cuenta:\n${result.items.map(item =>
+                    `• ${item.action} — ${labels[item.status] || item.status || 'estado sin definir'}${item.owner ? `; responsable: ${item.owner}` : ''}${item.dueAt ? `; plazo: ${withoutFinalPeriod(formatDateTime(item.dueAt, timezone()))}` : ''} [${item.id}]`).join('\n')}\nPuedes pedirme «convierte el compromiso \"identificador\" en tarea». Crear una tarea no demuestra que la promesa se haya cumplido.`;
+            }
+        });
+
+        register({
+            id: 'commitments.task',
+            description: 'Crea o recupera una tarea local vinculada a un compromiso revisado.',
+            confirm: 'always', reversible: true,
+            validate(args) {
+                const service = options.commitmentsService || runtime.GunterCommitmentsService;
+                if (!args.ownerId || taskOwnerId() !== args.ownerId)
+                    return { ok: false, reply: 'Inicia sesión para convertir compromisos de tu cuenta en tareas.' };
+                if (!service?.list || !service?.get || !service?.snapshot || !service?.createTask || !service?.flagOn
+                    || !(options.tasksService || runtime.GunterTasksService)?.list)
+                    return { ok: false, reply: 'No están disponibles los servicios protegidos de compromisos y tareas. Recarga Gunter; no crearé una tarea sin vínculo verificable.' };
+                if (!service.flagOn()) return { ok: false, reply: 'El seguimiento de compromisos está desactivado. Puedes activarlo en Configuración → Asistente e IA.' };
+                if (args.unavailable) return { ok: false, reply: 'No pude consultar los compromisos. Comprueba el servidor local antes de volver a solicitarlo.' };
+                if (!args.reference) return { ok: false, reply: 'Dime el nombre exacto o el identificador del compromiso que quieres convertir en tarea.' };
+                if (args.ambiguous) return { ok: false, reply: `Hay varios compromisos con ese nombre. Dime su identificador; no elegiré uno por ti.\n${args.candidates.map(item => `• ${item.action} [${item.id}]`).join('\n')}` };
+                if (!args.targetId || !validCommitmentSnapshot(args.snapshot, args.targetId, args.ownerId))
+                    return { ok: false, reply: `No encontré un compromiso verificable de esta cuenta que coincida exactamente con “${args.reference}”. Dime su identificador.` };
+                if (['fulfilled', 'cancelled'].includes(args.snapshot.status))
+                    return { ok: false, reply: 'Ese compromiso ya está cumplido o cancelado. No crearé otra tarea a partir de un registro cerrado.' };
+                if (!args.targetTitle || args.targetTitle.length < 2)
+                    return { ok: false, reply: 'El compromiso no contiene una acción válida para crear una tarea. Revísalo primero.' };
+                return { ok: true };
+            },
+            confirmation(args) {
+                return `¿Confirmas crear una tarea local vinculada a “${args.targetTitle}” [${args.targetId}]${args.snapshot.dueAt ? `, con plazo ${withoutFinalPeriod(formatDateTime(args.snapshot.dueAt, timezone()))}` : ', sin fecha de vencimiento'}?${args.snapshot.owner ? ` Responsable registrado: ${args.snapshot.owner}.` : ''} Conservaré el compromiso y cualquier tarea existente; no lo marcaré como cumplido.`;
+            },
+            async execute(args) {
+                const service = options.commitmentsService || runtime.GunterCommitmentsService;
+                if (taskOwnerId() !== args.ownerId) throw new Error('COMMITMENT_ACCOUNT_CHANGED');
+                if (!service?.flagOn?.()) throw new Error('COMMITMENT_DISABLED');
+                const row = await service.get(args.targetId);
+                if (taskOwnerId() !== args.ownerId) throw new Error('COMMITMENT_ACCOUNT_CHANGED');
+                if (!service.flagOn()) throw new Error('COMMITMENT_DISABLED');
+                if (!row || row.ownerId !== args.ownerId || ['fulfilled', 'cancelled'].includes(row.status)
+                    || !sameSnapshot(service.snapshot(row), args.snapshot)) throw new Error('COMMITMENT_CHANGED');
+                const linked = await service.createTask(args.targetId, { ownerId: args.ownerId, expected: args.snapshot, confirmed: true });
+                if (taskOwnerId() !== args.ownerId) throw new Error('COMMITMENT_ACCOUNT_CHANGED');
+                if (!linked?.task || typeof linked.created !== 'boolean') throw new Error('COMMITMENT_TASK_NOT_VERIFIED');
+                const task = linked.task;
+                return { created: linked.created, task: { id: task.id, title: task.title, dueAt: task.dueAt || null,
+                    status: task.status, ownerId: task.ownerId, meta: { commitmentId: task.meta?.commitmentId } } };
+            },
+            async verify(result, args) {
+                if (taskOwnerId() !== args.ownerId || !(options.commitmentsService || runtime.GunterCommitmentsService)?.flagOn?.()) return false;
+                const task = result?.task;
+                if (!task?.id || task.ownerId !== args.ownerId || task.meta?.commitmentId !== args.targetId) return false;
+                const rows = await (options.tasksService || runtime.GunterTasksService).list();
+                return taskOwnerId() === args.ownerId && Array.isArray(rows) && rows.some(row => row?.id === task.id
+                    && row.ownerId === args.ownerId && row.meta?.commitmentId === args.targetId
+                    && row.title === task.title && (row.dueAt || null) === task.dueAt && row.status === task.status);
+            },
+            formatResult(result) {
+                const task = result.task;
+                return result.created ? `Tarea vinculada creada y verificada: “${task.title}”. El compromiso conserva su estado; una tarea no demuestra su cumplimiento.`
+                    : `Ya existía una tarea vinculada: “${task.title}” (${task.status}). La verifiqué sin duplicarla ni alterar el compromiso.`;
+            }
+        });
+
+        register({
             id: 'tasks.create',
             description: 'Crea una tarea local y verifica su persistencia.',
             confirm: 'never',
@@ -2391,6 +2510,7 @@
 
     function workflowEvidence(toolId, result = {}) {
         if (toolId.startsWith('calendar.')) return { eventId: result.id || result.eventId, reconsulted: true };
+        if (toolId === 'commitments.task') return { persistedId: result.task?.id, commitmentId: result.task?.meta?.commitmentId, reconsulted: true };
         if (toolId === 'tasks.create' || toolId === 'reminder.schedule' || toolId === 'follow_up.schedule') return { persistedId: result.id };
         return { verified: true };
     }
@@ -2416,6 +2536,37 @@
         title = title.replace(/\s+\b(?:a\s+las?|a\s+la|en)\s+(?:\d{1,2}|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce).*/i, '').trim();
         title = title.replace(/^[,;:\-]+|[,;:\-]+$/g, '').trim();
         return toolId === 'calendar.create' ? title.replace(/^[“"']|[”"']$/g, '').trim() : title;
+    }
+
+    function parseCommitmentRequest(text) {
+        const raw = String(text || '').trim().replace(
+            /^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*[,;:!\-]*\s*/i, '').replace(/^por favor\s+/i, '');
+        const convert = raw.match(/^(?:convierte|convertir|transforma|transformar)\s+(?:(?:el|un)\s+)?compromiso\s+(.+?)\s+en\s+(?:una\s+)?tarea[.!?]*$/i);
+        const create = raw.match(/^(?:crea|crear)\s+(?:una\s+)?tarea\s+(?:del|desde\s+el|a\s+partir\s+del)\s+compromiso(?:\s+(.+?))?[.!?]*$/i);
+        if (!convert && !create) return null;
+        return { reference: String((convert || create)[1] || '').replace(/^[“"']|[”"']$/g, '').trim().slice(0, 500) };
+    }
+
+    function commitmentPublic(row) {
+        return { id: row.id, action: String(row.action || '').slice(0, 500), status: row.status,
+            owner: typeof row.owner === 'string' ? row.owner.slice(0, 160) : null,
+            dueAt: row.dueAt && Number.isFinite(Date.parse(row.dueAt)) ? row.dueAt : null };
+    }
+
+    function validCommitmentSnapshot(value, id, ownerId) {
+        const keys = ['id', 'ownerId', 'owner', 'beneficiary', 'action', 'context', 'dueAt', 'projectId',
+            'source', 'channel', 'status', 'createdAt', 'updatedAt', 'revision'];
+        return value && typeof value === 'object' && !Array.isArray(value)
+            && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key))
+            && value.id === id && value.ownerId === ownerId && typeof value.action === 'string'
+            && typeof value.status === 'string' && Number.isSafeInteger(value.revision) && value.revision >= 0;
+    }
+
+    function sameSnapshot(left, right) {
+        if (left === right) return true;
+        if (!left || !right || typeof left !== 'object' || typeof right !== 'object' || Array.isArray(left) !== Array.isArray(right)) return false;
+        const a = Object.keys(left), b = Object.keys(right);
+        return a.length === b.length && a.every(key => Object.hasOwn(right, key) && sameSnapshot(left[key], right[key]));
     }
 
     function extractTaskReference(text) {
@@ -2797,6 +2948,18 @@
     function explainFailure(error, tool) {
         const code = error?.code || '';
         const message = String(error?.message || 'No recibí un resultado verificable.');
+        if (tool?.id?.startsWith('commitments.')) {
+            const detail = ({
+                COMMITMENT_ACCOUNT_CHANGED: 'La cuenta cambió durante la operación.',
+                COMMITMENT_OWNER_MISMATCH: 'El compromiso no pertenece a la cuenta actual.',
+                COMMITMENT_AUTH_REQUIRED: 'Inicia sesión con una cuenta verificada.',
+                COMMITMENT_DISABLED: 'El seguimiento de compromisos está desactivado.',
+                COMMITMENT_CHANGED: 'El compromiso cambió después de la propuesta. Solicítala y confírmala de nuevo.',
+                COMMITMENT_TASK_NOT_VERIFIED: 'No pude verificar la tarea vinculada.',
+                commitment_changed: 'El compromiso cambió después de la propuesta. Solicítala y confírmala de nuevo.'
+            })[code || message] || 'El servicio local no devolvió un resultado verificable. No tengo una causa clasificada.';
+            return `No pude verificar el compromiso: ${detail}\nRevisa Compromisos y Tareas antes de repetir la orden; podría haberse guardado una tarea. No repetiré la creación automáticamente.`;
+        }
         if (['reminder.schedule', 'reminder.update', 'reminder.retry', 'reminder.inspect', 'jobs.cancel'].includes(tool?.id)) {
             const detail = ({
                 job_confirmation_required: 'El cambio requiere tu confirmación explícita.',
