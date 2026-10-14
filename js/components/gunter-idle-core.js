@@ -31,31 +31,66 @@
             return mix(mix(mix(a,b,u.x),mix(c,d,u.x),u.y),mix(mix(e,g,u.x),mix(h,j,u.x),u.y),u.z);
         }
         vec3 energyCenter(float t) {
-            return vec3(.075*sin(t*.29),.055*sin(t*.23+1.3),.065*cos(t*.19));
+            return vec3(.14*sin(t*.24),.12*cos(t*.27+1.3),.09*sin(t*.19));
         }
-        // This same connected, folded volume illuminates the strands and is
-        // integrated by the volume pass. There are no independent light blobs.
-        float energyRadius(vec3 p,float t) {
+        vec3 energyFrame(vec3 p,float t) {
             vec3 q=p-energyCenter(t);
-            q.x+=.23*sin(q.y*5.3+t*.43)+.09*sin(q.z*6.1-t*.27);
-            q.y+=.18*sin(q.z*5.0-t*.36);
-            q.z+=.15*sin(q.x*5.8+t*.31);
-            return length(q/vec3(.52,.43,.45));
+            float a=.62+.24*sin(t*.17),c=cos(a),s=sin(a);
+            q.xy=mat2(c,-s,s,c)*q.xy;
+            return q;
+        }
+        vec3 energyWorld(vec3 q,float t) {
+            float a=.62+.24*sin(t*.17),c=cos(a),s=sin(a);
+            q.xy=mat2(c,s,-s,c)*q.xy;
+            return q+energyCenter(t);
+        }
+        vec3 energyCurve(float along,float t) {
+            return vec3(along,.15*sin(along*5.0-t*.45)+.06*sin(along*9.0+t*.18),
+                .10*sin(along*4.5+t*.23));
+        }
+        vec3 energySource(vec3 p,float t) {
+            return energyWorld(energyCurve(clamp(energyFrame(p,t).x,-.34,.34),t),t);
+        }
+        // A single thick, bent support carries a travelling pulse. Its floor
+        // never switches off into isolated spots; the same current drives matter.
+        float energyHeat(vec3 p,float t) {
+            vec3 q=energyFrame(p,t);
+            float along=clamp(q.x,-.34,.34);
+            vec3 d=q-energyCurve(along,t);
+            d.y+=.035*sin(q.z*8.3+t*.31);
+            d.z+=.030*sin(q.y*7.1-t*.27);
+            float radius=.21+.030*sin(along*6.8-t*.48);
+            float support=exp(-pow(length(d*vec3(1.0,1.05,1.12))/radius,2.2));
+            float pulse=.67+.33*sin(along*5.4-t*.82);
+            return support*pulse;
+        }
+        vec3 energyTransport(vec3 p,float t) {
+            float along=clamp(energyFrame(p,t).x,-.34,.34);
+            vec3 tangent=normalize(vec3(1.0,.75*cos(along*5.0-t*.45)+.54*cos(along*9.0+t*.18),
+                .45*cos(along*4.5+t*.23)));
+            vec3 direction=energyWorld(tangent,t)-energyCenter(t);
+            vec3 offset=p-energySource(p,t);
+            vec3 drift=vec3(.0336*cos(t*.24),-.0324*sin(t*.27+1.3),.0171*cos(t*.19));
+            return energyHeat(p,t)*(drift+direction*.12+cross(direction,offset)*.18);
         }
         float matterDensity(vec3 p,float t) {
             vec3 unused;
-            float coarse=potential(p*3.2+vec3(t*.04,-t*.03,t*.02),unused).x*.5+.5;
-            float folds=.5+.5*sin(p.y*8.2+p.z*5.4+sin(p.x*6.1)+t*.21);
-            float envelope=1.0-smoothstep(.54,.94,length(p*vec3(.98,1.02,1.14)));
-            return envelope*smoothstep(.25,.70,coarse*.62+folds*.38);
-        }
-        float energyHeat(vec3 p,float t) {
-            float r=energyRadius(p,t);
-            float fold=sin(p.x*6.3+p.z*4.9+sin(p.y*5.1+t*.35)*1.2-t*.54);
-            float ridge=exp(-fold*fold*15.0);
-            float wave=sin(p.x*8.2-p.y*6.8+p.z*4.1-t*1.85);
-            float flow=.16+.84*smoothstep(-.4,.8,wave);
-            return exp(-r*r*1.0)*(.025+.975*ridge)*flow;
+            vec3 q=p-energyCenter(t)*.25;
+            vec3 warp=potential(q*1.85+vec3(t*.045,2.1-t*.035,-1.3+t*.025),unused);
+            q+=warp*.18;
+            vec3 coarse=potential(q*3.1+vec3(1.7+t*.04,-2.3-t*.03,t*.035),unused);
+            float radius=length(q*vec3(.96,1.03,1.10))+coarse.x*.12;
+            float envelope=1.0-smoothstep(.60,.81,radius);
+            float folds=.5+.5*sin(q.y*11.8+q.z*5.3+coarse.x*4.5+coarse.z*2.8+t*.14);
+            // Finite folded coats with sparse matter between them, rather than
+            // a uniformly filled sphere. The warped envelope leaves cavities.
+            float packing=(.40+.60*smoothstep(-.25,.60,coarse.y))
+                *(.025+1.75*pow(smoothstep(.40,.84,folds),2.0));
+            vec2 hole=q.xy-vec2(-.20,.13);
+            hole.x+=.06*sin(q.z*6.0+t*.11);
+            float cavity=1.0-.66*exp(-dot(hole/vec2(.13,.19),hole/vec2(.13,.19)));
+            float fine=potential(q*7.8+vec3(-3.1+t*.08,4.2-t*.055,t*.065),unused).x*.5+.5;
+            return envelope*packing*cavity*(.15+fine*fine*1.50);
         }
         vec3 velocity(vec3 p,float t,float row,float boundary) {
             vec3 q=p-energyCenter(t)*.55,curl,fine,micro;
@@ -73,6 +108,7 @@
             // Mild converging/diverging pulses coexist with slow large eddies.
             // They change spacing and folds, not merely the object's rotation.
             v+=q*sin(t*.83+q.x*4.2-q.z*3.4)*.035;
+            v+=energyTransport(p,t);
             float outside=max(0.0,length(p*vec3(.94,1.02,1.13))-.87);
             v-=p*outside*3.2*boundary;
             float core=step(.19,fract(row*.56984));
@@ -82,12 +118,13 @@
         vec3 seedPosition(float row,float along,float t) {
             float plume=mod(floor(row),128.0);
             vec3 seed=hash3(vec3(plume,2.1,6.8))*.5+.5;
-            float spread=(fract(row*.6180339)-.5)*.18;
-            float a=seed.x*6.2831853+(along-.5)*(.38+2.3*seed.z*seed.z)+spread+t*.065;
-            float b=seed.y*6.2831853+sin(a*2.3+t*.12)*.72+sin(a*5.0)*.15+spread*2.0;
-            float tube=.17+.25*seed.z,major=.34+.10*sin(a*2.1)+.045*sin(b*2.3);
-            vec3 p=vec3((major+tube*cos(b))*cos(a),(major+tube*cos(b))*sin(a),tube*sin(b));
-            p.z+=.08*sin(a*3.0+b*2.0);
+            float spread=(fract(row*.6180339)-.5)*.12;
+            float u=(along-.5)*(.28+seed.z*seed.z*1.15);
+            float angle=seed.x*6.2831853;
+            vec3 center=(seed-.5)*vec3(1.02,1.05,.92);
+            vec3 p=center+vec3(cos(angle)*u,sin(angle)*u,sin(seed.y*5.1)*u*.45);
+            p.y+=.10*sin(u*6.3+seed.z*4.1+t*.13)+spread;
+            p.z+=.10*sin(u*5.7+seed.y*4.7-t*.11);
             vec3 curl,warp=potential(p*2.0+vec3(t*.1,2.4,-1.2),curl);
             p+=warp*.12+curl*.045;
             return p;
@@ -108,6 +145,49 @@
         void main() {
             vec2 p=gl_VertexID==0?vec2(-1,-1):gl_VertexID==1?vec2(3,-1):vec2(-1,3);
             v_uv=p*.5+.5;gl_Position=vec4(p,0,1);
+        }
+    `;
+    // A 48^3 field lives in a 384x288 atlas (8x6 slices). Ray marching and
+    // filaments share its density, energy, incident radiance and facing term.
+    const MEDIUM=`
+        uniform sampler2D u_field;
+        vec2 mediumUV(vec2 xy,float slice) {
+            vec2 tile=vec2(mod(slice,8.0),floor(slice/8.0));
+            return (tile*48.0+xy+.5)/vec2(384,288);
+        }
+        vec4 mediumAt(vec3 p) {
+            if(any(greaterThan(abs(p),vec3(.96))))return vec4(0);
+            vec3 grid=clamp((p/.96*.5+.5)*47.0,vec3(0),vec3(47));
+            float slice=floor(grid.z);
+            return mix(texture(u_field,mediumUV(grid.xy,slice)),
+                texture(u_field,mediumUV(grid.xy,min(47.0,slice+1.0))),fract(grid.z));
+        }
+    `;
+    const FIELD_CACHE=HEADER+FIELD+`
+        uniform float u_density;
+        out vec4 result;
+        void main() {
+            vec2 cell=floor(gl_FragCoord.xy),tile=floor(cell/48.0);
+            vec3 grid=vec3(mod(cell,48.0),tile.x+tile.y*8.0);
+            vec3 p=(grid/47.0*2.0-1.0)*.96;
+            float density=matterDensity(p,u_time),heat=energyHeat(p,u_time);
+            vec3 source=energySource(p,u_time),delta=source-p;
+            float distance=length(delta);
+            vec3 direction=delta/max(.001,distance);
+            vec3 gradient=vec3(density-matterDensity(p+vec3(.055,0,0),u_time),
+                density-matterDensity(p+vec3(0,.055,0),u_time),
+                density-matterDensity(p+vec3(0,0,.055),u_time));
+            vec3 normal=gradient/max(.0001,length(gradient));
+            float surface=smoothstep(.025,.22,length(gradient));
+            float facing=mix(.15,.20+.65*abs(dot(normal,direction))
+                +.15*max(0.0,dot(normal,worldPoint(vec3(0,0,1)))),surface);
+            float obstruction=density*.5+matterDensity(mix(p,source,.35),u_time)
+                +matterDensity(mix(p,source,.70),u_time);
+            // Three-tap single-scattering approximation towards the connected
+            // emitter, cached once per phase; no uniform ambient light source.
+            float light=energyHeat(source,u_time)*exp(-obstruction*distance*1.25*u_density)
+                /(1.0+distance*distance*8.0);
+            result=vec4(density,heat,light,facing);
         }
     `;
     const SIM=HEADER+FIELD+`
@@ -184,7 +264,7 @@
             v_world=p;v_depth=clamp(.5+viewPoint(p).z*.45,.08,.92);
         }
     `;
-    const STRAND_FRAGMENT=HEADER+FIELD+`
+    const STRAND_FRAGMENT=HEADER+FIELD+MEDIUM+`
         uniform vec3 u_particle,u_energy,u_glow;
         uniform float u_brightness;
         uniform sampler2D u_volume;
@@ -196,45 +276,62 @@
         void main() {
             float edge=1.0-smoothstep(.25,1.0,abs(v_cross));
             float fade=pow(max(0.0,sin(v_age*3.14159265)),.55);
-            float emission=energyHeat(v_world,u_time);
-            float incident=clamp(emission*4.0,0.0,1.0);
+            vec4 material=mediumAt(v_world);
+            float emission=material.g;
+            float incident=clamp(emission*1.7+material.b*.65,0.0,1.0);
             // Reuse the ray-marched column extinction, instead of tracing
             // procedural density again for every subpixel fibre fragment.
             float column=clamp(texture(u_volume,gl_FragCoord.xy/u_resolution).a/.72,0.0,.96);
             float depth=clamp((.90-viewPoint(v_world).z)/1.8,0.0,1.0);
             float transmission=pow(1.0-column,depth*2.0);
-            float matter=matterDensity(v_world,u_time);
-            vec3 color=u_particle*(.21+v_depth*.27)*(.50+matter*.50)
-                +u_energy*incident*3.0+u_glow*incident*incident*.55;
-            color*=transmission;
+            float matter=material.r;
+            vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,emission+material.b*.45));
+            vec3 color=u_particle*tint*material.b*(.55+material.a*2.0)*(1.0-emission*.65)
+                +u_energy*incident*1.1+u_glow*emission*emission*.35;
             // Broad erosion creates differently sized wisps; fine coverage
             // turns each wisp into porous, irregular microfibres, not a cable.
             float lengths=3.0+15.0*fract(v_seed*.56984);
             float fragments=smoothstep(.20,.58,materialNoise(v_age*lengths,v_seed+4.1));
+            fragments=mix(fragments,.75,smoothstep(.35,.70,matter)*.55);
             float grain=.06+.94*smoothstep(.24,.78,materialNoise(v_age*167.0,v_seed*1.31));
             float packing=.45+matter*matter*5.50;
-            float alpha=min(.85,edge*fade*(.20+v_depth*.10)*fragments*grain*packing);
+            float alpha=min(.85,edge*fade*(.20+v_depth*.10)*fragments*grain*packing)*transmission;
             result=vec4(color*u_brightness,alpha);
         }
     `;
-    const VOLUME=HEADER+FIELD+`
+    const VOLUME=HEADER+FIELD+MEDIUM+`
         uniform vec2 u_resolution;
-        uniform vec3 u_energy,u_glow;
-        uniform float u_size,u_brightness;
+        uniform vec3 u_particle,u_energy,u_glow;
+        uniform float u_size,u_brightness,u_density;
         in vec2 v_uv;
         out vec4 result;
         void main() {
             vec2 aspect=min(u_resolution.x,u_resolution.y)/u_resolution;
             vec2 xy=(v_uv*2.0-1.0)/(aspect*u_size*.80);
             vec3 color=vec3(0);float opacity=0.0;
-            for(int i=0;i<20;i++) {
-                float z=.90-(float(i)+.5)*.09;
+            // Fixed per-ray stratification breaks the sampling lattice without
+            // frame-random grain or a moving screen-space noise overlay.
+            float jitter=hash3(vec3(floor(gl_FragCoord.xy),7.3)).x*.45;
+            for(int i=0;i<40;i++) {
+                float z=.96-(float(i)+.5+jitter)*(1.92/40.0);
                 vec3 p=worldPoint(vec3(xy,z));
-                float heat=energyHeat(p,u_time),matter=matterDensity(p,u_time);
-                float density=matter*.12;
-                vec3 light=u_energy*heat*3.5+u_glow*heat*heat*.40;
+                vec4 material=mediumAt(p);
+                vec3 detail=p-energyCenter(u_time)*.25;
+                vec3 unused;
+                float grains=potential(detail*83.0+vec3(u_time*.14,-u_time*.10,0),unused).x*.5+.5;
+                float grain=.08+1.85*smoothstep(.35,.65,grains);
+                float mass=max(0.0,material.r-.12);
+                // Beer-Lambert extinction separates porous matter from the
+                // emitting gas; front coats partially obscure deeper folds.
+                float density=1.0-exp(-(mass*mass*grain*18.0+material.g*1.6)*(1.92/40.0)*u_density);
+                float heat=material.g,incident=material.b;
+                float face=material.a*material.a;
+                vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,heat+incident*.45));
+                vec3 light=u_particle*tint*incident*(.10+face*3.8)*(1.0-heat*.65)
+                    +u_energy*(heat*2.8+incident*.10)+u_glow*heat*heat*.25;
                 color+=(1.0-opacity)*light*density;
                 opacity+=(1.0-opacity)*density;
+                if(opacity>.985)break;
             }
             result=vec4(color*u_brightness,opacity*.72);
         }
@@ -286,14 +383,15 @@
     class GunterIdleCore {
         constructor() {
             this.canvas=document.createElement('canvas');
-            this.available=false;this.error='';this.frames=0;this.steps=0;this.resources=[];
+            this.available=false;this.error='';this.frames=0;this.steps=0;this.fieldBuilds=0;this.resources=[];
             this.canvas.addEventListener('webglcontextlost',event=>{
                 event.preventDefault();this.available=false;this.error='Se perdió el contexto WebGL2.';
                 this.announce();
             });
             this.canvas.addEventListener('webglcontextrestored',()=>{
                 if(this.disposed)return;
-                this.resources=[];this.targets=null;this.histories=null;this.simulationTime=null;this.displayTime=null;
+                this.resources=[];this.targets=null;this.histories=null;this.field=null;this.fieldTime=null;this.fieldDensity=null;
+                this.simulationTime=null;this.displayTime=null;
                 this.width=this.height=0;this.initialize();this.announce();
             });
             this.initialize();
@@ -308,12 +406,13 @@
                 if(!gl||!gl.getExtension('EXT_color_buffer_float'))
                     throw new Error('El núcleo requiere WebGL2 y texturas flotantes renderizables (EXT_color_buffer_float).');
                 this.programs={
-                    simulation:this.program(QUAD,SIM),strands:this.program(STRAND_VERTEX,STRAND_FRAGMENT),
+                    simulation:this.program(QUAD,SIM),field:this.program(QUAD,FIELD_CACHE),strands:this.program(STRAND_VERTEX,STRAND_FRAGMENT),
                     volume:this.program(QUAD,VOLUME),copy:this.program(QUAD,COPY),
                     extract:this.program(QUAD,EXTRACT),blur:this.program(QUAD,BLUR),composite:this.program(QUAD,COMPOSITE)
                 };
                 this.histories=[];this.histories.push(this.target(HISTORY,SIM_HEADS,true));
                 this.histories.push(this.target(HISTORY,SIM_HEADS,true));
+                this.field=this.target(384,288);this.fieldTime=null;this.fieldDensity=null;
                 this.historyIndex=0;this.simulationTime=null;this.displayTime=null;
                 this.available=true;this.error='';
             } catch(error) {this.error=error.message;this.available=false;this.release();}
@@ -368,7 +467,7 @@
             try {
                 this.targets.scene=this.target(width,height);
                 const ew=Math.max(1,Math.round(width*.5)),eh=Math.max(1,Math.round(height*.5));
-                this.targets.energy=this.target(ew,eh);
+                this.targets.energy=this.target(Math.max(1,Math.round(width*.75)),Math.max(1,Math.round(height*.75)));
                 this.targets.a=this.target(ew,eh);this.targets.b=this.target(ew,eh);
                 this.width=width;this.height=height;
             }catch(error){this.deleteTargets(this.targets);this.targets=null;throw error;}
@@ -398,9 +497,17 @@
         }
         draw(config) {
             const gl=this.gl,t=this.displayTime,volume=this.programs.volume;
+            const density=Math.sqrt(config.density);
+            if(this.fieldTime!==t||this.fieldDensity!==density) {
+                const field=this.programs.field;gl.disable(gl.BLEND);this.use(field);
+                this.scalar(field,'u_time',t);this.scalar(field,'u_density',density);this.quad(this.field);
+                this.fieldTime=t;this.fieldDensity=density;this.fieldBuilds++;
+            }
             gl.disable(gl.BLEND);this.use(volume);
+            this.texture(volume,'u_field',this.field.texture);
             gl.uniform2f(this.uniform(volume,'u_resolution'),this.width,this.height);
             this.scalar(volume,'u_time',t);this.scalar(volume,'u_size',config.size);this.scalar(volume,'u_brightness',config.brightness);
+            this.scalar(volume,'u_density',density);this.vector(volume,'u_particle',rgb(config.particleColor));
             this.vector(volume,'u_energy',rgb(config.energyColor));this.vector(volume,'u_glow',rgb(config.glowColor));
             this.quad(this.targets.energy);
             const copy=this.programs.copy;this.use(copy);this.texture(copy,'u_image',this.targets.energy.texture);
@@ -408,6 +515,7 @@
             const strands=this.programs.strands;this.use(strands);
             this.texture(strands,'u_history',this.histories[this.historyIndex].texture);
             this.texture(strands,'u_volume',this.targets.energy.texture,1);
+            this.texture(strands,'u_field',this.field.texture,2);
             gl.uniform2f(this.uniform(strands,'u_resolution'),this.width,this.height);
             this.scalar(strands,'u_time',t);this.scalar(strands,'u_size',config.size);this.scalar(strands,'u_brightness',config.brightness);
             this.vector(strands,'u_particle',rgb(config.particleColor));this.vector(strands,'u_energy',rgb(config.energyColor));
@@ -442,11 +550,13 @@
         stats() {
             return {renderer:'webgl-filaments',simulation:'gpu-advected-material-filaments',available:this.available,frames:this.frames,
                 steps:this.steps,filaments:this.activeFilaments||0,segmentsPerFilament:HISTORY-1,
-                time:this.simulationTime,width:this.width,height:this.height,error:this.error};
+                time:this.simulationTime,width:this.width,height:this.height,error:this.error,
+                volumeGrid:48,volumeSamples:40,fieldBuilds:this.fieldBuilds};
         }
         release() {
             if(!this.gl)return;
             this.deleteTargets(this.targets);this.targets=null;this.deleteTargets(this.histories);this.histories=null;
+            this.deleteTargets(this.field?[this.field]:null);this.field=null;this.fieldTime=null;this.fieldDensity=null;
             this.resources.forEach(program=>this.gl.deleteProgram(program));this.resources=[];
         }
         dispose() {

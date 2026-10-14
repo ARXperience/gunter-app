@@ -43,10 +43,16 @@ function environment(options={}) {
     gl.getExtension=name=>name==='EXT_color_buffer_float'?(options.noFloat?null:{}):name==='WEBGL_lose_context'?{loseContext(){losses++;}}:null;
     function record(mode,count,instances=0) {
         assert.equal(mode,gl.TRIANGLES);assert.ok(count===3||count===6);
-        for(const name of ['u_history','u_image','u_bloom','u_volume'])if(program[name])
-            assert.notEqual(textures.get(program[name][0]),framebuffer?.texture,'no framebuffer texture feedback');
+        const samplers={};
+        for(const name of ['u_history','u_image','u_bloom','u_volume','u_field'])if(program[name]) {
+            const samplerUnit=program[name][0],texture=textures.get(samplerUnit);
+            assert.ok(Number.isInteger(samplerUnit)&&samplerUnit>=0,'valid sampler unit');
+            assert.ok(live.Texture.has(texture),'sampler reads a live texture');
+            assert.notEqual(texture,framebuffer?.texture,'no framebuffer texture feedback for '+name);
+            samplers[name]={unit:samplerUnit,texture};
+        }
         draws.push({program,framebuffer,texture:framebuffer?.texture,count,instances,viewport:viewport.slice(),
-            time:program.u_time?.[0],initialize:program.u_initialize?.[0]});
+            time:program.u_time?.[0],density:program.u_density?.[0],initialize:program.u_initialize?.[0],samplers});
     }
     gl.drawArrays=(mode,first,count)=>record(mode,count);
     gl.drawArraysInstanced=(mode,first,count,instances)=>{assert.ok(instances>0&&instances<=5120*95);record(mode,count,instances);};
@@ -93,27 +99,83 @@ check('GPU state ping-pongs with fixed-step advection and never reads its destin
     e.core.dispose();released(e);
 });
 check('presentation resize retains advected material and allocates only presentation targets',()=>{
-    const e=environment();e.render(8);const histories=e.core.histories.slice(),steps=e.core.steps;
+    const e=environment();e.render(8);const histories=e.core.histories.slice(),field=e.core.field,steps=e.core.steps;
+    const builds=e.core.fieldBuilds;
     e.render(8,defaults,510,320);
     assert.equal(e.core.steps,steps);assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);
-    assert.equal(e.live.Framebuffer.size,6);assert.equal(e.live.Texture.size,6);
+    assert.equal(e.core.field,field);assert.equal(e.core.fieldBuilds,builds);
+    assert.equal(e.live.Framebuffer.size,7);assert.equal(e.live.Texture.size,7);
     e.core.dispose();released(e);
 });
-check('particle, energy and emissive colors are independent shader uniforms',()=>{
+check('particle, energy and emissive colors independently reach both matter and filament shaders',()=>{
     const e=environment();e.render(8,{...defaults,particleColor:'#00ff00',energyColor:'#0000ff',glowColor:'#ff0000'});
-    const p=e.core.programs.strands.program;
-    assert.deepEqual(Array.from(p.u_particle),[0,1,0]);assert.deepEqual(Array.from(p.u_energy),[0,0,1]);assert.deepEqual(Array.from(p.u_glow),[1,0,0]);
-    assert.deepEqual(Array.from(e.core.programs.volume.program.u_energy),[0,0,1]);
+    for(const name of ['strands','volume']) {
+        const p=e.core.programs[name].program;
+        assert.deepEqual(Array.from(p.u_particle),[0,1,0]);assert.deepEqual(Array.from(p.u_energy),[0,0,1]);
+        assert.deepEqual(Array.from(p.u_glow),[1,0,0]);
+    }
+    const field=e.core.programs.field.program;
+    for(const name of ['u_particle','u_energy','u_glow'])assert.equal(field[name],undefined,'cached medium is color independent');
     e.core.dispose();released(e);
 });
-check('filament depth attenuation reuses the existing integrated volume without extra targets',()=>{
+check('one fixed floating atlas supplies density, energy, irradiance and facing to both render passes',()=>{
     const e=environment();e.render();
-    assert.equal(e.core.programs.strands.program.u_volume[0],1);
+    const field=e.core.field,stats=e.core.stats();
+    assert.equal(stats.volumeGrid,48);assert.ok(Number.isInteger(stats.volumeSamples)&&stats.volumeSamples>0);
+    assert.equal(field.width,384);assert.equal(field.height,288);assert.equal(field.texture.internal,e.gl.RGBA16F);
+    assert.equal(field.width*field.height,stats.volumeGrid**3);
+    const build=e.draws.find(d=>d.program===e.core.programs.field.program);
+    assert.equal(build.texture,field.texture);assert.deepEqual(build.viewport,[0,0,384,288]);
+    assert.equal(build.time,e.core.displayTime);assert.equal(build.density,1);
+    assert.deepEqual(Object.keys(build.samplers),[],'atlas construction does not sample its destination');
+    const shader=e.core.programs.field.program.shaders.find(s=>s.source.includes('out vec4 result')).source;
+    assert.match(shader,/result\s*=\s*vec4\(density,heat,light,facing\)/);
+    const volume=e.draws.find(d=>d.program===e.core.programs.volume.program),strands=e.draws.find(d=>d.instances);
+    assert.equal(volume.samplers.u_field.unit,0);assert.equal(volume.samplers.u_field.texture,field.texture);
+    assert.equal(strands.samplers.u_field.unit,2);assert.equal(strands.samplers.u_field.texture,field.texture);
+    assert.equal(strands.samplers.u_history.unit,0);
+    assert.equal(strands.samplers.u_history.texture,e.core.histories[e.core.historyIndex].texture);
+    assert.equal(strands.samplers.u_volume.unit,1);assert.equal(strands.samplers.u_volume.texture,e.core.targets.energy.texture);
     assert.equal(e.core.targets.energy.texture.internal,e.gl.RGBA16F);
-    assert.equal(e.live.Framebuffer.size,6);assert.equal(e.live.Texture.size,6);
+    assert.equal(e.live.Framebuffer.size,7);assert.equal(e.live.Texture.size,7);
     const fragment=e.core.programs.strands.program.shaders.find(s=>s.source.includes('uniform sampler2D u_volume')).source;
     assert.match(fragment,/texture\(u_volume,gl_FragCoord.xy\/u_resolution\)/);
-    assert.match(fragment,/pow\(1\.0-column,depth\*2\.0\)/);
+    for(const name of ['strands','volume']) {
+        const cached=e.core.programs[name].program.shaders.find(s=>s.source.includes('vec4 mediumAt')).source;
+        assert.match(cached,/texture\(u_field,/);assert.match(cached,/vec4 material=mediumAt\(/);
+    }
+    e.core.dispose();released(e);
+});
+check('avatars reuse the atlas across colors, brightness, size, resolution and older timestamps',()=>{
+    const e=environment(),first=e.render(8),field=e.core.field,steps=e.core.steps;
+    const builds=e.core.fieldBuilds,created=e.created.Texture.length;
+    const colors={...defaults,particleColor:'#194c7f',energyColor:'#00ff00',glowColor:'#0000ff'};
+    const second=e.render(8,colors);assert.notEqual(first,second,'each avatar has its own output canvas');
+    e.render(8,{...colors,size:1.3,brightness:2},510,320);
+    e.render(4,{...colors,size:.7,brightness:.2},510,320);
+    assert.equal(e.core.field,field);assert.equal(e.core.fieldBuilds,builds);assert.equal(e.core.stats().fieldBuilds,builds);
+    assert.equal(e.core.steps,steps);assert.equal(e.core.displayTime,8);
+    assert.equal(e.created.Texture.length,created+4,'only resized presentation targets are reallocated');
+    assert.equal(e.draws.filter(d=>d.program===e.core.programs.field.program).length,1);
+    assert.deepEqual(Array.from(e.core.programs.volume.program.u_particle),[25/255,76/255,127/255]);
+    assert.equal(e.core.programs.volume.program.u_size[0],.7);assert.equal(e.core.programs.volume.program.u_brightness[0],.2);
+    e.core.dispose();released(e);
+});
+check('the atlas rebuilds for display phase and square-root density without reallocating GPU resources',()=>{
+    const e=environment();e.render(8);const field=e.core.field,created=e.created.Texture.length,steps=e.core.steps;
+    assert.equal(e.core.fieldBuilds,1);
+    e.render(8.005);assert.equal(e.core.steps,steps,'display phase can advance between simulation steps');
+    assert.equal(e.core.fieldTime,8.005);assert.equal(e.core.fieldBuilds,2);
+    for(const density of [.25,2]) {
+        const before=e.core.fieldBuilds,expected=Math.sqrt(density);
+        e.render(8.005,{...defaults,density});
+        assert.equal(e.core.fieldBuilds,before+1);assert.equal(e.core.fieldDensity,expected);
+        const build=e.draws.filter(d=>d.program===e.core.programs.field.program).at(-1);
+        const volume=e.draws.filter(d=>d.program===e.core.programs.volume.program).at(-1);
+        assert.equal(build.density,expected);assert.equal(volume.density,expected);
+        e.render(8.005,{...defaults,density});assert.equal(e.core.fieldBuilds,before+1);
+    }
+    assert.equal(e.core.field,field);assert.equal(e.created.Texture.length,created);
     e.core.dispose();released(e);
 });
 check('finite input bounds and the legacy energy color alias remain supported',()=>{
@@ -133,17 +195,28 @@ check('missing WebGL2 or floating target capability reports the requirement with
 });
 check('shader/link and framebuffer failures release partial allocations with truthful diagnostics',()=>{
     for(const [options,message] of [[{failShader:true},/compile diagnostic/],[{failLink:true},/link diagnostic/],
-        [{failFramebufferAt:2},/buffer GPU/]]) {
+        [{failFramebufferAt:2},/buffer GPU/],[{failFramebufferAt:3},/buffer GPU/]]) {
         const e=environment(options);assert.equal(e.core.available,false);assert.match(e.core.error,message);released(e);
+        assert.equal(e.core.field,null);
     }
     const e=environment();e.options.failFramebufferAt=4;
-    assert.throws(()=>e.render(),/buffer GPU/);assert.equal(e.live.Framebuffer.size,2);
+    const field=e.core.field;
+    assert.throws(()=>e.render(),/buffer GPU/);assert.equal(e.live.Framebuffer.size,3);assert.equal(e.core.field,field);
     e.options.failFramebufferAt=0;assert.doesNotThrow(()=>e.render());e.core.dispose();released(e);
 });
-check('context loss restores material resources and final disposal is idempotent',()=>{
-    const e=environment();e.render();e.lost();assert.equal(e.core.available,false);assert.equal(e.events.at(-1).detail.available,false);
-    e.restored();assert.equal(e.core.available,true);e.render(10);assert.equal(e.events.at(-1).detail.available,true);
+check('context loss recreates the atlas, invalidates its cache and releases all resources on disposal',()=>{
+    const e=environment();e.render();const field=e.core.field,builds=e.core.fieldBuilds;
+    e.lost();assert.equal(e.core.available,false);assert.equal(e.events.at(-1).detail.available,false);
+    assert.throws(()=>e.render(),/contexto WebGL2/);
+    e.restored();assert.equal(e.core.available,true);assert.equal(e.events.at(-1).detail.available,true);
+    assert.notEqual(e.core.field,field);assert.notEqual(e.core.field.texture,field.texture);
+    assert.equal(e.core.fieldTime,null);assert.equal(e.core.fieldDensity,null);
+    e.render(8);assert.equal(e.core.fieldBuilds,builds+1);assert.equal(e.core.fieldTime,8);
+    assert.equal(e.live.Framebuffer.size,7);assert.equal(e.live.Texture.size,7);
+    const restoredField=e.core.field;
     e.core.dispose();e.core.dispose();assert.equal(e.losses(),1);released(e);
+    assert.equal(e.live.Texture.has(restoredField.texture),false);assert.equal(e.live.Framebuffer.has(restoredField.framebuffer),false);
+    assert.equal(e.core.field,null);assert.equal(e.core.fieldTime,null);assert.equal(e.core.fieldDensity,null);
     assert.throws(()=>e.render(),/disponible/);
 });
 check('the core does not subscribe to input/media or fetch original footage',()=>{

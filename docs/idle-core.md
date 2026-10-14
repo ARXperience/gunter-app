@@ -12,12 +12,21 @@ de curl noise. Las restricciones entre vecinos limitan el estiramiento sin
 convertir las curvas en colas de partículas. Se dibujan hasta cuatro fibras finas
 por curva mediante triángulos instanciados, no sprites de puntos.
 
-Un único volumen energético deformado y continuo determina tanto la emisión
-interna (integración de 20 muestras a media resolución) como la iluminación de
-los filamentos por proximidad. El movimiento de ese campo desplaza la luz; no se
-añaden focos esféricos independientes. Bloom separado de dos pasos y composición
-HDR controlan el brillo. La salida RGBA premultiplicada mantiene transparentes
-el fondo y los bordes, también sobre fondos claros.
+Un emisor grueso, curvo y continuo transporta una pulsación que no se apaga en
+focos separados. Su campo de transporte también interviene en la advección de
+las fibras. Una distribución tridimensional de materia plegada añade capas
+densas, poros y cavidades dentro de una envolvente deformada, no una esfera llena.
+
+Un atlas RGBA16F de 48³ celdas (384 × 288, unos 0,84 MiB) guarda densidad,
+energía, irradiancia interna y orientación de las caras. Se calcula una vez por
+fase/densidad y lo comparten volumen y filamentos, también entre avatares.
+Cambiar color, brillo, tamaño o resolución no lo reconstruye ni reinicia la
+advección. La integración de 40 muestras al 75 % de resolución aproxima absorción
+Beer–Lambert, dispersión simple y emisión; capas delanteras ocultan parcialmente
+las posteriores. El grano tridimensional es continuo; la estratificación de los
+rayos es fija, sin ruido aleatorio por frame. Bloom separado de dos pasos y
+composición HDR controlan el brillo. La salida RGBA premultiplicada mantiene
+transparentes el fondo y los bordes, también sobre fondos claros.
 
 ### Refinamiento de microestructura
 
@@ -31,12 +40,14 @@ pliegan las hebras. Una componente convergente/divergente leve modifica su
 espaciado. La cobertura crece selectivamente en zonas densas, con alfa limitado,
 sin elevar uniformemente la transparencia o el brillo de toda la figura.
 
-El calor se concentra en crestas deformadas, con baja emisión entre pliegues,
-no en una cápsula central. El volumen integra densidad y absorción junto a la
-emisión; los filamentos reutilizan su extinción ya calculada y la ponderan por
-profundidad. Esto evita tres evaluaciones volumétricas extra por fragmento y no
-requiere otro framebuffer. Es una aproximación por columna, no auto-sombra
-geométrica exacta de cada fibra ni dispersión múltiple físicamente completa.
+La luz procede del emisor interno, con absorción aproximada hacia él mediante
+tres muestras de materia. Las caras y fibras reutilizan esa irradiancia y
+reciben un tinte energético local. Los filamentos ponderan su alfa por la
+extinción y profundidad ya integradas, en vez de oscurecer solo el RGB y dejar
+trazos negros opacos sobre la energía. Se añade un único framebuffer fijo para
+el atlas; no se evalúa el campo procedural completo en cada fragmento de fibra.
+La extinción de fibras es una aproximación por columna, no auto-sombra geométrica
+exacta ni dispersión múltiple físicamente completa.
 El mapeo HDR conserva las proporciones cromáticas al comprimir el pico de
 energía; no blanquea cada canal por separado ni cambia los HEX configurados.
 
@@ -86,7 +97,35 @@ evitando recuperar miles de pasos en un único frame.
 
 ## Validación y estado visual
 
-Refinamiento de microestructura (posterior a `5b67cb2`):
+Iteración de masa y flujo (posterior a `30b0ea0`, renderer `v146-matter-flow`):
+
+- Trece contratos GPU focalizados: atlas compartido, ausencia de feedback,
+  densidad real, tres colores, caché por fase/densidad, fallos de asignación,
+  restauración del contexto y liberación de los siete targets. No se repiten las
+  suites de voz, preferencias o el smoke general: esos sistemas no cambiaron.
+- Iteraciones A–I comparadas con fotogramas del MP4: se descartaron niebla
+  uniforme, fibras negras, rojo desaturado y una variante de grano periódico.
+  Se conservan 2.560 filamentos base; el volumen adicional viene de la materia
+  intermedia, no de más partículas o de aumentar únicamente el bloom.
+- Comprobación acotada en Radeon integrada / ANGLE D3D11: 12 renders con lectura
+  síncrona GPU por configuración. A 512 px/100 %, mediana 11,5 ms y máximo 12,4 ms
+  frente a 8,6/9,3 ms antes. A 720 px/200 %, 21/23,2 ms. Incluye envío, render,
+  presentación y sincronización; no es un perfil GPU aislado ni garantiza fps
+  con varias vistas o en teléfonos físicos. No hubo error WebGL.
+- Dos segmentos finales (8–11 y 20–23 s), muestreados a 24 fps y comparados con
+  los segmentos 12–15 y 30–33 s originales. Vista previa local:
+  `output/playwright/gunter-core-phase2-mass-preview.mp4`; solo es un artefacto
+  de comparación, no un recurso usado por el núcleo ni una medición de fps.
+- Navegador nativo: tres HEX cambian el render, 640/2.560/5.120 fibras reales,
+  fase detenida estable (diferencia máxima 1/255), fondo libre y alfa parcial
+  sobre blanco/oscuro/degradado. Sin blancos recortados con alfa ≥16/255;
+  17 píxeles casi invisibles de alfa 1–3/255 se cuantizan a blanco al
+  des-premultiplicar la lectura de 8 bits. No son focos de luz opacos.
+- Misma advección a 8, 38 y 68 s: 2.701 pasos sin reinicio ni colapso aparente.
+  Inicio carga el nuevo asset a 1.440 y 390 px sin añadir scroll, errores de
+  página ni solicitudes de video/TTS/STT. Se usaron datos y cuenta desechables.
+
+Refinamiento anterior de microestructura (`30b0ea0`, no repetido):
 
 - Once pruebas GPU focalizadas, incluyendo reutilización de la textura de volumen
   sin realimentación ni nuevos targets. Los controles y el almacenamiento no se
@@ -127,11 +166,12 @@ Validación de integración anterior, en `5b67cb2` (no repetida en esta iteraci�
 - Artefactos locales en `output/playwright/phase2-*` y
   `output/playwright/gunter-core-phase2-preview.mp4`; no son recursos de la app.
 
-**La fidelidad visual de fase 2 no se declara cerrada.** Disminuyeron los cables,
-la uniformidad gris y el foco central; ahora hay microgranulación, focos locales
-y sombras. La referencia aún presenta materia más espesa, erosionada y roja;
-esta simulación conserva algunos arcos periféricos y velos más ligeros u
-ordenados, especialmente con el tiempo. La difusión volumétrica es aproximada.
+**La fidelidad visual de fase 2 no se declara cerrada.** Se recuperaron masa,
+capas superpuestas y energía interna conectada, con sombras y rojo localizado.
+La referencia todavía tiene crestas erosionadas más nítidas, pliegues más
+espesos y transporte de materia menos suave. Esta simulación conserva velos
+ligeros y un vacío inferior marcado en algunas fases. La difusión y el campo de
+materia son aproximaciones procedurales, no una simulación de fluido completa.
 Requiere revisión visual del usuario; no es una réplica del grafo TouchDesigner.
 
 ## Límites y reversión
@@ -154,3 +194,7 @@ Requiere revisión visual del usuario; no es una réplica del grafo TouchDesigne
   `5b67cb2638285092bc1278fc1ab159d8d1abcf2c`, etiqueta local
   `codex/core-phase2-before-microstructure`. Esta iteración también se revierte
   como commit completo, con sus referencias y versión de caché.
+- Punto anterior a masa/flujo: commit
+  `30b0ea00966d6499c5d05568f6f779a0eeeca7c3`, etiqueta local
+  `codex/core-phase2-before-volume`. Revertir el commit completo de esta
+  iteración restaura también sus URLs y versión de caché, sin cambiar preferencias.
