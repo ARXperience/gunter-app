@@ -256,6 +256,38 @@
     }
     function writePrefs(p) { localStorage.setItem(PREF_KEY, JSON.stringify({ ...readPrefs(), ...p })); }
 
+    function initCoreVisualSettings() {
+        const section = document.getElementById('core-visual-settings');
+        const core = window.GunterParticles;
+        if (!section || !core?.configure) return;
+        const fields = { color: 'core-color', size: 'core-size', mouseSensitivity: 'core-mouse',
+            voiceIntensity: 'core-voice', geometry: 'core-geometry', geometryOpacity: 'core-geometry-opacity' };
+        const status = document.getElementById('core-visual-status');
+        function sync() {
+            const config = core.getConfig();
+            for (const [key, id] of Object.entries(fields)) {
+                const input = document.getElementById(id);
+                input.value = config[key];
+                const output = document.getElementById(id + '-value');
+                if (output) output.textContent = ['size', 'geometryOpacity'].includes(key)
+                    ? Math.round(config[key] * 100) + ' %' : config[key].toFixed(2);
+            }
+            section.querySelectorAll('[data-core-color]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.coreColor === config.color)));
+        }
+        function save(patch) {
+            try { core.configure(patch, { persist: true }); status.textContent = 'Apariencia del núcleo guardada en este dispositivo.'; }
+            catch { status.textContent = 'No pude guardar la apariencia. Revisa si el navegador permite almacenamiento local.'; sync(); }
+        }
+        for (const [key, id] of Object.entries(fields)) document.getElementById(id).addEventListener('input', event => {
+            save({ [key]: ['color', 'geometry'].includes(key) ? event.target.value : Number(event.target.value) });
+        });
+        section.querySelectorAll('[data-core-color]').forEach(button => button.addEventListener('click', () => save({ color: button.dataset.coreColor })));
+        document.getElementById('core-visual-reset').addEventListener('click', () => save(core.getDefaults()));
+        window.addEventListener('gunter-core-config-changed', sync);
+        window.addEventListener('storage', event => { if (event.key === PREF_KEY || event.key === null) sync(); });
+        sync();
+    }
+
     function loadPreferences() {
         const prefs = readPrefs();
 
@@ -709,6 +741,7 @@
         arrangeExistingControls();
         initTabs();
         initAccount();
+        initCoreVisualSettings();
         initCalendarPlanning();
         initTrash();
         initData();

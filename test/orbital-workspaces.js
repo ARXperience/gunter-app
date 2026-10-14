@@ -243,7 +243,10 @@ check('all ten entry and working pages load the shared workspace and their final
         assert.equal(shared.length, 1, `${file}: the workspace stylesheet loads once`);
         assert.equal(specific.length, 1, `${file}: its working-surface stylesheet loads once`);
         assert.ok(shared[0].index < specific[0].index, `${file}: page adjustments follow the shared foundation`);
-        assert.equal(styles.at(-1), specific[0], `${file}: legacy styles cannot load after the orbital surface`);
+        const core = matches('styles/gunter-video-core.css');
+        assert.equal(core.length, 1, `${file}: the shared video identity stylesheet loads once`);
+        assert.equal(styles.at(-1), core[0], `${file}: only the shared video identity follows the orbital surface`);
+        assert.ok(specific[0].index < core[0].index);
         assert.ok(fs.existsSync(path.join(root, 'styles/gunter-workspace.css')));
         assert.ok(fs.existsSync(path.join(root, 'styles/pages', pageStyle)));
     }

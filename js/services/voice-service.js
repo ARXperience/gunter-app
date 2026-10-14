@@ -44,6 +44,119 @@
     let synthesisController = null;
     let prefetched = null;
     let warnedFallback = false;
+    let fallbackPlaying = false;
+    let audioAnalysisEnabled = false;
+    let analysisContext = null;
+    let playbackAnalysis = null;
+    let audioSignal = { source: 'assistant', level: 0, active: false, available: false };
+
+    // Optional visual metering. It never decodes a second audio file or opens a
+    // microphone. A running context is primed only by a real user gesture.
+    function emitAudioLevel(level = 0, active = false, available = false, reason = '') {
+        audioSignal = { source: 'assistant', level: Math.max(0, Math.min(1, Number(level) || 0)), active, available, reason };
+        try { window.dispatchEvent(new CustomEvent('gunter-audio-level', { detail: audioSignal })); } catch {}
+    }
+
+    function pauseAudioAnalysis(reason = 'paused') {
+        if (playbackAnalysis?.frame) window.cancelAnimationFrame?.(playbackAnalysis.frame);
+        if (playbackAnalysis) playbackAnalysis.frame = 0;
+        if (audioAnalysisEnabled || audioSignal.active) emitAudioLevel(0, false, !!playbackAnalysis?.analyser, reason);
+    }
+
+    function releaseAudioAnalysis(reason = 'stopped') {
+        pauseAudioAnalysis(reason);
+        const record = playbackAnalysis;
+        playbackAnalysis = null;
+        try { record?.source?.disconnect(); } catch {}
+        try { record?.analyser?.disconnect(); } catch {}
+        try { record?.stream?.getTracks?.().forEach(track => track.stop()); } catch {}
+        if (audioAnalysisEnabled) emitAudioLevel(0, false, false, reason);
+    }
+
+    function primeAudioAnalysis() {
+        if (!audioAnalysisEnabled) return;
+        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextCtor) { emitAudioLevel(0, false, false, 'web-audio-unavailable'); return; }
+        try {
+            if (!analysisContext || analysisContext.state === 'closed') analysisContext = new AudioContextCtor();
+            if (analysisContext.state === 'suspended') analysisContext.resume()?.catch?.(() => {});
+        } catch { emitAudioLevel(0, false, false, 'web-audio-unavailable'); }
+    }
+
+    function createPlaybackAnalysis(audio, token, capture = false) {
+        if (!audioAnalysisEnabled || analysisContext?.state !== 'running') return null;
+        const record = { audio, token, context: analysisContext, frame: 0, lastFrame: -Infinity, source: null, analyser: null, stream: null };
+        try {
+            record.analyser = analysisContext.createAnalyser();
+            record.analyser.fftSize = 1024;
+            record.samples = new Float32Array(record.analyser.fftSize);
+            if (capture) {
+                const captureStream = audio.captureStream || audio.mozCaptureStream;
+                if (!captureStream) return null;
+                record.stream = captureStream.call(audio);
+                if (!record.stream.getAudioTracks?.().length) { record.stream.getTracks?.().forEach(track => track.stop()); return null; }
+                record.source = analysisContext.createMediaStreamSource(record.stream);
+                record.source.connect(record.analyser); // Tap only: the element still owns playback.
+            } else {
+                record.source = analysisContext.createMediaElementSource(audio);
+                record.source.connect(record.analyser);
+                record.analyser.connect(analysisContext.destination); // Exactly one audible route.
+            }
+            playbackAnalysis = record;
+            return record;
+        } catch {
+            // If an element was already routed, preserve its sound even if the
+            // optional analyser could not be connected. Never retry that node.
+            if (!capture && record.source) {
+                try { record.source.disconnect(); record.source.connect(analysisContext.destination); } catch {}
+                record.analyser = null;
+                playbackAnalysis = record;
+            } else {
+                try { record.source?.disconnect(); } catch {}
+                try { record.stream?.getTracks?.().forEach(track => track.stop()); } catch {}
+            }
+            return null;
+        }
+    }
+
+    function startAudioAnalysis(audio, token) {
+        if (!audioAnalysisEnabled || token !== generation || currentAudio !== audio) return;
+        const record = playbackAnalysis || createPlaybackAnalysis(audio, token, true);
+        if (!record?.analyser || !window.requestAnimationFrame || analysisContext?.state !== 'running') {
+            emitAudioLevel(0, false, false, 'signal-unavailable'); return;
+        }
+        if (record.frame) return;
+        const sample = now => {
+            record.frame = 0;
+            if (!audioAnalysisEnabled || record !== playbackAnalysis || token !== generation || audio.paused || audio.ended) return;
+            if (now - record.lastFrame >= 1000 / 30) {
+                record.lastFrame = now;
+                if (record.context.state !== 'running') emitAudioLevel(0, false, false, 'context-suspended');
+                else {
+                    record.analyser.getFloatTimeDomainData(record.samples);
+                    let sum = 0;
+                    for (let i = 0; i < record.samples.length; i++) sum += record.samples[i] * record.samples[i];
+                    const level = Math.sqrt(sum / record.samples.length) * (audio.muted ? 0 : audio.volume);
+                    emitAudioLevel(level, true, true);
+                }
+            }
+            record.frame = window.requestAnimationFrame(sample);
+        };
+        record.frame = window.requestAnimationFrame(sample);
+    }
+
+    function setAudioAnalysisEnabled(enabled) {
+        enabled = !!enabled;
+        if (enabled === audioAnalysisEnabled) return;
+        audioAnalysisEnabled = enabled;
+        for (const type of ['pointerdown', 'keydown']) {
+            if (enabled) window.addEventListener(type, primeAudioAnalysis, { capture: true, passive: true });
+            else window.removeEventListener?.(type, primeAudioAnalysis, true);
+        }
+        if (!enabled) { pauseAudioAnalysis('disabled'); emitAudioLevel(0, false, false, 'disabled'); }
+        else if (currentAudio && !currentAudio.paused) startAudioAnalysis(currentAudio, generation);
+        else emitAudioLevel(0, false, false, 'idle');
+    }
 
     function voiceMetric(name, detail = {}) {
         try { window.dispatchEvent(new CustomEvent('gunter-voice-metric', {
@@ -165,6 +278,7 @@
 
     function speakFallback(text, sv, token = generation) {
         if (token !== generation) return;
+        if (audioAnalysisEnabled) emitAudioLevel(0, false, false, 'browser-synthesis-signal-unavailable');
         if (!('speechSynthesis' in window)) { speaking = false; processQueue(); return; }
         const u = new SpeechSynthesisUtterance(String(text).slice(0, 800));
         u.lang = 'es-MX';
@@ -176,9 +290,11 @@
             u.lang = preferred.lang || 'es-MX';
         }
         currentUtterance = u;
+        u.onstart = () => { if (token === generation) { fallbackPlaying = true; notifyVoiceState('speaking'); } };
         u.onend = u.onerror = () => {
             if (token !== generation) return;
             currentUtterance = null;
+            fallbackPlaying = false;
             speaking = false;
             processQueue();
         };
@@ -394,11 +510,18 @@
             audio.volume = next.opts.volume ?? 1;
             currentAudio = audio;
             currentAudioUrl = url;
+            // Do not reroute an element through a suspended context: that would
+            // silence autoplay on mobile. In that case playback remains native.
+            createPlaybackAnalysis(audio, token);
+            audio.addEventListener('playing', () => startAudioAnalysis(audio, token));
+            audio.addEventListener('pause', () => { if (currentAudio === audio) pauseAudioAnalysis(); });
+            audio.addEventListener('waiting', () => { if (currentAudio === audio) pauseAudioAnalysis('buffering'); });
             audio.addEventListener('playing', () => {
                 if (token === generation) voiceMetric('playbackStart', { chars: next.text.length });
             }, { once: true });
             audio.onended = audio.onerror = () => {
                 if (token !== generation) return;
+                releaseAudioAnalysis('ended');
                 currentAudio = null;
                 currentAudioUrl = null;
                 releaseAudioUrl(url);
@@ -408,6 +531,7 @@
             let played = false;
             await audio.play().then(() => { played = true; }).catch(err => {
                 if (token !== generation) return;
+                releaseAudioAnalysis('playback-failed');
                 audio.onended = audio.onerror = null;
                 currentAudio = null;
                 currentAudioUrl = null;
@@ -457,6 +581,7 @@
         prefetched = null;
         queue = [];
         speaking = false;
+        releaseAudioAnalysis(reason);
         if (currentAudio) {
             currentAudio.onended = currentAudio.onerror = null;
             try { currentAudio.pause(); currentAudio.currentTime = 0; } catch {}
@@ -466,6 +591,7 @@
         }
         if (currentUtterance) currentUtterance.onend = currentUtterance.onerror = null;
         currentUtterance = null;
+        fallbackPlaying = false;
         try { speechSynthesis.cancel(); } catch {}
         notifyVoiceState('idle', { reason });
     }
@@ -519,7 +645,12 @@
         setMeetingActive, isMeetingActive, shortenForSpeech,
         // Conversación continua / barge-in
         isSpeaking, isLikelyEcho,
-        getPlaybackState: () => ({ speaking, text: lastSpokenText, startedAt: speechStartedAt, queued: queue.length })
+        setAudioAnalysisEnabled,
+        getAudioAnalysisState: () => ({ ...audioSignal }),
+        getPlaybackState: () => {
+            const playing = !!(currentAudio && !currentAudio.paused && !currentAudio.ended) || fallbackPlaying;
+            return { speaking: playing, pending: speaking && !playing, text: lastSpokenText, startedAt: speechStartedAt, queued: queue.length };
+        }
     };
 
     // Event shortcut
@@ -539,6 +670,17 @@
             try { currentAudio.pause(); } catch {}
         } else if (!document.hidden && currentAudio && currentAudio.paused) {
             try { currentAudio.play(); } catch {}
+        }
+    });
+    window.addEventListener('pagehide', event => {
+        setAudioAnalysisEnabled(false);
+        pauseAudioAnalysis('page-hidden');
+        // A routed element must retain its audible path while a page is frozen.
+        // Closing only on actual unload avoids muting a bfcache restoration.
+        if (!event.persisted) {
+            releaseAudioAnalysis('page-unload');
+            try { analysisContext?.close()?.catch?.(() => {}); } catch {}
+            analysisContext = null;
         }
     });
 })();

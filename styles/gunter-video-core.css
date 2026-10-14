@@ -1,0 +1,38 @@
+/* Original footage, not a procedural imitation. Recoloring leaves neutral smoke
+   and highlights intact; native video decoding does the expensive work. */
+.gunter-video-core { --core-color: #8b6cff; --core-size: 1; --core-hue: 250deg; --core-saturation: 1; min-width: 0; min-height: 0; }
+.gn-orbit-core.gunter-video-core { pointer-events: auto; touch-action: pan-y; }
+.gunter-video-core .gunter-core-motion {
+  position: absolute; inset: 0; display: block; pointer-events: none;
+  transform: translate(var(--core-x, 0px), var(--core-y, 0px)) scale(calc(var(--core-size) * var(--core-react-scale, 1)));
+  transform-origin: center; --core-brightness: 1;
+}
+.gunter-video-core .gunter-core-media {
+  position: absolute; inset: 0; display: block; overflow: hidden; border-radius: 50%;
+  filter: hue-rotate(var(--core-hue)) saturate(var(--core-saturation)) brightness(var(--core-brightness));
+  -webkit-mask-image: radial-gradient(ellipse, #000 48%, transparent 74%);
+  mask-image: radial-gradient(ellipse, #000 48%, transparent 74%);
+}
+.gunter-video-core :is(.gunter-core-video, .gunter-core-video-poster) {
+  display: block !important; position: absolute !important; inset: 0 !important;
+  width: 100% !important; height: 100% !important; max-width: none !important;
+  object-fit: contain !important; object-position: center !important; margin: 0 !important;
+  border: 0 !important; border-radius: 0 !important; pointer-events: none;
+  mix-blend-mode: screen; filter: none !important; transform: none !important;
+}
+.gunter-video-core :is(.gunter-core-video, .gunter-core-video-poster)[hidden] { display: none !important; }
+.gunter-video-core .gunter-core-geometry {
+  display: block; position: absolute; inset: 1%; width: 98%; height: 98%;
+  color: var(--core-color); fill: none; stroke: currentColor; stroke-width: .4;
+  opacity: var(--core-geometry-opacity, .12); pointer-events: none;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--core-color) 25%, transparent));
+}
+.gunter-video-core[data-core-state="listening"] .gunter-core-geometry { stroke-width: .6; }
+.gunter-video-core[data-core-state="thinking"] .gunter-core-geometry { stroke-dasharray: 1 2; }
+.gunter-video-core[data-core-state="error"] .gunter-core-geometry { color: var(--gw-danger, #ffaea8); }
+body.at-light .gunter-video-core .gunter-core-motion { background: #070b17; border-radius: 50%; }
+body.at-light .gunter-video-core .gunter-core-geometry { opacity: min(.3, calc(var(--core-geometry-opacity, .12) + .06)); }
+@media (prefers-reduced-motion: reduce) {
+  .gunter-video-core .gunter-core-motion { transform: scale(var(--core-size)); }
+}
+html.reduce-motion .gunter-video-core .gunter-core-motion { transform: scale(var(--core-size)); }

@@ -1,88 +1,222 @@
-/* Gunter's abstract energy identity. One local canvas renderer, no audio capture,
- * network, models or invented spectrum. Speaking topology follows real playback. */
+/* Shared Gunter identity: original local video, light SVG geometry and real audio levels.
+ * Existing mount API/routes stay unchanged. This renderer never captures a microphone. */
 (function () {
     'use strict';
     if (window.GunterParticles) return;
-    const source = document.currentScript?.src || new URL('js/services/gunter-particles.js', location.href).href;
-    const fallbackURL = new URL('../../assets/gunter/gunter-core.svg', source).href;
-    const records = new Map();
+    const script = document.currentScript?.src || new URL('js/services/gunter-particles.js', location.href).href;
+    const videoURL = new URL('../../assets/gunter/gunter-core-video.mp4', script).href;
+    const posterURL = new URL('../../assets/gunter/gunter-core-video-poster.jpg', script).href;
+    const DEFAULTS = Object.freeze({ color: '#8b6cff', size: 1, mouseSensitivity: .65,
+        voiceIntensity: 1, geometry: 'flower', geometryOpacity: .12 });
+    const records = new Map(), signals = new Map(), disposers = [];
     const motionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-    let raf = 0, lastFrame = 0, disposed = false, voiceSpeaking = false;
-    let conversation = window.GunterConversationState?.getState?.().value || 'idle';
-    let savedReduced = false;
-    const TAU = Math.PI * 2;
-    function refreshPreferences() {
-        try { savedReduced = JSON.parse(window.localStorage?.getItem('gunter_prefs') || '{}').reduceMotion === true; }
-        catch (_) { savedReduced = false; }
+    let config, savedReduced = false, raf = 0, lastFrame = 0, disposed = false;
+    let conversation = 'idle', voiceSpeaking = false;
+    const clamp = (value, low, high, fallback) => typeof value === 'number' && Number.isFinite(value)
+        ? Math.max(low, Math.min(high, value)) : fallback;
+    function normalize(value = {}) {
+        return {
+            color: /^#[0-9a-f]{6}$/i.test(value.color) ? value.color.toLowerCase() : DEFAULTS.color,
+            size: clamp(value.size, .7, 1.3, DEFAULTS.size),
+            mouseSensitivity: clamp(value.mouseSensitivity, 0, 1.5, DEFAULTS.mouseSensitivity),
+            voiceIntensity: clamp(value.voiceIntensity, 0, 2, DEFAULTS.voiceIntensity),
+            geometry: ['flower', 'metatron', 'none'].includes(value.geometry) ? value.geometry : DEFAULTS.geometry,
+            geometryOpacity: clamp(value.geometryOpacity, 0, .4, DEFAULTS.geometryOpacity)
+        };
     }
-    refreshPreferences();
-    function reduced() { return !!motionQuery?.matches || savedReduced || document.documentElement.classList.contains('reduce-motion'); }
-    function light() { return document.body.classList.contains('at-light') || document.documentElement.dataset.colorMode === 'light'; }
-    function state() {
-        let active = voiceSpeaking;
+    function readPreferences() {
         try {
-            const playback = window.GunterVoice?.getPlaybackState?.();
-            if (typeof playback?.speaking === 'boolean') active = playback.speaking;
-        } catch (_) { /* visual state must never interrupt the assistant */ }
-        if (active) return 'speaking';
-        // The conversational brain may be ready to speak before audio starts.
-        if (conversation === 'speaking') return 'thinking';
-        return ['thinking', 'listening_query', 'listening_wake', 'awaiting_confirmation', 'error'].includes(conversation) ? conversation : 'idle';
+            const value = JSON.parse(window.localStorage?.getItem('gunter_prefs') || '{}');
+            return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+        } catch { return {}; }
+    }
+    function refreshPreferences() {
+        const prefs = readPreferences();
+        savedReduced = prefs.reduceMotion === true;
+        config = normalize(prefs.coreVisual || {});
+    }
+    function reduced() { return !!motionQuery?.matches || savedReduced || document.documentElement.classList.contains('reduce-motion'); }
+    function capturing() {
+        const ptt = window.GunterSTT?.pushToTalk?.getState?.();
+        const wake = window.GunterWakeWord?.getState?.();
+        return ptt?.phase === 'recording' || window.GunterVoiceActivity?.getState?.().active === true
+            || (wake?.active === true && ['wake', 'query'].includes(wake.mode));
+    }
+    function state() {
+        const playback = window.GunterVoice?.getPlaybackState?.();
+        if (typeof playback?.speaking === 'boolean' ? playback.speaking : voiceSpeaking) return 'speaking';
+        const value = window.GunterConversationState?.getState?.().value || conversation;
+        if (playback?.pending || ['speaking', 'thinking'].includes(value)) return 'thinking';
+        if (['awaiting_confirmation', 'error'].includes(value)) return value;
+        return capturing() ? 'listening' : 'idle';
+    }
+    function measuredLevel(current, now) {
+        const source = current === 'speaking' ? 'assistant' : current === 'listening' ? 'microphone' : null;
+        const signal = signals.get(source);
+        const valid = signal?.active === true && signal.available === true && now - signal.at < 250;
+        return { source, available: valid, level: valid ? signal.level : 0 };
+    }
+    function colorSettings(color) {
+        const rgb = color.match(/[0-9a-f]{2}/gi).map(part => parseInt(part, 16) / 255);
+        const max = Math.max(...rgb), min = Math.min(...rgb), delta = max - min;
+        let hue = 0;
+        if (delta) {
+            const channel = rgb.indexOf(max);
+            hue = (channel === 0 ? (rgb[1] - rgb[2]) / delta : channel === 1
+                ? 2 + (rgb[2] - rgb[0]) / delta : 4 + (rgb[0] - rgb[1]) / delta) * 60;
+        }
+        return { hue: (hue + 360) % 360 - 6, saturation: max ? (delta / max) / .85 : 0 };
+    }
+    function geometryMarkup(kind) {
+        if (kind === 'none') return '';
+        const centers = [[100, 100]];
+        const circle = (x, y, radius) => '<circle cx="' + x.toFixed(2) + '" cy="' + y.toFixed(2) + '" r="' + radius + '"/>';
+        if (kind === 'flower') {
+            let result = circle(100, 100, 30);
+            for (const radius of [30, 30 * Math.sqrt(3), 60]) for (let n = 0; n < 6; n++) {
+                const angle = Math.PI * n / 3 + (radius > 40 && radius < 60 ? Math.PI / 6 : 0);
+                result += circle(100 + Math.cos(angle) * radius, 100 + Math.sin(angle) * radius, 30);
+            }
+            return result;
+        }
+        for (const radius of [35, 70]) for (let n = 0; n < 6; n++) {
+            const angle = n * Math.PI / 3 - Math.PI / 2;
+            centers.push([100 + Math.cos(angle) * radius, 100 + Math.sin(angle) * radius]);
+        }
+        const lines = centers.flatMap(([x1, y1], index) => centers.slice(index + 1).map(([x2, y2]) =>
+            '<path d="M' + x1.toFixed(2) + ' ' + y1.toFixed(2) + 'L' + x2.toFixed(2) + ' ' + y2.toFixed(2) + '"/>')).join('');
+        return lines + centers.map(([x, y]) => circle(x, y, 14)).join('');
+    }
+    function listen(target, type, fn, options, list = disposers) {
+        target.addEventListener(type, fn, options);
+        list.push(() => target.removeEventListener(type, fn, options));
+    }
+    function applyConfig(record) {
+        const colors = colorSettings(config.color);
+        record.el.style.setProperty('--core-color', config.color);
+        record.el.style.setProperty('--core-hue', colors.hue + 'deg');
+        record.el.style.setProperty('--core-saturation', Math.min(1.5, colors.saturation).toFixed(3));
+        record.el.style.setProperty('--core-size', String(config.size));
+        record.el.style.setProperty('--core-geometry-opacity', String(config.geometryOpacity));
+        if (record.geometryKind !== config.geometry) {
+            record.geometry.innerHTML = geometryMarkup(config.geometry);
+            record.geometryKind = config.geometry;
+        }
+        record.dirty = true;
+    }
+    function configure(patch = {}, options = {}) {
+        const next = normalize({ ...config, ...patch });
+        if (options.persist === true) {
+            // Merge the existing preferences; do not replace other settings/accounts.
+            const prefs = readPreferences();
+            window.localStorage?.setItem('gunter_prefs', JSON.stringify({ ...prefs, coreVisual: next }));
+        }
+        config = next;
+        records.forEach(applyConfig);
+        updatePlayback(); schedule();
+        window.dispatchEvent(new CustomEvent('gunter-core-config-changed', { detail: { ...config } }));
+        return { ...config };
+    }
+    function showPoster(record) {
+        record.poster.hidden = false;
+        if (record.video) record.video.hidden = true;
+    }
+    function ensureVideo(record) {
+        if (record.video) return record.video;
+        const video = document.createElement('video');
+        video.className = 'gunter-core-video';
+        video.muted = video.defaultMuted = true;
+        video.loop = true; video.autoplay = true; video.playsInline = true;
+        video.preload = 'metadata'; video.disablePictureInPicture = true;
+        video.setAttribute('muted', ''); video.setAttribute('playsinline', '');
+        video.setAttribute('aria-hidden', 'true'); video.setAttribute('tabindex', '-1');
+        video.poster = posterURL;
+        record.video = video;
+        listen(video, 'playing', () => {
+            record.playPending = false;
+            if (!record.wanted) { video.pause(); return; }
+            record.poster.hidden = true; video.hidden = false;
+            record.el.dataset.videoPlayback = 'playing';
+            record.el.dataset.particlesReady = 'true';
+        }, undefined, record.disposers);
+        listen(video, 'error', () => {
+            record.playPending = false; record.failed = true;
+            record.el.dataset.videoPlayback = 'error'; showPoster(record);
+        }, undefined, record.disposers);
+        record.media.appendChild(video);
+        video.src = videoURL;
+        return video;
+    }
+    function play(record) {
+        const video = ensureVideo(record);
+        if (!video.paused || record.playPending) return;
+        record.playPending = true;
+        const pending = video.play();
+        pending?.catch?.(() => {
+            record.playPending = false;
+            record.el.dataset.videoPlayback = 'blocked'; showPoster(record);
+        });
+    }
+    function syncAnalysis() {
+        const enabled = !document.hidden && !disposed && !reduced() && config.voiceIntensity > 0
+            && [...records.values()].some(record => record.visible && record.width > 0 && record.height > 0);
+        window.GunterVoice?.setAudioAnalysisEnabled?.(enabled);
+        window.GunterVoiceActivity?.setVisualLevelsEnabled?.(enabled);
+    }
+    function updatePlayback() {
+        if (disposed) return;
+        // At most two decoders; small avatars use the identical local poster.
+        const eligible = !document.hidden && !reduced() ? [...records.values()]
+            .filter(record => record.visible && record.el.isConnected && !record.failed
+                && record.variant !== 'thumb' && record.width >= 96 && record.height >= 96)
+            .sort((a, b) => b.width * b.height - a.width * a.height).slice(0, 2) : [];
+        const selected = new Set(eligible);
+        for (const record of records.values()) {
+            record.wanted = selected.has(record);
+            if (record.wanted) play(record);
+            else {
+                record.video?.pause(); showPoster(record);
+                record.el.dataset.videoPlayback = reduced() ? 'reduced-motion' : 'poster';
+            }
+        }
+        syncAnalysis();
     }
     const observer = 'IntersectionObserver' in window ? new window.IntersectionObserver(entries => {
         entries.forEach(entry => { const record = records.get(entry.target); if (record) { record.visible = entry.isIntersecting; record.dirty = true; } });
-        schedule();
-    }, { rootMargin: '24px' }) : null;
-    function listen(record, element, type, handler, options) {
-        element.addEventListener(type, handler, options);
-        record.listeners.push(() => element.removeEventListener(type, handler, options));
-    }
-    function seededPoints(count) {
-        // Stable geometry prevents flicker, including on low-motion devices.
-        let seed = 1917;
-        const random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
-        return Array.from({ length: count }, () => ({
-            angle: random() * TAU, radius: Math.pow(random(), .68), depth: random() * 2 - 1,
-            phase: random() * TAU, size: .3 + random() * .7, brightness: random()
-        }));
-    }
+        updatePlayback(); schedule();
+    }, { rootMargin: '0px' }) : null;
     function mountOne(el) {
-        if (records.has(el) || !el.isConnected || disposed) return;
+        if (disposed || records.has(el) || !el.isConnected) return;
         const variant = ['hero', 'chat'].includes(el.dataset.gunterParticles) ? el.dataset.gunterParticles : 'thumb';
-        const fallback = document.createElement('img');
-        fallback.src = fallbackURL; fallback.alt = ''; fallback.className = 'gunter-core-fallback';
-        fallback.style.cssText = 'display:block;width:100%;height:100%;object-fit:contain;';
-        fallback.setAttribute('aria-hidden', 'true'); fallback.draggable = false;
-        const canvas = document.createElement('canvas');
-        canvas.className = 'gunter-particle-art__canvas'; canvas.setAttribute('aria-hidden', 'true');
-        canvas.style.cssText = 'display:block;width:100%;height:100%;position:absolute;inset:0;pointer-events:none;';
-        let context;
-        try { context = canvas.getContext('2d', { alpha: true }); } catch (_) { /* use static identity */ }
-        const mobile = window.matchMedia?.('(max-width: 700px)')?.matches || false;
-        const record = { el, variant, mobile, canvas, fallback, context, width: 0, height: 0, ratio: 1,
-            visible: true, dirty: true, time: 0, activity: state() === 'speaking' ? 1 : 0,
-            pointerX: 0, pointerY: 0, targetX: 0, targetY: 0, listeners: [],
-            particles: seededPoints(variant === 'hero' ? (mobile ? 420 : 880) : variant === 'chat' ? 150 : 65) };
+        const motion = document.createElement('span'), media = document.createElement('span');
+        motion.className = 'gunter-core-motion'; media.className = 'gunter-core-media';
+        motion.setAttribute('aria-hidden', 'true');
+        const poster = document.createElement('img');
+        poster.src = posterURL; poster.alt = ''; poster.draggable = false;
+        poster.className = 'gunter-core-video-poster';
+        const geometry = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        geometry.setAttribute('viewBox', '0 0 200 200'); geometry.setAttribute('aria-hidden', 'true');
+        geometry.classList.add('gunter-core-geometry');
+        media.appendChild(poster); motion.appendChild(media); motion.appendChild(geometry);
+        const record = { el, variant, motion, media, poster, geometry, geometryKind: null, width: 0, height: 0,
+            visible: !observer, dirty: true, video: null, wanted: false, failed: false, playPending: false,
+            pointerX: 0, pointerY: 0, targetX: 0, targetY: 0, envelope: 0, disposers: [] };
         records.set(el, record);
-        el.classList.add('gunter-particle-art', 'gunter-energy-core');
-        el.replaceChildren(fallback);
-        el.dataset.particlesRenderer = context ? 'canvas-2d' : 'static-svg';
-        el.dataset.particlesReady = context ? 'true' : 'fallback';
-        el.dataset.coreState = state();
-        if (context) el.appendChild(canvas);
+        el.classList.add('gunter-particle-art', 'gunter-energy-core', 'gunter-video-core');
+        el.replaceChildren(motion);
+        el.dataset.particlesRenderer = 'html-video'; el.dataset.particlesReady = 'poster';
+        el.dataset.videoPlayback = 'poster';
         const resize = () => {
-            const box = el.getBoundingClientRect(); record.width = box.width; record.height = box.height;
-            if (!context || box.width <= 0 || box.height <= 0) return;
-            record.ratio = Math.min(window.devicePixelRatio || 1, variant === 'hero' ? 1.5 : 1.75);
-            canvas.width = Math.max(1, Math.round(box.width * record.ratio));
-            canvas.height = Math.max(1, Math.round(box.height * record.ratio));
-            record.dirty = true; schedule();
+            const box = el.getBoundingClientRect();
+            record.width = box.width; record.height = box.height; record.dirty = true;
+            updatePlayback(); schedule();
         };
-        if ('ResizeObserver' in window) { record.resizeObserver = new window.ResizeObserver(resize); record.resizeObserver.observe(el); }
-        else listen(record, window, 'resize', resize);
-        if (variant === 'hero' && context) {
+        if ('ResizeObserver' in window) {
+            record.resizeObserver = new window.ResizeObserver(resize); record.resizeObserver.observe(el);
+        } else listen(window, 'resize', resize, undefined, record.disposers);
+        if (variant === 'hero') {
             const pointer = event => {
-                if (reduced()) return;
+                if (reduced() || event.pointerType === 'touch') return;
                 const box = el.getBoundingClientRect();
                 if (!box.width || !box.height) return;
                 record.targetX = Math.max(-1, Math.min(1, (event.clientX - box.left) / box.width * 2 - 1));
@@ -90,133 +224,38 @@
                 schedule();
             };
             const reset = () => { record.targetX = record.targetY = 0; schedule(); };
-            listen(record, el, 'pointermove', pointer, { passive: true });
-            listen(record, el, 'pointerleave', reset, { passive: true });
-            listen(record, el, 'pointercancel', reset, { passive: true });
+            listen(el, 'pointermove', pointer, { passive: true }, record.disposers);
+            listen(el, 'pointerleave', reset, { passive: true }, record.disposers);
+            listen(el, 'pointercancel', reset, { passive: true }, record.disposers);
         }
-        observer?.observe(el); resize(); schedule();
+        applyConfig(record); observer?.observe(el); resize(); schedule();
     }
     function mount(root = document) {
         const elements = [...(root.querySelectorAll?.('[data-gunter-particles]') || [])];
         if (root.matches?.('[data-gunter-particles]')) elements.push(root);
         elements.forEach(mountOne);
     }
-    function glow(context, x, y, radius, stops) {
-        const gradient = context.createRadialGradient(x, y, 0, x, y, Math.max(radius, .1));
-        stops.forEach(([offset, color]) => gradient.addColorStop(offset, color));
-        context.fillStyle = gradient; context.beginPath(); context.arc(x, y, radius, 0, TAU); context.fill();
-    }
-    function trace(context, points, color, width, opacity, blur) {
-        if (opacity <= .01) return;
-        context.beginPath(); points.forEach(([x, y], index) => index ? context.lineTo(x, y) : context.moveTo(x, y));
-        context.globalAlpha = opacity; context.strokeStyle = color; context.lineWidth = width;
-        context.shadowColor = color; context.shadowBlur = blur; context.stroke(); context.shadowBlur = 0; context.globalAlpha = 1;
-    }
-    function render(record, dt) {
-        const context = record.context;
-        if (!context || !record.width || !record.height) { record.dirty = false; return; }
-        const motion = !reduced(), current = state(), talking = current === 'speaking';
-        if (record.el.dataset.coreState !== current) record.el.dataset.coreState = current;
-        if (motion) record.time += dt;
-        record.activity = motion ? record.activity + ((talking ? 1 : 0) - record.activity) * (1 - Math.exp(-dt * 5)) : talking ? 1 : 0;
-        record.pointerX += ((motion ? record.targetX : 0) - record.pointerX) * .08;
-        record.pointerY += ((motion ? record.targetY : 0) - record.pointerY) * .08;
-        const time = motion ? record.time : 0, active = record.activity, isLight = light();
-        const hero = record.variant === 'hero', compact = record.variant === 'thumb';
-        const width = record.width, height = record.height, size = Math.min(width, height);
-        const cx = width / 2, cy = height / 2, scale = size * (compact ? .94 : .96);
-        const purple = isLight ? '#7135b4' : '#c198ff', violet = isLight ? '#9050c7' : '#9661ef';
-        const white = isLight ? '#7433ac' : '#fff4ff', amber = isLight ? '#b6651c' : '#ffb95e';
-        context.setTransform(record.ratio, 0, 0, record.ratio, 0, 0); context.clearRect(0, 0, width, height);
-        context.globalCompositeOperation = isLight ? 'source-over' : 'lighter';
-        const pulse = motion ? 1 + Math.sin(time * .65) * .025 : 1;
-        glow(context, cx, cy, scale * .46, [[0, isLight ? '#9a67d41f' : '#8231e724'], [.55, isLight ? '#ae7adc12' : '#6230ce14'], [1, '#7b36ba00']]);
-        // A luminous nucleus and distributed spherical mist, never a silhouette.
-        const cloudRadius = scale * (.165 + active * .115) * pulse;
-        context.shadowBlur = 0;
-        for (const particle of record.particles) {
-            const a = particle.angle + time * (.075 + particle.depth * .025);
-            const irregular = 1 + active * (.24 * Math.sin(a * 5 + time * 1.2 + particle.phase) + .16 * Math.sin(a * 9 - time * .75));
-            const radius = particle.radius * cloudRadius * irregular;
-            const x = cx + Math.cos(a) * radius;
-            const y = cy + Math.sin(a) * radius * (.87 + particle.depth * .12);
-            const glint = motion ? .65 + .35 * Math.sin(time * .8 + particle.phase) : .9;
-            context.fillStyle = particle.brightness > .83 ? white : violet;
-            context.globalAlpha = (isLight ? .48 : .68) * glint * (1 - particle.radius * .58);
-            context.beginPath(); context.arc(x, y, Math.max(.35, scale * .0017 * particle.size), 0, TAU); context.fill();
-            if (active > .025) {
-                // Clustered fine grain gives speech an organic, dense inner cloud
-                // rather than enlarging the idle sphere or drawing an audio meter.
-                const knotAngle = particle.phase + time * .14 + Math.sin(particle.angle * 4 + time * .3) * .22;
-                const knotRadius = scale * (.115 + Math.sin(particle.angle * 3 + time * .35) * .035) * Math.pow(particle.radius, 1.6);
-                const knotX = cx + Math.cos(knotAngle) * knotRadius * 1.18;
-                const knotY = cy + Math.sin(knotAngle) * knotRadius * .86;
-                const grain = Math.max(.24, scale * .00075 * particle.size);
-                context.globalAlpha = active * (isLight ? .33 : .4) * (.45 + particle.brightness * .55);
-                context.beginPath();
-                context.arc(knotX, knotY, grain, 0, TAU);
-                context.arc(knotX + Math.cos(particle.angle) * grain * 4, knotY + Math.sin(particle.phase) * grain * 5, grain * .8, 0, TAU);
-                context.arc(knotX - Math.sin(particle.angle) * grain * 3, knotY - Math.cos(particle.phase) * grain * 6, grain * .7, 0, TAU);
-                context.fill();
-            }
+    function render(record, dt, now) {
+        const current = state(), signal = measuredLevel(current, now), motion = !reduced();
+        const target = motion ? Math.min(1, signal.level * 4) * config.voiceIntensity : 0;
+        if (!motion) { record.envelope = 0; record.pointerX = record.pointerY = 0; }
+        record.envelope += (target - record.envelope) * (1 - Math.exp(-dt * (target > record.envelope ? 15 : 8)));
+        const px = motion ? record.targetX * config.mouseSensitivity : 0, py = motion ? record.targetY * config.mouseSensitivity : 0;
+        record.pointerX += (px - record.pointerX) * (1 - Math.exp(-dt * 8));
+        record.pointerY += (py - record.pointerY) * (1 - Math.exp(-dt * 8));
+        const hover = Math.min(1, Math.hypot(record.pointerX, record.pointerY));
+        record.motion.style.setProperty('--core-x', (record.pointerX * 12).toFixed(2) + 'px');
+        record.motion.style.setProperty('--core-y', (record.pointerY * 10).toFixed(2) + 'px');
+        record.motion.style.setProperty('--core-react-scale', (1 + record.envelope * .12 + hover * .02).toFixed(4));
+        record.motion.style.setProperty('--core-brightness', (1 + record.envelope * .85).toFixed(4));
+        record.el.dataset.coreState = current;
+        record.el.dataset.audioSignal = signal.source ? signal.available ? signal.source : 'unavailable' : 'none';
+        record.el.dataset.audioLevel = signal.level.toFixed(3);
+        if (record.video) {
+            const speed = { idle: .85, listening: .95, thinking: 1.1, speaking: 1 }[current] || .85;
+            if (record.video.playbackRate !== speed) record.video.playbackRate = speed;
         }
-        context.globalAlpha = 1;
-        // Idle intersecting orbital ribbons fade out as the core becomes a living
-        // cloud of branching wisps while audio is genuinely being played.
-        const orbitCount = compact ? 3 : 6, samples = compact ? 40 : hero ? 116 : 64;
-        for (let orbit = 0; orbit < orbitCount; orbit++) {
-            const points = [], angle = orbit * Math.PI / orbitCount + time * (orbit % 2 ? -.055 : .04) + record.pointerX * .05;
-            const radius = scale * (.275 + (orbit % 3) * .028);
-            const flatten = .5 + (orbit % 3) * .14 + record.pointerY * .025;
-            for (let i = 0; i <= samples; i++) {
-                const a = i / samples * TAU, wave = Math.sin(a * 3 + time * .42 + orbit) * .025;
-                const x = Math.cos(a) * radius * (1 + wave), y = Math.sin(a) * radius * flatten;
-                points.push([cx + x * Math.cos(angle) - y * Math.sin(angle), cy + x * Math.sin(angle) + y * Math.cos(angle)]);
-            }
-            trace(context, points, orbit === 0 ? amber : orbit % 2 ? white : purple,
-                Math.max(.6, scale * .0024), (.57 + (orbit % 2) * .14) * (1 - active), compact ? 2 : scale * .02);
-        }
-        const ringRadius = scale * .193 * pulse;
-        context.globalAlpha = .82 * (1 - active); context.strokeStyle = amber;
-        context.lineWidth = Math.max(1, scale * .006); context.shadowColor = amber; context.shadowBlur = scale * .025;
-        context.beginPath(); context.arc(cx, cy, ringRadius, 0, TAU); context.stroke();
-        context.shadowBlur = 0; context.globalAlpha = 1;
-        if (active > .025) {
-            const tendrils = compact ? 8 : hero ? (record.mobile ? 24 : 78) : 22;
-            for (let branch = 0; branch < tendrils; branch++) {
-                const points = [], phase = branch * 2.399963229728653;
-                const variation = (Math.sin(branch * 13.17) + 1) / 2;
-                const clusterX = Math.cos(phase * .47 + time * .14) * scale * .055 * variation;
-                const clusterY = Math.sin(phase * .62 + time * .16) * scale * .048 * variation;
-                const length = compact ? 28 : hero && !record.mobile ? 66 : 42;
-                for (let i = 0; i < length; i++) {
-                    const u = i / (length - 1), envelope = Math.pow(Math.sin(u * Math.PI), .7);
-                    const fold = Math.sin(u * 8 + phase + time * .42) * .2 + Math.sin(u * 18 - time * .7 + phase) * .055;
-                    const r = scale * (.022 + envelope * (.17 + variation * .15) * (.64 + .36 * Math.sin(u * 9 + phase + time * .23)));
-                    const a = phase + u * TAU * (.72 + variation * .68) + time * (.12 + variation * .09) + fold;
-                    // Neighboring fibers braid into transient folds and a few
-                    // wisps trail outward; no radial spokes or perfect hoops.
-                    const tail = branch % 7 === 0 ? Math.pow(u, 5) * scale * .15 : 0;
-                    points.push([cx + clusterX + Math.cos(a) * (r + tail) * (1 + Math.sin(u * 5 + phase + time * .25) * .16),
-                        cy + clusterY + Math.sin(a) * (r + tail) * (.67 + variation * .16) + Math.sin(u * 13 + time * .32 + phase) * scale * .013]);
-                }
-                const color = branch % 31 === 0 ? amber : branch % 5 === 0 ? white : branch % 2 ? purple : violet;
-                // Five bounded spans taper strand ends without a separate
-                // shader, offscreen renderer or unbounded trail buffer.
-                for (let span = 0; span < 5; span++) {
-                    const begin = Math.floor(span / 5 * (length - 1)), end = Math.ceil((span + 1) / 5 * (length - 1));
-                    const alpha = [.18, .58, .84, .52, .12][span] * active * (.34 + variation * .35);
-                    trace(context, points.slice(begin, end + 1), color, Math.max(.3, scale * .00095 * (.55 + variation)), alpha,
-                        compact ? .5 : scale * .0025);
-                }
-            }
-        }
-        glow(context, cx, cy, scale * (.108 + active * .025), [[0, isLight ? '#7d36b36b' : `rgba(240,201,255,${.51 - active * .41})`],
-            [.35, isLight ? '#9660d340' : `rgba(193,128,255,${.27 - active * .21})`], [1, '#8544c200']]);
-        glow(context, cx, cy, scale * .037 * (1 - active * .65), [[0, isLight ? '#713aaaea' : `rgba(255,255,255,${.98 - active * .7})`],
-            [.35, isLight ? '#8f53cabf' : `rgba(255,245,255,${.87 - active * .68})`], [1, '#bd7cff00']]);
-        context.globalCompositeOperation = 'source-over'; context.globalAlpha = 1;
-        record.fallback.hidden = true; record.fallback.style.display = 'none'; record.dirty = false;
+        record.dirty = false;
     }
     function schedule() { if (!raf && !disposed && !document.hidden) raf = window.requestAnimationFrame(tick); }
     function tick(now) {
@@ -224,54 +263,75 @@
         if (disposed || document.hidden) { lastFrame = 0; return; }
         if (lastFrame && now - lastFrame < 32) { schedule(); return; }
         const dt = lastFrame ? Math.min((now - lastFrame) / 1000, .06) : 1 / 30;
-        lastFrame = now; let continuing = false;
+        lastFrame = now;
+        let continuing = false;
         for (const record of records.values()) {
             if (!record.el.isConnected) { destroy(record); continue; }
-            if (!record.visible || !record.width || !record.height || !record.context) continue;
-            const moving = !reduced() && (record.variant !== 'thumb' || state() === 'speaking' || record.activity > .01);
-            if (record.dirty || moving) render(record, dt);
+            if (!record.visible || !record.width || !record.height) continue;
+            const current = state(), signal = measuredLevel(current, now);
+            const signalName = signal.source ? signal.available ? signal.source : 'unavailable' : 'none';
+            const moving = !reduced() && (record.envelope > .001 || signal.available
+                || Math.abs(record.pointerX - record.targetX * config.mouseSensitivity) > .001
+                || Math.abs(record.pointerY - record.targetY * config.mouseSensitivity) > .001);
+            if (record.dirty || moving || record.el.dataset.audioSignal !== signalName) render(record, dt, now);
             continuing ||= moving;
         }
         if (continuing) schedule(); else lastFrame = 0;
     }
     function destroy(record) {
-        observer?.unobserve(record.el); record.resizeObserver?.disconnect(); record.listeners.forEach(remove => remove());
-        record.canvas.remove(); record.fallback.remove(); records.delete(record.el);
-        delete record.el.dataset.particlesReady; delete record.el.dataset.particlesRenderer;
+        observer?.unobserve(record.el); record.resizeObserver?.disconnect();
+        record.wanted = false; record.video?.pause();
+        if (record.video) { record.video.removeAttribute('src'); record.video.load(); }
+        record.disposers.forEach(remove => remove()); record.motion.remove(); records.delete(record.el);
+        updatePlayback();
     }
-    function invalidate() { records.forEach(record => { record.dirty = true; record.el.dataset.coreState = state(); }); schedule(); }
+    function invalidate() { records.forEach(record => { record.dirty = true; }); schedule(); }
     function init() {
         mount();
         const mutations = new window.MutationObserver(entries => {
-            entries.forEach(entry => {
-                if (entry.type === 'attributes') { refreshPreferences(); invalidate(); }
-                else for (const node of entry.addedNodes) if (node.nodeType === 1) mount(node);
-            });
+            for (const entry of entries) {
+                if (entry.type === 'attributes') {
+                    if (entry.target === document.body || entry.target === document.documentElement) {
+                        refreshPreferences(); records.forEach(applyConfig); updatePlayback(); invalidate();
+                    }
+                } else for (const node of entry.addedNodes) if (node.nodeType === 1) mount(node);
+            }
             for (const record of records.values()) if (!record.el.isConnected) destroy(record);
         });
         mutations.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-        mutations.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-color-mode'] });
-        const onConversation = event => { conversation = event.detail?.value || 'idle'; invalidate(); };
-        const onVoice = event => { voiceSpeaking = event.detail?.speaking === true || event.detail?.state === 'speaking'; invalidate(); };
-        const onMotion = () => { refreshPreferences(); invalidate(); };
-        const onStorage = event => { if (event.key === 'gunter_prefs' || event.key === null) onMotion(); };
-        window.addEventListener('gunter-conversation-state', onConversation);
-        window.addEventListener('gunter-voice-state', onVoice);
-        window.addEventListener('storage', onStorage); motionQuery?.addEventListener?.('change', onMotion);
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) { window.cancelAnimationFrame(raf); raf = 0; lastFrame = 0; }
-            else invalidate();
+        mutations.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        listen(window, 'gunter-conversation-state', event => { conversation = event.detail?.value || 'idle'; invalidate(); });
+        listen(window, 'gunter-voice-state', event => { voiceSpeaking = event.detail?.speaking === true || event.detail?.state === 'speaking'; invalidate(); });
+        for (const type of ['gunter-push-to-talk-state', 'wake-word-state', 'gunter-vad-state']) listen(window, type, invalidate);
+        listen(window, 'gunter-audio-level', event => {
+            const value = event.detail;
+            if (!value || !['assistant', 'microphone'].includes(value.source)) return;
+            signals.set(value.source, { level: clamp(value.level, 0, 1, 0), available: value.available === true,
+                active: value.active === true, at: performance.now() });
+            invalidate();
         });
-        window.addEventListener('pagehide', event => {
+        const preferencesChanged = () => { refreshPreferences(); records.forEach(applyConfig); updatePlayback(); invalidate(); };
+        listen(window, 'storage', event => { if (event.key === 'gunter_prefs' || event.key === null) preferencesChanged(); });
+        if (motionQuery?.addEventListener) listen(motionQuery, 'change', preferencesChanged);
+        listen(document, 'visibilitychange', () => {
+            if (document.hidden) { window.cancelAnimationFrame(raf); raf = 0; lastFrame = 0; }
+            updatePlayback(); invalidate();
+        });
+        // Retry muted autoplay only after a real user interaction if the OS blocked it.
+        listen(document, 'pointerdown', () => { for (const record of records.values()) if (record.wanted && record.el.dataset.videoPlayback === 'blocked') play(record); }, { passive: true });
+        listen(window, 'pagehide', event => {
             window.cancelAnimationFrame(raf); raf = 0; lastFrame = 0;
+            for (const record of records.values()) { record.wanted = false; record.video?.pause(); }
+            window.GunterVoice?.setAudioAnalysisEnabled?.(false);
+            window.GunterVoiceActivity?.setVisualLevelsEnabled?.(false);
             if (event.persisted) return;
             disposed = true; records.forEach(destroy); mutations.disconnect(); observer?.disconnect();
-            window.removeEventListener('gunter-conversation-state', onConversation);
-            window.removeEventListener('gunter-voice-state', onVoice);
-            window.removeEventListener('storage', onStorage); motionQuery?.removeEventListener?.('change', onMotion);
+            disposers.splice(0).forEach(remove => remove());
         });
-        window.addEventListener('pageshow', invalidate);
+        listen(window, 'pageshow', () => { updatePlayback(); invalidate(); });
+        syncAnalysis();
     }
-    window.GunterParticles = { mount };
+    refreshPreferences();
+    window.GunterParticles = { mount, configure, getConfig: () => ({ ...config }), getDefaults: () => ({ ...DEFAULTS }) };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
 })();

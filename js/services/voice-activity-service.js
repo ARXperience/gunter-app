@@ -34,7 +34,28 @@
         let speechFrames = 0;
         let silenceFrames = 0;
         let lastTelemetry = 0;
+        let visualLevelsEnabled = false;
+        let lastVisualLevel = -Infinity;
+        let samples = null;
         const listeners = new Set();
+
+        // The core observes the existing authorised VAD, never another stream.
+        function emitVisualLevel(level = 0, available = false) {
+            if (!root?.dispatchEvent || !root.CustomEvent) return;
+            const measured = visualLevelsEnabled && active && context?.state === 'running' && available;
+            try { root.dispatchEvent(new root.CustomEvent('gunter-audio-level', { detail: {
+                source: 'microphone', level: measured ? Math.max(0, Math.min(1, Number(level) || 0)) : 0,
+                active: !!measured, available: !!measured
+            } })); } catch { /* optional visual consumer */ }
+        }
+
+        function setVisualLevelsEnabled(enabled) {
+            enabled = !!enabled;
+            if (enabled === visualLevelsEnabled) return;
+            visualLevelsEnabled = enabled;
+            lastVisualLevel = -Infinity;
+            emitVisualLevel(0, !!analyser);
+        }
 
         function snapshot(extra = {}) {
             return { active, activity, noiseFloor, ...extra };
@@ -63,7 +84,11 @@
 
         function loop() {
             if (!active || !analyser) return;
-            const data = new Float32Array(analyser.fftSize);
+            const tracks = stream?.getAudioTracks?.() || [];
+            if (stream?.active === false || (tracks.length && tracks.every(track => track.readyState === 'ended'))) {
+                stop('capture-ended'); return;
+            }
+            const data = samples;
             analyser.getFloatTimeDomainData(data);
             const metrics = analyzeSamples(data, noiseFloor, options);
 
@@ -83,6 +108,10 @@
             }
 
             const now = Date.now();
+            if (visualLevelsEnabled && now - lastVisualLevel >= 1000 / 30) {
+                lastVisualLevel = now;
+                emitVisualLevel(metrics.rms, true);
+            }
             if (now - lastTelemetry >= 300) {
                 lastTelemetry = now;
                 emit('level', metrics);
@@ -106,6 +135,7 @@
                 analyser = context.createAnalyser();
                 analyser.fftSize = options.fftSize || 1024;
                 analyser.smoothingTimeConstant = 0.25;
+                samples = new Float32Array(analyser.fftSize);
                 source = context.createMediaStreamSource(stream);
                 source.connect(analyser);
                 active = true;
@@ -113,6 +143,7 @@
                 speechFrames = 0;
                 silenceFrames = 0;
                 emit('started', { supported: true });
+                if (visualLevelsEnabled) emitVisualLevel(0, true);
                 frameId = root.requestAnimationFrame(loop);
                 return snapshot({ supported: true });
             } catch (error) {
@@ -132,10 +163,12 @@
             ownsStream = false;
             source = null;
             analyser = null;
+            samples = null;
             context = null;
             active = false;
             activity = 'off';
             emit(reason);
+            if (visualLevelsEnabled) emitVisualLevel();
         }
 
         function onChange(listener) {
@@ -146,7 +179,7 @@
 
         return {
             supported: !!(root?.navigator?.mediaDevices?.getUserMedia && (root.AudioContext || root.webkitAudioContext)),
-            start, stop, onChange, getState: () => snapshot()
+            start, stop, onChange, setVisualLevelsEnabled, getState: () => snapshot()
         };
     }
 

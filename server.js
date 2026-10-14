@@ -1889,6 +1889,35 @@ const handleRequest = async (req, res) => {
         contentType = 'application/manifest+json; charset=utf-8';
     }
 
+    // Native mobile video players probe/seek with byte ranges. Keep media in
+    // the existing public-file guard and stream only the requested bytes.
+    if (extname === '.mp4' && req.headers.range) {
+        fs.stat(filePath, (error, stat) => {
+            if (error || !stat.isFile()) {
+                res.writeHead(404, { 'Content-Type': 'text/plain' });
+                return res.end('Not found');
+            }
+            const match = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
+            let start, end;
+            if (match && (match[1] || match[2])) {
+                if (!match[1]) { const suffix = Number(match[2]); start = Math.max(0, stat.size - suffix); end = stat.size - 1; }
+                else { start = Number(match[1]); end = match[2] ? Math.min(Number(match[2]), stat.size - 1) : stat.size - 1; }
+            }
+            const headers = { 'Accept-Ranges': 'bytes', 'Content-Type': contentType, 'Cache-Control': 'public, max-age=3600' };
+            if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || start > end || start >= stat.size) {
+                res.writeHead(416, { ...headers, 'Content-Range': 'bytes */' + stat.size, 'Content-Length': 0 });
+                return res.end();
+            }
+            res.writeHead(206, { ...headers, 'Content-Range': 'bytes ' + start + '-' + end + '/' + stat.size, 'Content-Length': end - start + 1 });
+            if (req.method === 'HEAD') return res.end();
+            const media = fs.createReadStream(filePath, { start, end });
+            media.on('error', () => res.destroy());
+            res.on('close', () => media.destroy());
+            media.pipe(res);
+        });
+        return;
+    }
+
     fs.readFile(filePath, (error, content) => {
         if (error) {
             if (error.code === 'ENOENT') {
@@ -1900,6 +1929,7 @@ const handleRequest = async (req, res) => {
             }
         } else {
             const headers = { 'Content-Type': contentType };
+            if (extname === '.mp4') { headers['Accept-Ranges'] = 'bytes'; headers['Content-Length'] = content.length; }
             // Service Worker NO se cachea (bug conocido de PWAs viejas)
             if (baseName === 'service-worker.js' || baseName === 'sw.js') {
                 headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';

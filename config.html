@@ -57,13 +57,14 @@
     <link rel="stylesheet" href="styles/pages/control-plane.css?v95-device-access">
     <link rel="stylesheet" href="styles/pages/social-settings.css?v103-device-runtime">
     <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
-    <script src="js/services/gunter-particles.js?v135-orbit-home" defer></script>
+    <script src="js/services/gunter-particles.js?v141-video-core" defer></script>
     <script src="js/services/gunter-command-center.js?v139-orbital-workspaces" defer></script>
     <script src="js/services/gunter-icon-system.js?v135-orbit-home" defer></script>
 <link rel="stylesheet" href="styles/gunter-orbit-home.css?v135-orbit-home">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="styles/gunter-workspace.css?v139-orbital-workspaces">
-    <link rel="stylesheet" href="styles/pages/orbital-settings.css?v139-orbital-workspaces">
+    <link rel="stylesheet" href="styles/pages/orbital-settings.css?v141-video-core">
+    <link rel="stylesheet" href="styles/gunter-video-core.css?v141-video-core">
 </head>
 
 <body class="at-dark gunter-config-page gunter-workspace">
@@ -200,6 +201,27 @@
                     Si no eliges un modo, Gunter sigue la preferencia de tu sistema.
                 </p>
             </div>
+
+            <section class="settings-card core-visual-settings" id="core-visual-settings" aria-labelledby="core-visual-title">
+                <h3 id="core-visual-title">Núcleo visual</h3>
+                <p class="settings-card__hint">El video conserva sus filamentos y humo. Personaliza su color y geometría sin cambiar la voz ni los permisos.</p>
+                <div class="core-visual-settings__preview" data-gunter-particles="hero" role="img" aria-label="Vista previa del núcleo de Gunter"></div>
+                <div class="settings-row"><label for="core-color">Color del núcleo</label><input id="core-color" type="color" value="#8b6cff"></div>
+                <div class="core-color-presets" role="group" aria-label="Colores del núcleo">
+                    <button type="button" class="btn btn--secondary" data-core-color="#499cff">Azul</button>
+                    <button type="button" class="btn btn--secondary" data-core-color="#8b6cff">Violeta</button>
+                    <button type="button" class="btn btn--secondary" data-core-color="#40d99b">Verde</button>
+                    <button type="button" class="btn btn--secondary" data-core-color="#ed4939">Rojo</button>
+                </div>
+                <div class="settings-row"><label for="core-size">Tamaño <output id="core-size-value" for="core-size">100 %</output></label><input id="core-size" type="range" min="0.7" max="1.3" step="0.05" value="1"></div>
+                <div class="settings-row"><label for="core-mouse">Sensibilidad al mouse <output id="core-mouse-value" for="core-mouse">0.65</output></label><input id="core-mouse" type="range" min="0" max="1.5" step="0.05" value="0.65"></div>
+                <div class="settings-row"><label for="core-voice">Reacción al audio <output id="core-voice-value" for="core-voice">1.00</output></label><input id="core-voice" type="range" min="0" max="2" step="0.1" value="1"></div>
+                <div class="settings-row"><label for="core-geometry">Geometría sagrada</label><select id="core-geometry"><option value="flower">Flor de la Vida</option><option value="metatron">Cubo de Metatrón</option><option value="none">Ninguna</option></select></div>
+                <div class="settings-row"><label for="core-geometry-opacity">Visibilidad de la geometría <output id="core-geometry-opacity-value" for="core-geometry-opacity">12 %</output></label><input id="core-geometry-opacity" type="range" min="0" max="0.4" step="0.01" value="0.12"></div>
+                <p class="settings-card__hint">La reacción utiliza la intensidad real de la voz reproducida y del micrófono ya autorizado. No activa la escucha; sin señal disponible, no simula pulsaciones. «Reducir animaciones» muestra una imagen estática.</p>
+                <button type="button" class="btn btn--secondary" id="core-visual-reset">Restablecer núcleo</button>
+                <p id="core-visual-status" role="status" class="settings-card__hint" aria-live="polite"></p>
+            </section>
 
             <div class="settings-card">
                 <h3>Idioma de transcripción</h3>
@@ -436,10 +458,10 @@
     <script src="js/core/conversation-state.js?v73-assistant" defer></script>
     <script src="js/core/time-parser.js?v128-reminder-edit" defer></script>
     <script src="js/services/jobs-service.js?v130-reminders-view" defer></script>
-    <script src="js/services/voice-activity-service.js?v120-shared-mic" defer></script>
+    <script src="js/services/voice-activity-service.js?v141-video-core" defer></script>
     <script src="js/core/assistant-tools.js?v131-commitment-followup" defer></script>
     <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
-    <script src="js/services/voice-service.js?v122-identity-context" defer></script>
+    <script src="js/services/voice-service.js?v141-video-core" defer></script>
     <script src="js/services/wake-word-service.js?v122-identity-context" defer></script>
 
     <!-- Adapters (Fase 7) -->
@@ -465,7 +487,7 @@
     <script src="js/controllers/conversation-memory-panel.js" defer></script>
     <script src="js/controllers/personal-memory-panel.js?v2-backup" defer></script>
 
-    <script src="js/config-settings.js?v126-calendar-planning" defer></script>
+    <script src="js/config-settings.js?v141-video-core" defer></script>
     <script src="js/controllers/presence-settings.js?v115-presence" defer></script>
     <!-- (ai-analysis, cache-service, audio-chunker, audio-trimmer eliminados:
          pertenecían al flujo Nuevo Proyecto que ahora vive en dashboard.html) -->
