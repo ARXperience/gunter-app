@@ -72,7 +72,8 @@
             fallback(record, engineError || compositor?.error); record.dirty = false; return;
         }
         try {
-            const rendered = compositor.renderTo(record.canvas, record.pixelWidth, record.pixelHeight, time, config);
+            // The shared phase already includes speed; changing speed must not reposition the core.
+            const rendered = compositor.renderTo(record.canvas, record.pixelWidth, record.pixelHeight, time, { ...config, speed: 1 });
             if (rendered === false || !compositor.available) {
                 drawBlocked = true;
                 fallback(record, compositor.error); record.dirty = false; return;
@@ -123,7 +124,7 @@
         raf = 0;
         if (!canAnimate()) { lastFrame = 0; return; }
         if (lastFrame && now - lastFrame < FRAME_INTERVAL) { schedule(); return; }
-        animationTime += lastFrame ? Math.min((now - lastFrame) / 1000, .1) : 1 / 30;
+        animationTime += (lastFrame ? Math.min((now - lastFrame) / 1000, .1) : 0) * config.speed;
         lastFrame = now;
         for (const record of records.values()) {
             if (record.animated && record.visible && record.el.isConnected) render(record, animationTime);

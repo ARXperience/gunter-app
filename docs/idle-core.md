@@ -9,6 +9,19 @@ de ruido vectorial y su curl analítico. Las capas plegadas, el polvo luminoso
 interno y el bloom de dos pasos comparten un compositor GPU. La salida RGBA es
 premultiplicada e incluye la transparencia del halo, sin discos ni fondos negros.
 
+### Refinamiento del flujo
+
+Los filamentos cortos se agrupan en plumas con una capa difusa intercalada, sin
+aumentar el número de vértices ni añadir pasos de render. Dos escalas de curl
+producen corrientes opuestas: el material interior circula más rápido que la
+envolvente, mientras la orientación global cambia poco. La emisión sigue bolsas
+de calor espaciales con ritmos distintos y textura plegada; el bloom selecciona
+esa luz cromática, evitando teñir o sobreexponer todos los filamentos grises.
+
+La velocidad se integra en la fase del montado compartido: cambiarla, pausarla
+o reanudar no reinicia la forma ni produce un salto temporal. No se cambian los
+seis controles ni las preferencias guardadas.
+
 ## Uso existente
 
 Cargar `js/components/gunter-idle-core.js`, `js/services/gunter-particles.js` y

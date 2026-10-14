@@ -191,6 +191,8 @@ check('Thumbnails render the generated core at fixed time without a frame loop',
     env.api.configure({ glowColor: '#dd2200' }); assert.equal(env.renders.length, 2); assert.equal(env.renders.at(-1).time, time);
     env.resize(60); assert.equal(env.renders.length, 3); assert.equal(env.renders.at(-1).time, time);
     env.resize(60); assert.equal(env.renders.length, 3); assert.equal(env.frames.size, 0);
+    env.api.configure({ speed: 0 }); assert.equal(env.renders.at(-1).time, time); assert.equal(env.renders.at(-1).config.speed, 1);
+    env.api.configure({ speed: 2 }); assert.equal(env.renders.at(-1).time, time); assert.equal(env.frames.size, 0);
 });
 check('At most two large visible cores animate through one compositor', () => {
     const env = environment(), chat = env.append('chat', 250), third = env.append('hero', 180), thumb = env.append('thumb', 44);
@@ -243,6 +245,33 @@ check('Speed zero cancels the frame loop and resumes only when speed changes', (
     const count = env.renders.length; assert.equal(env.frames.size, 0); assert.equal(env.art.dataset.particlesStatus, 'static');
     env.step(); env.step(); assert.equal(env.renders.length, count);
     env.resize(300); assert.equal(env.frames.size, 0); env.api.configure({ speed: .5 }); assert.equal(env.frames.size, 1);
+});
+check('Speed changes preserve phase and scale only subsequent animation progress', () => {
+    const env = environment(); env.step(); env.step(40);
+    const initial = env.renders.at(-1).time;
+    env.api.configure({ speed: 2 }); assert.equal(env.renders.at(-1).time, initial);
+    assert.equal(env.api.getConfig().speed, 2); env.step(40);
+    assert.ok(Math.abs(env.renders.at(-1).time - initial - .08) < 1e-9);
+    const fast = env.renders.at(-1).time;
+    env.api.configure({ speed: .5 }); assert.equal(env.renders.at(-1).time, fast); env.step(40);
+    assert.ok(Math.abs(env.renders.at(-1).time - fast - .02) < 1e-9);
+    assert.ok(env.renders.every(render => render.config.speed === 1));
+});
+check('Zero speed, hidden pages and reduced motion freeze the phase through resume', () => {
+    for (const pause of ['speed', 'hidden', 'reduced']) {
+        const env = environment(); env.step(); env.step(40);
+        const frozen = env.renders.at(-1).time;
+        if (pause === 'speed') env.api.configure({ speed: 0 });
+        if (pause === 'hidden') { env.document.hidden = true; env.document.fire('visibilitychange'); }
+        if (pause === 'reduced') { env.motion.matches = true; env.motion.fire('change'); }
+        env.step(10000); assert.equal(env.renders.at(-1).time, frozen);
+        if (pause === 'speed') env.api.configure({ speed: 1 });
+        if (pause === 'hidden') { env.document.hidden = false; env.document.fire('visibilitychange'); }
+        if (pause === 'reduced') { env.motion.matches = false; env.motion.fire('change'); }
+        assert.equal(env.renders.at(-1).time, frozen); env.step();
+        assert.equal(env.renders.at(-1).time, frozen); env.step(40);
+        assert.ok(Math.abs(env.renders.at(-1).time - frozen - .04) < 1e-9);
+    }
 });
 check('OS and cross-tab preference changes freeze and resume without writing settings', () => {
     const env = environment(); env.motion.matches = true; env.motion.fire('change'); assert.equal(env.frames.size, 0);
