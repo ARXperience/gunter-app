@@ -97,36 +97,39 @@
     <link rel="stylesheet" href="styles/gunter-command-center.css?v117-responsive-config">
     <link rel="stylesheet" href="styles/pages/control-plane.css?v95-device-access">
     <script src="js/services/gunter-particles.js?v135-orbit-home" defer></script>
-    <script src="js/services/gunter-command-center.js?v120-voice-ui" defer></script>
+    <script src="js/services/gunter-command-center.js?v139-orbital-workspaces" defer></script>
     <script src="js/services/gunter-icon-system.js?v135-orbit-home" defer></script>
 <link rel="stylesheet" href="styles/gunter-orbit-home.css?v135-orbit-home">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="styles/gunter-workspace.css?v139-orbital-workspaces">
+    <link rel="stylesheet" href="styles/pages/orbital-settings.css?v139-orbital-workspaces">
 </head>
-<body class="at-dark">
-    <div class="gadm">
+<body class="at-dark gunter-admin-page gunter-workspace">
+    <main class="gadm">
         <div class="gadm__head">
-            <h1>🛡️ Administración</h1>
+            <div class="gadm__heading"><p class="orbital-settings-kicker">Gunter / Control de acceso</p><h1>Administración</h1><p class="gadm__lead">Cuentas, dispositivos y estado del sistema.</p></div>
             <a class="back" href="index.html">← Volver a Gunter</a>
         </div>
 
         <div class="gadm__grid" id="adm-stats"></div>
 
         <section class="gadm__card" id="adm-ops-card">
-            <h2>◉ Centro de Operaciones <button class="abtn" id="adm-control-refresh" style="margin-left:auto">↻ Actualizar</button></h2>
+            <h2>Centro de operaciones <button class="abtn" id="adm-control-refresh" style="margin-left:auto">↻ Actualizar</button></h2>
             <div id="adm-ops-overview"><p class="gadm__empty">Cargando salud operativa…</p></div>
         </section>
 
         <section class="gadm__card" id="adm-pending-card">
-            <h2>⏳ Solicitudes pendientes <span class="badge" id="adm-pending-count" hidden>0</span></h2>
+            <h2>Solicitudes pendientes <span class="badge" id="adm-pending-count" hidden>0</span></h2>
             <div id="adm-pending"></div>
         </section>
 
         <section class="gadm__card" id="adm-users-card">
-            <h2>👥 Usuarios</h2>
+            <h2>Usuarios</h2>
             <div id="adm-users"></div>
         </section>
 
         <section class="gadm__card" id="adm-memberships-card">
-            <h2>◇ Membresías y entitlements</h2>
+            <h2>Membresías y capacidades</h2>
             <details class="gadm__disclosure">
                 <summary>Crear o editar un plan</summary>
                 <form class="cp-plan-form" id="cp-plan-form">
@@ -145,23 +148,23 @@
         </section>
 
         <section class="gadm__card" id="adm-nodes-card">
-            <h2>⌁ Dispositivos y nodos</h2>
+            <h2>Dispositivos y nodos</h2>
             <div id="adm-control-nodes"><p class="gadm__empty">Cargando nodos…</p></div>
         </section>
 
         <section class="gadm__card" id="adm-incidents-card">
-            <h2>△ Errores e incidentes</h2>
+            <h2>Errores e incidentes</h2>
             <div id="adm-control-incidents"><p class="gadm__empty">Cargando incidentes…</p></div>
         </section>
 
         <section class="gadm__card" id="adm-system-card">
-            <h2>🖥️ Sistema</h2>
+            <h2>Sistema</h2>
             <div class="gadm__sys" id="adm-sys"></div>
             <div style="margin-top:12px" id="adm-services"></div>
         </section>
 
         <section class="gadm__card" id="adm-logs-card">
-            <h2>📜 Logs del servidor</h2>
+            <h2>Logs del servidor</h2>
             <details class="gadm__disclosure">
                 <summary>Inspeccionar registros técnicos</summary>
                 <div class="gadm__logctl">
@@ -178,14 +181,14 @@
         </section>
 
         <section class="gadm__card" id="adm-flags-card">
-            <h2>⚑ Despliegue gradual</h2>
+            <h2>Despliegue gradual</h2>
             <details class="gadm__disclosure">
                 <summary>Administrar banderas de capacidad</summary>
                 <p class="gadm__empty">Cada capacidad nueva permanece apagada, limitada a admin o en canary antes de activarse globalmente.</p>
                 <div id="adm-control-flags"></div>
             </details>
         </section>
-    </div>
+    </main>
     <div class="toastbox" id="toastbox"></div>
 
     <script src="js/services/control-plane-service.js?v95-device-access"></script>

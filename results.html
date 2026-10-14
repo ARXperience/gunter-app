@@ -63,16 +63,19 @@
     <link rel="stylesheet" href="styles/gunter-command-center.css?v117-responsive-config">
     <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
     <script src="js/services/gunter-particles.js?v135-orbit-home" defer></script>
-    <script src="js/services/gunter-command-center.js?v120-voice-ui" defer></script>
+    <script src="js/services/gunter-command-center.js?v139-orbital-workspaces" defer></script>
     <script src="js/services/gunter-icon-system.js?v135-orbit-home" defer></script>
     <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
     <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
     <script src="js/services/connection-manager.js?v87-context-sync" defer></script>
     <script src="js/services/web-node-runtime.js?v84-control" defer></script>
 <link rel="stylesheet" href="styles/gunter-orbit-home.css?v135-orbit-home">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="styles/gunter-workspace.css?v139-orbital-workspaces">
+    <link rel="stylesheet" href="styles/pages/orbital-meetings.css?v139-orbital-workspaces">
 </head>
 
-<body class="at-dark">
+<body class="at-dark gunter-workspace">
     <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
     <!-- Neural Mesh Background -->
     <div class="neural-mesh-bg"></div>
@@ -87,6 +90,7 @@
                     </svg>
                     Volver al Dashboard
                 </a>
+                <span class="orbital-section-intro__index">RESULTADOS DE LA REUNIÓN</span>
                 <h1 class="results-header__title text-gradient" id="results-title">Proyecto</h1>
                 <div class="results-header__meta" id="results-meta">
                     <span>🏢 Empresarial</span>
@@ -283,7 +287,7 @@
 
 
             <!-- Gunter Insights -->
-            <div class="result-section result-section--full">
+            <div class="result-section result-section--full orbital-meeting-summary">
                 <div class="gunter-insights">
                     <div class="gunter-insights__avatar" id="gunter-results"></div>
                     <div class="gunter-insights__content">
@@ -414,7 +418,7 @@
     <script src="js/premium-features-service.js?v122-identity-context" defer></script>
     <!-- Hooks premium: isEnabled('meetingMemory'), isEnabled('meetingDecisionTimeline') -->
     <script src="js/theme-manager.js?v135-orbit-home" defer></script>
-    <script src="js/theme-backgrounds.js" defer></script>
+    <script src="js/theme-backgrounds.js?v139-orbital-workspaces" defer></script>
     <script src="js/data-service.js" defer></script>
 
     <!-- Fase B.B4 — transcript-store debe cargar ANTES de project-knowledge-service -->

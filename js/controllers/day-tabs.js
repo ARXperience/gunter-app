@@ -288,7 +288,10 @@
         };
         if (todayTargets[requested]) {
             activate('today');
-            requestAnimationFrame(() => document.getElementById(todayTargets[requested])?.scrollIntoView({ block: 'center' }));
+            requestAnimationFrame(() => {
+                if (document.body.classList.contains('gunter-workspace')) window.scrollTo({ top: 0, behavior: 'instant' });
+                else document.getElementById(todayTargets[requested])?.scrollIntoView({ block: 'center' });
+            });
         } else if (requested && TABS.some(tab => tab.id === requested && (tab.alwaysOn || flag(tab.flag)))) activate(requested);
     }
 

@@ -1,0 +1,443 @@
+/* Gunter orbital workspace — settings, administration and access. */
+html body.gunter-workspace .orbital-settings-kicker {
+  margin: 0 0 9px;
+  color: var(--gw-cyan);
+  font: 600 10px/1.5 "Space Grotesk", sans-serif;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+/* A compact orbital index anchors the control area without adding controls. */
+html body.gunter-workspace.gunter-config-page .config-header {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  min-height: 206px;
+  margin: 0 0 24px !important;
+  padding: 0 0 24px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--gw-border) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible;
+}
+html body.gunter-workspace .config-header::before,
+html body.gunter-workspace .config-header::after,
+html body.gunter-workspace .config-header__title::after { display: none !important; }
+html body.gunter-workspace .config-header__copy { min-width: 0; max-width: 850px; }
+html body.gunter-workspace.gunter-config-page .config-header__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 !important;
+  margin-bottom: 22px;
+  color: var(--gw-muted) !important;
+  font: 400 12px/1.5 "Geist", sans-serif;
+  text-decoration: none;
+}
+html body.gunter-workspace .config-header__back:hover { color: var(--gw-cyan) !important; }
+html body.gunter-workspace.gunter-config-page .config-header__title {
+  margin: 0 0 9px !important;
+  color: var(--gw-ink) !important;
+  background: none !important;
+  -webkit-text-fill-color: currentColor !important;
+  font: 500 clamp(26px, 2.8vw, 36px)/1.2 "Space Grotesk", sans-serif !important;
+  letter-spacing: .035em !important;
+}
+html body.gunter-workspace .config-header__subtitle {
+  max-width: 680px;
+  margin: 0 !important;
+  color: var(--gw-muted) !important;
+  font-size: 14px !important;
+  line-height: 1.65;
+}
+html body.gunter-workspace .config-header__ask { margin-top: 17px; }
+html body.gunter-workspace .config-orbit-index {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 190px;
+  width: 190px;
+  height: 190px;
+  margin-right: 30px;
+  pointer-events: none;
+  background: radial-gradient(circle, color-mix(in srgb, var(--gw-cyan) 13%, transparent), transparent 66%);
+}
+html body.gunter-workspace .config-orbit-index__ring {
+  position: absolute;
+  inset: 13px;
+  border: 1px solid color-mix(in srgb, var(--gw-cyan) 45%, transparent);
+  border-radius: 50%;
+}
+html body.gunter-workspace .config-orbit-index__ring--cyan { transform: rotate(-32deg) scaleX(.76); }
+html body.gunter-workspace .config-orbit-index__ring--amber { border-color: color-mix(in srgb, var(--gw-amber) 42%, transparent); transform: rotate(38deg) scaleX(.77); }
+html body.gunter-workspace .config-orbit-index__ring--violet { border-color: color-mix(in srgb, var(--gw-violet) 40%, transparent); transform: scale(.84); }
+html body.gunter-workspace .config-orbit-index__ring--cyan::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: 22px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gw-cyan);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--gw-cyan) 60%, transparent);
+}
+html body.gunter-workspace .config-orbit-index__core {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border: 1px solid color-mix(in srgb, var(--gw-cyan) 35%, transparent);
+  border-radius: 50%;
+  color: var(--gw-cyan);
+  background: var(--gw-bg);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--gw-cyan) 18%, transparent);
+}
+html body.gunter-workspace .config-orbit-index__core svg { width: 25px; height: 25px; }
+
+/* The existing accessible tabs become a single telemetry rail. */
+html body.gunter-workspace.gunter-config-page .config-tabs {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px !important;
+  position: relative;
+  top: auto;
+  margin: 0 0 28px !important;
+  padding: 8px !important;
+  border: 1px solid color-mix(in srgb, var(--gw-border) 55%, transparent) !important;
+  border-radius: 16px !important;
+  background: color-mix(in srgb, var(--gw-bg) 76%, var(--gw-surface)) !important;
+  box-shadow: none !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gw-border) transparent;
+}
+html body.gunter-workspace.gunter-config-page :is(.config-header__copy, .config-header__title, .config-header__subtitle) { text-align: left !important; }
+html body.gunter-workspace.gunter-config-page .config-tabs .config-tab {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto !important;
+  gap: 7px;
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 40px !important;
+  padding: 8px 12px !important;
+  border: 1px solid transparent !important;
+  border-radius: 999px !important;
+  color: var(--gw-muted) !important;
+  background: transparent !important;
+  font: 500 10px/1.4 "Space Grotesk", sans-serif !important;
+  letter-spacing: .055em !important;
+  text-transform: uppercase;
+  white-space: nowrap !important;
+  overflow-wrap: normal !important;
+  text-align: center;
+  box-shadow: none !important;
+  transform: none !important;
+  transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease;
+}
+html body.gunter-workspace.gunter-config-page .config-tab .gunter-icon { width: 14px; height: 14px; flex: 0 0 14px; }
+html body.gunter-workspace.gunter-config-page .config-tabs .config-tab:hover { color: var(--gw-ink) !important; background: var(--gw-surface) !important; }
+html body.gunter-workspace.gunter-config-page .config-tabs .config-tab.is-active {
+  color: var(--gw-cyan) !important;
+  background: var(--gw-raised) !important;
+  border-color: color-mix(in srgb, var(--gw-cyan) 24%, var(--gw-border)) !important;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--gw-cyan) 7%, transparent) !important;
+}
+html body.gunter-workspace .config-tab-panel { min-width: 0; }
+html body.gunter-workspace .config-tab-panel[hidden] { display: none !important; }
+
+/* One surface language for the real settings catalog and its detail controls. */
+html body.gunter-workspace .gps {
+  --gps-bg: var(--gw-surface);
+  --gps-surface: var(--gw-raised);
+  --gps-border: var(--gw-border);
+  --gps-border-hi: color-mix(in srgb, var(--gw-cyan) 40%, var(--gw-border));
+  --gps-text: var(--gw-ink);
+  --gps-text-dim: var(--gw-muted);
+  --gps-text-mute: var(--gw-muted);
+  --gps-accent: var(--gw-cyan);
+  --gps-accent-2: var(--gw-cyan);
+  --gps-ok: var(--gw-success);
+  --gps-pending: var(--gw-amber);
+  --gps-soon: var(--gw-violet);
+  --gps-error: var(--gw-danger);
+  --gps-radius: 14px;
+  gap: 20px;
+}
+html body.gunter-workspace :is(.settings-card, .gps-card, .gps__intro, .gn-status-board, .gn-active-summary, .social-settings__section) {
+  border: 1px solid color-mix(in srgb, var(--gw-border) 72%, transparent) !important;
+  border-radius: 14px !important;
+  background: color-mix(in srgb, var(--gw-surface) 86%, var(--gw-bg)) !important;
+  color: var(--gw-ink);
+  box-shadow: none !important;
+}
+html body.gunter-workspace .settings-card { padding: 24px !important; margin-bottom: 18px; }
+html body.gunter-workspace .gps-card { padding: 20px !important; }
+html body.gunter-workspace .gps-card:hover { transform: none !important; border-color: color-mix(in srgb, var(--gw-cyan) 35%, var(--gw-border)) !important; }
+html body.gunter-workspace .gps-card::after { display: none !important; }
+html body.gunter-workspace .gps-card--active::before { height: 1px; }
+html body.gunter-workspace :is(.settings-card h3, .gps-card__title h4, .gps__intro h3, .gn-active-summary h4, .social-settings__section h3) {
+  margin-top: 0;
+  color: var(--gw-ink) !important;
+  font: 500 18px/1.4 "Space Grotesk", sans-serif !important;
+  letter-spacing: .025em !important;
+}
+html body.gunter-workspace :is(.settings-card__hint, .gps-card__title p, .gps__intro p, .gps-sub__hint, .gn-status-item__label, .gn-status-section__count, .gps-voice-card__hint, .settings-row label, .settings-row > span) { color: var(--gw-muted); }
+html body.gunter-workspace .settings-card__hint { max-width: 950px; font-size: 13px; line-height: 1.65; }
+html body.gunter-workspace .settings-card > .settings-card__hint:first-of-type { margin-bottom: 22px; }
+html body.gunter-workspace .settings-row { gap: 18px; padding: 15px 0; border-top-color: color-mix(in srgb, var(--gw-border) 60%, transparent); }
+html body.gunter-workspace .settings-row > label { flex: 1; min-width: min(100%, 180px); font-size: 13px; line-height: 1.6; }
+html body.gunter-workspace :is(.gps__grid, .social-connections) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+html body.gunter-workspace .gps-card__icon { width: 35px; height: 35px; border-radius: 10px; font-size: 18px; background: color-mix(in srgb, var(--gw-cyan) 8%, transparent); }
+html body.gunter-workspace .gps__intro-icon { color: var(--gw-cyan); }
+html body.gunter-workspace .gps__section-divider { padding: 18px 0; border: 0; border-bottom: 1px solid var(--gw-border); border-radius: 0; background: none; backdrop-filter: none; }
+html body.gunter-workspace .gps__section-text h4 { font-family: "Space Grotesk", sans-serif; letter-spacing: .08em; }
+html body.gunter-workspace :is(.gn-status-item, .gps-voice-card, .gps-generic-cfg, .social-connection) { background: var(--gw-bg); border-color: var(--gw-border); border-radius: 10px; box-shadow: none; }
+html body.gunter-workspace .gn-status-board__head h4 { font: 600 11px/1.5 "Space Grotesk", sans-serif; letter-spacing: .12em; }
+html body.gunter-workspace .gps-card__details { border-top-color: var(--gw-border); }
+html body.gunter-workspace .gps-badge { font-size: 9px; letter-spacing: .07em; }
+html body.gunter-workspace .gps-warning { color: var(--gw-amber); }
+html body.gunter-workspace .gps-warning--error { color: var(--gw-danger); }
+
+/* Keep native inputs, labels and permission states intact. */
+html body.gunter-workspace :is(.config-page, .gadm) :is(input:not([type="checkbox"]):not([type="range"]):not([type="hidden"]):not([type="file"]), select, textarea),
+html body.gunter-workspace .glogin__field input {
+  min-width: 0;
+  min-height: 43px;
+  padding: 10px 13px !important;
+  border: 1px solid var(--gw-border) !important;
+  border-radius: 10px !important;
+  background: var(--gw-bg) !important;
+  color: var(--gw-ink) !important;
+  font: 400 13px/1.5 "Geist", sans-serif !important;
+  box-shadow: none !important;
+  color-scheme: dark;
+}
+html body.gunter-workspace.at-light :is(.config-page, .gadm) :is(input, select, textarea),
+html body.gunter-workspace.at-light .glogin__field input { color-scheme: light; }
+html body.gunter-workspace .settings-row :is(input:not([type="checkbox"]), select) { width: min(100%, 300px); max-width: 300px; }
+html body.gunter-workspace :is(.config-page, .gadm, .glogin) ::placeholder { color: var(--gw-muted); opacity: .7; }
+html body.gunter-workspace :is(.config-page, .gadm, .glogin) :is(button, input, select, textarea, summary, a):focus-visible {
+  outline: 2px solid var(--gw-cyan) !important;
+  outline-offset: 3px;
+}
+html body.gunter-workspace :is(.config-page, .gadm, .glogin) :is(input, select, textarea):disabled { opacity: .5; cursor: not-allowed; }
+html body.gunter-workspace .config-page :is(.btn, .gps-action, .gps-inline-btn, .gps-card__toggle-cfg, .theme-chooser button),
+html body.gunter-workspace .gadm .abtn {
+  min-height: 38px;
+  padding: 9px 14px;
+  border: 1px solid var(--gw-border) !important;
+  border-radius: 999px !important;
+  color: var(--gw-ink) !important;
+  background: var(--gw-raised) !important;
+  font: 500 12px/1.4 "Geist", sans-serif !important;
+  letter-spacing: .01em;
+  box-shadow: none !important;
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+html body.gunter-workspace .config-page :is(.btn--primary, .gps-inline-btn--primary, .gps-action--primary),
+html body.gunter-workspace .glogin__btn {
+  border-color: var(--gw-cyan) !important;
+  background: var(--gw-cyan) !important;
+  color: var(--gw-bg) !important;
+  box-shadow: 0 0 20px color-mix(in srgb, var(--gw-cyan) 12%, transparent) !important;
+}
+html body.gunter-workspace .config-page :is(.btn--danger, .gps-action--danger),
+html body.gunter-workspace .gadm .abtn--danger { color: var(--gw-danger) !important; background: color-mix(in srgb, var(--gw-danger) 8%, var(--gw-bg)) !important; border-color: color-mix(in srgb, var(--gw-danger) 35%, var(--gw-border)) !important; }
+html body.gunter-workspace .gadm .abtn--ok { color: var(--gw-success) !important; }
+html body.gunter-workspace .gadm .abtn--warn { color: var(--gw-amber) !important; }
+html body.gunter-workspace .config-page :is(.btn, .gps-action, .gps-inline-btn, .gps-card__toggle-cfg):hover:not(:disabled),
+html body.gunter-workspace .gadm .abtn:hover:not(:disabled) { transform: none !important; filter: none; border-color: var(--gw-cyan) !important; }
+html body.gunter-workspace :is(.settings-row--toggle input[type="checkbox"], .gps-switch) { width: 44px; height: 24px; min-height: 24px !important; padding: 0 !important; border: 0 !important; border-radius: 999px !important; background: var(--gw-border) !important; box-shadow: none !important; }
+html body.gunter-workspace :is(.settings-row--toggle input[type="checkbox"]:checked, .gps-switch[aria-checked="true"]) { background: var(--gw-cyan) !important; }
+html body.gunter-workspace :is(.settings-row--toggle input[type="checkbox"], .gps-switch)::after { background: var(--gw-muted); box-shadow: none; }
+html body.gunter-workspace :is(.settings-row--toggle input[type="checkbox"]:checked, .gps-switch[aria-checked="true"])::after { background: var(--gw-bg); }
+html body.gunter-workspace .theme-chooser button.is-active { color: var(--gw-cyan) !important; border-color: var(--gw-cyan) !important; background: color-mix(in srgb, var(--gw-cyan) 10%, var(--gw-bg)) !important; }
+html body.gunter-workspace .settings-card fieldset { display: flex; flex-wrap: wrap; gap: 12px 18px; margin: 14px 0; padding: 17px 0; border: 0; border-block: 1px solid var(--gw-border); }
+html body.gunter-workspace .settings-card legend { padding-right: 9px; color: var(--gw-muted); font-size: 12px; }
+html body.gunter-workspace .settings-card fieldset label { display: inline-flex; align-items: center; gap: 6px; color: var(--gw-muted); font-size: 12px; }
+html body.gunter-workspace .settings-card input[type="checkbox"] { accent-color: var(--gw-cyan); }
+html body.gunter-workspace :is(.settings-empty, .trash-item, .personal-memory-item, .config-diagnostics-result, .data-section-intro) { background: var(--gw-bg); color: var(--gw-muted); border-color: var(--gw-border); border-radius: 10px; box-shadow: none; }
+html body.gunter-workspace .personal-memory-item { color: var(--gw-ink); }
+html body.gunter-workspace .config-diagnostics-result { margin-top: 16px; padding: 18px; font-size: 12px; line-height: 1.8; }
+html body.gunter-workspace .data-section-title { padding: 14px 0 10px; margin: 18px 0 14px; color: var(--gw-cyan) !important; font: 600 10px/1.5 "Space Grotesk", sans-serif; letter-spacing: .14em; border-bottom: 1px solid var(--gw-border); }
+html body.gunter-workspace .data-section-title--danger { color: var(--gw-danger) !important; }
+html body.gunter-workspace .settings-card--danger { border-color: color-mix(in srgb, var(--gw-danger) 35%, var(--gw-border)) !important; }
+html body.gunter-workspace .settings-card--danger h3 { color: var(--gw-danger) !important; }
+html body.gunter-workspace .settings-kv li { flex-wrap: wrap; gap: 6px 20px; border-top-color: var(--gw-border); line-height: 1.7; }
+html body.gunter-workspace .settings-kv .ok { color: var(--gw-success); }
+html body.gunter-workspace .settings-kv .missing { color: var(--gw-amber); }
+html body.gunter-workspace .cp-settings__head h2 { font: 500 26px/1.3 "Space Grotesk", sans-serif; letter-spacing: .025em; }
+html body.gunter-workspace .cp-settings { margin-bottom: 28px; padding-bottom: 24px; }
+
+/* Administration uses open metric strips and compact operational tables. */
+html body.gunter-workspace.gunter-admin-page { padding: 0; }
+html body.gunter-workspace .gadm__head { margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid var(--gw-border); background: transparent !important; border-radius: 0 !important; box-shadow: none !important; }
+html body.gunter-workspace .gadm__head h1 { color: var(--gw-ink); font: 500 34px/1.2 "Space Grotesk", sans-serif; letter-spacing: .035em; }
+html body.gunter-workspace .gadm__lead { margin: 10px 0 0; color: var(--gw-muted); font-size: 14px; line-height: 1.6; }
+html body.gunter-workspace .gadm__head .back { color: var(--gw-cyan); font-size: 12px; font-weight: 500; }
+html body.gunter-workspace .gadm__grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; margin-bottom: 30px; border-block: 1px solid var(--gw-border); }
+html body.gunter-workspace .gadm__stat { padding: 22px 20px !important; border: 0 !important; border-right: 1px solid var(--gw-border) !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; animation: none !important; }
+html body.gunter-workspace .gadm__stat:last-child { border-right: 0 !important; }
+html body.gunter-workspace .gadm__stat .n { color: var(--gw-ink); font: 500 30px/1.2 "Space Grotesk", sans-serif; }
+html body.gunter-workspace .gadm__stat .l { color: var(--gw-muted); font: 500 10px/1.5 "Space Grotesk", sans-serif; letter-spacing: .08em; margin-top: 6px; }
+html body.gunter-workspace .gadm__stat.warn .n { color: var(--gw-amber); }
+html body.gunter-workspace .gadm__stat.ok .n { color: var(--gw-success); }
+html body.gunter-workspace .gadm__card { padding: 24px !important; margin-bottom: 20px; border: 1px solid color-mix(in srgb, var(--gw-border) 75%, transparent) !important; border-radius: 14px !important; background: var(--gw-surface) !important; color: var(--gw-ink); box-shadow: none !important; }
+html body.gunter-workspace .gadm__card::after { display: none !important; }
+html body.gunter-workspace .gadm__card h2 { margin-bottom: 18px; font: 500 18px/1.4 "Space Grotesk", sans-serif; letter-spacing: .025em; color: var(--gw-ink); }
+html body.gunter-workspace .gadm__tbl { color: var(--gw-ink); font-size: 13px; }
+html body.gunter-workspace .gadm__tbl th { padding: 12px 10px; color: var(--gw-muted); font: 500 10px/1.5 "Space Grotesk", sans-serif; letter-spacing: .08em; border-bottom-color: var(--gw-border); }
+html body.gunter-workspace .gadm__tbl td { padding: 15px 10px; border-bottom-color: color-mix(in srgb, var(--gw-border) 65%, transparent); }
+html body.gunter-workspace :is(.gadm__empty, .gadm__tbl .who span, .gadm__sys .k, .cp-admin-label, .cp-admin-row small, .cp-plan-list small, .cp-subscription-list small, .cp-flag-list small, .cp-plan-form label, .cp-ops-metric span, .cp-readiness-list span) { color: var(--gw-muted); }
+html body.gunter-workspace .gadm__sys > div { padding: 16px; border-radius: 10px; background: var(--gw-bg); }
+html body.gunter-workspace .gadm__logs { padding: 18px; border-color: var(--gw-border); border-radius: 10px; background: var(--gw-bg); color: var(--gw-ink); }
+html body.gunter-workspace .gadm__logs .li { color: var(--gw-muted); }
+html body.gunter-workspace .gadm__logs .lw { color: var(--gw-amber); }
+html body.gunter-workspace .gadm__logs .le { color: var(--gw-danger); }
+html body.gunter-workspace .gadm__logs .ts { color: var(--gw-muted); opacity: .7; }
+html body.gunter-workspace .gadm__disclosure { border-top-color: var(--gw-border); }
+html body.gunter-workspace .gadm__disclosure > summary { min-height: 44px; color: var(--gw-muted); }
+html body.gunter-workspace .gadm__card :is(.pill, .badge) { font-family: "Geist", sans-serif; font-weight: 500; }
+html body.gunter-workspace .gadm__card :is(.pill--pending, .badge) { color: var(--gw-amber); background: color-mix(in srgb, var(--gw-amber) 10%, transparent); }
+html body.gunter-workspace .gadm__card .pill--approved { color: var(--gw-success); background: color-mix(in srgb, var(--gw-success) 10%, transparent); }
+html body.gunter-workspace .gadm__card .pill--blocked { color: var(--gw-danger); background: color-mix(in srgb, var(--gw-danger) 10%, transparent); }
+html body.gunter-workspace .gadm__card .pill--admin { color: var(--gw-cyan); background: color-mix(in srgb, var(--gw-cyan) 10%, transparent); }
+html body.gunter-workspace .cp-ops-metric strong { font-family: "Space Grotesk", sans-serif; }
+html body.gunter-workspace .cp-plan-form { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+html body.gunter-workspace .cp-readiness-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+
+/* Access and entry screens retain their original forms and authentication flow. */
+html body.gunter-workspace.gunter-auth-page,
+html body.gunter-workspace.gunter-reset-page {
+  display: grid;
+  place-items: center;
+  min-height: 100svh;
+  height: auto;
+  padding: 40px 20px !important;
+  color: var(--gw-ink);
+  font-family: "Geist", sans-serif;
+}
+html body.gunter-workspace.gunter-auth-page .glogin {
+  width: min(100%, 440px);
+  max-width: 440px;
+  margin: auto !important;
+  padding: 28px 34px 30px !important;
+  border: 1px solid var(--gw-border) !important;
+  border-radius: 22px !important;
+  background: color-mix(in srgb, var(--gw-surface) 83%, var(--gw-bg)) !important;
+  box-shadow: var(--gw-shadow) !important;
+}
+html body.gunter-workspace .glogin::before,
+html body.gunter-workspace .glogin::after { display: none !important; }
+html body.gunter-workspace.gunter-auth-page .glogin__mascot {
+  width: 112px !important;
+  height: 112px !important;
+  margin: 3px auto 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--gw-cyan) 10%, transparent), transparent 70%);
+  filter: none !important;
+}
+html body.gunter-workspace .glogin__mascot::before,
+html body.gunter-workspace .glogin__mascot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 1px solid color-mix(in srgb, var(--gw-cyan) 40%, transparent) !important;
+  border-radius: 50%;
+  background: none !important;
+  box-shadow: none !important;
+  animation: none !important;
+  transform: rotate(-27deg) scaleX(.8);
+}
+html body.gunter-workspace .glogin__mascot::after { inset: 5px; transform: rotate(35deg) scaleX(.84); border-color: color-mix(in srgb, var(--gw-amber) 45%, transparent) !important; }
+html body.gunter-workspace .glogin__mascot img { position: relative; z-index: 1; width: 88px; height: 88px; }
+html body.gunter-workspace .glogin__kicker { text-align: center; margin-bottom: 5px; }
+html body.gunter-workspace.gunter-auth-page .glogin h1 { margin: 0 0 9px; text-align: center; font: 500 36px/1.15 "Space Grotesk", sans-serif !important; letter-spacing: .09em; text-transform: uppercase; color: var(--gw-ink); }
+html body.gunter-workspace .glogin__sub { margin-bottom: 25px; color: var(--gw-muted); text-align: center; font-size: 13px; line-height: 1.65; }
+html body.gunter-workspace .glogin__field { margin-bottom: 17px; }
+html body.gunter-workspace .glogin__field label { margin-bottom: 7px; color: var(--gw-muted); font: 500 12px/1.5 "Geist", sans-serif; }
+html body.gunter-workspace .glogin__btn { min-height: 45px; padding: 12px 16px; border: 1px solid var(--gw-cyan); border-radius: 999px !important; font: 600 13px/1.5 "Geist", sans-serif; }
+html body.gunter-workspace .glogin__toggle { color: var(--gw-muted); font-size: 12px; line-height: 1.6; }
+html body.gunter-workspace .glogin__toggle button { color: var(--gw-cyan); font-weight: 500; }
+html body.gunter-workspace .glogin__notice { background: color-mix(in srgb, var(--gw-cyan) 7%, var(--gw-bg)); color: var(--gw-muted); border-color: color-mix(in srgb, var(--gw-cyan) 30%, var(--gw-border)); font-size: 12px; }
+html body.gunter-workspace .glogin__err { background: color-mix(in srgb, var(--gw-danger) 7%, var(--gw-bg)); color: var(--gw-danger); border-color: color-mix(in srgb, var(--gw-danger) 35%, var(--gw-border)); }
+html body.gunter-workspace .glogin__pending h2 { color: var(--gw-ink); font: 500 22px/1.3 "Space Grotesk", sans-serif; }
+html body.gunter-workspace .glogin__pending p { color: var(--gw-muted); }
+html body.gunter-workspace .glogin__out { border-color: var(--gw-border); border-radius: 999px; color: var(--gw-cyan); min-height: 40px; }
+html body.gunter-workspace.gunter-portal-page .portal-page { display: grid; place-items: center; min-height: 100svh; padding: 32px 20px !important; }
+html body.gunter-workspace.gunter-portal-page .login-container { width: min(100%, 440px); max-width: 440px; margin: auto !important; }
+html body.gunter-workspace .login-logo__title { color: var(--gw-ink) !important; font-family: "Space Grotesk", sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+html body.gunter-workspace .login-logo__subtitle { color: var(--gw-muted); }
+html body.gunter-workspace .login-card { border: 1px solid var(--gw-border) !important; border-radius: 16px !important; background: var(--gw-surface) !important; color: var(--gw-ink); box-shadow: none !important; }
+html body.gunter-workspace.gunter-reset-page .box { max-width: 440px; padding: 28px; border: 1px solid var(--gw-border); border-radius: 20px; background: var(--gw-surface); }
+html body.gunter-workspace.gunter-reset-page h1 { color: var(--gw-ink); font: 500 25px/1.3 "Space Grotesk", sans-serif; letter-spacing: .025em; }
+html body.gunter-workspace.gunter-reset-page p { color: var(--gw-muted); font-size: 13px; line-height: 1.7; }
+html body.gunter-workspace.gunter-reset-page #s { color: var(--gw-success); font-size: 13px; line-height: 1.6; }
+html body.gunter-workspace .orbital-reset-mark { color: var(--gw-cyan); }
+
+@media (max-width: 1100px) {
+  html body.gunter-workspace .config-orbit-index { flex-basis: 150px; width: 150px; height: 150px; margin-right: 0; }
+  html body.gunter-workspace .gps__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html body.gunter-workspace .gadm__stat { padding-inline: 12px !important; }
+}
+@media (max-width: 760px) {
+  html body.gunter-workspace.gunter-config-page .config-header { min-height: 0; padding-bottom: 22px !important; gap: 16px; }
+  html body.gunter-workspace .config-orbit-index { flex-basis: 105px; width: 105px; height: 105px; }
+  html body.gunter-workspace .config-orbit-index__core { width: 40px; height: 40px; }
+  html body.gunter-workspace .config-orbit-index__core svg { width: 20px; height: 20px; }
+  html body.gunter-workspace :is(.gps__grid, .social-connections) { grid-template-columns: 1fr; }
+  html body.gunter-workspace .gadm__head { align-items: flex-start; gap: 16px; }
+  html body.gunter-workspace .gadm__head .back { margin-left: 0; }
+  html body.gunter-workspace .gadm__head h1 { font-size: 28px; }
+  html body.gunter-workspace .gadm__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  html body.gunter-workspace .gadm__stat { padding: 17px 12px !important; border-bottom: 1px solid var(--gw-border) !important; }
+  html body.gunter-workspace .gadm__stat:nth-child(3) { border-right: 0 !important; }
+  html body.gunter-workspace .gadm__tbl td { padding: 5px 0; }
+  html body.gunter-workspace .gadm__tbl tr { padding-block: 15px; border-bottom-color: var(--gw-border); }
+  html body.gunter-workspace .cp-plan-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  html body.gunter-workspace.gunter-config-page .config-header { display: block !important; }
+  html body.gunter-workspace .config-orbit-index { display: none; }
+  html body.gunter-workspace .config-header__back { margin-bottom: 18px; }
+  html body.gunter-workspace.gunter-config-page .config-tabs { margin-bottom: 22px !important; padding: 6px !important; border-radius: 13px !important; }
+  html body.gunter-workspace.gunter-config-page .config-tabs .config-tab { min-height: 40px !important; padding-inline: 12px !important; }
+  html body.gunter-workspace :is(.settings-card, .gps-card, .gadm__card) { padding: 18px !important; border-radius: 12px !important; }
+  html body.gunter-workspace .settings-row { gap: 10px; }
+  html body.gunter-workspace .settings-row:not(.settings-row--toggle) > label { flex-basis: 100%; }
+  html body.gunter-workspace .settings-row :is(input:not([type="checkbox"]), select) { width: 100%; max-width: none; }
+  html body.gunter-workspace .settings-row--toggle > label { min-width: 0; }
+  html body.gunter-workspace .gps__intro { padding: 18px; gap: 12px; }
+  html body.gunter-workspace .gps__intro-actions { margin-left: 0; width: 100%; flex-wrap: wrap; }
+  html body.gunter-workspace .gn-status-board__grid { grid-template-columns: 1fr; }
+  html body.gunter-workspace .personal-memory-actions { align-items: stretch; }
+  html body.gunter-workspace .personal-memory-actions button { max-width: 100%; }
+  html body.gunter-workspace .gadm__stat .n { font-size: 25px; }
+  html body.gunter-workspace .gadm__stat .l { font-size: 9px; letter-spacing: .04em; }
+  html body.gunter-workspace .gadm__card h2 { flex-wrap: wrap; gap: 12px; }
+  html body.gunter-workspace .cp-plan-form { grid-template-columns: 1fr; }
+  html body.gunter-workspace .gadm__logctl > * { width: 100%; }
+  html body.gunter-workspace.gunter-auth-page { padding: 20px 14px !important; }
+  html body.gunter-workspace.gunter-auth-page .glogin { padding: 24px 23px !important; }
+  html body.gunter-workspace.gunter-auth-page .glogin__mascot { width: 96px !important; height: 96px !important; margin-bottom: 18px; }
+  html body.gunter-workspace .glogin__mascot img { width: 76px; height: 76px; }
+  html body.gunter-workspace.gunter-auth-page .glogin h1 { font-size: 31px !important; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html body.gunter-workspace .config-orbit-index { animation: orbital-settings-in 500ms 80ms ease-out both; }
+  html body.gunter-workspace .config-tab-panel:not([hidden]) { animation: orbital-settings-in 240ms ease-out both !important; }
+  html body.gunter-workspace .glogin { animation: orbital-settings-in 400ms ease-out both !important; }
+  @keyframes orbital-settings-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+}
+@media (prefers-reduced-motion: reduce) {
+  html body.gunter-workspace :is(.config-orbit-index, .config-tab-panel, .glogin) { animation: none !important; }
+}

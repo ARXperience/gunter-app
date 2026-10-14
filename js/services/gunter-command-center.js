@@ -59,7 +59,7 @@
         arrows: '<path d="M7 7h14l-4-4m4 4-4 4M17 17H3l4 4m-4-4 4-4"/>',
         lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3m-4 5v2"/>',
         help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.2 1.8c-1.1 1-1.7 1.4-1.7 3.2m0 3h.01"/>',
-        penguin: '<ellipse cx="12" cy="13" rx="7" ry="9"/><path d="M8 11h.01M16 11h.01m-6.5 3.5h5L12 17zM8 21l-1 1m9-1 1 1"/>'
+        penguin: '<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(32 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-32 12 12)"/>'
     };
 
     function icon(name) {
@@ -88,24 +88,28 @@
                 <span class="gunter-particle-thumb" data-gunter-particles="thumb" aria-hidden="true"></span>
                 <span>GUNTER</span><small>ASISTENTE PERSONAL</small>
             </a>
+            <div class="gw-assistant-state" role="status"><i aria-hidden="true"></i><span data-workspace-state>Verificando</span></div>
             <div class="gunter-command-nav__links">
-                ${navLink('Inicio', 'day.html', meta.active === 'day')}
-                ${navLink('Conversaciones', 'day.html#conversations', PAGE === 'day.html' && location.hash === '#conversations')}
+                ${navLink('Núcleo', 'day.html', meta.active === 'day' && !location.hash)}
+                ${navLink('Agenda', 'day.html#events', false)}
                 ${navLink('Reuniones', 'dashboard.html', meta.active === 'meetings')}
+                ${navLink('Tareas', 'day.html#tasks', false)}
+                ${navLink('Resultados', 'results.html', PAGE === 'results.html')}
+                ${navLink('Recordatorios', 'day.html#reminders', false)}
+                ${navLink('Conexiones', 'config.html#connections', PAGE === 'config.html' && location.hash === '#connections')}
+                ${navLink('Actividad', 'day.html#activity', false)}
                 <details class="gunter-command-nav__menu">
-                    <summary>${icon('organize')}<span>Organizar</span><span class="gunter-command-nav__chevron" aria-hidden="true">⌄</span></summary>
+                    <summary>${icon('menu')}<span>Más</span><span class="gunter-command-nav__chevron" aria-hidden="true">⌄</span></summary>
                     <div class="gunter-command-nav__popover" aria-label="Herramientas para organizar">
+                        ${navLink('Conversaciones', 'day.html#conversations', false)}
                         ${navLink('Captura rápida', 'day.html#capture', false)}
-                        ${navLink('Tareas', 'day.html#tasks', false)}
-                        ${navLink('Agenda', 'day.html#events', false)}
-                        ${navLink('Recordatorios', 'day.html#reminders', false)}
-                        ${navLink('Actividad', 'day.html#activity', false)}
+                        ${navLink('Memoria', 'config.html#data', false)}
+                        ${navLink('Nueva reunión', 'new-project.html', false)}
                     </div>
                 </details>
-                ${navLink('Resultados', 'results.html', PAGE === 'results.html')}
-                ${navLink('Conexiones', 'config.html#connections', PAGE === 'config.html' && location.hash === '#connections')}
             </div>
-            <a class="gunter-command-nav__action" href="new-project.html" aria-label="Preparar una nueva reunión">${icon('plus')}<span>Nueva reunión</span></a>
+            <time class="gw-local-time" aria-label="Hora local"></time>
+            <button class="gw-theme-toggle" type="button" data-workspace-theme aria-label="Cambiar tema claro u oscuro" title="Cambiar tema">◐</button>
             <a class="gunter-command-nav__settings ${meta.active === 'config' ? 'is-active' : ''}" href="config.html#preferences" aria-label="Configuración" title="Configuración">${icon('settings')}</a>
             <details class="gunter-command-nav__mobile" id="gunter-mobile-menu">
                 <summary aria-label="Abrir navegación">${icon('menu')}<span>Menú</span></summary>
@@ -124,14 +128,20 @@
                     ${navLink('Configuración', 'config.html#preferences', meta.active === 'config')}
                 </div>
             </details>
-            <div class="gunter-command-nav__dock" aria-label="Accesos principales en móvil">
-                ${navLink('Inicio', 'day.html', meta.active === 'day')}
-                ${navLink('Conversaciones', 'day.html#conversations', PAGE === 'day.html' && location.hash === '#conversations')}
-                <button class="gunter-command-nav__voice" type="button" data-gunter-voice-toggle aria-label="Activar escucha de voz" aria-pressed="false" title="Activar escucha de voz">${icon('microphone')}<span>Hablar</span></button>
-                ${navLink('Reuniones', 'dashboard.html', meta.active === 'meetings')}
+            <div class="gunter-command-nav__dock" aria-label="Comandos de Gunter">
+                <a class="gw-dock-core" href="day.html" aria-label="Volver al núcleo"><img src="assets/gunter/gunter-core.svg" width="28" height="28" alt=""></a>
+                <button class="gunter-command-nav__voice" type="button" data-gunter-voice-toggle aria-label="Activar escucha de voz" aria-pressed="false" title="Activar escucha de voz">${icon('microphone')}<span>Hablar con Gunter</span></button>
+                <button class="gw-write" type="button" data-workspace-chat>${icon('message')}<span>Escribir</span></button>
                 <button class="gunter-command-nav__dock-menu" type="button" data-open-mobile-menu aria-label="Más opciones" aria-controls="gunter-mobile-menu" aria-expanded="false">${icon('menu')}<span>Más</span></button>
             </div>`;
         nav.addEventListener('click', event => {
+            if (event.target.closest('[data-workspace-chat]')) {
+                if (window.GunterCompanion?.expand) { window.GunterCompanion.show?.(); window.GunterCompanion.expand(); }
+                else location.href = 'day.html#chat';
+            }
+            if (event.target.closest('[data-workspace-theme]')) {
+                window.GunterThemeToggle?.apply?.(document.body.classList.contains('at-light') ? 'dark' : 'light');
+            }
             const voiceToggle = event.target.closest('[data-gunter-voice-toggle]');
             if (voiceToggle) {
                 event.preventDefault();
@@ -194,6 +204,10 @@
             nav.querySelectorAll('details[open]').forEach(menu => { menu.open = false; });
             nav.querySelector('[data-open-mobile-menu]')?.setAttribute('aria-expanded', 'false');
         });
+        const mobileMenu = nav.querySelector('#gunter-mobile-menu');
+        mobileMenu?.addEventListener('toggle', () => {
+            if (mobileMenu.open) mobileMenu.querySelector('.gunter-command-nav__mobile-panel')?.scrollTo(0, 0);
+        });
         const syncVoice = state => {
             const current = state || window.GunterSTT?.pushToTalk?.getState?.() || window.GunterWakeWord?.getState?.() || {};
             const active = !!current.active;
@@ -220,7 +234,7 @@
 
     function navLink(label, href, active) {
         const names = {
-            'Inicio': 'home', 'Conversaciones': 'message', 'Reuniones': 'calendar', 'Captura rápida': 'capture',
+            'Inicio': 'home', 'Núcleo': 'home', 'Memoria': 'brain', 'Conversaciones': 'message', 'Reuniones': 'calendar', 'Captura rápida': 'capture',
             'Tareas': 'task', 'Agenda': 'calendar', 'Recordatorios': 'reminder', 'Actividad': 'activity',
             'Resultados': 'chart', 'Conexiones': 'link', 'Configuración': 'settings',
             'Preparar reunión': 'plus', 'Sala de reunión': 'calendar', 'Nueva reunión': 'plus'
@@ -410,6 +424,7 @@
         if (!heading) return;
         const icon = heading.querySelector('.gday__card-icon')?.outerHTML || '';
         heading.innerHTML = `${icon} ${label}`;
+        heading.setAttribute('aria-label', label);
     }
 
     function reorderDayNav(sidebarNav, quickbar) {
@@ -481,7 +496,7 @@
             if (labels[index]) node.textContent = labels[index];
         });
         const tag = hero?.querySelector('.prism-hero__tag');
-        if (tag) tag.textContent = 'Núcleo de Gunter activo';
+        if (tag) tag.textContent = 'Espacio de reuniones';
     }
 
     function setupResults(container, nav, flow) {
@@ -539,6 +554,96 @@
         });
     }
 
+    // Presentation-only routing. Data, lazy panel mounting and permission gates
+    // continue to belong to the existing page controllers.
+    function resolveWorkspace(page = PAGE, hash = location.hash, tab = 'today') {
+        if (page !== 'day.html') return page.replace(/\.html$/, '');
+        if (tab !== 'today') return tab;
+        const target = String(hash || '').replace(/^#/, '');
+        return ['tasks', 'events', 'reminders', 'capture', 'chat'].includes(target) ? target : 'overview';
+    }
+
+    function setupWorkspace(container, nav, flow) {
+        let heading;
+        if (PAGE === 'day.html') {
+            const today = container.querySelector('[data-tab-panel="today"]');
+            const quickbar = document.getElementById('gday-quickbar-drop');
+            const preview = document.getElementById('gday-doc-preview');
+            // Move the original controls, never clone forms or rebuild handlers.
+            if (today && quickbar) { today.prepend(quickbar); if (preview) quickbar.after(preview); }
+            quickbar?.querySelector('form')?.addEventListener('submit', () => {
+                // The same controller renders its response/confirmation in this
+                // original chat. Keep it reachable when the source list is focused.
+                if (quickbar.querySelector('input[type="text"]')?.value.trim()) location.hash = 'chat';
+            });
+            heading = el('header', 'gw-page-heading', '<div><span class="gw-section-marker" aria-hidden="true"></span><h1 data-workspace-title></h1><p data-workspace-description></p></div>');
+            flow.after(heading);
+            const stats = document.getElementById('gday-stats');
+            if (stats) heading.append(stats);
+        }
+        const labels = {
+            overview: ['Tu día', 'Agenda, prioridades y seguimiento de tu cuenta.'],
+            tasks: ['Tareas', 'Tus prioridades de hoy. Usa «Ver todas» para consultar el resto.'],
+            events: ['Agenda', 'Revisa tus compromisos y organiza los próximos espacios.'],
+            reminders: ['Recordatorios', 'Consulta avisos, revisa fallos y confirma los cambios.'],
+            capture: ['Captura rápida', 'Escribe una instrucción o adjunta un documento.'],
+            chat: ['Conversar con Gunter', 'Consulta, organiza y confirma acciones desde la conversación.']
+        };
+        let queued = false;
+        function sync() {
+            const selected = document.querySelector('.gday__tab[aria-selected="true"]');
+            const view = resolveWorkspace(PAGE, location.hash, selected?.dataset.tab || 'today');
+            document.body.dataset.workspaceView = view;
+            if (heading) {
+                const label = labels[view] || [selected?.querySelector('span:nth-child(2)')?.textContent || 'Herramientas', 'Trabaja con tus herramientas y datos autorizados.'];
+                heading.querySelector('[data-workspace-title]').textContent = label[0];
+                heading.querySelector('[data-workspace-description]').textContent = label[1];
+            }
+            const activePath = PAGE === 'day.html' && view !== 'overview' ? `day.html#${view}`
+                : PAGE === 'config.html' && location.hash === '#connections' ? 'config.html#connections'
+                    : ['new-project.html', 'meeting.html'].includes(PAGE) ? 'dashboard.html' : PAGE;
+            nav.querySelectorAll('a[href]').forEach(link => {
+                const active = link.getAttribute('href') === activePath;
+                link.classList.toggle('is-active', active);
+                if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+            });
+            if (PAGE === 'config.html' && location.hash !== '#connections') nav.querySelector('.gunter-command-nav__settings')?.setAttribute('aria-current', 'page');
+        }
+        function queueSync() {
+            if (queued) return;
+            queued = true; queueMicrotask(() => { queued = false; sync(); });
+        }
+        function syncState() {
+            let value = window.GunterConversationState?.getState?.()?.value || 'unavailable';
+            const playback = window.GunterVoice?.getPlaybackState?.();
+            const ptt = window.GunterSTT?.pushToTalk?.getState?.();
+            const wake = window.GunterWakeWord?.getState?.();
+            const capturing = ptt?.phase === 'recording' || (wake?.active === true && ['wake', 'query'].includes(wake.mode));
+            if (playback?.speaking === true) value = 'speaking';
+            else if (value === 'speaking') value = 'thinking';
+            else if (capturing) value = 'listening';
+            else if (value.startsWith('listening')) value = 'idle';
+            const names = { idle: 'En reposo', thinking: 'Procesando', speaking: 'Hablando', listening: 'Escuchando',
+                awaiting_confirmation: 'Confirmación', error: 'Revisar estado', unavailable: 'Asistente' };
+            nav.querySelector('[data-workspace-state]').textContent = names[value] || 'Asistente';
+            nav.dataset.assistantState = value;
+        }
+        function clock() {
+            const now = new Date(), time = nav.querySelector('.gw-local-time');
+            time.dateTime = now.toISOString();
+            time.textContent = new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit',
+                timeZone: window.GunterPresence?.timezone?.() || Intl.DateTimeFormat().resolvedOptions().timeZone }).format(now);
+        }
+        const tabs = document.getElementById('gday-tabs');
+        const observer = tabs ? new MutationObserver(queueSync) : null;
+        observer?.observe(tabs, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-selected'] });
+        window.addEventListener('hashchange', queueSync);
+        for (const event of ['gunter-conversation-state', 'gunter-voice-state', 'gunter-push-to-talk-state', 'wake-word-state']) window.addEventListener(event, syncState);
+        const clockTimer = window.setInterval(clock, 30000);
+        window.addEventListener('pagehide', event => { if (!event.persisted) { observer?.disconnect(); window.clearInterval(clockTimer); } });
+        sync(); syncState(); clock();
+    }
+
     function init() {
         if (!APP_PAGES.has(PAGE) || document.querySelector('.gunter-command-nav')) return;
         const container = mainContainer();
@@ -558,11 +663,13 @@
         else if (PAGE === 'results.html') setupResults(container, nav, flow);
         else setupGeneric(container, nav, flow);
 
+        setupWorkspace(container, nav, flow);
+
         markRevealOrder(container);
         requestAnimationFrame(() => document.body.classList.add('gunter-command-ready'));
     }
 
-    window.GunterCommandCenter = { init };
+    window.GunterCommandCenter = { init, resolveWorkspace };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();
 })();

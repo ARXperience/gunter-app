@@ -66,7 +66,21 @@
 
     // ---------- Effect factories per mode ----------
     function spawnEffect(x, y) {
-        if (respectReduceMotion) return;
+        if (respectReduceMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            || document.documentElement.classList.contains('reduce-motion')) return;
+        try {
+            const prefs = JSON.parse(localStorage.getItem('gunter_prefs') || '{}');
+            if (prefs.clickFx === false || prefs.reduceMotion === true) return;
+        } catch { /* A malformed preference must not prevent navigation. */ }
+        if (document.body.classList.contains('gunter-workspace')) {
+            // Working surfaces need local feedback, not full-screen bursts over
+            // labels and forms. Keep the existing renderer and preference.
+            const accent = getComputedStyle(document.body).getPropertyValue('--gw-cyan').trim();
+            effects = [{ kind: 'ring', born: performance.now(), life: 220,
+                x, y, maxR: 22, color: /^#[\da-f]{6}$/i.test(accent) ? accent : '#6edafa', width: 1 }];
+            startLoop();
+            return;
+        }
         const palette = MODE_PALETTES[currentMode] || MODE_PALETTES.empresarial;
         const now = performance.now();
 

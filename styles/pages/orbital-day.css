@@ -1,0 +1,771 @@
+/* Día orbital: working surfaces use the shared workspace tokens.
+   The home stage and all controller-owned visibility stay independent. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday {
+  --gday-bg: var(--gw-bg);
+  --gday-surface: var(--gw-surface);
+  --gday-surface-2: var(--gw-raised);
+  --gday-border: var(--gw-border);
+  --gday-border-hi: color-mix(in srgb, var(--gw-cyan) 40%, var(--gw-border));
+  --gday-text: var(--gw-ink);
+  --gday-text-dim: var(--gw-muted);
+  --gday-text-mute: var(--gw-muted);
+  --gday-accent: var(--gw-cyan);
+  --gday-accent-2: var(--gw-cyan);
+  --gday-danger: var(--gw-danger);
+  --gday-amber: var(--gw-amber);
+  --gday-radius: 16px;
+  --gday-radius-sm: 10px;
+  --gday-shadow: none;
+  --text-primary: var(--gw-ink);
+  --text-secondary: var(--gw-muted);
+  --text-muted: var(--gw-muted);
+  --accent: var(--gw-cyan);
+  --accent-primary: var(--gw-cyan);
+  --bg-card: var(--gw-surface);
+  --bg-input: var(--gw-bg);
+  --bg-obsidian: var(--gw-bg);
+  --bg-deep-navy: var(--gw-bg);
+  --glass-border: var(--gw-border);
+  --border-subtle: var(--gw-border);
+  font-family: 'Geist', system-ui, sans-serif !important;
+  color: var(--gw-ink) !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(
+  .gday__tab-panel, .gday-today__row, .gday__card, .gpi-card,
+  .conv-hub, .conv-hub__grid, .gactivity, .gn-tile__body,
+  .gday__doc-fields, .gday__doc-row, .gday__doc-row--split > div
+) { min-width: 0; max-width: 100%; box-sizing: border-box; }
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(
+  .gday__tab-panel, .gday__card, .gpi-card, .conv-hub, .gactivity
+) { color: var(--gw-ink); overflow-wrap: anywhere; }
+
+/* Local navigation: all tabs remain reachable without widening the page. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tabs {
+  display: flex !important;
+  flex-flow: row nowrap !important;
+  align-items: stretch;
+  gap: 18px !important;
+  width: 100%;
+  max-width: 100% !important;
+  min-width: 0;
+  padding: 0 0 13px !important;
+  margin: 0 !important;
+  overflow-x: auto !important;
+  overscroll-behavior-inline: contain;
+  border: 0 !important;
+  border-bottom: 1px solid var(--gw-border) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gw-border) transparent;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab-group {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab-group + .gday__tab-group {
+  padding-left: 18px;
+  border-left: 1px solid var(--gw-border);
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab-group-label {
+  padding-left: 10px;
+  font: 500 10px/1.4 'Space Grotesk', sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--gw-muted);
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab-group-items {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab {
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 8px 12px !important;
+  gap: 7px;
+  border: 1px solid transparent !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--gw-muted) !important;
+  font: 500 12px/1.5 'Geist', system-ui, sans-serif !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab:hover {
+  color: var(--gw-ink) !important;
+  background: var(--gw-surface) !important;
+  transform: none !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab.is-active {
+  color: var(--gw-cyan) !important;
+  border-color: color-mix(in srgb, var(--gw-cyan) 35%, var(--gw-border)) !important;
+  background: color-mix(in srgb, var(--gw-cyan) 9%, var(--gw-surface)) !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab-badge {
+  padding: 1px 6px;
+  color: var(--gw-cyan) !important;
+  background: color-mix(in srgb, var(--gw-cyan) 12%, var(--gw-bg)) !important;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Primary lists: a calm frame, a fine signal line and generous reading space. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday-today:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday-today__row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 22px !important;
+  align-items: start;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__card, .gpi-card) {
+  position: relative;
+  padding: clamp(18px, 2.3vw, 30px) !important;
+  margin: 0 !important;
+  border: 1px solid var(--gw-border) !important;
+  border-radius: 16px !important;
+  background: color-mix(in srgb, var(--gw-surface) 96%, transparent) !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(16px) !important;
+  transform: none !important;
+  transition: border-color 160ms ease !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__card, .gpi-card):hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__card-actions, .gpi-card__head) {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap;
+  gap: 12px 20px !important;
+  padding-bottom: 18px !important;
+  margin: 0 0 18px !important;
+  border-bottom: 1px solid var(--gw-border) !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__card h3, .gpi-card__head h3) {
+  margin: 0 !important;
+  color: var(--gw-ink) !important;
+  font: 500 19px/1.35 'Space Grotesk', sans-serif !important;
+  letter-spacing: -.025em !important;
+  text-transform: none !important;
+  gap: 10px !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  margin: -2px 0 0;
+  border: 1px solid color-mix(in srgb, var(--gw-cyan) 28%, var(--gw-border));
+  border-radius: 50%;
+  color: var(--gw-cyan);
+  background: color-mix(in srgb, var(--gw-cyan) 5%, transparent);
+  font-size: 15px;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(
+  .gday__btn, .gpi-btn, .gn-btn, .gactivity__refresh, .gactivity__actions button,
+  .gmem__icon-btn, .gmem__form button, .gtutor__btn, .conv-suggestions button
+) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  max-width: 100%;
+  padding: 9px 14px !important;
+  border: 1px solid var(--gw-border) !important;
+  border-radius: 9px !important;
+  background: var(--gw-surface) !important;
+  box-shadow: none !important;
+  color: var(--gw-ink) !important;
+  font: 500 12px/1.4 'Geist', system-ui, sans-serif !important;
+  letter-spacing: 0 !important;
+  text-decoration: none;
+  white-space: normal;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(
+  .gday__btn, .gpi-btn, .gn-btn, .gactivity__refresh, .gactivity__actions button,
+  .gmem__icon-btn, .gmem__form button, .gtutor__btn, .conv-suggestions button
+):hover {
+  border-color: var(--gw-cyan) !important;
+  color: var(--gw-cyan) !important;
+  background: color-mix(in srgb, var(--gw-cyan) 6%, var(--gw-surface)) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(
+  .gday__btn--primary, .gpi-btn--primary, .gpi-btn--send, .gn-btn--primary, .gtutor__btn--primary,
+  .gactivity__actions button.is-primary
+) {
+  border-color: var(--gw-cyan) !important;
+  background: var(--gw-cyan) !important;
+  color: var(--gw-on-accent) !important;
+  -webkit-text-fill-color: currentColor !important;
+  font-weight: 600 !important;
+}
+
+/* Legacy link exclusions carry high specificity; primary links need an
+   explicit workspace anchor so their label keeps its accent contrast. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) #main-content :is(
+  a.gday__btn--primary, a.gpi-btn--primary, a.gpi-btn--send,
+  a.gn-btn--primary, a.gtutor__btn--primary
+) { color: var(--gw-on-accent) !important; -webkit-text-fill-color: currentColor !important; }
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(
+  .gday__btn--primary, .gpi-btn--primary, .gpi-btn--send, .gn-btn--primary, .gtutor__btn--primary,
+  .gactivity__actions button.is-primary
+):hover { background: color-mix(in srgb, var(--gw-cyan) 86%, var(--gw-ink)) !important; color: var(--gw-on-accent) !important; -webkit-text-fill-color: currentColor !important; }
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab-panel :is(button, input, select, textarea, a, summary, [tabindex]):focus-visible,
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab:focus-visible {
+  outline: 2px solid var(--gw-cyan) !important;
+  outline-offset: 3px !important;
+  box-shadow: none !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab-panel :is(button, input, select, textarea):disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+/* Universal capture keeps its existing parsing, attachments and drop target. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__quickbar {
+  padding: 20px 22px !important;
+  margin: 0 !important;
+  border: 1px solid color-mix(in srgb, var(--gw-cyan) 32%, var(--gw-border)) !important;
+  border-radius: 16px !important;
+  background: color-mix(in srgb, var(--gw-cyan) 4%, var(--gw-surface)) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__quickbar-label {
+  margin: 0 0 12px !important;
+  color: var(--gw-cyan) !important;
+  font: 500 11px/1.5 'Space Grotesk', sans-serif !important;
+  letter-spacing: .13em !important;
+  text-transform: uppercase !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__quickbar-form {
+  display: grid !important;
+  grid-template-columns: 46px minmax(0, 1fr) 46px !important;
+  gap: 8px !important;
+  align-items: center !important;
+  padding: 6px;
+  border: 1px solid var(--gw-border);
+  border-radius: 12px;
+  background: var(--gw-bg);
+  transition: border-color 160ms ease;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__quickbar-form:focus-within { border-color: var(--gw-cyan); }
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__quickbar-form input[type="text"] {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 46px !important;
+  padding: 10px 6px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--gw-ink) !important;
+  font: 400 14px/1.5 'Geist', system-ui, sans-serif !important;
+  transform: none !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__quickbar-form :is(button, .gday__doc-btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 10px !important;
+  border: 1px solid var(--gw-border) !important;
+  border-radius: 9px !important;
+  background: var(--gw-surface) !important;
+  box-shadow: none !important;
+  color: var(--gw-muted) !important;
+  font-size: 17px !important;
+  transform: none !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__quickbar-form button[type="submit"] {
+  border-color: var(--gw-cyan) !important;
+  background: var(--gw-cyan) !important;
+  color: var(--gw-bg) !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__quickbar-hint {
+  margin: 10px 0 0 !important;
+  color: var(--gw-muted) !important;
+  font: 400 11px/1.6 'Geist', system-ui, sans-serif !important;
+  letter-spacing: 0 !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__quickbar.is-dragover {
+  border-color: var(--gw-cyan) !important;
+  background: color-mix(in srgb, var(--gw-cyan) 10%, var(--gw-surface)) !important;
+}
+
+/* Focused routes use the same cards and handlers; the DOM is never cloned. */
+html body.gunter-workspace:not(.gunter-orbit-home-active):is(
+  [data-workspace-view="tasks"], [data-workspace-view="events"],
+  [data-workspace-view="reminders"], [data-workspace-view="chat"],
+  [data-workspace-view="capture"]
+) .gday-today__row { display: contents !important; }
+
+html body.gunter-workspace:not(.gunter-orbit-home-active)[data-workspace-view="tasks"] .gday-today__row > .gday__card:not(#tasks-card),
+html body.gunter-workspace:not(.gunter-orbit-home-active)[data-workspace-view="events"] .gday-today__row > .gday__card:not(#events-card),
+html body.gunter-workspace:not(.gunter-orbit-home-active)[data-workspace-view="reminders"] .gday-today__row > .gday__card:not(#reminders-card),
+html body.gunter-workspace:not(.gunter-orbit-home-active)[data-workspace-view="chat"] .gday-today__row > .gday__card:not(#chat-card),
+html body.gunter-workspace:not(.gunter-orbit-home-active)[data-workspace-view="capture"] .gday-today__row > .gday__card,
+html body.gunter-workspace:not(.gunter-orbit-home-active):is(
+  [data-workspace-view="tasks"], [data-workspace-view="events"],
+  [data-workspace-view="reminders"], [data-workspace-view="chat"],
+  [data-workspace-view="capture"]
+) #gday-today-shortcuts { display: none !important; }
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 76px;
+  padding: 14px 8px;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--gw-border) !important;
+  border-radius: 0;
+  background: transparent !important;
+  transform: none !important;
+  transition: background-color 150ms ease;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile:last-child { border-bottom-color: transparent !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile:hover { background: color-mix(in srgb, var(--gw-cyan) 4%, transparent) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile.is-overdue { border-left: 2px solid var(--gw-danger); padding-left: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile.is-done { opacity: .68; }
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile__check {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--gw-cyan) 55%, var(--gw-border));
+  border-radius: 50%;
+  background: transparent;
+  color: var(--gw-bg);
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile.is-done .gn-tile__check { background: var(--gw-cyan); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile__title { color: var(--gw-ink); font-size: 14px; font-weight: 500; line-height: 1.5; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile__meta { gap: 6px 12px; margin-top: 5px; color: var(--gw-muted); font: 400 12px/1.5 'Geist', sans-serif; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile__time { flex: 0 0 64px; min-width: 0; color: var(--gw-cyan); font: 500 14px/1.5 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tag { color: var(--gw-violet); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-prio { padding: 2px 7px; border-radius: 5px; font-size: 10px; letter-spacing: .04em; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gn-prio--high, .gn-prio--urgent) { color: var(--gw-danger); background: color-mix(in srgb, var(--gw-danger) 10%, transparent); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-prio--low { color: var(--gw-muted); background: var(--gw-raised); }
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: var(--gw-muted);
+  opacity: .7;
+  border-radius: 8px;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile__remove:hover { color: var(--gw-danger); background: color-mix(in srgb, var(--gw-danger) 8%, transparent); opacity: 1; }
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__empty, .gpi-empty, .gactivity__empty) {
+  min-height: 0;
+  margin: 0;
+  padding: 32px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--gw-muted) !important;
+  font: 400 13px/1.7 'Geist', system-ui, sans-serif !important;
+  text-align: left;
+}
+
+/* The next real event remains an informative strip, not a second hero. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__next {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--gw-border);
+  border-left: 2px solid var(--gw-amber);
+  border-radius: 10px;
+  background: var(--gw-surface);
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__next-icon { width: 32px; height: 32px; border: 1px solid var(--gw-border); border-radius: 50%; background: transparent; color: var(--gw-amber); font-size: 16px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__next-body { flex: 1 1 160px; min-width: 0; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__next-title { font-size: 13px; line-height: 1.5; color: var(--gw-ink); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__next-meta { color: var(--gw-muted); font-size: 12px; line-height: 1.5; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__next-cta { color: var(--gw-amber); font: 500 12px/1.5 'Space Grotesk', sans-serif; }
+
+/* Reminder states are tied to the existing job status. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__reminders-hint, .gday__reminders-status) { color: var(--gw-muted); font-size: 12px; line-height: 1.6; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminders-status.is-error { color: var(--gw-danger); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminders-toolbar { gap: 10px; padding-bottom: 16px; margin-bottom: 0; border-bottom: 1px solid var(--gw-border); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminders { gap: 0; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder {
+  padding: 20px 0;
+  gap: 14px 24px;
+  border: 0;
+  border-bottom: 1px solid var(--gw-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder-content { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; flex-basis: 320px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder-title { flex: 1 1 100%; font-size: 14px; font-weight: 500; color: var(--gw-ink); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder-time { min-width: 0; color: var(--gw-amber); font-family: 'Geist', sans-serif; font-weight: 400; font-variant-numeric: tabular-nums; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder-status { padding: 2px 8px; border: 1px solid var(--gw-border); border-radius: 999px; color: var(--gw-muted); font-size: 11px; font-weight: 500; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder-meta { flex: 1 1 100%; color: var(--gw-muted); font-size: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder-actions { width: auto; align-self: center; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder[data-rem-status="scheduled"] .gday__reminder-status { color: var(--gw-cyan); border-color: color-mix(in srgb, var(--gw-cyan) 40%, var(--gw-border)); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder[data-rem-status="failed"] .gday__reminder-status { color: var(--gw-danger); border-color: color-mix(in srgb, var(--gw-danger) 40%, var(--gw-border)); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder:is([data-rem-status="retry_wait"], [data-rem-status="running"]) .gday__reminder-status { color: var(--gw-amber); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder-detail { padding: 20px; border: 1px solid var(--gw-border); border-radius: 12px; background: var(--gw-bg); }
+
+/* Embedded chat: all history, quick commands and confirmations remain active. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday .gn-assistant {
+  position: static;
+  width: 100%;
+  height: min(620px, 75svh);
+  min-height: 360px;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--gw-ink);
+  font-family: 'Geist', system-ui, sans-serif;
+  z-index: auto;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-assistant__header { padding: 0 0 14px; background: transparent; border-bottom: 1px solid var(--gw-border); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-assistant__title small { color: var(--gw-muted); font-size: 11px; letter-spacing: 0; text-transform: none; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-assistant__close { display: inline-grid; place-items: center; width: 42px; height: 42px; color: var(--gw-muted); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-assistant__log { min-height: 160px; padding: 18px 0; gap: 14px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-msg { max-width: min(86%, 760px); padding: 14px 16px; border-radius: 12px; color: var(--gw-ink); font-size: 13px; line-height: 1.7; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-msg--assistant { background: var(--gw-bg); border: 1px solid var(--gw-border); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-msg--user { background: color-mix(in srgb, var(--gw-cyan) 11%, var(--gw-surface)); border: 1px solid color-mix(in srgb, var(--gw-cyan) 32%, var(--gw-border)); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-msg--confirm { background: color-mix(in srgb, var(--gw-amber) 7%, var(--gw-surface)); border-color: color-mix(in srgb, var(--gw-amber) 45%, var(--gw-border)); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-msg__actions { flex-wrap: wrap; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-assistant__quick { padding: 0 0 14px; gap: 8px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-assistant__quick button { min-height: 38px; padding: 8px 11px; border: 1px solid var(--gw-border); border-radius: 8px; background: transparent; color: var(--gw-muted); font-family: inherit; font-size: 11px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-assistant__form { padding: 12px 0 0; border-top-color: var(--gw-border); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-assistant__form input { min-width: 0; min-height: 46px; color: var(--gw-ink); border: 1px solid var(--gw-border); border-radius: 10px; background: var(--gw-bg); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-assistant__form button { flex: 0 0 46px; min-height: 46px; border: 1px solid var(--gw-cyan) !important; border-radius: 10px !important; background: var(--gw-cyan) !important; color: var(--gw-bg) !important; box-shadow: none !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday .gn-assistant.is-collapsed { height: 68px; min-height: 68px; overflow: hidden; transform: none; }
+
+/* Connected conversations are a split reading workspace. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-hub { gap: 20px; color: var(--gw-ink); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-hub__header { align-items: flex-start; gap: 18px 28px; flex-wrap: wrap; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-hub__eyebrow { color: var(--gw-cyan); font: 500 10px/1.5 'Space Grotesk', sans-serif; letter-spacing: .12em; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-hub__header h2 { margin: 7px 0; color: var(--gw-ink); font: 500 23px/1.3 'Space Grotesk', sans-serif; letter-spacing: -.025em; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-hub__header p { max-width: 620px; color: var(--gw-muted); font-size: 13px; line-height: 1.6; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-hub__header-actions { justify-content: flex-start; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-hub__providers { min-width: 0; max-width: 100%; padding-bottom: 4px; gap: 8px; overscroll-behavior-inline: contain; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-provider { padding: 8px 12px; border-color: var(--gw-border); border-radius: 8px; color: var(--gw-muted); background: var(--gw-surface); font-size: 11px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-provider small { color: var(--gw-muted); opacity: 1; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-provider.is-connected i { background: var(--gw-success); box-shadow: none; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-hub__grid { grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); min-height: 560px; border-color: var(--gw-border); border-radius: 16px; background: var(--gw-surface); box-shadow: none; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.conv-list, .conv-search, .conv-thread__header, .conv-composer, .conv-list__item) { border-color: var(--gw-border); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-search { padding: 18px; color: var(--gw-muted); gap: 8px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-search input { min-height: 44px; border-color: var(--gw-border); border-radius: 8px; background: var(--gw-bg); color: var(--gw-ink); font-size: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-list__item { min-height: 82px; padding: 14px 18px; color: var(--gw-ink); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-list__item:is(:hover, .is-active) { background: color-mix(in srgb, var(--gw-cyan) 7%, transparent); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-list__item.is-active { box-shadow: inset 2px 0 var(--gw-cyan); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-avatar { background: var(--gw-raised); border: 1px solid var(--gw-border); border-radius: 50%; color: var(--gw-cyan); font-weight: 500; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-avatar[data-provider="instagram"] { color: var(--gw-violet); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-list__copy small { color: var(--gw-muted); font-size: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.conv-list__meta, .conv-thread__header span, .conv-hub__metric) { color: var(--gw-muted); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-list__meta b { background: var(--gw-cyan); color: var(--gw-bg); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-insight { margin: 18px 20px 0; border-color: color-mix(in srgb, var(--gw-violet) 30%, var(--gw-border)); border-radius: 10px; background: color-mix(in srgb, var(--gw-violet) 5%, transparent); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-insight__orb { border-color: var(--gw-violet); color: var(--gw-violet); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-insight p { color: var(--gw-muted); line-height: 1.65; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-messages { min-height: 200px; max-height: 520px; padding: 20px; gap: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-message { max-width: min(85%, 680px); padding: 12px 15px; border-color: var(--gw-border); background: var(--gw-bg); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-message.is-out { border-color: color-mix(in srgb, var(--gw-cyan) 30%, var(--gw-border)); background: color-mix(in srgb, var(--gw-cyan) 8%, var(--gw-surface)); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-message p { font-size: 13px; line-height: 1.65; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-message time { color: var(--gw-muted); font-size: 10px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-composer { padding: 18px 20px; gap: 10px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-composer :is(label, small) { color: var(--gw-muted); font-size: 11px; line-height: 1.6; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-composer :is(textarea, input) { min-width: 0; border-color: var(--gw-border); border-radius: 9px; background: var(--gw-bg); color: var(--gw-ink); font: 400 13px/1.6 'Geist', sans-serif; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) #gday-conversations :is(.conv-composer button, .conv-empty a) { min-height: 44px; padding: 10px 16px; border: 1px solid var(--gw-cyan) !important; border-radius: 9px !important; background: var(--gw-cyan) !important; box-shadow: none !important; color: var(--gw-on-accent) !important; -webkit-text-fill-color: currentColor !important; font: 600 12px/1.5 'Geist', sans-serif; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-empty { min-height: 320px; padding: 30px 24px; color: var(--gw-muted); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-empty strong { color: var(--gw-ink); font: 500 20px/1.4 'Space Grotesk', sans-serif; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-empty p { font-size: 13px; line-height: 1.7; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-empty__mark { color: var(--gw-cyan); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-empty--compact { min-height: 200px; padding: 24px 18px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-empty--compact strong { font-size: 14px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-empty--compact span { font-size: 12px; }
+
+/* Activity is a real event timeline, with restrained status signals. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity { width: 100%; max-width: none; margin: 0; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__header { padding: 0 0 24px; flex-wrap: wrap; align-items: flex-start; border-color: var(--gw-border); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__eyebrow { color: var(--gw-cyan); font: 500 10px/1.5 'Space Grotesk', sans-serif; letter-spacing: .12em; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__header h2 { color: var(--gw-ink); font: 500 23px/1.35 'Space Grotesk', sans-serif; letter-spacing: -.025em; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__header p { max-width: 640px; color: var(--gw-muted); font-size: 13px; line-height: 1.7; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__stats { border-color: var(--gw-border); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__stats div { padding: 22px 20px 22px 0; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__stats div + div { border-color: var(--gw-border); padding-left: 26px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__stats strong { color: var(--gw-ink); font: 500 29px/1.3 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__stats span { color: var(--gw-muted); font-size: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__filters { gap: 22px; max-width: 100%; padding: 14px 0 10px; overscroll-behavior-inline: contain; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__filters button { min-height: 42px; color: var(--gw-muted); font: 500 12px/1.5 'Geist', sans-serif; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__filters button.is-active { color: var(--gw-cyan); border-color: var(--gw-cyan); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__notice { color: var(--gw-muted); font-size: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__notice.is-error { color: var(--gw-danger); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gactivity__list, .gactivity__body, .gactivity__details ol, .gactivity__details li, .gactivity__meta span + span) { border-color: var(--gw-border); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__rail::after { background: var(--gw-border); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__rail span { width: 8px; height: 8px; margin-top: 29px; border-radius: 50%; border-color: var(--gw-bg); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__kind { color: var(--gw-muted); font: 500 10px/1.4 'Space Grotesk', sans-serif; letter-spacing: .1em; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__item h3 { color: var(--gw-ink); font: 500 16px/1.5 'Space Grotesk', sans-serif; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__body > p { max-width: 850px; color: var(--gw-muted); font-size: 13px; line-height: 1.7; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__state { color: var(--gw-muted); font-size: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__state i { border-radius: 50%; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__meta { color: var(--gw-muted); font: 400 11px/1.6 'Geist', sans-serif; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__details summary { padding: 5px 0; color: var(--gw-cyan); font-size: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__details li :is(strong, small) { color: var(--gw-muted); font-size: 12px; line-height: 1.6; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__item[data-tone="success"] :is(.gactivity__rail span, .gactivity__state i) { background: var(--gw-success); }
+
+/* Planner, decisions, delegation and intelligence panels inherit one material. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-panel {
+  --gpi-bg: var(--gw-surface);
+  --gpi-bg-soft: var(--gw-bg);
+  --gpi-border: var(--gw-border);
+  --gpi-text: var(--gw-ink);
+  --gpi-text-dim: var(--gw-muted);
+  --gpi-text-mute: var(--gw-muted);
+  --gpi-accent: var(--gw-cyan);
+  --gpi-radius: 16px;
+  --gpi-radius-sm: 10px;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-card * { font-family: inherit !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-card :is(h1, h2, h3, h4) { color: var(--gw-ink) !important; font-family: 'Space Grotesk', sans-serif !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-card :is(p, li, span) { color: inherit; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gpi-card__hint, .gpi-item__reason, .gpi-rank__reason, .gpi-footer, .gpi-mini__hint, .gpi-mini__empty) { color: var(--gw-muted) !important; font-size: 12px; line-height: 1.65; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-card__hint { margin-top: 7px; max-width: 760px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-card__actions { gap: 8px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-summary { padding: 16px 18px; gap: 12px; border: 1px solid color-mix(in srgb, var(--gw-cyan) 27%, var(--gw-border)); border-radius: 10px; background: color-mix(in srgb, var(--gw-cyan) 5%, transparent); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-summary__text { color: var(--gw-ink) !important; font-size: 13px; line-height: 1.7; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-summary__rec { color: var(--gw-cyan) !important; font-size: 12px; font-style: normal; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-section { margin-top: 26px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-section h4 { margin-bottom: 13px; color: var(--gw-muted) !important; font: 500 11px/1.5 'Space Grotesk', sans-serif !important; letter-spacing: .1em; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gpi-list, .gpi-dec-list, .gpi-alerts-list) { gap: 0; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gpi-item, .gpi-rank__item, .gpi-dec-item, .gpi-fu-task, .gpi-alert) { padding: 17px 0; margin: 0; border: 0; border-bottom: 1px solid var(--gw-border); border-radius: 0; background: transparent; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gpi-item__body strong, .gpi-rank__title, .gpi-dec-item__text) { color: var(--gw-ink) !important; font-size: 14px; font-weight: 500; line-height: 1.6; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gpi-rank__pos, .gpi-item__score, .gpi-rank__score, .gpi-chip, .gpi-mini__score) { color: var(--gw-cyan) !important; background: color-mix(in srgb, var(--gw-cyan) 8%, transparent); font-weight: 500; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-rank__score { background: transparent; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-chip { border-color: color-mix(in srgb, var(--gw-cyan) 28%, var(--gw-border)); font-size: 11px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gpi-blocks, .gpi-360-grid, .gpi-shortcuts__cards) { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gpi-block, .gpi-day, .gpi-360-block, .gpi-mini-card) { min-width: 0; padding: 16px; border: 1px solid var(--gw-border); border-radius: 10px; background: var(--gw-bg); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gpi-block__time, .gpi-day__count, .gpi-rank__due) { color: var(--gw-cyan) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-week-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 10px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-day { min-height: 160px; gap: 9px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gpi-day__date, .gpi-day__events li, .gpi-dec-item__meta, .gpi-load__count) { color: var(--gw-muted) !important; line-height: 1.6; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-scope { max-width: 100%; padding: 4px; border-color: var(--gw-border); background: var(--gw-bg); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-scope button { min-height: 36px; padding: 7px 11px; color: var(--gw-muted); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-scope button.is-active { color: var(--gw-cyan); background: color-mix(in srgb, var(--gw-cyan) 10%, var(--gw-surface)); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-loading { justify-content: flex-start; padding: 30px 10px; color: var(--gw-muted); font-size: 13px; line-height: 1.7; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-spinner { flex: 0 0 18px; border-color: var(--gw-border); border-top-color: var(--gw-cyan); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gpi-error, .gmem__error, .gww-alert--err) { padding: 16px 18px; border: 1px solid color-mix(in srgb, var(--gw-danger) 40%, var(--gw-border)); border-radius: 10px; background: color-mix(in srgb, var(--gw-danger) 6%, var(--gw-surface)); color: var(--gw-danger) !important; font-size: 13px; line-height: 1.6; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gpi-section--alert h4, .gpi-chip--warn, .gpi-mini__hint--warn, .gpi-360-warn, .gpi-modal__warn) { color: var(--gw-amber) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gpi-section--risk h4, .gpi-360-block--risk h4) { color: var(--gw-danger) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-360-block--next h4 { color: var(--gw-success) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-deleg-tone { min-height: 42px; border-color: var(--gw-border); background: var(--gw-bg); color: var(--gw-muted); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-deleg-tone.is-active { border-color: var(--gw-cyan); color: var(--gw-cyan); background: color-mix(in srgb, var(--gw-cyan) 8%, var(--gw-bg)); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-modal { padding: 24px; border-color: var(--gw-border); border-radius: 16px; background: var(--gw-surface); color: var(--gw-ink); box-shadow: var(--gw-shadow); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gpi-modal__hint, .gpi-modal__preview) { color: var(--gw-muted); font-size: 13px; line-height: 1.7; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-modal__preview { background: var(--gw-bg); border-color: var(--gw-border); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-cmt-item { padding: 18px 0 !important; border: 0 !important; border-bottom: 1px solid var(--gw-border) !important; border-radius: 0 !important; background: transparent !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-shortcuts { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; backdrop-filter: none; box-shadow: none; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-shortcuts__buttons { display: flex !important; flex-wrap: wrap; gap: 8px !important; margin: 0 0 18px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-shortcut { flex: 0 1 auto; min-height: 44px !important; padding: 10px 14px !important; border: 1px solid var(--gw-border) !important; border-radius: 9px !important; background: transparent !important; color: var(--gw-muted) !important; box-shadow: none !important; font: 500 12px/1.5 'Geist', sans-serif !important; transform: none !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-shortcut.is-enabled { border-color: color-mix(in srgb, var(--gw-cyan) 30%, var(--gw-border)) !important; color: var(--gw-cyan) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-shortcut__icon { font-size: 16px !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-shortcut__lock { padding: 1px 5px !important; color: var(--gw-muted) !important; border-color: var(--gw-border) !important; background: var(--gw-bg) !important; font-size: 9px !important; }
+
+/* Inputs and detailed documents share the workspace's readable foundation. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(
+  .gpi-input, .gpi-textarea, .gpi-select, .gday__reminders-toolbar select,
+  .gday__doc-row input, .gday__doc-row select, .gmem__form input,
+  .gmem__filters select, .gtutor__search-input, .gtutor__notes-textarea
+) {
+  max-width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--gw-border) !important;
+  border-radius: 9px !important;
+  background: var(--gw-bg) !important;
+  color: var(--gw-ink) !important;
+  box-shadow: none !important;
+  font: 400 13px/1.6 'Geist', system-ui, sans-serif !important;
+  box-sizing: border-box;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab-panel :is(input, textarea)::placeholder { color: var(--gw-muted); opacity: .8; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-preview { border-color: var(--gw-border); border-radius: 16px; background: var(--gw-surface); box-shadow: none; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__doc-header, .gday__doc-suggest) { padding: 18px 22px; border-color: var(--gw-border); background: var(--gw-raised); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-body { padding: 22px; gap: 24px; grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-row--split > div { min-width: 0; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__doc-eyebrow, .gday__doc-suggest strong) { color: var(--gw-cyan); font: 500 10px/1.5 'Space Grotesk', sans-serif; letter-spacing: .12em; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-row label { color: var(--gw-muted); font-size: 11px; letter-spacing: .08em; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-summary { border-left-color: var(--gw-cyan); color: var(--gw-muted); line-height: 1.7; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__doc-conf--warn, .gday__doc-warnings) { color: var(--gw-amber); border-color: color-mix(in srgb, var(--gw-amber) 35%, var(--gw-border)); background: color-mix(in srgb, var(--gw-amber) 8%, transparent); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-conf--ok { color: var(--gw-success); background: color-mix(in srgb, var(--gw-success) 8%, transparent); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-conf--low { color: var(--gw-danger); background: color-mix(in srgb, var(--gw-danger) 8%, transparent); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-close { min-width: 40px; min-height: 40px; color: var(--gw-muted); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__tile-stat, .gdoc-card, .gprod__tile) { padding: 18px; border-color: var(--gw-border); border-radius: 10px; background: var(--gw-bg); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__tile-stat__label, .gdoc-card__date, .gprod__label, .gprod__hint, .gmem__hint) { color: var(--gw-muted); font-family: 'Geist', sans-serif; font-size: 11px; line-height: 1.6; letter-spacing: .05em; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__tile-stat__value, .gdoc-card__total, .gprod__value) { color: var(--gw-ink); font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-variant-numeric: tabular-nums; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gprod__tiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 16px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gprod__spark { border-color: var(--gw-border); background: transparent; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gdoc-card__type, .gdoc-card__link, .gmem__answer strong) { color: var(--gw-cyan); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gdoc-card__due { color: var(--gw-amber); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gmem__answer, .gmem__cite, .gww-activate, .gww-live) { border-color: var(--gw-border); border-radius: 10px; background: var(--gw-bg); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gmem__cite-quote { color: var(--gw-ink); line-height: 1.7; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gmem__status, .gmem__cite-meta, .gww-activate__sub, .gww-live__label, .gww-live__hint) { color: var(--gw-muted); line-height: 1.6; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gww-live__text { color: var(--gw-cyan); font-family: 'Geist', sans-serif; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gmem__status-ok { color: var(--gw-success); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gmem__status-warn { color: var(--gw-amber); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gmem__status-err { color: var(--gw-danger); }
+
+/* Reading and study keep their own content structure, using the same palette. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gtutor { color: var(--gw-ink); font-family: 'Geist', system-ui, sans-serif; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gtutor__hero { grid-template-columns: 48px minmax(0, 1fr) !important; padding: 8px 0 24px !important; border: 0 !important; border-bottom: 1px solid var(--gw-border) !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gtutor__author-mark { width: 48px !important; height: 48px !important; border: 1px solid var(--gw-border); border-radius: 50% !important; background: var(--gw-surface) !important; color: var(--gw-cyan) !important; font-size: 23px !important; box-shadow: none !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gtutor__title, .gtutor__detail-title, .gtutor__study-title) { color: var(--gw-ink) !important; font: 500 clamp(22px, 3vw, 30px)/1.35 'Space Grotesk', sans-serif !important; letter-spacing: -.025em !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gtutor__hint, .gtutor__author-bio) { color: var(--gw-muted) !important; font-size: 13px !important; line-height: 1.7 !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gtutor__card, .gtutor__curriculum, .gtutor__study-card, .gtutor__sig-card, .gtutor__search-hit, .gtutor__concept-book, .gtutor__related-card) { border: 1px solid var(--gw-border) !important; border-radius: 12px !important; background: var(--gw-surface) !important; box-shadow: none !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gtutor__card:hover { transform: none !important; border-color: var(--gw-cyan) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gtutor__card-title { color: var(--gw-ink) !important; font: 500 16px/1.5 'Space Grotesk', sans-serif !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gtutor__grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)) !important; gap: 18px !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gtutor__tabs { max-width: 100%; padding: 4px !important; border: 1px solid var(--gw-border) !important; border-radius: 10px !important; background: var(--gw-bg) !important; overflow-x: auto; flex-wrap: nowrap; overscroll-behavior-inline: contain; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gtutor__tab { flex: 0 0 auto; min-height: 44px; padding: 9px 13px !important; color: var(--gw-muted) !important; font: 500 12px/1.5 'Geist', sans-serif !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gtutor__tab.is-active { color: var(--gw-cyan) !important; background: color-mix(in srgb, var(--gw-cyan) 8%, var(--gw-surface)) !important; box-shadow: none !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gtutor__chip, .gtutor__theme-chip, .gtutor__t) { padding: 4px 9px !important; border: 1px solid var(--gw-border) !important; background: var(--gw-raised) !important; color: var(--gw-muted) !important; font: 400 11px/1.5 'Geist', sans-serif !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gtutor__chip--accent, .gtutor__chip--sage) { color: var(--gw-cyan) !important; border-color: color-mix(in srgb, var(--gw-cyan) 35%, var(--gw-border)) !important; background: color-mix(in srgb, var(--gw-cyan) 6%, var(--gw-surface)) !important; }
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .procedure-recorder { color: var(--gw-ink); border-color: color-mix(in srgb, var(--gw-cyan) 45%, var(--gw-border)); border-radius: 14px; background: var(--gw-surface); box-shadow: var(--gw-shadow); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .procedure-recorder small { color: var(--gw-muted); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .procedure-recorder button { min-height: 42px; border-color: var(--gw-cyan); background: var(--gw-cyan); color: var(--gw-bg); font-family: 'Geist', sans-serif; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .procedure-recorder .procedure-recorder__cancel { border-color: var(--gw-border); background: transparent; color: var(--gw-muted); }
+
+@media (max-width: 980px) {
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday-today__row { grid-template-columns: minmax(0, 1fr) !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-hub__grid { grid-template-columns: minmax(210px, 280px) minmax(0, 1fr); }
+}
+
+@media (max-width: 760px) {
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tabs { gap: 12px !important; padding-bottom: 12px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab-group + .gday__tab-group { padding-left: 12px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__quickbar { padding: 16px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__quickbar-form { grid-template-columns: 42px minmax(0, 1fr) 42px !important; gap: 4px !important; padding: 4px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__quickbar-form :is(button, .gday__doc-btn) { width: 42px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__quickbar-form input[type="text"] { font-size: 16px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__card, .gpi-card) { padding: 18px !important; border-radius: 12px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__card h3, .gpi-card__head h3) { font-size: 18px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-hub__grid { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-list { border-right: 0; border-bottom: 1px solid var(--gw-border); }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-list__items { max-height: 240px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-thread { min-height: 420px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-insight { margin: 16px 14px 0; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-messages { padding: 16px 14px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-composer { grid-template-columns: minmax(0, 1fr); padding: 16px 14px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-composer :is(label, small) { grid-column: auto; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-body { grid-template-columns: minmax(0, 1fr); padding: 18px; gap: 18px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-thumb { max-height: 220px; aspect-ratio: auto; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-row--split { flex-wrap: wrap; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-row--split > div { flex: 1 1 180px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-deleg-row { grid-template-columns: minmax(0, 1fr); }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-footer { flex-wrap: wrap; gap: 8px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__header p { max-width: 100%; }
+}
+
+@media (max-width: 480px) {
+  html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__card, .gpi-card) { padding: 16px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile { gap: 10px; padding-inline: 0; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile__time { flex-basis: 48px; font-size: 12px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-tile__remove { flex-basis: 36px; width: 36px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder-content { flex-basis: 100%; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder-actions { width: 100%; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder-actions .gday__btn { flex: 1 1 auto; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminder-detail { padding: 14px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__reminders-toolbar select { flex: 1 1 130px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__stats div { padding: 18px 8px 18px 0; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__stats div + div { padding-left: 12px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__stats strong { font-size: 24px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gactivity__stats span { font-size: 11px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-rank__item { grid-template-columns: 30px minmax(0, 1fr) 34px; gap: 8px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-rank__pos { width: 28px; height: 28px; font-size: 15px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-load li { grid-template-columns: 85px minmax(0, 1fr) 24px; font-size: 12px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gpi-dec-form__row > * { min-width: 100%; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gmem__form { flex-wrap: wrap; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gmem__form input { flex: 1 1 100%; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gmem__filters select { flex: 1 1 100%; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-header { padding: 12px 14px; gap: 8px; flex-wrap: wrap; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-loading { align-items: flex-start; padding: 18px; gap: 12px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-thumb-loading { width: 64px; height: 80px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__doc-skeleton { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body.gunter-workspace:not(.gunter-orbit-home-active) :is(
+    .gday__tab-panel, .gday__quickbar, .gday__doc-preview, .gday__doc-thumb-loading,
+    .gday__doc-skeleton span, .gpi-card, .gpi-spinner, .conv-hub--loading > div,
+    .gn-assistant, .gn-typing span, .gprod, .gprod__tile--skel, .gmem
+  ) { animation: none !important; transition: none !important; }
+}

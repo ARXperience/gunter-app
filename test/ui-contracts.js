@@ -57,7 +57,7 @@ assert.match(read('styles/gunter-cinematic.css'), /\.gunter-cinematic-stage \{ d
 assert.match(read('styles/gunter-cinematic.css'), /\.prism-hero::before \{ content: none !important; display: none !important; \}/, 'the hero has no oversized Gunter watermark behind its content');
 
 const config = read('config.html');
-assert.equal((config.match(/class="gunter-icon" data-gunter-icon=/g) || []).length, 8, 'all configuration tabs use the shared outline icon treatment');
+assert.equal((config.match(/class="gunter-icon" data-gunter-icon=/g) || []).length, 9, 'all configuration tabs use the shared outline icon treatment');
 for (const id of ['premium', 'voice', 'conversations', 'actions', 'connections', 'preferences', 'data', 'diagnostics']) {
     assert.match(config, new RegExp(`id="config-tab-${id}"[^>]*aria-controls="config-panel-${id}"`));
     assert.match(config, new RegExp(`id="config-panel-${id}"[^>]*role="tabpanel"[^>]*aria-labelledby="config-tab-${id}"`));
@@ -93,10 +93,10 @@ assert.doesNotMatch(commandNav, /timeZone:\s*['"]America\/Bogota['"]/, 'the cloc
 assert.match(commandNav, /\.gunter-home__focus.*focusCommand/s, 'the home CTA focuses the existing working command input');
 assert.match(commandNav, /GunterParticles\?\.mount\?\./, 'the home mascot mounts the shared particle renderer');
 assert.match(commandNav, /data-gunter-particles="hero"/, 'the home mascot uses the particle hero variant');
-assert.match(read('js/services/gunter-particles.js'), /pointermove[\s\S]*record\.targetX[\s\S]*record\.hover/, 'pointer tracking drives the interactive particle hologram');
+assert.match(read('js/services/gunter-particles.js'), /const pointer = event =>[\s\S]*record\.targetX[\s\S]*'pointermove'/, 'pointer tracking drives the existing abstract core');
 assert.match(read('styles/gunter-command-center.css'), /body\.gunter-page-day \.gunter-command-nav__brand,[\s\S]*body\.gunter-page-day \.gunter-command-nav__links \{ display: none !important; \}/, 'the duplicated top brand bar is hidden on the mobile home screen');
 assert.match(read('js/services/gunter-companion.js'), /data-gunter-particles="chat"/, 'the floating Gunter companion uses the particle mascot');
-assert.match(read('js/services/gunter-particles.js'), /replaceLegacyDashboardMascot/, 'the meetings page replaces the remaining raster mascot with the particle renderer');
+assert.match(read('js/services/gunter-cinematic-shell.js'), /MASCOT_SOURCE = 'assets\/gunter\/gunter-core\.svg'/, 'meeting shell reuses the abstract core instead of a legacy raster character');
 assert.match(day, /id="gday-quickbar-input"[^>]*aria-label=/, 'quick command input has an accessible name');
 assert.match(day, /id="gday-date"/, 'the dynamic local date remains connected to the day controller');
 assert.match(day, /id="gday-doc-btn"[^>]*aria-label=/, 'attachment icon button has an accessible name');

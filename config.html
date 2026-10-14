@@ -58,12 +58,15 @@
     <link rel="stylesheet" href="styles/pages/social-settings.css?v103-device-runtime">
     <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
     <script src="js/services/gunter-particles.js?v135-orbit-home" defer></script>
-    <script src="js/services/gunter-command-center.js?v120-voice-ui" defer></script>
+    <script src="js/services/gunter-command-center.js?v139-orbital-workspaces" defer></script>
     <script src="js/services/gunter-icon-system.js?v135-orbit-home" defer></script>
 <link rel="stylesheet" href="styles/gunter-orbit-home.css?v135-orbit-home">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="styles/gunter-workspace.css?v139-orbital-workspaces">
+    <link rel="stylesheet" href="styles/pages/orbital-settings.css?v139-orbital-workspaces">
 </head>
 
-<body class="at-dark gunter-config-page">
+<body class="at-dark gunter-config-page gunter-workspace">
     <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
     <!-- Neural Mesh Background -->
     <div class="neural-mesh-bg"></div>
@@ -71,17 +74,26 @@
     <main class="config-page" id="main-content" tabindex="-1">
         <!-- Header -->
         <header class="config-header">
+            <div class="config-header__copy">
             <a href="dashboard.html" class="config-header__back">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
                 Volver al Dashboard
             </a>
+            <p class="orbital-settings-kicker">Gunter / Núcleo de control</p>
             <h1 class="config-header__title text-gradient" id="config-header-title">Configuración</h1>
             <p class="config-header__subtitle" id="config-header-subtitle">
                 Administra tus proyectos, preferencias y datos desde un solo lugar.
             </p>
             <button type="button" class="btn btn--secondary config-header__ask" id="config-open-assistant">Preguntar a Gunter</button>
+            </div>
+            <div class="config-orbit-index" aria-hidden="true">
+                <span class="config-orbit-index__ring config-orbit-index__ring--cyan"></span>
+                <span class="config-orbit-index__ring config-orbit-index__ring--amber"></span>
+                <span class="config-orbit-index__ring config-orbit-index__ring--violet"></span>
+                <span class="config-orbit-index__core"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h16M4 12h16M4 18h16M8 3v6m8 0v6M9 15v6"/></svg></span>
+            </div>
         </header>
 
         <!-- Tabs (Nuevo Proyecto vive en dashboard.html, no aquí) -->
@@ -405,7 +417,7 @@
     <!-- Scripts -->
     <script src="js/config.js?v103-api-base"></script>
     <script src="js/theme-manager.js?v135-orbit-home" defer></script>
-    <script src="js/theme-backgrounds.js" defer></script>
+    <script src="js/theme-backgrounds.js?v139-orbital-workspaces" defer></script>
     <script src="js/data-service.js" defer></script>
     <script src="js/services/google-auth-service.js" defer></script>
     <script src="js/services/calendar-service.js" defer></script>

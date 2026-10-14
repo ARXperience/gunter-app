@@ -1,0 +1,172 @@
+/* Orbital working surfaces. The real controls and providers remain unchanged. */
+html body.gunter-workspace {
+    --gw-bg: #080d20; --gw-surface: #101a2c; --gw-raised: #17243b;
+    --gw-ink: #f1f4ff; --gw-muted: #aab8d5; --gw-border: #34445f;
+    --gw-cyan: #6edafa; --gw-amber: #ffb870; --gw-violet: #caa4ff;
+    --gw-danger: #ffaea8; --gw-success: #9ae0c0; --gw-on-accent: #052636;
+    --gw-shadow: 0 16px 44px rgb(3 8 22 / .24); --gw-radius: 16px;
+    --gd-bg: var(--gw-bg); --gd-surface: var(--gw-surface); --gd-surface-lo: var(--gw-raised);
+    --gd-surface-cont: var(--gw-raised); --gd-surface-hi: var(--gw-raised); --gd-surface-lowest: var(--gw-bg);
+    --gd-ink: var(--gw-ink); --gd-on-bg: var(--gw-ink); --gd-on-surface: var(--gw-ink);
+    --gd-ink-soft: var(--gw-muted); --gd-on-surface-var: var(--gw-muted); --gd-on-surface-variant: var(--gw-muted);
+    --gd-primary: var(--gw-cyan); --gd-primary-grad: linear-gradient(120deg, #8be7fa, #65cee8);
+    --gd-on-primary: var(--gw-on-accent); --gd-primary-container: var(--gw-raised);
+    --gd-secondary: var(--gw-success); --gd-tertiary: var(--gw-violet); --gd-outline: var(--gw-muted);
+    --gd-error: var(--gw-danger); --gd-warn: var(--gw-amber); --gd-border: var(--gw-border); --gd-outline-var: var(--gw-border);
+    --gc-ink: var(--gw-ink); --gc-accent: var(--gw-cyan); --gc-muted: var(--gw-muted);
+    --gc-edge: var(--gw-border); --gc-edge-hi: var(--gw-border); --gc-glass: var(--gw-surface); --gc-glass-soft: var(--gw-raised);
+    --gd-font-body: 'Geist', system-ui, sans-serif; --gd-font-display: 'Space Grotesk', system-ui, sans-serif;
+    --gd-font-mono: 'Geist', system-ui, sans-serif; --jcc-line: var(--gw-border); --jcc-muted: var(--gw-muted);
+    color: var(--gw-ink) !important; background: var(--gw-bg) !important;
+    font-family: var(--gd-font-body) !important; font-size: 14px; line-height: 1.6;
+}
+html body.gunter-workspace.at-light {
+    --gw-bg: #edf2fc; --gw-surface: #fff; --gw-raised: #e5edfa;
+    --gw-ink: #17283f; --gw-muted: #4c617e; --gw-border: #bccbe0;
+    --gw-cyan: #08617d; --gw-amber: #944714; --gw-violet: #7144a2;
+    --gw-danger: #a4303b; --gw-success: #236c50; --gw-on-accent: #fff;
+    --gw-shadow: 0 12px 36px rgb(33 60 100 / .08);
+    --gd-primary-grad: linear-gradient(120deg, #096480, #07546f);
+}
+html body.gunter-workspace::before { background: radial-gradient(ellipse at 50% 10%, color-mix(in srgb, var(--gw-violet) 8%, transparent), transparent 55%) !important; pointer-events: none; }
+html body.gunter-workspace .gunter-cinematic-bg::before { content: none !important; }
+html body.gunter-workspace #gunter-click-fx { opacity: .3 !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) { padding: 84px 0 108px !important; overflow-x: clip; }
+html body.gunter-workspace :is(button, input, textarea, select, a, p, label, small, summary) { font-family: var(--gd-font-body) !important; }
+html body.gunter-workspace :is(h1, h2, h3, h4) {
+    color: var(--gw-ink) !important; font-family: var(--gd-font-display) !important;
+    font-style: normal !important; font-weight: 600 !important; letter-spacing: -.02em !important;
+    line-height: 1.25 !important; text-shadow: none !important; text-wrap: balance;
+}
+html body.gunter-workspace:not(.gunter-orbit-home-active) h1 { font-size: clamp(25px, 2.5vw, 36px) !important; }
+html body.gunter-workspace h2 { font-size: clamp(19px, 1.7vw, 25px) !important; }
+html body.gunter-workspace h3 { font-size: 17px !important; }
+html body.gunter-workspace :is(.config-header__subtitle, .dashboard-header__subtitle, .gday__subtitle, .results-header__meta) { color: var(--gw-muted) !important; font-size: 14px !important; line-height: 1.6 !important; max-width: 72ch; }
+html body.gunter-workspace :is(.dashboard-main, .gday__main, .config-page, .meeting-page, .results-page, .gadm) { width: 100% !important; max-width: 1640px !important; margin: 0 auto !important; min-width: 0; padding: 30px clamp(16px, 3vw, 44px) !important; }
+html body.gunter-workspace :is(.config-page, .meeting-page, .results-page) { border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; }
+html body.gunter-workspace :is(.dashboard-page, .gday, .gday__shell) { margin: 0 !important; padding: 0 !important; width: 100% !important; min-width: 0; background: transparent !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday, .gday__shell, .gday__main) { height: auto !important; min-height: 0 !important; }
+html body.gunter-workspace.gunter-page-day:not(.gunter-orbit-home-active) .gday__main > :is(.gw-page-heading, .gday__tab-panel, #gday-tabs, .gunter-breadcrumb) { width: 100% !important; max-width: none !important; margin-inline: 0 !important; }
+html body.gunter-workspace :is(.gday__sidebar, .dashboard-page > .sidebar, .gunter-flow, .gd-theme-toggle) { display: none !important; }
+html body.gunter-workspace .gunter-console { display: none !important; }
+html body.gunter-workspace .gunter-breadcrumb { margin: 0 0 20px !important; }
+html body.gunter-workspace .gunter-breadcrumb li { font-size: 11px !important; letter-spacing: .06em !important; }
+html body.gunter-workspace .gunter-reveal { opacity: 1 !important; transform: none !important; animation: none !important; }
+html body.gunter-workspace .gunter-command-nav {
+    position: fixed !important; inset: 0 0 auto !important; z-index: 800 !important;
+    width: 100% !important; height: 76px !important; min-height: 76px !important; max-width: none !important;
+    display: flex !important; flex-direction: row !important; align-items: center !important;
+    gap: 14px !important; margin: 0 !important; padding: 12px 78px 12px 24px !important;
+    border: 0 !important; border-bottom: 1px solid var(--gw-border) !important; border-radius: 0 !important;
+    background: color-mix(in srgb, var(--gw-bg) 94%, transparent) !important; box-shadow: none !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important; overflow: visible !important;
+    transform: none !important; filter: none !important; contain: none !important; will-change: auto !important;
+}
+html body.gunter-workspace .gunter-command-nav__settings::after { content: none !important; }
+html body.gunter-workspace.gunter-command-center .gunter-command-nav { border-radius: 0 !important; box-shadow: none !important; }
+html body.gunter-workspace.gunter-command-center .gunter-command-nav .gunter-command-nav__links > a.is-active { background: color-mix(in srgb, var(--gw-cyan) 10%, var(--gw-surface)) !important; color: var(--gw-cyan) !important; }
+html body.gunter-workspace.gunter-command-center .gunter-command-nav .gunter-command-nav__links > a.is-active span { color: var(--gw-cyan) !important; }
+html body.gunter-workspace.gunter-orbit-home-active .gunter-command-nav { display: none !important; }
+html body.gunter-workspace .gunter-command-nav__brand { display: grid !important; grid-template-columns: 30px auto; column-gap: 9px; row-gap: 0; flex: 0 0 auto !important; width: auto !important; padding: 0 !important; margin: 0 !important; }
+html body.gunter-workspace .gunter-command-nav__brand .gunter-particle-thumb { grid-row: 1 / 3; width: 30px !important; height: 30px !important; }
+html body.gunter-workspace .gunter-command-nav__brand > .gunter-particle-thumb { display: block !important; grid-column: 1; }
+html body.gunter-workspace .gunter-command-nav__brand > span:not(.gunter-particle-thumb), html body.gunter-workspace .gunter-command-nav__brand small { grid-column: 2; white-space: nowrap; }
+html body.gunter-workspace .gunter-command-nav__brand > span:not(.gunter-particle-thumb) { display: block !important; font: 600 15px/1.25 var(--gd-font-display) !important; letter-spacing: .15em; color: var(--gw-ink) !important; }
+html body.gunter-workspace .gunter-command-nav__brand small { display: block !important; color: var(--gw-muted) !important; font: 400 9px/1.4 var(--gd-font-body) !important; letter-spacing: .06em; }
+html body.gunter-workspace .gunter-command-nav__links { display: flex !important; flex: 1 1 auto !important; flex-direction: row !important; align-items: center; justify-content: center; gap: 2px !important; margin: 0 !important; padding: 4px !important; border: 1px solid color-mix(in srgb, var(--gw-border) 65%, transparent); border-radius: 24px; background: var(--gw-surface); min-width: 0; }
+html body.gunter-workspace .gunter-command-nav__links > a,
+html body.gunter-workspace .gunter-command-nav__menu > summary { min-height: 36px !important; width: auto !important; padding: 7px clamp(6px, .7vw, 12px) !important; font: 500 10px/1.2 var(--gd-font-display) !important; letter-spacing: .05em !important; text-transform: uppercase; border-radius: 18px !important; border: 1px solid transparent !important; color: var(--gw-muted) !important; background: transparent !important; box-shadow: none !important; }
+html body.gunter-workspace .gunter-command-nav__links > a > .gunter-icon { display: none; }
+html body.gunter-workspace .gunter-command-nav__links a.is-active { color: var(--gw-cyan) !important; background: color-mix(in srgb, var(--gw-cyan) 10%, var(--gw-surface)) !important; border-color: color-mix(in srgb, var(--gw-cyan) 38%, transparent) !important; }
+html body.gunter-workspace :is(.gunter-command-nav__popover, .gunter-command-nav__mobile-panel) { background: var(--gw-surface) !important; border: 1px solid var(--gw-border) !important; box-shadow: var(--gw-shadow) !important; }
+html body.gunter-workspace .gunter-command-nav__popover { inset: calc(100% + 10px) 0 auto auto !important; min-width: 215px; }
+html body.gunter-workspace .gunter-command-nav__menu { position: relative !important; margin: 0 !important; }
+html body.gunter-workspace .gunter-command-nav__menu > summary .gunter-icon { width: 14px; }
+.gw-assistant-state { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; padding: 5px 10px; border: 1px solid var(--gw-border); border-radius: 20px; color: var(--gw-amber); font-size: 9px; line-height: 1.4; text-transform: uppercase; letter-spacing: .08em; }
+.gw-assistant-state i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+[data-assistant-state="speaking"] .gw-assistant-state { color: var(--gw-violet); }
+[data-assistant-state="thinking"] .gw-assistant-state, [data-assistant-state="listening"] .gw-assistant-state { color: var(--gw-cyan); }
+[data-assistant-state="error"] .gw-assistant-state { color: var(--gw-danger); }
+.gw-local-time { color: var(--gw-muted); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+html body.gunter-workspace :is(.gw-theme-toggle, .gunter-command-nav__settings) { width: 36px !important; height: 36px !important; min-width: 36px; min-height: 36px !important; margin: 0 !important; padding: 7px !important; display: inline-grid !important; place-items: center; color: var(--gw-cyan) !important; background: var(--gw-surface) !important; border: 1px solid var(--gw-border) !important; border-radius: 11px !important; box-shadow: none !important; }
+html body.gunter-workspace #gauth-chip { position: fixed !important; top: 17px !important; right: 22px !important; bottom: auto !important; z-index: 1000 !important; }
+html body.gunter-workspace.gunter-orbit-home-active #gauth-chip { display: none !important; }
+html body.gunter-workspace #gauth-chip .gauth-avatar { width: 36px !important; height: 36px !important; border-radius: 11px !important; background: var(--gw-raised) !important; color: var(--gw-ink) !important; box-shadow: none !important; }
+html body.gunter-workspace .gunter-command-nav__dock {
+    position: fixed !important; top: auto !important; left: 50% !important; bottom: max(18px, env(safe-area-inset-bottom)) !important;
+    right: auto !important; transform: translateX(-50%) !important; width: max-content !important; max-width: calc(100vw - 110px);
+    height: 58px !important; min-height: 58px !important; display: flex !important; align-items: center !important; gap: 5px !important;
+    margin: 0 !important; padding: 6px !important; border: 1px solid var(--gw-border) !important; border-radius: 30px !important;
+    background: var(--gw-bg) !important; box-shadow: var(--gw-shadow) !important;
+}
+html body.gunter-workspace .gunter-command-nav__dock :is(a, button) { display: flex !important; flex-direction: row !important; align-items: center; justify-content: center; gap: 8px; width: auto !important; min-height: 44px !important; height: 44px !important; padding: 8px 14px !important; margin: 0 !important; border: 0 !important; border-radius: 24px !important; background: var(--gw-surface) !important; color: var(--gw-ink) !important; transform: none !important; box-shadow: none !important; font-size: 12px !important; }
+html body.gunter-workspace .gunter-command-nav__dock .gunter-command-nav__voice { color: var(--gw-cyan) !important; background: color-mix(in srgb, var(--gw-cyan) 9%, var(--gw-surface)) !important; }
+html body.gunter-workspace .gunter-command-nav__dock .gunter-command-nav__voice[aria-pressed="true"] { color: var(--gw-amber) !important; }
+html body.gunter-workspace .gunter-command-nav__dock :is(a, button) span { position: static !important; font-size: inherit !important; }
+html body.gunter-workspace .gunter-command-nav__dock .gw-dock-core { width: 40px !important; padding: 5px !important; background: transparent !important; }
+html body.gunter-workspace .gunter-command-nav__dock .gunter-icon { width: 17px !important; height: 17px !important; }
+html body.gunter-workspace .gunter-command-nav__mobile,
+html body.gunter-workspace .gunter-command-nav__dock .gunter-command-nav__dock-menu { display: none !important; }
+.gw-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.gw-page-heading h1 { margin: 0 0 7px !important; }
+.gw-page-heading p { margin: 0; color: var(--gw-muted); font-size: 14px; }
+.gw-section-marker { display: inline-block; width: 7px; height: 7px; margin-bottom: 14px; border: 1.5px solid var(--gw-cyan); border-radius: 50%; }
+html body.gunter-workspace :is(button, .btn, [role="button"], summary, input, select, textarea, a):focus-visible { outline: 2px solid var(--gw-cyan) !important; outline-offset: 3px !important; }
+html body.gunter-workspace :is(button, .btn, [role="button"], summary) { transition: background-color 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out, opacity 160ms ease-out !important; }
+html body.gunter-workspace :is(button, .btn, [role="button"]):active:not(:disabled) { translate: 0 1px; }
+html body.gunter-workspace :is(button:disabled, input:disabled, select:disabled, textarea:disabled, [aria-disabled="true"]) { opacity: .52 !important; cursor: not-allowed !important; box-shadow: none !important; }
+html body.gunter-workspace :is(.btn, .gday__btn, .gps-btn, .gps-mode-btn, .gpi-btn, .gctrl-btn) { min-height: 40px; padding: 9px 16px !important; border: 1px solid var(--gw-border) !important; border-radius: 11px !important; background: var(--gw-raised) !important; color: var(--gw-ink) !important; font-size: 13px !important; font-weight: 500 !important; letter-spacing: .01em !important; clip-path: none !important; box-shadow: none !important; text-shadow: none !important; }
+html body.gunter-workspace :is(.btn--primary, .gday__btn--primary, .gpi-btn--primary, .gps-btn--primary) { color: var(--gw-on-accent) !important; background: var(--gd-primary-grad) !important; border-color: var(--gw-cyan) !important; }
+html body.gunter-workspace :is(.btn--danger, .gday__btn--danger, .gps-btn--danger) { color: var(--gw-danger) !important; background: color-mix(in srgb, var(--gw-danger) 8%, var(--gw-surface)) !important; border-color: color-mix(in srgb, var(--gw-danger) 50%, var(--gw-border)) !important; }
+html body.gunter-workspace :is(input:where(:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not([type="file"])), textarea, select) { min-width: 0; min-height: 42px; border: 1px solid var(--gw-border) !important; border-radius: 10px !important; color: var(--gw-ink) !important; background: var(--gw-bg) !important; box-shadow: none !important; font-size: 14px !important; padding: 10px 12px !important; }
+html body.gunter-workspace :is(input, textarea)::placeholder { color: var(--gw-muted) !important; opacity: 1; }
+html body.gunter-workspace :is(select, input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--gw-cyan); }
+html body.gunter-workspace select option { background: var(--gw-surface); color: var(--gw-ink); }
+html body.gunter-workspace :is(.modal__content, .modal-content, .gday__modal, .gps-modal__content, dialog) { background: var(--gw-surface) !important; color: var(--gw-ink) !important; border: 1px solid var(--gw-border) !important; border-radius: 20px !important; box-shadow: var(--gw-shadow) !important; }
+html body.gunter-workspace :is(.gday__empty, .empty-state, .gpi-empty, .gctrl-empty) { color: var(--gw-muted) !important; border-color: var(--gw-border) !important; }
+html body.gunter-workspace :is(.error-message, .gday__error, [data-state="error"]) { color: var(--gw-danger) !important; }
+html body.gunter-workspace :is(.badge, .gday__chip, .status-badge) { border-radius: 20px !important; border: 1px solid var(--gw-border) !important; background: var(--gw-raised) !important; color: var(--gw-muted) !important; font-size: 11px !important; box-shadow: none !important; }
+html body.gunter-workspace .gday__chip--danger { color: var(--gw-danger) !important; }
+html body.gunter-workspace ::selection { background: color-mix(in srgb, var(--gw-cyan) 30%, transparent); color: var(--gw-ink); }
+html body.gunter-workspace :is(input, textarea) { caret-color: var(--gw-cyan); }
+html body.gunter-workspace * { scrollbar-width: thin; scrollbar-color: var(--gw-border) transparent; }
+html body.gunter-workspace [hidden] { display: none !important; }
+@media (hover: hover) and (pointer: fine) {
+    html body.gunter-workspace :is(.btn, .gday__btn, .gps-btn, .gpi-btn, .gctrl-btn):hover:not(:disabled) { border-color: var(--gw-cyan) !important; filter: brightness(1.06); }
+    html body.gunter-workspace .gunter-command-nav__links > a:hover { color: var(--gw-cyan) !important; background: var(--gw-raised) !important; }
+}
+@media (max-width: 1320px) {
+    html body.gunter-workspace .gunter-command-nav { gap: 10px !important; padding-left: 18px !important; }
+    html body.gunter-workspace .gw-assistant-state { display: none; }
+    html body.gunter-workspace .gunter-command-nav__brand small { display: none !important; }
+    html body.gunter-workspace .gunter-command-nav__brand .gunter-particle-thumb { grid-row: auto; }
+}
+@media (max-width: 1080px) {
+    html body.gunter-workspace .gunter-command-nav__links { display: none !important; }
+    html body.gunter-workspace .gunter-command-nav__mobile { display: block !important; margin-left: auto; }
+    html body.gunter-workspace.gunter-command-center .gunter-command-nav .gunter-command-nav__mobile { display: block !important; height: auto !important; width: auto !important; }
+    html body.gunter-workspace.gunter-command-center .gunter-command-nav__mobile > summary { display: inline-flex !important; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; color: var(--gw-ink) !important; background: var(--gw-surface) !important; border: 1px solid var(--gw-border) !important; }
+    html body.gunter-workspace .gunter-command-nav__mobile-panel { position: absolute !important; top: calc(100% + 16px) !important; bottom: auto !important; right: 16px !important; left: auto !important; width: min(310px, calc(100vw - 32px)) !important; max-height: calc(100dvh - 180px); overflow-y: auto; }
+    html body.gunter-workspace .gunter-command-nav__mobile-panel a { min-height: 44px !important; color: var(--gw-ink) !important; }
+}
+@media (max-width: 700px) {
+    html body.gunter-workspace:not(.gunter-orbit-home-active) { padding-top: 72px !important; padding-bottom: 104px !important; }
+    html body.gunter-workspace .gunter-command-nav { height: 68px !important; min-height: 68px !important; padding: 10px 58px 10px 14px !important; gap: 6px !important; }
+    html body.gunter-workspace .gunter-command-nav__brand { grid-template-columns: 24px auto; gap: 6px; }
+    html body.gunter-workspace .gunter-command-nav__brand { min-width: 102px !important; }
+    html body.gunter-workspace .gunter-command-nav__brand .gunter-particle-thumb { width: 24px !important; height: 24px !important; }
+    html body.gunter-workspace .gunter-command-nav__brand > span:not(.gunter-particle-thumb) { font-size: 13px !important; }
+    html body.gunter-workspace .gw-local-time { display: none; }
+    html body.gunter-workspace :is(.gw-theme-toggle, .gunter-command-nav__settings) { min-width: 36px; }
+    html body.gunter-workspace #gauth-chip { top: 15px !important; right: 12px !important; }
+    html body.gunter-workspace .gunter-command-nav__dock { left: calc(50% - 23px) !important; bottom: max(12px, env(safe-area-inset-bottom)) !important; height: 54px !important; min-height: 54px !important; min-width: 0 !important; max-width: calc(100vw - 80px) !important; padding: 4px !important; gap: 2px !important; }
+    html body.gunter-workspace .gunter-command-nav__dock :is(a, button) { padding: 8px 10px !important; font-size: 11px !important; }
+    html body.gunter-workspace .gunter-command-nav__dock .gw-dock-core { width: 30px !important; padding: 2px !important; }
+    html body.gunter-workspace .gunter-command-nav__dock .gunter-command-nav__voice span { max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gw-page-heading { display: block; margin-bottom: 22px; }
+    .gw-page-heading .gday__header-stats { margin-top: 16px; flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+    html body.gunter-workspace *, html body.gunter-workspace *::before, html body.gunter-workspace *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+html.reduce-motion body.gunter-workspace *, body.gunter-workspace.reduce-motion * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

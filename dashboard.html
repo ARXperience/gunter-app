@@ -46,16 +46,19 @@
     <link rel="stylesheet" href="styles/pages/gunter-features.css?v1-polar-core-features">
     <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
     <script src="js/services/gunter-particles.js?v135-orbit-home" defer></script>
-    <script src="js/services/gunter-command-center.js?v120-voice-ui" defer></script>
+    <script src="js/services/gunter-command-center.js?v139-orbital-workspaces" defer></script>
     <script src="js/services/gunter-icon-system.js?v135-orbit-home" defer></script>
     <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
     <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
     <script src="js/services/connection-manager.js?v87-context-sync" defer></script>
     <script src="js/services/web-node-runtime.js?v84-control" defer></script>
 <link rel="stylesheet" href="styles/gunter-orbit-home.css?v135-orbit-home">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="styles/gunter-workspace.css?v139-orbital-workspaces">
+    <link rel="stylesheet" href="styles/pages/orbital-meetings.css?v139-orbital-workspaces">
 </head>
 
-<body class="at-dark">
+<body class="at-dark gunter-workspace">
     <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
     <!-- Neural Mesh Background -->
     <div class="neural-mesh-bg"></div>
@@ -133,17 +136,21 @@
             <!-- v52 — Obsidian Prism hero: Gunter como fragmento cognitivo.
                  La imagen vive en assets/gunter/gunter-prism.png; si no existe
                  cae a la mascota transparente clásica. -->
-            <section class="prism-hero" aria-label="Gunter">
+            <section class="prism-hero orbital-meeting-context" aria-label="Contexto de reuniones">
                 <div class="prism-hero__glass" id="prism-hero-glass">
                     <div class="prism-hero__img-wrap" data-gunter-particles="hero">
                         <img src="assets/gunter/gunter-core.svg" alt="Núcleo de Gunter">
                     </div>
                     <div class="prism-hero__text">
                         <h2>GUNTER</h2>
-                        <p class="prism-hero__tag">Fragmento cognitivo activo</p>
+                        <p class="prism-hero__tag">Espacio de reuniones</p>
                         <div class="prism-hero__line"></div>
-                        <span class="prism-hero__hint"><span class="prism-hero__dot"></span><span id="prism-hero-status">Sistemas en línea · listo para trabajar</span></span>
+                        <span class="prism-hero__hint"><span id="prism-hero-status">Grabación, transcripción y análisis en un mismo lugar.</span></span>
                     </div>
+                </div>
+                <div class="orbital-meeting-context__links">
+                    <a href="new-project.html">Preparar reunión <span aria-hidden="true">↗</span></a>
+                    <a href="results.html">Consultar resultados <span aria-hidden="true">↗</span></a>
                 </div>
             </section>
             <!-- El rig cinemático mantiene el cuerpo fijo y mueve sólo la cabeza. -->
@@ -283,7 +290,7 @@
             </section>
 
             <!-- Projects Section -->
-            <section>
+            <section class="orbital-projects-section">
                 <div class="section-header">
                     <h2 class="section-title">Proyectos Recientes</h2>
                     <button class="btn btn--ghost">Ver todos</button>
@@ -305,7 +312,7 @@
     <script src="js/config.js?v103-api-base"></script>
     <script src="js/premium-features-service.js?v122-identity-context" defer></script>
     <script src="js/theme-manager.js?v135-orbit-home" defer></script>
-    <script src="js/theme-backgrounds.js" defer></script>
+    <script src="js/theme-backgrounds.js?v139-orbital-workspaces" defer></script>
     <script src="js/data-service.js" defer></script>
 
     <!-- Fase A.A2 — guard de transcripciones largas (project-knowledge-service usa esto) -->

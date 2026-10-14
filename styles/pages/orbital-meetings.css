@@ -1,0 +1,1623 @@
+/* Orbital meeting workspace. Existing controllers continue to own every state. */
+body.gunter-workspace:is(.gunter-page-dashboard, .gunter-page-new-project, .gunter-page-meeting, .gunter-page-results) {
+  --om-line: color-mix(in srgb, var(--gw-border) 64%, transparent);
+  --om-soft: color-mix(in srgb, var(--gw-surface) 84%, transparent);
+  --om-cyan-soft: color-mix(in srgb, var(--gw-cyan) 8%, var(--gw-surface));
+}
+
+body.gunter-workspace :is(.dashboard-header, .config-header, .meeting-header, .results-header) {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 0 24px !important;
+  margin: 0 0 24px !important;
+  text-align: left !important;
+  min-height: 0 !important;
+  animation: om-arrive .38s ease both !important;
+}
+
+body.gunter-workspace :is(.dashboard-header, .config-header, .meeting-header, .results-header)::before,
+body.gunter-workspace :is(.dashboard-header, .config-header, .meeting-header, .results-header)::after,
+body.gunter-workspace :is(.dashboard-header__title, .config-header__title, .results-header__title)::after {
+  content: none !important;
+}
+
+body.gunter-workspace :is(.dashboard-header__title, .config-header__title, .meeting-header__title, .results-header__title) {
+  color: var(--gw-ink) !important;
+  -webkit-text-fill-color: var(--gw-ink) !important;
+  background: none !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: clamp(24px, 2.6vw, 34px) !important;
+  font-weight: 500 !important;
+  letter-spacing: -.035em !important;
+  line-height: 1.2 !important;
+  margin: 3px 0 8px !important;
+  overflow-wrap: anywhere;
+}
+
+body.gunter-workspace :is(.dashboard-header__subtitle, .config-header__subtitle) {
+  max-width: 670px;
+  color: var(--gw-muted) !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  margin: 0 !important;
+}
+
+body.gunter-workspace :is(.results-header__back, .config-header__back, .meeting-header .header__back) {
+  color: var(--gw-muted) !important;
+  font-size: 12px !important;
+  gap: 7px;
+  min-height: 34px;
+  margin-bottom: 14px !important;
+  text-decoration: none;
+}
+
+body.gunter-workspace :is(.results-header__back, .config-header__back, .meeting-header .header__back):hover {
+  color: var(--gw-cyan) !important;
+}
+
+body.gunter-workspace .orbital-section-intro__index {
+  display: block;
+  color: var(--gw-cyan) !important;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .15em;
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+
+body.gunter-workspace .orbital-section-intro {
+  margin-bottom: 18px;
+}
+
+body.gunter-workspace .orbital-section-intro h2 {
+  color: var(--gw-ink);
+  font-size: 19px;
+  font-weight: 500;
+  margin: 0 0 6px;
+}
+
+body.gunter-workspace .orbital-section-intro p {
+  color: var(--gw-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Reuniones: real project history gets the largest working area. */
+html body.gunter-workspace.gunter-page-new-project .config-header { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; gap: 8px !important; }
+body.gunter-workspace.gunter-page-dashboard .dashboard-main {
+  display: grid !important;
+  grid-template-columns: 280px minmax(0, 1fr) !important;
+  gap: 22px !important;
+  align-content: start;
+  align-items: start;
+}
+
+body.gunter-workspace.gunter-page-dashboard .dashboard-main > :is(.gunter-breadcrumb, .dashboard-header, .gunter-features) {
+  grid-column: 1 / -1;
+}
+
+body.gunter-workspace.gunter-page-dashboard .dashboard-main > div[style*="display:flex"]:first-child,
+body.gunter-workspace.gunter-page-dashboard [data-workspace-context] {
+  display: none !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .dashboard-header {
+  margin-bottom: 0 !important;
+  align-items: center;
+  gap: 20px;
+}
+
+body.gunter-workspace.gunter-page-dashboard .dashboard-header > div > span {
+  color: var(--gw-cyan) !important;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px !important;
+  letter-spacing: .15em !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .stats-row {
+  grid-column: 1;
+  grid-row: 3;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0 !important;
+  padding: 6px !important;
+  margin: 0 !important;
+  border: 1px solid var(--om-line) !important;
+  border-radius: 18px !important;
+  background: var(--om-soft) !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .stat-card {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 135px !important;
+  padding: 17px 14px !important;
+  gap: 12px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .stat-card:nth-child(odd) {
+  border-right: 1px solid var(--om-line) !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .stat-card:nth-child(-n+2) {
+  border-bottom: 1px solid var(--om-line) !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .stat-card__icon {
+  width: 27px !important;
+  height: 27px !important;
+  color: var(--gw-cyan) !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .stat-card__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+body.gunter-workspace.gunter-page-dashboard .stat-card__value {
+  color: var(--gw-ink) !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 30px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: -.04em;
+  margin-bottom: 6px;
+}
+
+body.gunter-workspace.gunter-page-dashboard .stat-card__label {
+  color: var(--gw-muted) !important;
+  font-size: 11px !important;
+  line-height: 1.5;
+}
+
+body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context {
+  grid-column: 1;
+  grid-row: 4;
+  min-height: 0 !important;
+  padding: 22px 18px !important;
+  margin: 0 !important;
+  border: 1px solid var(--om-line) !important;
+  border-radius: 18px !important;
+  background: var(--om-soft) !important;
+  opacity: 1;
+  overflow: hidden;
+}
+
+body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context .prism-hero__glass {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start;
+  min-height: 0 !important;
+  padding: 0 !important;
+  gap: 12px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+  text-align: left !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context .prism-hero__img-wrap {
+  width: 82px !important;
+  height: 82px !important;
+  margin: 0 !important;
+  flex: 0 0 auto;
+  opacity: .85;
+}
+
+body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context .prism-hero__img-wrap::before {
+  content: none !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context .prism-hero__text h2 {
+  color: var(--gw-ink) !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 17px !important;
+  font-weight: 500 !important;
+  letter-spacing: .09em !important;
+  margin: 0 0 5px !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context .prism-hero__tag {
+  color: var(--gw-cyan) !important;
+  font-size: 11px !important;
+  line-height: 1.6;
+  letter-spacing: .02em !important;
+  margin: 0 0 10px !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context .prism-hero__line {
+  display: none !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context .prism-hero__hint {
+  color: var(--gw-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.7 !important;
+  letter-spacing: 0 !important;
+  white-space: normal !important;
+}
+
+body.gunter-workspace .orbital-meeting-context__links {
+  display: flex;
+  flex-direction: column;
+  margin-top: 20px;
+  border-top: 1px solid var(--om-line);
+}
+
+body.gunter-workspace .orbital-meeting-context__links a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 45px;
+  color: var(--gw-ink);
+  font-size: 12px;
+  text-decoration: none;
+  border-bottom: 1px solid var(--om-line);
+  transition: color .18s, padding .18s;
+}
+
+body.gunter-workspace .orbital-meeting-context__links a:hover {
+  color: var(--gw-cyan);
+  padding-left: 4px;
+}
+
+body.gunter-workspace.gunter-page-dashboard .orbital-projects-section {
+  grid-column: 2;
+  grid-row: 3 / span 2;
+  min-width: 0;
+  margin: 0 !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .section-header {
+  margin-bottom: 15px !important;
+  gap: 14px;
+}
+
+body.gunter-workspace.gunter-page-dashboard .section-title {
+  color: var(--gw-ink) !important;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px !important;
+  font-weight: 500;
+  letter-spacing: -.02em;
+}
+
+body.gunter-workspace.gunter-page-dashboard .projects-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 265px), 1fr)) !important;
+  gap: 16px !important;
+  align-items: stretch;
+}
+
+body.gunter-workspace.gunter-page-dashboard :is(.project-card, .project-card--new) {
+  min-width: 0;
+  min-height: 192px !important;
+  padding: 22px !important;
+  border: 1px solid var(--om-line) !important;
+  border-radius: 16px !important;
+  background: var(--om-soft) !important;
+  box-shadow: none !important;
+  transition: border-color .2s ease, background .2s ease, transform .2s ease !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard :is(.project-card, .project-card--new):hover {
+  background: var(--gw-raised) !important;
+  border-color: color-mix(in srgb, var(--gw-cyan) 52%, var(--gw-border)) !important;
+  transform: translateY(-2px) !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .project-card--new {
+  border-style: dashed !important;
+  gap: 12px !important;
+  color: var(--gw-cyan) !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .project-card--new__icon {
+  width: 44px !important;
+  height: 44px !important;
+  color: var(--gw-cyan) !important;
+  border: 1px solid var(--om-line);
+  background: var(--gw-raised) !important;
+  font-size: 26px !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .project-card--new__text {
+  color: var(--gw-cyan) !important;
+  font-size: 13px;
+}
+
+body.gunter-workspace.gunter-page-dashboard .project-card__title {
+  color: var(--gw-ink) !important;
+  font-size: 17px !important;
+  font-weight: 500;
+  padding-right: 30px;
+}
+
+body.gunter-workspace.gunter-page-dashboard :is(.project-card__summary, .project-card__market, .project-card__date) {
+  color: var(--gw-muted) !important;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+body.gunter-workspace.gunter-page-dashboard .project-card__footer {
+  border-color: var(--om-line) !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .project-card__delete {
+  opacity: 1;
+  transform: none;
+  width: 32px;
+  height: 32px;
+  background: transparent !important;
+  border-color: var(--om-line) !important;
+  color: var(--gw-muted) !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .project-card__delete:hover {
+  color: var(--gw-danger) !important;
+  border-color: var(--gw-danger) !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .gunter-features {
+  width: 100%;
+  margin: 10px 0 0 !important;
+  padding: 26px 0 0 !important;
+  border-top: 1px solid var(--om-line);
+  background: transparent !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .gunter-features__header {
+  max-width: none;
+  margin: 0 0 20px !important;
+  text-align: left !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .gunter-features__title {
+  color: var(--gw-ink) !important;
+  font-size: 20px !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .gunter-features__eyebrow {
+  color: var(--gw-cyan) !important;
+  font-size: 10px !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .gunter-features__subtitle {
+  color: var(--gw-muted) !important;
+  max-width: 680px;
+  font-size: 13px !important;
+  margin-inline: 0;
+}
+
+body.gunter-workspace.gunter-page-dashboard .gunter-feature {
+  min-height: 0 !important;
+  justify-content: flex-start;
+  padding: 0 22px 0 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .gunter-feature::before {
+  content: none !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .gunter-feature__visual {
+  display: none !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .gunter-feature__copy {
+  padding: 0 !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .gunter-feature__index {
+  color: var(--gw-cyan) !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .gunter-feature__copy h3 {
+  color: var(--gw-ink) !important;
+  font-size: 16px !important;
+}
+
+body.gunter-workspace.gunter-page-dashboard .gunter-feature__copy p {
+  color: var(--gw-muted) !important;
+  font-size: 12px !important;
+}
+
+/* Nueva reunión: context on the left, the actual form on the right. */
+body.gunter-workspace.gunter-page-new-project .config-header {
+  max-width: none !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .orbital-meeting-setup {
+  display: grid !important;
+  grid-template-columns: minmax(350px, .85fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 26px;
+}
+
+body.gunter-workspace.gunter-page-new-project .step-indicator {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+  max-width: 580px;
+  width: 100%;
+  margin: 0 0 4px !important;
+  gap: 14px;
+  flex-wrap: nowrap !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .step {
+  min-width: 0;
+  padding: 0 !important;
+  gap: 8px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .step__number {
+  width: 31px;
+  height: 31px;
+  background: var(--gw-surface) !important;
+  color: var(--gw-muted) !important;
+  border: 1px solid var(--om-line) !important;
+  box-shadow: none !important;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+}
+
+body.gunter-workspace.gunter-page-new-project .step.active .step__number {
+  color: var(--gw-cyan) !important;
+  border-color: var(--gw-cyan) !important;
+  background: var(--om-cyan-soft) !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .step.completed .step__number {
+  color: var(--gw-success) !important;
+  border-color: var(--gw-success) !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .step__label {
+  display: block !important;
+  color: var(--gw-muted) !important;
+  font-size: 12px;
+}
+
+body.gunter-workspace.gunter-page-new-project .step.active .step__label {
+  color: var(--gw-ink) !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .step-connector {
+  flex: 1;
+  height: 1px;
+  width: 40px;
+  background: var(--om-line) !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-selector {
+  min-width: 0;
+  width: 100%;
+  margin: 0 !important;
+  max-width: none !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-card {
+  min-width: 0;
+  border: 1px solid var(--om-line) !important;
+  border-radius: 15px !important;
+  padding: 18px !important;
+  background: var(--om-soft) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  transition: border-color .2s ease, background .2s ease, transform .2s ease !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-card::before,
+body.gunter-workspace.gunter-page-new-project .env-card::after {
+  content: none !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-card:hover {
+  background: var(--gw-raised) !important;
+  border-color: color-mix(in srgb, var(--gw-cyan) 55%, var(--gw-border)) !important;
+  transform: translateY(-2px) !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-card.selected {
+  background: var(--om-cyan-soft) !important;
+  border-color: var(--gw-cyan) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gw-cyan) 15%, transparent) !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-card .env-card__icon {
+  width: 37px !important;
+  height: 37px !important;
+  font-size: 22px !important;
+  background: var(--gw-raised) !important;
+  border-radius: 10px !important;
+  margin-bottom: 14px !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-card .env-card__title {
+  color: var(--gw-ink) !important;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  margin-bottom: 7px;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-card :is(.env-card__description, .env-card__feature) {
+  color: var(--gw-muted) !important;
+  font-size: 11px !important;
+  line-height: 1.6 !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-card__description {
+  margin-bottom: 13px !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-card__features {
+  padding: 12px 0 0 !important;
+  margin: 0;
+  border-top: 1px solid var(--om-line);
+}
+
+body.gunter-workspace.gunter-page-new-project .env-card__feature {
+  align-items: flex-start;
+  margin-bottom: 4px;
+  gap: 7px;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-card__feature::before {
+  color: var(--gw-cyan) !important;
+  font-size: 10px;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-card__selected {
+  width: 23px;
+  height: 23px;
+  top: 15px;
+  right: 15px;
+  color: var(--gw-bg) !important;
+  background: var(--gw-cyan) !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .env-card__selected * {
+  color: var(--gw-bg) !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .config-form {
+  display: block !important;
+  min-width: 0;
+  width: 100%;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .config-header__back {
+  align-self: flex-start;
+  width: fit-content !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .config-form__section {
+  background: var(--om-soft) !important;
+  border: 1px solid var(--om-line) !important;
+  border-radius: 18px !important;
+  padding: 25px !important;
+  margin: 0 0 16px !important;
+  box-shadow: none !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .config-form__section-title {
+  color: var(--gw-ink) !important;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 17px !important;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+body.gunter-workspace.gunter-page-new-project .config-form__section-title svg {
+  color: var(--gw-cyan) !important;
+  width: 19px;
+  height: 19px;
+}
+
+body.gunter-workspace.gunter-page-new-project .form-label {
+  color: var(--gw-ink) !important;
+  font-size: 12px !important;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+body.gunter-workspace:is(.gunter-page-new-project, .gunter-page-meeting, .gunter-page-results) .form-input {
+  min-height: 45px;
+  padding: 12px 14px !important;
+  background: color-mix(in srgb, var(--gw-bg) 50%, var(--gw-surface)) !important;
+  color: var(--gw-ink) !important;
+  border: 1px solid var(--gw-border) !important;
+  border-radius: 10px !important;
+  font-family: 'Geist', sans-serif !important;
+  font-size: 13px !important;
+  line-height: 1.6;
+  box-shadow: none !important;
+}
+
+body.gunter-workspace:is(.gunter-page-new-project, .gunter-page-meeting, .gunter-page-results) .form-input:focus {
+  border-color: var(--gw-cyan) !important;
+  outline: 2px solid color-mix(in srgb, var(--gw-cyan) 16%, transparent) !important;
+  outline-offset: 2px;
+}
+
+body.gunter-workspace:is(.gunter-page-new-project, .gunter-page-meeting, .gunter-page-results) .form-input::placeholder {
+  color: var(--gw-muted) !important;
+  opacity: .75;
+}
+
+body.gunter-workspace.gunter-page-new-project .form-textarea {
+  min-height: 105px;
+  resize: vertical;
+}
+
+body.gunter-workspace.gunter-page-new-project .audio-upload-description {
+  color: var(--gw-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.7;
+  margin-bottom: 18px;
+}
+
+body.gunter-workspace.gunter-page-new-project .audio-upload-dropzone {
+  min-height: 160px;
+  padding: 22px 18px !important;
+  background: transparent !important;
+  border: 1px dashed var(--gw-border) !important;
+  border-radius: 12px !important;
+  transition: border-color .2s ease, background .2s ease;
+}
+
+body.gunter-workspace.gunter-page-new-project .audio-upload-dropzone:hover {
+  background: var(--om-cyan-soft) !important;
+  border-color: var(--gw-cyan) !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .audio-upload-icon {
+  color: var(--gw-cyan) !important;
+  margin-bottom: 10px;
+}
+
+body.gunter-workspace.gunter-page-new-project .audio-upload-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+body.gunter-workspace.gunter-page-new-project .audio-upload-text {
+  color: var(--gw-ink) !important;
+  font-size: 12px !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .audio-upload-hint {
+  color: var(--gw-muted) !important;
+  font-size: 11px !important;
+}
+
+body.gunter-workspace.gunter-page-new-project .config-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+/* Meeting room: capture, evidence, and copilot remain available together. */
+body.gunter-workspace.gunter-page-meeting .meeting-page {
+  overflow: visible !important;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-mtabs {
+  display: none !important;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-header {
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--om-line) !important;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-header__left {
+  display: block;
+  min-width: 0;
+  flex: 1;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-header__info {
+  border: 0;
+  padding: 0;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-header__meta {
+  color: var(--gw-muted) !important;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 10px;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-header__right {
+  gap: 12px;
+  padding-bottom: 3px;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-timer {
+  color: var(--gw-muted) !important;
+  background: var(--gw-surface) !important;
+  border-color: var(--om-line) !important;
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  animation: none;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-timer__dot {
+  background: var(--gw-muted) !important;
+  animation: none;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-timer.recording {
+  border-color: var(--gw-danger) !important;
+  color: var(--gw-danger) !important;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-timer.recording .meeting-timer__dot {
+  background: var(--gw-danger) !important;
+  animation: om-recording 1.6s ease-in-out infinite;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-content {
+  grid-template-columns: minmax(225px, .72fr) minmax(0, 1.4fr) minmax(280px, .95fr) !important;
+  align-items: stretch;
+  gap: 18px !important;
+  padding: 0 !important;
+  min-height: 570px;
+  flex: 0 1 auto;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-panel {
+  min-width: 0;
+  background: var(--om-soft) !important;
+  border: 1px solid var(--om-line) !important;
+  border-radius: 17px !important;
+  box-shadow: none !important;
+  transform: none !important;
+  overflow: hidden;
+}
+
+body.gunter-workspace.gunter-page-meeting .audio-panel {
+  display: flex !important;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-panel__header {
+  padding: 18px !important;
+  gap: 12px;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--om-line) !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-panel__title {
+  color: var(--gw-ink) !important;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px !important;
+  line-height: 1.5;
+  font-weight: 500;
+  gap: 8px;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-panel__title svg {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  color: var(--gw-cyan) !important;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-panel__body {
+  padding: 18px !important;
+}
+
+body.gunter-workspace.gunter-page-meeting .audio-visualizer-container {
+  justify-content: center;
+  gap: 22px;
+}
+
+body.gunter-workspace.gunter-page-meeting .audio-waveform {
+  height: 130px;
+  border-radius: 13px;
+  background: var(--gw-bg) !important;
+  gap: 5px;
+}
+
+body.gunter-workspace.gunter-page-meeting .wave-bar {
+  background: var(--gw-cyan) !important;
+  border-radius: 5px;
+  opacity: .8;
+}
+
+body.gunter-workspace.gunter-page-meeting .audio-controls {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 0;
+  gap: 12px;
+}
+
+body.gunter-workspace.gunter-page-meeting .audio-controls .audio-btn {
+  flex-shrink: 0;
+}
+
+body.gunter-workspace.gunter-page-meeting .audio-btn--secondary {
+  width: 40px;
+  height: 40px;
+  background: var(--gw-raised) !important;
+  border: 1px solid var(--om-line) !important;
+  color: var(--gw-ink) !important;
+}
+
+body.gunter-workspace.gunter-page-meeting .audio-btn--record {
+  width: 60px;
+  height: 60px;
+  background: var(--gw-danger) !important;
+  color: var(--gw-bg) !important;
+  box-shadow: 0 0 0 7px color-mix(in srgb, var(--gw-danger) 7%, transparent) !important;
+}
+
+body.gunter-workspace.gunter-page-meeting #audio-instructions {
+  margin: 0 !important;
+  color: var(--gw-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.7;
+}
+
+body.gunter-workspace.gunter-page-meeting .transcription-panel > .meeting-panel__body {
+  padding: 0 !important;
+}
+
+body.gunter-workspace.gunter-page-meeting #transcription-meta {
+  padding: 13px 18px !important;
+  font-size: 10px !important;
+  color: var(--gw-muted);
+  border-color: var(--om-line) !important;
+  gap: 10px !important;
+}
+
+body.gunter-workspace.gunter-page-meeting .transcription-list {
+  padding: 18px;
+  gap: 13px;
+  max-height: 540px;
+  overflow-y: auto;
+}
+
+body.gunter-workspace.gunter-page-meeting .transcription-item {
+  padding: 15px;
+  background: var(--gw-raised) !important;
+  border-radius: 10px !important;
+  border-left: 2px solid var(--gw-cyan) !important;
+}
+
+body.gunter-workspace.gunter-page-meeting .transcription-item__speaker {
+  color: var(--gw-cyan) !important;
+  font-size: 11px;
+}
+
+body.gunter-workspace.gunter-page-meeting .transcription-item__time {
+  color: var(--gw-muted) !important;
+  font-size: 10px;
+}
+
+body.gunter-workspace.gunter-page-meeting .transcription-item__text {
+  color: var(--gw-ink) !important;
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+body.gunter-workspace.gunter-page-meeting .gunter-panel {
+  display: flex;
+  grid-column: auto;
+}
+
+body.gunter-workspace.gunter-page-meeting .gunter-avatar-section {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 15px;
+  padding: 18px !important;
+  border-bottom: 1px solid var(--om-line);
+}
+
+body.gunter-workspace.gunter-page-meeting #gunter-meeting {
+  flex: 0 0 62px;
+  width: 62px !important;
+  height: 62px !important;
+  min-height: 62px !important;
+}
+
+body.gunter-workspace.gunter-page-meeting .gunter-state {
+  color: var(--gw-cyan) !important;
+  background: var(--om-cyan-soft) !important;
+  border: 1px solid var(--om-line);
+  border-radius: 8px;
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+
+body.gunter-workspace.gunter-page-meeting .gunter-chat {
+  min-height: 280px;
+}
+
+body.gunter-workspace.gunter-page-meeting .gunter-messages {
+  padding: 18px;
+  gap: 12px;
+  max-height: 390px;
+}
+
+body.gunter-workspace.gunter-page-meeting .gunter-message {
+  color: var(--gw-ink) !important;
+  background: var(--gw-raised) !important;
+  border-radius: 10px;
+  border-left: 2px solid var(--gw-violet);
+  font-size: 12px;
+  line-height: 1.75;
+  padding: 14px;
+}
+
+body.gunter-workspace.gunter-page-meeting .gunter-message--question {
+  border-left-color: var(--gw-amber);
+}
+
+body.gunter-workspace.gunter-page-meeting .gunter-message--alert {
+  border-left-color: var(--gw-danger);
+}
+
+body.gunter-workspace.gunter-page-meeting .gunter-input {
+  margin-top: auto;
+  border-color: var(--om-line);
+  padding: 14px;
+}
+
+body.gunter-workspace.gunter-page-meeting .gunter-input-wrapper {
+  gap: 8px;
+}
+
+body.gunter-workspace.gunter-page-meeting #gunter-input {
+  min-width: 0;
+}
+
+body.gunter-workspace.gunter-page-meeting #send-message-btn {
+  flex: 0 0 43px;
+  width: 43px;
+  height: 43px;
+  border-radius: 10px !important;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-footer {
+  position: static !important;
+  inset: auto !important;
+  display: flex !important;
+  padding: 22px 0 0 !important;
+  margin-top: 22px;
+  background: transparent !important;
+  border: 0 !important;
+  border-top: 1px solid var(--om-line) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  gap: 20px;
+  align-items: center;
+}
+
+body.gunter-workspace.gunter-page-meeting .meeting-footer__left {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+  flex: 1;
+}
+
+body.gunter-workspace.gunter-page-meeting #transcription-status {
+  color: var(--gw-muted) !important;
+  font-size: 11px !important;
+  line-height: 1.6;
+}
+
+/* Results: original evidence and generated work share one clear workspace. */
+body.gunter-workspace.gunter-page-results .results-header {
+  gap: 24px;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--om-line) !important;
+}
+
+body.gunter-workspace.gunter-page-results .results-header__right {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: 530px;
+}
+
+body.gunter-workspace.gunter-page-results .results-header__right .btn {
+  min-height: 40px;
+  padding: 10px 13px !important;
+  font-size: 11px !important;
+}
+
+body.gunter-workspace.gunter-page-results .results-header__meta {
+  color: var(--gw-muted) !important;
+  font-size: 11px;
+  line-height: 1.7;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body.gunter-workspace.gunter-page-results .results-content {
+  display: grid !important;
+  grid-template-columns: minmax(280px, .52fr) minmax(0, 1fr) !important;
+  gap: 20px !important;
+  align-items: start;
+  max-width: none;
+}
+
+body.gunter-workspace.gunter-page-results .result-section {
+  min-width: 0;
+  padding: 22px !important;
+  border-radius: 17px !important;
+  border: 1px solid var(--om-line) !important;
+  background: var(--om-soft) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+body.gunter-workspace.gunter-page-results .orbital-meeting-summary {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+body.gunter-workspace.gunter-page-results #transcription-section {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+body.gunter-workspace.gunter-page-results #dynamic-analyses-section {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-height: 450px;
+}
+
+body.gunter-workspace.gunter-page-results #saved-conversations-section {
+  grid-column: 1 / -1;
+}
+
+body.gunter-workspace.gunter-page-results .result-section__header {
+  padding: 0 0 16px;
+  margin-bottom: 18px;
+  border-color: var(--om-line);
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+body.gunter-workspace.gunter-page-results .result-section__title {
+  color: var(--gw-ink) !important;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 17px !important;
+  font-weight: 500;
+  line-height: 1.5;
+  gap: 9px;
+}
+
+body.gunter-workspace.gunter-page-results .result-section__title svg {
+  color: var(--gw-cyan);
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+}
+
+body.gunter-workspace.gunter-page-results #dynamic-analyses-section > .result-section__header {
+  display: block;
+}
+
+body.gunter-workspace.gunter-page-results #dynamic-analyses-section > .result-section__header > p {
+  color: var(--gw-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.7;
+  margin-top: 8px !important;
+  max-width: 600px;
+}
+
+body.gunter-workspace.gunter-page-results .transcription-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+body.gunter-workspace.gunter-page-results .transcription-actions .btn {
+  min-height: 34px;
+  padding: 7px 10px !important;
+  font-size: 10px !important;
+}
+
+body.gunter-workspace.gunter-page-results .transcription-viewer {
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  max-height: 480px;
+  overflow: auto;
+}
+
+body.gunter-workspace.gunter-page-results .transcription-text {
+  color: var(--gw-ink) !important;
+  font-size: 13px !important;
+  line-height: 1.85 !important;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+body.gunter-workspace.gunter-page-results .transcription-textarea {
+  min-height: 290px;
+  width: 100%;
+}
+
+body.gunter-workspace.gunter-page-results .transcription-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+body.gunter-workspace.gunter-page-results .transcription-upload-zone {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-color: var(--om-line) !important;
+}
+
+body.gunter-workspace.gunter-page-results .transcription-upload-btn {
+  width: 100%;
+  min-height: 43px;
+  padding: 10px 12px;
+  border: 1px dashed var(--gw-border) !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  color: var(--gw-cyan) !important;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+body.gunter-workspace.gunter-page-results #analyses-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)) !important;
+  gap: 12px !important;
+}
+
+body.gunter-workspace.gunter-page-results .analysis-card {
+  min-width: 0;
+  min-height: 158px;
+  padding: 18px !important;
+  background: var(--gw-raised) !important;
+  border: 1px solid var(--om-line) !important;
+  border-radius: 12px !important;
+  color: var(--gw-ink) !important;
+  box-shadow: none !important;
+  transition: border-color .2s ease, transform .2s ease !important;
+}
+
+body.gunter-workspace.gunter-page-results .analysis-card:hover {
+  border-color: var(--gw-cyan) !important;
+}
+
+body.gunter-workspace.gunter-page-results .analysis-card strong {
+  color: var(--gw-ink) !important;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px !important;
+  font-weight: 500;
+}
+
+body.gunter-workspace.gunter-page-results .analysis-card p {
+  color: var(--gw-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.7 !important;
+}
+
+body.gunter-workspace.gunter-page-results .analysis-card > span:last-child {
+  color: var(--gw-cyan) !important;
+  font-size: 10px !important;
+}
+
+body.gunter-workspace.gunter-page-results .analysis-result-card {
+  background: color-mix(in srgb, var(--gw-bg) 30%, var(--gw-surface)) !important;
+  border-color: var(--om-line) !important;
+  border-radius: 12px !important;
+  padding: 21px !important;
+  color: var(--gw-ink) !important;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+body.gunter-workspace.gunter-page-results .analysis-result-card h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px !important;
+  font-weight: 500;
+}
+
+body.gunter-workspace.gunter-page-results .analysis-result-card table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+body.gunter-workspace.gunter-page-results .gunter-insights {
+  display: block;
+  padding: 0 !important;
+  background: transparent !important;
+  gap: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+body.gunter-workspace.gunter-page-results .gunter-insights__avatar {
+  width: 58px !important;
+  height: 58px !important;
+  min-height: 58px !important;
+  margin: 0 0 14px;
+}
+
+body.gunter-workspace.gunter-page-results .gunter-insights__title {
+  color: var(--gw-ink) !important;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 17px !important;
+  font-weight: 500;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+body.gunter-workspace.gunter-page-results .gunter-insights__text {
+  color: var(--gw-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.8;
+  max-height: 350px;
+  overflow: auto;
+}
+
+body.gunter-workspace.gunter-page-results #results-followup-card .gpi-card {
+  padding: 18px;
+  border: 1px solid var(--om-line) !important;
+  border-radius: 12px !important;
+  background: var(--gw-raised) !important;
+  box-shadow: none !important;
+}
+
+body.gunter-workspace.gunter-page-results #results-followup-card :is(.gpi-card__hint, .gpi-empty, .gpi-fu-hint) {
+  color: var(--gw-muted) !important;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+body.gunter-workspace.gunter-page-results #results-followup-card .gpi-fu-task {
+  background: var(--gw-surface) !important;
+  border-color: var(--om-line) !important;
+}
+
+body.gunter-workspace.gunter-page-results :is(.saved-conversation-card, .saved-message) {
+  background: var(--gw-raised) !important;
+  border-color: var(--om-line) !important;
+  color: var(--gw-ink) !important;
+}
+
+/* Project discussion has its own context; keep its control above the companion. */
+body.gunter-workspace.gunter-page-results .floating-assistant {
+  position: fixed !important;
+  inset: auto 24px calc(114px + env(safe-area-inset-bottom)) auto !important;
+  z-index: 1050 !important;
+}
+
+body.gunter-workspace.gunter-page-results .floating-avatar {
+  width: 54px !important;
+  height: 54px !important;
+  padding: 7px !important;
+  border: 1px solid color-mix(in srgb, var(--gw-cyan) 55%, var(--gw-border)) !important;
+  border-radius: 50% !important;
+  background: var(--gw-surface) !important;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--gw-cyan) 5%, transparent) !important;
+  transform: none !important;
+}
+
+body.gunter-workspace.gunter-page-results .floating-avatar::after {
+  content: 'Proyecto';
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 8px;
+  border: 1px solid var(--om-line);
+  border-radius: 7px;
+  background: var(--gw-surface);
+  color: var(--gw-muted);
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: .02em;
+}
+
+body.gunter-workspace.gunter-page-results .floating-avatar__image {
+  display: grid;
+  place-items: center;
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+body.gunter-workspace.gunter-page-results .floating-avatar__pulse {
+  inset: -5px;
+  border: 1px solid color-mix(in srgb, var(--gw-cyan) 35%, transparent) !important;
+  animation: none !important;
+  opacity: .7;
+}
+
+body.gunter-workspace.gunter-page-results .chat-window {
+  position: fixed !important;
+  inset: auto 24px calc(184px + env(safe-area-inset-bottom)) auto !important;
+  width: min(390px, calc(100vw - 32px)) !important;
+  max-height: min(540px, calc(100dvh - 275px)) !important;
+  border: 1px solid var(--gw-border) !important;
+  border-radius: 17px !important;
+  background: var(--gw-surface) !important;
+  color: var(--gw-ink) !important;
+  box-shadow: var(--gw-shadow) !important;
+}
+
+body.gunter-workspace.gunter-page-results .chat-window__header {
+  padding: 15px !important;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--om-line) !important;
+  background: var(--gw-raised) !important;
+  color: var(--gw-ink);
+}
+
+body.gunter-workspace.gunter-page-results .chat-window__title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+}
+
+body.gunter-workspace.gunter-page-results .chat-window__messages {
+  min-height: 70px;
+  min-width: 0;
+  padding: 15px;
+  overflow: auto;
+}
+
+body.gunter-workspace.gunter-page-results :is(.chat-window__close, .chat-window__save) {
+  display: inline-grid;
+  place-items: center;
+  width: 33px;
+  height: 33px;
+  padding: 7px !important;
+  border: 1px solid var(--om-line) !important;
+  border-radius: 8px !important;
+  background: var(--gw-surface) !important;
+  color: var(--gw-cyan) !important;
+}
+
+body.gunter-workspace.gunter-page-results .chat-message__content {
+  background: var(--gw-raised) !important;
+  color: var(--gw-ink) !important;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+body.gunter-workspace.gunter-page-results .chat-message--user .chat-message__content {
+  border: 1px solid color-mix(in srgb, var(--gw-cyan) 30%, var(--gw-border));
+  background: var(--om-cyan-soft) !important;
+}
+
+body.gunter-workspace.gunter-page-results .chat-window__input {
+  flex-shrink: 0;
+  padding: 12px;
+  border-top: 1px solid var(--om-line);
+}
+
+body.gunter-workspace.gunter-page-results .chat-window__input .form-input {
+  min-width: 0;
+  width: 0;
+}
+
+body.gunter-workspace.gunter-page-results .chat-send-btn {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 10px !important;
+  color: var(--gw-on-accent) !important;
+  background: var(--gw-cyan) !important;
+}
+
+body.gunter-workspace:is(.gunter-page-new-project, .gunter-page-results) .trimmer-container {
+  background: var(--gw-surface) !important;
+  border: 1px solid var(--gw-border) !important;
+  color: var(--gw-ink) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--gw-shadow) !important;
+}
+
+body.gunter-workspace.gunter-page-results :is(#rectify-progress, #slides-style-modal, #slides-progress-modal) > div {
+  background: var(--gw-surface) !important;
+  border-color: var(--gw-border) !important;
+  color: var(--gw-ink) !important;
+}
+
+@keyframes om-arrive {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes om-recording {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
+
+@media (max-width: 1180px) {
+  body.gunter-workspace.gunter-page-meeting .meeting-content {
+    grid-template-columns: 240px minmax(0, 1fr) !important;
+    min-height: 0;
+  }
+
+  body.gunter-workspace.gunter-page-meeting .audio-panel { grid-column: 1; grid-row: 1; }
+  body.gunter-workspace.gunter-page-meeting .transcription-panel { grid-column: 2; grid-row: 1 / span 2; }
+  body.gunter-workspace.gunter-page-meeting .gunter-panel { grid-column: 1; grid-row: 2; }
+  body.gunter-workspace.gunter-page-meeting .audio-visualizer-container { padding-block: 25px !important; }
+  body.gunter-workspace.gunter-page-meeting .transcription-list { max-height: 850px; }
+  body.gunter-workspace.gunter-page-meeting .gunter-messages { max-height: 270px; }
+  body.gunter-workspace.gunter-page-results .results-header { align-items: flex-start; flex-direction: column; }
+  body.gunter-workspace.gunter-page-results .results-header__right { max-width: none; justify-content: flex-start; }
+}
+
+@media (max-width: 900px) {
+  body.gunter-workspace.gunter-page-dashboard .dashboard-main { grid-template-columns: 220px minmax(0, 1fr) !important; gap: 18px !important; }
+  body.gunter-workspace.gunter-page-dashboard .stat-card { padding: 15px 10px !important; }
+  body.gunter-workspace.gunter-page-new-project .orbital-meeting-setup { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  body.gunter-workspace.gunter-page-new-project .env-cards { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  body.gunter-workspace.gunter-page-new-project .env-card { padding: 15px !important; }
+  body.gunter-workspace.gunter-page-new-project .env-card__features { display: none; }
+  body.gunter-workspace.gunter-page-new-project .config-form { display: grid !important; grid-template-columns: 1fr 1fr; gap: 16px; }
+  body.gunter-workspace.gunter-page-new-project .config-form__section { margin-bottom: 0 !important; }
+  body.gunter-workspace.gunter-page-new-project .config-actions { grid-column: 1 / -1; }
+  body.gunter-workspace.gunter-page-results .results-content { grid-template-columns: minmax(240px, .6fr) minmax(0, 1fr) !important; gap: 16px !important; }
+  body.gunter-workspace.gunter-page-results .result-section { padding: 18px !important; }
+}
+
+@media (max-width: 768px) {
+  body.gunter-workspace :is(.dashboard-header, .config-header, .meeting-header, .results-header) {
+    padding-bottom: 20px !important;
+    margin-bottom: 20px !important;
+  }
+
+  body.gunter-workspace.gunter-page-dashboard .dashboard-main { grid-template-columns: minmax(0, 1fr) !important; gap: 18px !important; }
+  body.gunter-workspace.gunter-page-dashboard .dashboard-header { flex-direction: column; align-items: flex-start; margin-bottom: 0 !important; gap: 16px; }
+  body.gunter-workspace.gunter-page-dashboard .dashboard-header__actions { width: 100%; }
+  body.gunter-workspace.gunter-page-dashboard .dashboard-header__actions .btn { width: 100%; }
+  body.gunter-workspace.gunter-page-dashboard .stats-row { grid-column: 1; grid-row: auto; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  body.gunter-workspace.gunter-page-dashboard .stat-card { min-height: 112px !important; padding: 14px 10px !important; gap: 10px !important; }
+  body.gunter-workspace.gunter-page-dashboard .stat-card:nth-child(-n+2) { border-bottom: 0 !important; }
+  body.gunter-workspace.gunter-page-dashboard .stat-card:nth-child(-n+3) { border-right: 1px solid var(--om-line) !important; }
+  body.gunter-workspace.gunter-page-dashboard .stat-card__icon { display: none !important; }
+  body.gunter-workspace.gunter-page-dashboard .stat-card__value { font-size: 25px !important; }
+  body.gunter-workspace.gunter-page-dashboard .stat-card__label { font-size: 10px !important; }
+  body.gunter-workspace.gunter-page-dashboard .orbital-projects-section { grid-column: 1; grid-row: auto; }
+  body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context { grid-column: 1; grid-row: auto; padding: 18px !important; }
+  body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context .prism-hero__glass { flex-direction: row !important; align-items: center; gap: 18px !important; }
+  body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context .prism-hero__img-wrap { width: 64px !important; height: 64px !important; }
+  body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context__links { margin-top: 14px; flex-direction: row; gap: 20px; }
+  body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context__links a { flex: 1; }
+  body.gunter-workspace.gunter-page-dashboard .gunter-features { margin-top: 0 !important; }
+  body.gunter-workspace.gunter-page-dashboard .gunter-features__grid { grid-template-columns: 1fr !important; gap: 22px !important; }
+  body.gunter-workspace.gunter-page-dashboard .gunter-feature { padding: 0 !important; }
+  body.gunter-workspace.gunter-page-new-project .env-cards { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  body.gunter-workspace.gunter-page-new-project .env-card__features { display: block; }
+  body.gunter-workspace.gunter-page-new-project .config-form { display: block !important; }
+  body.gunter-workspace.gunter-page-new-project .config-form__section { margin-bottom: 16px !important; padding: 20px !important; }
+  body.gunter-workspace.gunter-page-meeting .meeting-header__right { width: 100%; justify-content: space-between; }
+  body.gunter-workspace.gunter-page-meeting .meeting-mtabs { display: flex !important; position: static; width: 100% !important; margin: 0 0 16px; padding: 4px; border: 1px solid var(--om-line) !important; box-shadow: none !important; background: var(--gw-surface) !important; }
+  body.gunter-workspace.gunter-page-meeting .meeting-mtabs__btn { color: var(--gw-muted) !important; font-size: 12px !important; }
+  body.gunter-workspace.gunter-page-meeting .meeting-mtabs__btn.is-active { color: var(--gw-cyan) !important; background: var(--gw-raised) !important; border-color: var(--om-line) !important; }
+  body.gunter-workspace.gunter-page-meeting .meeting-content { grid-template-columns: minmax(0, 1fr) !important; gap: 16px !important; }
+  body.gunter-workspace.gunter-page-meeting .audio-panel { grid-column: 1; grid-row: 1; }
+  body.gunter-workspace.gunter-page-meeting .transcription-panel,
+  body.gunter-workspace.gunter-page-meeting .gunter-panel { grid-column: 1; grid-row: 2; min-height: 400px !important; }
+  body.gunter-workspace.gunter-page-meeting .audio-visualizer-container { display: grid; grid-template-columns: 1fr auto; gap: 14px 22px; padding: 18px !important; }
+  body.gunter-workspace.gunter-page-meeting .audio-waveform { height: 65px; }
+  body.gunter-workspace.gunter-page-meeting #audio-instructions { grid-column: 1 / -1; }
+  body.gunter-workspace.gunter-page-meeting .transcription-list { max-height: 500px; }
+  body.gunter-workspace.gunter-page-meeting .meeting-footer { flex-direction: column; align-items: stretch !important; }
+  body.gunter-workspace.gunter-page-meeting .meeting-footer__right .btn { font-size: 11px !important; min-height: 44px; }
+  body.gunter-workspace.gunter-page-results .results-content { grid-template-columns: minmax(0, 1fr) !important; }
+  body.gunter-workspace.gunter-page-results .orbital-meeting-summary { grid-column: 1; grid-row: 1; }
+  body.gunter-workspace.gunter-page-results #dynamic-analyses-section { grid-column: 1; grid-row: 2; min-height: 0; }
+  body.gunter-workspace.gunter-page-results #transcription-section { grid-column: 1; grid-row: 3; }
+  body.gunter-workspace.gunter-page-results .gunter-insights__avatar { float: left; margin: 0 16px 10px 0; }
+  body.gunter-workspace.gunter-page-results .gunter-insights__text { max-height: none; }
+  body.gunter-workspace.gunter-page-results #analyses-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  body.gunter-workspace.gunter-page-results .analysis-card { padding: 15px !important; }
+  body.gunter-workspace.gunter-page-results .analysis-card > div { flex-wrap: wrap; gap: 6px !important; }
+  body.gunter-workspace.gunter-page-results .analysis-card > div strong { flex: 1 1 80%; }
+  body.gunter-workspace.gunter-page-results .results-header__right { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  body.gunter-workspace.gunter-page-results .results-header__right .btn { width: 100%; min-height: 43px; }
+  body.gunter-workspace.gunter-page-results .transcription-viewer { max-height: 440px; }
+  body.gunter-workspace.gunter-page-results .floating-assistant { right: 17px !important; bottom: calc(90px + env(safe-area-inset-bottom)) !important; }
+  body.gunter-workspace.gunter-page-results .floating-avatar { width: 46px !important; height: 46px !important; }
+  body.gunter-workspace.gunter-page-results .floating-avatar__image { width: 32px !important; height: 32px !important; }
+  body.gunter-workspace.gunter-page-results .chat-window { right: 16px !important; bottom: calc(152px + env(safe-area-inset-bottom)) !important; max-height: calc(100dvh - 235px) !important; }
+}
+
+@media (max-width: 420px) {
+  body.gunter-workspace.gunter-page-dashboard .stats-row { grid-template-columns: 1fr 1fr !important; }
+  body.gunter-workspace.gunter-page-dashboard .stat-card { min-height: 92px !important; }
+  body.gunter-workspace.gunter-page-dashboard .stat-card:nth-child(-n+2) { border-bottom: 1px solid var(--om-line) !important; }
+  body.gunter-workspace.gunter-page-dashboard .stat-card:nth-child(2) { border-right: 0 !important; }
+  body.gunter-workspace.gunter-page-dashboard .orbital-meeting-context__links { flex-direction: column; gap: 0; }
+  body.gunter-workspace.gunter-page-new-project .env-card { padding: 14px !important; }
+  body.gunter-workspace.gunter-page-new-project .env-card__features { display: none !important; }
+  body.gunter-workspace.gunter-page-new-project .step-indicator { gap: 9px; }
+  body.gunter-workspace.gunter-page-new-project .step { gap: 7px; }
+  body.gunter-workspace.gunter-page-new-project .step__label { font-size: 10px; }
+  body.gunter-workspace.gunter-page-new-project .config-actions .btn { flex: 1 1 auto; }
+  body.gunter-workspace.gunter-page-meeting .audio-visualizer-container { grid-template-columns: 1fr; }
+  body.gunter-workspace.gunter-page-meeting .audio-waveform { height: 50px; }
+  body.gunter-workspace.gunter-page-results #analyses-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.gunter-workspace :is(.dashboard-header, .config-header, .meeting-header, .results-header),
+  body.gunter-workspace.gunter-page-meeting :is(.meeting-timer__dot, .audio-btn--record, .wave-bar) {
+    animation: none !important;
+  }
+  body.gunter-workspace :is(.project-card, .env-card, .analysis-card, .orbital-meeting-context__links a) {
+    transition: none !important;
+  }
+}
+
+@media print {
+  body.gunter-workspace.gunter-page-results .results-content { display: block !important; }
+  body.gunter-workspace.gunter-page-results .result-section { margin: 0 0 18px !important; break-inside: avoid; }
+  body.gunter-workspace.gunter-page-results :is(.transcription-viewer, .gunter-insights__text) { max-height: none; overflow: visible; }
+}
