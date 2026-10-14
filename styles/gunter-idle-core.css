@@ -1,0 +1,17 @@
+/* Transparent generated identity; no video masks, background disks or input effects. */
+.gunter-idle-core { min-width: 0; min-height: 0; pointer-events: none; }
+.gunter-idle-core > .gunter-idle-core-canvas {
+  position: absolute !important; inset: 0 !important; display: block !important;
+  width: 100% !important; height: 100% !important; max-width: none !important;
+  margin: 0 !important; padding: 0 !important; border: 0 !important;
+  background: transparent !important; border-radius: 0 !important;
+  filter: none !important; transform: none !important; mix-blend-mode: normal !important;
+  object-fit: contain; pointer-events: none;
+}
+.gunter-idle-core > .gunter-idle-core-status {
+  position: absolute; inset: 20%; display: grid; place-items: center;
+  font: 12px/1.5 var(--font-body, sans-serif); color: var(--gw-text-muted, #aeb8cb);
+  text-align: center; pointer-events: none;
+}
+.gunter-idle-core > [hidden] { display: none !important; }
+.gunter-core-avatar.gunter-idle-core > .gunter-idle-core-status { font-size: 8px; inset: 0; }
