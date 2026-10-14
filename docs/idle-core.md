@@ -1,65 +1,104 @@
-# Núcleo generado — primera fase idle
+# Núcleo generado — fase 2, candidato visual
 
-El núcleo de Inicio, Configuración y las miniaturas se dibuja con WebGL 1, sin
-Three.js ni dependencias nuevas. El video se usó exclusivamente como referencia:
-los archivos de la fase anterior se conservan, pero no se cargan ni reproducen.
+Componente WebGL2 reutilizable, sin Three.js ni dependencias nuevas. El MP4 de
+TouchDesigner se usa exclusivamente para comparar: no se carga ni reproduce
+dentro del núcleo. No se modifica la navegación ni el diseño del dashboard.
 
-Los filamentos y las partículas se deforman en el vertex shader mediante un campo
-de ruido vectorial y su curl analítico. Las capas plegadas, el polvo luminoso
-interno y el bloom de dos pasos comparten un compositor GPU. La salida RGBA es
-premultiplicada e incluye la transparencia del halo, sin discos ni fondos negros.
+## Simulación y luz
 
-### Refinamiento del flujo
+Dos texturas RGBA32F alternadas conservan 1.280 curvas materiales de 96 puntos.
+Cada punto avanza mediante advección RK2 en un campo de velocidad con tres escalas
+de curl noise. Las restricciones entre vecinos limitan el estiramiento sin
+convertir las curvas en colas de partículas. Se dibujan hasta cuatro fibras finas
+por curva mediante triángulos instanciados, no sprites de puntos.
 
-Los filamentos cortos se agrupan en plumas con una capa difusa intercalada, sin
-aumentar el número de vértices ni añadir pasos de render. Dos escalas de curl
-producen corrientes opuestas: el material interior circula más rápido que la
-envolvente, mientras la orientación global cambia poco. La emisión sigue bolsas
-de calor espaciales con ritmos distintos y textura plegada; el bloom selecciona
-esa luz cromática, evitando teñir o sobreexponer todos los filamentos grises.
+Un único volumen energético deformado y continuo determina tanto la emisión
+interna (integración de 20 muestras a media resolución) como la iluminación de
+los filamentos por proximidad. El movimiento de ese campo desplaza la luz; no se
+añaden focos esféricos independientes. Bloom separado de dos pasos y composición
+HDR controlan el brillo. La salida RGBA premultiplicada mantiene transparentes
+el fondo y los bordes, también sobre fondos claros.
 
-La velocidad se integra en la fase del montado compartido: cambiarla, pausarla
-o reanudar no reinicia la forma ni produce un salto temporal. No se cambian los
-seis controles ni las preferencias guardadas.
+La densidad cambia realmente los filamentos dibujados: 640 al 25 %, 2.560 al
+100 % y 5.120 al 200 %, con 95 segmentos cada uno. El estado GPU se comparte:
+cambiar densidad o tamaño no reinicia el material. Los pequeños avatares capturan
+la fase actual sin hacer retroceder el compositor compartido.
 
-## Uso existente
+## Integración y preferencias
 
 Cargar `js/components/gunter-idle-core.js`, `js/services/gunter-particles.js` y
-`styles/gunter-idle-core.css`. Añadir un contenedor posicionado, con ancho y alto,
-y `data-gunter-particles="hero"` (o `chat`/`thumb`). El montado es automático;
-también se puede llamar `GunterParticles.mount(elemento)`.
+`styles/gunter-idle-core.css`. El montado de `data-gunter-particles="hero"`,
+`chat` o `thumb` y la API `GunterParticles` existente se conservan.
 
-`GunterParticles.configure({ color, glowColor, brightness, density, speed, size },
-{ persist: true })` actualiza las vistas y guarda solo estos ajustes dentro del
-`gunter_prefs.coreVisual` existente, conservando las preferencias heredadas.
-Los seis controles están en Configuración → Apariencia → Núcleo generado.
+```js
+GunterParticles.configure({
+  particleColor: '#b8bec9', energyColor: '#ff452b', glowColor: '#ff6d35',
+  brightness: 1, density: 1, speed: 1, size: 1
+}, { persist: true });
+```
 
-Para integrar el componente sin el sistema de montado:
+Configuración → Apariencia → Núcleo generado permite editar los tres colores
+mediante selector y HEX validado, brillo, densidad 25–200 %, velocidad y tamaño.
+La vista previa cambia inmediatamente. Se utiliza exclusivamente
+`gunter_prefs.coreVisual`, conservando otros campos y preferencias. El antiguo
+`color` sigue siendo un alias de `energyColor`; las preferencias heredadas se
+leen sin sobrescribirlas automáticamente. Un fallo de almacenamiento se informa
+y no simula una configuración guardada.
+
+Uso directo, sin montado:
 
 ```js
 const core = new GunterIdleCore();
-core.renderTo(canvas, 512, 512, segundos, {
-  color: '#ff452b', glowColor: '#ff6d35', brightness: 1,
-  density: 1, speed: 1, size: 1
-});
-// El consumidor decide cuándo dibujar otro frame y cuándo liberar recursos.
+if (core.available) {
+  core.renderTo(canvas, 512, 512, segundos, {
+    particleColor: '#b8bec9', energyColor: '#ff452b', glowColor: '#ff6d35',
+    brightness: 1, density: 1, speed: 1, size: 1
+  });
+}
 core.dispose();
 ```
 
-## Límites deliberados
+El tiempo es monotónico: otra vista no rebobina la advección. El montado integra
+la velocidad en su reloj; pausa y reanudación no saltan de forma. Un salto
+explícito de más de cuatro segundos en el uso directo reinicializa el material,
+evitando recuperar miles de pasos en un único frame.
 
-- Solo reposo: no escucha eventos de mouse, voz, micrófono ni estados del asistente.
-- Se conservan intactos los servicios de conversación, permisos, STT y TTS.
-- Máximo dos vistas grandes animadas, 30 fps como techo y resolución máxima 720 px;
-  las miniaturas usan un frame generado, no otro contexto WebGL.
-- «Reducir animaciones», velocidad cero, pestaña oculta y vistas fuera de pantalla
-  detienen la animación. Los recursos se liberan al salir.
-- Sin WebGL se anuncia la indisponibilidad visual; no se sustituye con video ni
-  se solicita acceso a dispositivos o servicios externos.
-- Es una aproximación procedural al humo de la referencia, no una reproducción
-  idéntica de su simulación original. Pendiente aprobación visual del usuario y
-  comprobación en teléfonos físicos; no se añade aún interacción.
+## Validación y estado visual
 
-Pruebas focalizadas: `test/core-renderer.js`, `test/idle-core-gpu.js` y
-`test/core-visual-settings.js`. La comprobación real en navegador cubre shaders,
-movimiento, canal alfa, contraste de fondos, Inicio y controles persistentes.
+- 46 comprobaciones focalizadas: `test/core-renderer.js` (27),
+  `test/idle-core-gpu.js` (10) y `test/core-visual-settings.js` (9).
+- Un único smoke general final con almacenamiento desechable: 139 correctas,
+  cero fallos. No se ejecutaron benchmarks ni se regeneró voz.
+- Navegador real: compilación GLSL, advección sin realimentación de framebuffer,
+  tres colores independientes, densidades reales, alfa transparente, movimiento
+  progresivo, Inicio y Configuración a 1.440 y 390 px, HEX inválido, vista previa,
+  persistencia al recargar, restablecimiento y pausa. Sin errores de página/WebGL
+  ni solicitudes de video, TTS o STT durante esta comprobación aislada.
+- Comparación visual de fotogramas y dos secuencias generadas (8–11 y 20–23 s)
+  con los segmentos 12–15 y 30–33 s del MP4. Se corrigieron nube de puntos,
+  bucles iniciales demasiado grandes, focos separados y sobreexposición blanca.
+- Artefactos locales en `output/playwright/phase2-*` y
+  `output/playwright/gunter-core-phase2-preview.mp4`; no son recursos de la app.
+
+**La fidelidad visual de fase 2 no se declara cerrada.** El resultado tiene hebras
+continuas y una silueta irregular, pero sus haces aún son más lisos, y la energía
+más central, que en la referencia. No reproduce la microgranulación, las sombras
+internas densas ni la difusión volumétrica completa del grafo de TouchDesigner,
+que no se dispone. Requiere revisión visual del usuario; no es una réplica exacta.
+
+## Límites y reversión
+
+- Solo idle: sin interacción con mouse, micrófono, audio ni estados del asistente.
+  Los servicios de conversación, permisos, modelos y voz no se modifican.
+- Requiere WebGL2 y `EXT_color_buffer_float`. Sin ese soporte se informa que el
+  núcleo no está disponible y Gunter sigue funcionando; no se simula soporte con
+  video o con la nube de puntos anterior. Teléfonos físicos aún no verificados.
+- Máximo dos vistas grandes animadas, techo de 30 fps y resolución de 720 px;
+  miniaturas estáticas. Velocidad cero, reducción de movimiento, pestaña oculta
+  y vistas fuera de pantalla detienen la animación. Se liberan los recursos al
+  salir y se recupera el contexto GPU si el navegador lo restablece.
+- Versión anterior conservada en el commit
+  `363a3f2886b0e0abbad0e1b261075aee91cf661c` y la etiqueta local
+  `codex/core-v2-before-phase2`. Para revertir esta fase, revertir su commit
+  completo: mantiene juntos renderer, preferencias compatibles y versiones de
+  caché. No se mantienen dos motores activos en paralelo.

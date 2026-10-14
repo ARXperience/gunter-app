@@ -57,14 +57,14 @@
     <link rel="stylesheet" href="styles/pages/control-plane.css?v95-device-access">
     <link rel="stylesheet" href="styles/pages/social-settings.css?v103-device-runtime">
     <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
-    <script src="js/components/gunter-idle-core.js?v143-idle-flow" defer></script>
-    <script src="js/services/gunter-particles.js?v143-idle-flow" defer></script>
+    <script src="js/components/gunter-idle-core.js?v144b-material-core" defer></script>
+    <script src="js/services/gunter-particles.js?v144b-material-core" defer></script>
     <script src="js/services/gunter-command-center.js?v139-orbital-workspaces" defer></script>
     <script src="js/services/gunter-icon-system.js?v135-orbit-home" defer></script>
 <link rel="stylesheet" href="styles/gunter-orbit-home.css?v135-orbit-home">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="styles/gunter-workspace.css?v139-orbital-workspaces">
-    <link rel="stylesheet" href="styles/pages/orbital-settings.css?v142b-idle-core">
+    <link rel="stylesheet" href="styles/pages/orbital-settings.css?v144b-material-core">
     <link rel="stylesheet" href="styles/gunter-idle-core.css?v142b-idle-core">
 </head>
 
@@ -207,10 +207,32 @@
                 <h3 id="core-visual-title">Núcleo generado</h3>
                 <p class="settings-card__hint">Animación en reposo: personaliza sus colores, luz y movimiento. Sin interacción con el mouse ni el audio.</p>
                 <div class="core-visual-settings__preview" data-gunter-particles="hero" role="img" aria-label="Vista previa del núcleo generado de Gunter en reposo"></div>
-                <div class="settings-row"><label for="core-color">Color del núcleo</label><input id="core-color" type="color" value="#ff452b"></div>
-                <div class="settings-row"><label for="core-glow-color">Color del resplandor</label><input id="core-glow-color" type="color" value="#ff6d35"></div>
+                <div class="settings-row">
+                    <label for="core-color">Color de partículas</label>
+                    <div class="core-color-control">
+                        <input id="core-color" type="color" value="#b8bec9">
+                        <input id="core-color-hex" type="text" value="#b8bec9" maxlength="7" pattern="#[0-9a-fA-F]{6}" autocomplete="off" spellcheck="false" aria-label="Color de partículas en HEX" aria-describedby="core-color-error">
+                        <small id="core-color-error" class="core-color-control__error" hidden></small>
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <label for="core-energy-color">Color de energía</label>
+                    <div class="core-color-control">
+                        <input id="core-energy-color" type="color" value="#ff452b">
+                        <input id="core-energy-color-hex" type="text" value="#ff452b" maxlength="7" pattern="#[0-9a-fA-F]{6}" autocomplete="off" spellcheck="false" aria-label="Color de energía en HEX" aria-describedby="core-energy-color-error">
+                        <small id="core-energy-color-error" class="core-color-control__error" hidden></small>
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <label for="core-glow-color">Color de emisión</label>
+                    <div class="core-color-control">
+                        <input id="core-glow-color" type="color" value="#ff6d35">
+                        <input id="core-glow-color-hex" type="text" value="#ff6d35" maxlength="7" pattern="#[0-9a-fA-F]{6}" autocomplete="off" spellcheck="false" aria-label="Color de emisión en HEX" aria-describedby="core-glow-color-error">
+                        <small id="core-glow-color-error" class="core-color-control__error" hidden></small>
+                    </div>
+                </div>
                 <div class="settings-row"><label for="core-brightness">Brillo <output id="core-brightness-value" for="core-brightness">100 %</output></label><input id="core-brightness" type="range" min="0.2" max="2.5" step="0.05" value="1"></div>
-                <div class="settings-row"><label for="core-density">Densidad <output id="core-density-value" for="core-density">100 %</output></label><input id="core-density" type="range" min="0.35" max="1.8" step="0.05" value="1"></div>
+                <div class="settings-row"><label for="core-density">Densidad <output id="core-density-value" for="core-density">100 %</output></label><input id="core-density" type="range" min="0.25" max="2" step="0.05" value="1"></div>
                 <div class="settings-row"><label for="core-speed">Velocidad <output id="core-speed-value" for="core-speed">1,00 ×</output></label><input id="core-speed" type="range" min="0" max="2" step="0.05" value="1"></div>
                 <div class="settings-row"><label for="core-size">Tamaño <output id="core-size-value" for="core-size">100 %</output></label><input id="core-size" type="range" min="0.7" max="1.3" step="0.05" value="1"></div>
                 <p class="settings-card__hint">Velocidad cero detiene el movimiento. «Reducir animaciones» muestra el núcleo estático.</p>
@@ -482,7 +504,7 @@
     <script src="js/controllers/conversation-memory-panel.js" defer></script>
     <script src="js/controllers/personal-memory-panel.js?v2-backup" defer></script>
 
-    <script src="js/config-settings.js?v142b-idle-core" defer></script>
+    <script src="js/config-settings.js?v144b-material-core" defer></script>
     <script src="js/controllers/presence-settings.js?v115-presence" defer></script>
     <!-- (ai-analysis, cache-service, audio-chunker, audio-trimmer eliminados:
          pertenecían al flujo Nuevo Proyecto que ahora vive en dashboard.html) -->

@@ -10,9 +10,11 @@ const start = controller.indexOf('    function initCoreVisualSettings()');
 const end = controller.indexOf('    function loadPreferences()', start);
 assert.ok(start >= 0 && end > start, 'the core settings initializer must exist');
 const source = `const PREF_KEY = 'gunter_prefs';\n${controller.slice(start, end)}\ninitCoreVisualSettings();`;
-const fields = { color: 'core-color', glowColor: 'core-glow-color', brightness: 'core-brightness',
+const fields = { particleColor: 'core-color', energyColor: 'core-energy-color', glowColor: 'core-glow-color', brightness: 'core-brightness',
     density: 'core-density', speed: 'core-speed', size: 'core-size' };
-const defaults = { color: '#ff452b', glowColor: '#ff6d35', brightness: 1, density: 1, speed: 1, size: 1 };
+const colorKeys = ['particleColor', 'energyColor', 'glowColor'];
+const defaults = { particleColor: '#b8bec9', energyColor: '#ff452b', glowColor: '#ff6d35',
+    brightness: 1, density: 1, speed: 1, size: 1, color: '#ff452b' };
 function emitter(object = {}) {
     const listeners = new Map();
     return Object.assign(object, {
@@ -25,8 +27,11 @@ function emitter(object = {}) {
 }
 function environment(saved = {}, unavailable = false) {
     const elements = Object.fromEntries(['core-visual-settings', 'core-visual-status', 'core-visual-reset',
-        ...Object.values(fields), ...Object.values(fields).slice(2).map(id => id + '-value')].map(id => [id,
-        emitter({ value: '', textContent: '', attributes: {}, setAttribute(name, value) { this.attributes[name] = value; } })]));
+        ...Object.values(fields), ...Object.values(fields).slice(3).map(id => id + '-value'),
+        ...colorKeys.flatMap(key => [fields[key] + '-hex', fields[key] + '-error'])].map(id => [id,
+        emitter({ value: '', textContent: '', attributes: {}, hidden: true, validationMessage: '',
+            setAttribute(name, value) { this.attributes[name] = value; },
+            setCustomValidity(message) { this.validationMessage = message; } })]));
     const state = { config: { ...defaults, ...saved }, calls: [], fail: false };
     const window = emitter();
     if (!unavailable) window.GunterParticles = {
@@ -41,15 +46,15 @@ function environment(saved = {}, unavailable = false) {
         }
     };
     vm.runInNewContext(source, { window, document: { getElementById: id => elements[id] || null } });
-    return { elements, state, window, input(key, value) {
-        const element = elements[fields[key]];
+    return { elements, state, window, input(key, value, hex = false) {
+        const element = elements[fields[key] + (hex ? '-hex' : '')];
         element.value = value;
         element.fire('input', { target: element });
     } };
 }
 let passed = 0;
 function check(name, fn) { fn(); passed++; console.log(`ok ${passed} - ${name}`); }
-check('the card exposes exactly the six idle settings with their public defaults and ranges', () => {
+check('the card exposes seven idle settings with three paired HEX controls and the public ranges', () => {
     const card = html.match(/<section[^>]+id="core-visual-settings"[\s\S]*?<\/section>/)?.[0];
     assert.ok(card);
     assert.match(card, /Núcleo generado/);
@@ -57,16 +62,31 @@ check('the card exposes exactly the six idle settings with their public defaults
     assert.match(card, /Sin interacción con el mouse ni el audio/);
     const inputs = [...card.matchAll(/<input\b[^>]*>/g)].map(match =>
         Object.fromEntries([...match[0].matchAll(/([\w-]+)="([^"]*)"/g)].map(attribute => [attribute[1], attribute[2]])));
-    assert.deepEqual(inputs.map(input => input.id), Object.values(fields));
-    assert.deepEqual(inputs.slice(0, 2).map(input => [input.type, input.value]), [['color', '#ff452b'], ['color', '#ff6d35']]);
-    assert.deepEqual(inputs.slice(2).map(input => [input.type, input.min, input.max, input.value]),
-        [['range', '0.2', '2.5', '1'], ['range', '0.35', '1.8', '1'], ['range', '0', '2', '1'], ['range', '0.7', '1.3', '1']]);
+    assert.deepEqual(inputs.map(input => input.id), Object.entries(fields).flatMap(([key, id]) => colorKeys.includes(key) ? [id, id + '-hex'] : [id]));
+    assert.deepEqual(inputs.filter(input => input.type === 'color').map(input => input.value), colorKeys.map(key => defaults[key]));
+    assert.deepEqual(inputs.filter(input => input.type === 'range').map(input => [input.min, input.max, input.step, input.value]),
+        [['0.2', '2.5', '0.05', '1'], ['0.25', '2', '0.05', '1'], ['0', '2', '0.05', '1'], ['0.7', '1.3', '0.05', '1']]);
+    for (const key of colorKeys) {
+        const hex = inputs.find(input => input.id === fields[key] + '-hex');
+        assert.equal(hex.type, 'text');
+        assert.equal(hex.value, defaults[key]);
+        assert.equal(hex.pattern, '#[0-9a-fA-F]{6}');
+        assert.equal(hex['aria-describedby'], fields[key] + '-error');
+        assert.match(hex['aria-label'], /HEX/);
+    }
+    assert.match(card, /Color de partículas/);
+    assert.match(card, /Color de energía/);
+    assert.match(card, /Color de emisión/);
 });
 check('initialization reads saved values through the API without overwriting them', () => {
-    const env = environment({ color: '#abcdef', glowColor: '#123456', brightness: 1.6, density: .65, speed: .45, size: 1.2 });
+    const env = environment({ particleColor: '#abcdef', energyColor: '#654321', glowColor: '#123456', brightness: 1.6, density: .65, speed: .45, size: 1.2 });
     assert.equal(env.state.calls.length, 0);
     assert.equal(env.elements['core-color'].value, '#abcdef');
+    assert.equal(env.elements['core-color-hex'].value, '#abcdef');
+    assert.equal(env.elements['core-energy-color'].value, '#654321');
+    assert.equal(env.elements['core-energy-color-hex'].value, '#654321');
     assert.equal(env.elements['core-glow-color'].value, '#123456');
+    assert.equal(env.elements['core-glow-color-hex'].value, '#123456');
     assert.equal(env.elements['core-brightness-value'].textContent, '160 %');
     assert.equal(env.elements['core-density-value'].textContent, '65 %');
     assert.equal(env.elements['core-speed-value'].textContent, '0,45 ×');
@@ -75,31 +95,88 @@ check('initialization reads saved values through the API without overwriting the
 });
 check('all controls persist their matching API field with the correct value type', () => {
     const env = environment();
-    for (const [key, value] of Object.entries({ color: '#112233', glowColor: '#445566', brightness: '2.5', density: '.35', speed: '0', size: '1.3' })) {
+    for (const [key, value] of Object.entries({ particleColor: '#112233', energyColor: '#445566', glowColor: '#778899', brightness: '2.5', density: '.25', speed: '0', size: '1.3' })) {
         env.input(key, value);
         const call = env.state.calls.at(-1);
-        assert.deepEqual(call.patch, { [key]: key.endsWith('Color') || key === 'color' ? value : Number(value) });
+        assert.deepEqual(call.patch, { [key]: colorKeys.includes(key) ? value : Number(value) });
         assert.deepEqual(call.options, { persist: true });
+        if (colorKeys.includes(key)) assert.equal(env.elements[fields[key] + '-hex'].value, value);
     }
     assert.equal(env.elements['core-speed-value'].textContent, '0,00 ×');
     assert.match(env.elements['core-visual-status'].textContent, /guardada/);
 });
-check('reset persists the public defaults and refreshes all six controls', () => {
+check('valid HEX edits immediately persist only their canonical color and synchronize the picker', () => {
+    const env = environment();
+    for (const key of colorKeys) {
+        env.input(key, '#ABCDEF', true);
+        assert.deepEqual(env.state.calls.at(-1), { patch: { [key]: '#abcdef' }, options: { persist: true } });
+        assert.equal(env.elements[fields[key]].value, '#abcdef');
+        assert.equal(env.elements[fields[key] + '-hex'].value, '#abcdef');
+        assert.equal(env.elements[fields[key] + '-hex'].attributes['aria-invalid'], 'false');
+        assert.equal(env.elements[fields[key] + '-hex'].validationMessage, '');
+        assert.equal(env.elements[fields[key] + '-error'].hidden, true);
+    }
+});
+check('invalid or incomplete HEX never writes and explains its accessible validation', () => {
+    const env = environment();
+    for (const key of colorKeys) {
+        for (const value of ['', '#', '#abc', 'abcdef', '#12345g', '#1234567', ' #123456']) {
+            env.input(key, value, true);
+            const hex = env.elements[fields[key] + '-hex'];
+            const error = env.elements[fields[key] + '-error'];
+            assert.equal(env.state.calls.length, 0);
+            assert.equal(env.state.config[key], defaults[key]);
+            assert.equal(env.elements[fields[key]].value, defaults[key]);
+            assert.equal(hex.value, value);
+            assert.equal(hex.attributes['aria-invalid'], 'true');
+            assert.match(hex.validationMessage, /HEX de seis dígitos/);
+            assert.equal(error.hidden, false);
+            assert.equal(error.textContent, hex.validationMessage);
+            assert.equal(env.elements['core-visual-status'].textContent, hex.validationMessage);
+        }
+    }
+    env.input('glowColor', '#fedcba', true);
+    assert.equal(env.state.calls.length, 1);
+    assert.equal(env.elements['core-glow-color-error'].hidden, true);
+    assert.match(env.elements['core-visual-status'].textContent, /guardada/);
+});
+check('range endpoints preserve 25–200 percent density and zero speed feedback', () => {
+    const env = environment();
+    for (const [value, label] of [['.25', '25 %'], ['2', '200 %']]) {
+        env.input('density', value);
+        assert.equal(env.state.config.density, Number(value));
+        assert.equal(env.elements['core-density-value'].textContent, label);
+        assert.equal(env.elements['core-density'].attributes['aria-valuetext'], label);
+    }
+    env.input('speed', '0');
+    assert.equal(env.state.config.speed, 0);
+    assert.equal(env.elements['core-speed-value'].textContent, '0,00 ×');
+});
+check('reset persists the public defaults and refreshes all seven controls and HEX validation', () => {
     const env = environment({ brightness: 2, speed: 0, glowColor: '#ffffff' });
+    env.input('particleColor', '#oops', true);
     env.elements['core-visual-reset'].fire('click');
     assert.deepEqual(env.state.calls, [{ patch: defaults, options: { persist: true } }]);
     assert.equal(env.elements['core-glow-color'].value, defaults.glowColor);
+    assert.equal(env.elements['core-color-hex'].value, defaults.particleColor);
+    assert.equal(env.elements['core-energy-color-hex'].value, defaults.energyColor);
+    assert.equal(env.elements['core-glow-color-hex'].value, defaults.glowColor);
+    assert.equal(env.elements['core-color-error'].hidden, true);
+    assert.equal(env.elements['core-color-hex'].validationMessage, '');
     assert.equal(env.elements['core-brightness-value'].textContent, '100 %');
     assert.equal(env.elements['core-speed-value'].textContent, '1,00 ×');
 });
 check('shared config and preference storage events refresh values without another save', () => {
     const env = environment();
-    env.state.config.density = 1.8;
+    env.state.config.density = 2;
+    env.state.config.energyColor = '#111111';
     env.window.fire('gunter-core-config-changed');
-    assert.equal(env.elements['core-density-value'].textContent, '180 %');
+    assert.equal(env.elements['core-density-value'].textContent, '200 %');
+    assert.equal(env.elements['core-energy-color-hex'].value, '#111111');
+    assert.equal(env.elements['core-energy-color'].value, '#111111');
     env.state.config.density = .5;
     env.window.fire('storage', { key: 'gunter_env' });
-    assert.equal(env.elements['core-density-value'].textContent, '180 %');
+    assert.equal(env.elements['core-density-value'].textContent, '200 %');
     env.window.fire('storage', { key: 'gunter_prefs' });
     assert.equal(env.elements['core-density-value'].textContent, '50 %');
     env.state.config.density = .8;
@@ -113,6 +190,10 @@ check('a rejected save restores the saved value and reports the storage problem'
     env.input('size', '1.3');
     assert.equal(env.elements['core-size'].value, '1.1');
     assert.equal(env.elements['core-size-value'].textContent, '110 %');
+    assert.match(env.elements['core-visual-status'].textContent, /No pude guardar/);
+    env.input('energyColor', '#eeeeee', true);
+    assert.equal(env.elements['core-energy-color'].value, defaults.energyColor);
+    assert.equal(env.elements['core-energy-color-hex'].value, defaults.energyColor);
     assert.match(env.elements['core-visual-status'].textContent, /No pude guardar/);
     assert.doesNotThrow(() => environment({}, true));
 });

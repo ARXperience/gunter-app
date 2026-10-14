@@ -11,6 +11,10 @@ html body.gunter-workspace .core-visual-settings__preview { position: relative; 
 html body.gunter-workspace .core-visual-settings output { color: var(--gw-muted); font-size: 12px; margin-left: 8px; font-variant-numeric: tabular-nums; }
 html body.gunter-workspace .core-visual-settings input[type="range"] { min-width: 150px; width: min(100%, 320px); padding: 8px 0; min-height: 44px; }
 html body.gunter-workspace #core-visual-settings input[type="color"] { width: 70px; flex: 0 0 70px; padding: 4px !important; }
+html body.gunter-workspace #core-visual-settings .core-color-control { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px 10px; width: min(100%, 300px); min-width: 0; }
+html body.gunter-workspace #core-visual-settings .core-color-control input[type="text"] { width: 100%; max-width: none; font-variant-numeric: tabular-nums; }
+html body.gunter-workspace #core-visual-settings .core-color-control input[aria-invalid="true"] { border-color: var(--gw-danger) !important; }
+html body.gunter-workspace #core-visual-settings .core-color-control__error { grid-column: 1 / -1; color: var(--gw-danger); font-size: 12px; line-height: 1.5; }
 
 /* A compact orbital index anchors the control area without adding controls. */
 html body.gunter-workspace.gunter-config-page .config-header {

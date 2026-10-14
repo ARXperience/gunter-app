@@ -3,7 +3,7 @@
     'use strict';
     if (window.GunterParticles) return;
 
-    const DEFAULTS = Object.freeze({ color: '#ff452b', glowColor: '#ff6d35', brightness: 1,
+    const DEFAULTS = Object.freeze({ particleColor: '#b8bec9', energyColor: '#ff452b', color: '#ff452b', glowColor: '#ff6d35', brightness: 1,
         density: 1, speed: 1, size: 1 });
     const STATIC_TIME = 8, FRAME_INTERVAL = 1000 / 30;
     const records = new Map(), disposers = [];
@@ -18,10 +18,13 @@
         ? value.toLowerCase() : fallback;
     function normalize(value = {}) {
         value = object(value);
+        const energyColor = color(Object.prototype.hasOwnProperty.call(value, 'energyColor')
+            ? value.energyColor : value.color, DEFAULTS.energyColor);
         return {
-            color: color(value.color, DEFAULTS.color), glowColor: color(value.glowColor, DEFAULTS.glowColor),
+            particleColor: color(value.particleColor, DEFAULTS.particleColor), energyColor, color: energyColor,
+            glowColor: color(value.glowColor, DEFAULTS.glowColor),
             brightness: clamp(value.brightness, .2, 2.5, DEFAULTS.brightness),
-            density: clamp(value.density, .35, 1.8, DEFAULTS.density),
+            density: clamp(value.density, .25, 2, DEFAULTS.density),
             speed: clamp(value.speed, 0, 2, DEFAULTS.speed),
             size: clamp(value.size, .7, 1.3, DEFAULTS.size)
         };
@@ -116,7 +119,7 @@
                 record.el.dataset.particlesStatus = 'paused';
             }
             if (!active || !record.visible || !record.el.isConnected || !record.width || !record.height) continue;
-            if (record.dirty) render(record, record.variant === 'thumb' ? STATIC_TIME : animationTime);
+            if (record.dirty) render(record, animationTime);
         }
         schedule();
     }
@@ -141,7 +144,11 @@
         record.dirty = true;
     }
     function configure(patch = {}, options = {}) {
-        const next = normalize({ ...config, ...object(patch) });
+        patch = object(patch);
+        const values = { ...config, ...patch };
+        if (Object.prototype.hasOwnProperty.call(patch, 'color')
+            && !Object.prototype.hasOwnProperty.call(patch, 'energyColor')) values.energyColor = patch.color;
+        const next = normalize(values);
         if (options.persist === true) {
             // Preserve unrelated preferences and legacy fields within coreVisual.
             const prefs = readPreferences();

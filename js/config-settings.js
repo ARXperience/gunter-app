@@ -260,14 +260,29 @@
         const section = document.getElementById('core-visual-settings');
         const core = window.GunterParticles;
         if (!section || !core?.configure) return;
-        const fields = { color: 'core-color', glowColor: 'core-glow-color', brightness: 'core-brightness',
+        const fields = { particleColor: 'core-color', energyColor: 'core-energy-color', glowColor: 'core-glow-color', brightness: 'core-brightness',
             density: 'core-density', speed: 'core-speed', size: 'core-size' };
+        const colorKeys = ['particleColor', 'energyColor', 'glowColor'];
         const status = document.getElementById('core-visual-status');
+        function validateColor(id, valid) {
+            const hex = document.getElementById(id + '-hex');
+            const error = document.getElementById(id + '-error');
+            const message = valid ? '' : 'Escribe un color HEX de seis dígitos, por ejemplo #b8bec9.';
+            hex.setCustomValidity(message);
+            hex.setAttribute('aria-invalid', String(!valid));
+            error.textContent = message;
+            error.hidden = valid;
+            if (!valid) status.textContent = message;
+        }
         function sync() {
             const config = core.getConfig();
             for (const [key, id] of Object.entries(fields)) {
                 const input = document.getElementById(id);
                 input.value = String(config[key]);
+                if (colorKeys.includes(key)) {
+                    document.getElementById(id + '-hex').value = input.value;
+                    validateColor(id, true);
+                }
                 const output = document.getElementById(id + '-value');
                 if (output) {
                     const valueText = key === 'speed' ? config[key].toFixed(2).replace('.', ',') + ' ×'
@@ -278,12 +293,20 @@
             }
         }
         function save(patch) {
-            try { core.configure(patch, { persist: true }); status.textContent = 'Apariencia del núcleo guardada en este dispositivo.'; }
+            try { core.configure(patch, { persist: true }); sync(); status.textContent = 'Apariencia del núcleo guardada en este dispositivo.'; }
             catch { status.textContent = 'No pude guardar la apariencia. Revisa si el navegador permite almacenamiento local.'; sync(); }
         }
-        for (const [key, id] of Object.entries(fields)) document.getElementById(id).addEventListener('input', event => {
-            save({ [key]: ['color', 'glowColor'].includes(key) ? event.target.value : Number(event.target.value) });
-        });
+        for (const [key, id] of Object.entries(fields)) {
+            document.getElementById(id).addEventListener('input', event => {
+                save({ [key]: colorKeys.includes(key) ? event.target.value : Number(event.target.value) });
+            });
+            if (colorKeys.includes(key)) document.getElementById(id + '-hex').addEventListener('input', event => {
+                const value = event.target.value.toLowerCase();
+                const valid = /^#[0-9a-f]{6}$/.test(value);
+                validateColor(id, valid);
+                if (valid) save({ [key]: value });
+            });
+        }
         document.getElementById('core-visual-reset').addEventListener('click', () => save(core.getDefaults()));
         window.addEventListener('gunter-core-config-changed', sync);
         window.addEventListener('storage', event => { if (event.key === PREF_KEY || event.key === null) sync(); });

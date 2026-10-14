@@ -135,27 +135,47 @@ check('Existing API mounts an idle canvas while preserving the host layout', () 
     assert.equal(env.art.classList.contains('existing-layout'), true); assert.equal(env.art.dataset.particlesReady, 'true');
     assert.equal(env.nodes.some(node => ['VIDEO', 'IMG', 'SVG'].includes(node.tagName)), false);
 });
-check('The six defaults are exact and getters cannot mutate shared state', () => {
+check('The visual defaults and energy color alias are exact and getters cannot mutate shared state', () => {
     const env = environment();
-    const defaults = { color: '#ff452b', glowColor: '#ff6d35', brightness: 1, density: 1, speed: 1, size: 1 };
+    const defaults = { particleColor: '#b8bec9', energyColor: '#ff452b', color: '#ff452b', glowColor: '#ff6d35',
+        brightness: 1, density: 1, speed: 1, size: 1 };
     assert.deepEqual(plain(env.api.getDefaults()), defaults); assert.deepEqual(plain(env.api.getConfig()), defaults);
-    env.api.getDefaults().color = '#000000'; env.api.getConfig().speed = 0;
+    env.api.getDefaults().particleColor = '#000000'; env.api.getConfig().energyColor = '#000000'; env.api.getConfig().speed = 0;
     assert.deepEqual(plain(env.api.getDefaults()), defaults); assert.equal(env.api.getConfig().speed, 1);
 });
 check('Configuration clamps all supported ranges and rejects malformed input', () => {
     const env = environment();
-    assert.deepEqual(plain(env.api.configure({ color: '#29D1FF', glowColor: '#FFAA00', brightness: 9, density: -2, speed: 3, size: 7 })),
-        { color: '#29d1ff', glowColor: '#ffaa00', brightness: 2.5, density: .35, speed: 2, size: 1.3 });
-    assert.deepEqual(plain(env.api.configure({ color: 'red;background:url(remote)', glowColor: null,
+    assert.deepEqual(plain(env.api.configure({ particleColor: '#AABBCD', color: '#29D1FF', glowColor: '#FFAA00',
+        brightness: 9, density: -2, speed: 3, size: 7 })),
+        { particleColor: '#aabbcd', energyColor: '#29d1ff', color: '#29d1ff', glowColor: '#ffaa00',
+            brightness: 2.5, density: .25, speed: 2, size: 1.3 });
+    assert.deepEqual(plain(env.api.configure({ particleColor: '#fff', color: 'red;background:url(remote)', glowColor: null,
         brightness: NaN, density: Infinity, speed: '2', size: null })), plain(env.api.getDefaults()));
     const low = env.api.configure({ brightness: -1, density: 9, speed: -1, size: -1 });
-    assert.equal(low.brightness, .2); assert.equal(low.density, 1.8); assert.equal(low.speed, 0); assert.equal(low.size, .7);
+    assert.equal(low.brightness, .2); assert.equal(low.density, 2); assert.equal(low.speed, 0); assert.equal(low.size, .7);
+    assert.equal(env.api.configure({ density: .25 }).density, .25); assert.equal(env.api.configure({ density: 2 }).density, 2);
+});
+check('Particle, energy and glow colors stay independent while legacy color patches target energy', () => {
+    const env = environment();
+    env.api.configure({ energyColor: '#22AAFF', glowColor: '#ee9911' });
+    const before = plain(env.api.getConfig());
+    const next = plain(env.api.configure({ particleColor: '#CCDDEE' }));
+    assert.deepEqual(next, { ...before, particleColor: '#ccddee' });
+    assert.equal(env.renders.at(-1).config.particleColor, '#ccddee');
+    assert.equal(env.renders.at(-1).config.energyColor, '#22aaff');
+    const legacy = env.api.configure({ color: '#DD2200' });
+    assert.equal(legacy.energyColor, '#dd2200'); assert.equal(legacy.color, legacy.energyColor);
+    assert.equal(legacy.particleColor, '#ccddee'); assert.equal(legacy.glowColor, '#ee9911');
+    const explicit = env.api.configure({ color: '#000000', energyColor: '#0077EE' });
+    assert.equal(explicit.energyColor, '#0077ee'); assert.equal(explicit.color, explicit.energyColor);
 });
 check('Preference persistence preserves legacy core fields and all other user preferences', () => {
     const prefs = { reduceMotion: false, theme: 'light', voice: { enabled: false }, future: [1, 2],
         coreVisual: { color: '#22ddaa', size: .9, geometry: 'metatron', mouseSensitivity: .7, nestedLegacy: { keep: true } } };
     const env = environment({ prefs });
     assert.equal(env.api.getConfig().color, '#22ddaa'); assert.equal(env.api.getConfig().size, .9);
+    assert.equal(env.api.getConfig().energyColor, '#22ddaa'); assert.equal(env.api.getConfig().particleColor, '#b8bec9');
+    assert.equal(env.writes.length, 0); assert.deepEqual(env.prefs(), prefs);
     env.api.configure({ size: 1.1 }); assert.equal(env.writes.length, 0);
     env.api.configure({ density: .8 }, { persist: true });
     assert.equal(env.writes.length, 1); assert.deepEqual(env.prefs().voice, prefs.voice); assert.deepEqual(env.prefs().future, prefs.future);
@@ -164,6 +184,18 @@ check('Preference persistence preserves legacy core fields and all other user pr
     assert.deepEqual(env.prefs().coreVisual.nestedLegacy, { keep: true });
     const restored = environment({ prefs: env.prefs() });
     assert.equal(restored.api.getConfig().density, .8); assert.equal(restored.api.getConfig().size, 1.1);
+});
+check('Explicit saved colors take precedence over legacy energy color without an automatic migration', () => {
+    const prefs = { theme: 'dark', coreVisual: { particleColor: '#ABCDEF', energyColor: '#00AAEE',
+        glowColor: '#CC6600', color: '#ff0000', futureColorMode: 'keep' } };
+    const env = environment({ prefs }), current = env.api.getConfig();
+    assert.equal(current.particleColor, '#abcdef'); assert.equal(current.energyColor, '#00aaee');
+    assert.equal(current.color, '#00aaee'); assert.equal(current.glowColor, '#cc6600');
+    assert.deepEqual(env.prefs(), prefs); assert.equal(env.writes.length, 0);
+    env.api.configure({ density: .25 }, { persist: true });
+    assert.equal(env.prefs().coreVisual.particleColor, '#abcdef'); assert.equal(env.prefs().coreVisual.energyColor, '#00aaee');
+    assert.equal(env.prefs().coreVisual.glowColor, '#cc6600'); assert.equal(env.prefs().coreVisual.futureColorMode, 'keep');
+    assert.equal(env.prefs().theme, 'dark'); assert.equal(env.prefs().coreVisual.color, '#00aaee');
 });
 check('Malformed preferences use defaults and failed persistence reports the error without changing configuration', () => {
     for (const coreVisual of [null, 'invalid', []]) {
@@ -183,16 +215,29 @@ check('The compositor is lazy and repeated mounting reuses the same canvas and e
     assert.equal(env.canvas(), canvas); assert.equal(env.engines.length, 1); assert.equal(env.engines[0], engine);
     assert.ok(env.renders.every(render => render.engine === engine));
 });
-check('Thumbnails render the generated core at fixed time without a frame loop', () => {
+check('Initial thumbnails capture phase eight without a frame loop', () => {
     const env = environment({ variant: 'thumb', width: 44 });
     assert.equal(env.engines.length, 1); assert.equal(env.renders.length, 1); assert.equal(env.frames.size, 0);
-    assert.equal(env.art.dataset.particlesStatus, 'static'); const time = env.renders[0].time;
+    assert.equal(env.art.dataset.particlesStatus, 'static'); const time = env.renders[0].time; assert.equal(time, 8);
     env.step(); env.step(); assert.equal(env.renders.length, 1);
     env.api.configure({ glowColor: '#dd2200' }); assert.equal(env.renders.length, 2); assert.equal(env.renders.at(-1).time, time);
     env.resize(60); assert.equal(env.renders.length, 3); assert.equal(env.renders.at(-1).time, time);
     env.resize(60); assert.equal(env.renders.length, 3); assert.equal(env.frames.size, 0);
     env.api.configure({ speed: 0 }); assert.equal(env.renders.at(-1).time, time); assert.equal(env.renders.at(-1).config.speed, 1);
     env.api.configure({ speed: 2 }); assert.equal(env.renders.at(-1).time, time); assert.equal(env.frames.size, 0);
+});
+check('New and refreshed thumbnail snapshots use the current shared phase without rewinding or animating', () => {
+    const env = environment(); env.step(); env.step(40);
+    const current = env.renders.at(-1).time, thumb = env.append('thumb', 44), canvas = env.canvas(thumb);
+    assert.ok(current > 8); assert.equal(env.renders.at(-1).canvas, canvas); assert.equal(env.renders.at(-1).time, current);
+    assert.equal(thumb.dataset.particlesStatus, 'static');
+    const count = env.renders.filter(render => render.canvas === canvas).length;
+    env.step(40); assert.equal(env.renders.filter(render => render.canvas === canvas).length, count);
+    const advanced = env.renders.at(-1).time;
+    env.api.configure({ particleColor: '#ddeeff' });
+    assert.equal(env.renders.at(-1).canvas, canvas); assert.equal(env.renders.at(-1).time, advanced);
+    env.resize(60, 60, thumb); assert.equal(env.renders.at(-1).time, advanced);
+    assert.ok(env.renders.every((render, index) => !index || render.time >= env.renders[index - 1].time));
 });
 check('At most two large visible cores animate through one compositor', () => {
     const env = environment(), chat = env.append('chat', 250), third = env.append('hero', 180), thumb = env.append('thumb', 44);
