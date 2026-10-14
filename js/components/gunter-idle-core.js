@@ -13,6 +13,12 @@
             p=fract(p*vec3(.1031,.1030,.0973)); p+=dot(p,p.yxz+33.33);
             return fract((p.xxy+p.yzz)*p.zyx)*2.0-1.0;
         }
+        float materialNoise(float x,float seed) {
+            float cell=floor(x),f=fract(x);
+            float a=hash3(vec3(cell,seed,3.7)).x*.5+.5;
+            float b=hash3(vec3(cell+1.0,seed,3.7)).x*.5+.5;
+            return mix(a,b,f*f*(3.0-2.0*f));
+        }
         vec3 potential(vec3 p,out vec3 curl) {
             vec3 i=floor(p),f=fract(p);
             vec3 u=f*f*f*(f*(f*6.0-15.0)+10.0),du=30.0*f*f*(f-1.0)*(f-1.0);
@@ -31,28 +37,42 @@
         // integrated by the volume pass. There are no independent light blobs.
         float energyRadius(vec3 p,float t) {
             vec3 q=p-energyCenter(t);
-            q.x+=.12*sin(q.y*5.3+t*.43)+.055*sin(q.z*6.1-t*.27);
-            q.y+=.10*sin(q.z*5.0-t*.36);
-            q.z+=.085*sin(q.x*5.8+t*.31);
-            return length(q/vec3(.33,.28,.31));
+            q.x+=.23*sin(q.y*5.3+t*.43)+.09*sin(q.z*6.1-t*.27);
+            q.y+=.18*sin(q.z*5.0-t*.36);
+            q.z+=.15*sin(q.x*5.8+t*.31);
+            return length(q/vec3(.52,.43,.45));
+        }
+        float matterDensity(vec3 p,float t) {
+            vec3 unused;
+            float coarse=potential(p*3.2+vec3(t*.04,-t*.03,t*.02),unused).x*.5+.5;
+            float folds=.5+.5*sin(p.y*8.2+p.z*5.4+sin(p.x*6.1)+t*.21);
+            float envelope=1.0-smoothstep(.54,.94,length(p*vec3(.98,1.02,1.14)));
+            return envelope*smoothstep(.25,.70,coarse*.62+folds*.38);
         }
         float energyHeat(vec3 p,float t) {
             float r=energyRadius(p,t);
-            float wave=sin(p.x*7.2-p.y*5.8+p.z*4.1-t*1.85)
-                +.45*sin(p.x*4.1+p.y*8.7-p.z*5.3-t*2.72);
-            float flow=.22+.78*smoothstep(-.65,.8,wave);
-            return exp(-r*r*1.4)*flow;
+            float fold=sin(p.x*6.3+p.z*4.9+sin(p.y*5.1+t*.35)*1.2-t*.54);
+            float ridge=exp(-fold*fold*15.0);
+            float wave=sin(p.x*8.2-p.y*6.8+p.z*4.1-t*1.85);
+            float flow=.16+.84*smoothstep(-.4,.8,wave);
+            return exp(-r*r*1.0)*(.025+.975*ridge)*flow;
         }
         vec3 velocity(vec3 p,float t,float row,float boundary) {
             vec3 q=p-energyCenter(t)*.55,curl,fine,micro;
-            potential(q*2.05+vec3(t*.12,-t*.095,t*.075),curl);
-            potential(q*5.2+vec3(4.3-t*.19,-2.1+t*.16,t*.14),fine);
-            potential(q*9.3+vec3(-5.7+t*.17,3.4-t*.14,t*.20),micro);
+            potential(q*2.05+vec3(t*.055,-t*.045,t*.035),curl);
+            potential(q*5.8+vec3(4.3-t*.23,-2.1+t*.19,t*.21),fine);
+            potential(q*12.4+vec3(-5.7+t*.37,3.4-t*.31,t*.41),micro);
             float r=max(.08,length(q.xy));
             vec2 radial=q.xy/r;
-            vec3 toroidal=vec3(-q.y,q.x,0.0)*.38;
-            vec3 poloidal=vec3(-q.z*radial,(r-.46))*.47;
-            vec3 v=(toroidal+poloidal+curl*.28+fine*.12+micro*.085)*.72;
+            float region=.5+.5*sin(q.x*3.7+q.z*2.6-t*.22)*cos(q.y*3.3+.7);
+            float compression=.5+.5*sin(q.y*7.1-q.z*5.6+t*.71);
+            vec3 toroidal=vec3(-q.y,q.x,0.0)*.16;
+            vec3 poloidal=vec3(-q.z*radial,(r-.46))*.24;
+            vec3 v=((toroidal+poloidal)*(.35+region*.65)
+                +curl*(.18+region*.18)+fine*(.12+compression*.10)+micro*.10)*.62;
+            // Mild converging/diverging pulses coexist with slow large eddies.
+            // They change spacing and folds, not merely the object's rotation.
+            v+=q*sin(t*.83+q.x*4.2-q.z*3.4)*.035;
             float outside=max(0.0,length(p*vec3(.94,1.02,1.13))-.87);
             v-=p*outside*3.2*boundary;
             float core=step(.19,fract(row*.56984));
@@ -62,11 +82,12 @@
         vec3 seedPosition(float row,float along,float t) {
             float plume=mod(floor(row),128.0);
             vec3 seed=hash3(vec3(plume,2.1,6.8))*.5+.5;
-            float spread=(fract(row*.6180339)-.5)*.12;
-            float a=seed.x*6.2831853+(along-.5)*(1.6+seed.z*1.7)+spread+t*.065;
-            float b=seed.y*6.2831853+sin(a*1.7+t*.12)*.55+spread*2.0;
-            float tube=.22+.12*seed.z,major=.43+.07*sin(a*2.1);
+            float spread=(fract(row*.6180339)-.5)*.18;
+            float a=seed.x*6.2831853+(along-.5)*(.38+2.3*seed.z*seed.z)+spread+t*.065;
+            float b=seed.y*6.2831853+sin(a*2.3+t*.12)*.72+sin(a*5.0)*.15+spread*2.0;
+            float tube=.17+.25*seed.z,major=.34+.10*sin(a*2.1)+.045*sin(b*2.3);
             vec3 p=vec3((major+tube*cos(b))*cos(a),(major+tube*cos(b))*sin(a),tube*sin(b));
+            p.z+=.08*sin(a*3.0+b*2.0);
             vec3 curl,warp=potential(p*2.0+vec3(t*.1,2.4,-1.2),curl);
             p+=warp*.12+curl*.045;
             return p;
@@ -130,6 +151,7 @@
         uniform float u_size;
         out vec3 v_world;
         out float v_cross,v_age,v_depth;
+        flat out float v_seed;
         vec2 projected(vec3 p) {
             vec2 aspect=min(u_resolution.x,u_resolution.y)/u_resolution;
             return viewPoint(p).xy*aspect*u_size*.80;
@@ -145,38 +167,53 @@
             vec3 p=texelFetch(u_history,ivec2(x,row),0).xyz;
             vec3 before=texelFetch(u_history,ivec2(max(0,x-1),row),0).xyz;
             vec3 after=texelFetch(u_history,ivec2(min(historyLength-1,x+1),row),0).xyz;
-            // Four subpixel fibres share one advected material stream. The
-            // bundle stays coherent without doubling history/simulation cost.
-            vec3 fibre=hash3(vec3(float(row),float(filament%4)*3.7,8.2))*.010;
-            p+=fibre;before+=fibre;after+=fibre;
+            // Microstructure follows material coordinates: it travels with the
+            // curve, rather than flickering as unrelated screen-space noise.
+            float seed=float(row)+float(filament%4)*37.71;
+            float age=float(x)/float(historyLength-1);
+            vec3 fibre=hash3(vec3(seed,2.7,8.2))*.012;
+            vec3 irregular=vec3(sin(age*71.0+seed),sin(age*53.0+seed*1.7),sin(age*89.0-seed*.7))*.006;
+            p+=fibre+irregular;before+=fibre+irregular;after+=fibre+irregular;
             vec2 tangent=(projected(after)-projected(before))*u_resolution;
             tangent/=max(.00001,length(tangent));
             vec2 normal=vec2(-tangent.y,tangent.x);
-            float width=.45+.20*fract(float(row)*.6180339);
+            float width=.18+.30*materialNoise(age*18.0,seed);
             vec2 position=projected(p)+normal*side*width*2.0/u_resolution;
             gl_Position=vec4(position,0,1);
-            v_cross=side;v_age=float(x)/float(historyLength-1);
+            v_cross=side;v_age=age;v_seed=seed;
             v_world=p;v_depth=clamp(.5+viewPoint(p).z*.45,.08,.92);
         }
     `;
     const STRAND_FRAGMENT=HEADER+FIELD+`
         uniform vec3 u_particle,u_energy,u_glow;
         uniform float u_brightness;
+        uniform sampler2D u_volume;
+        uniform vec2 u_resolution;
         in vec3 v_world;
         in float v_cross,v_age,v_depth;
+        flat in float v_seed;
         out vec4 result;
         void main() {
             float edge=1.0-smoothstep(.25,1.0,abs(v_cross));
             float fade=pow(max(0.0,sin(v_age*3.14159265)),.55);
-            float r=energyRadius(v_world,u_time);
-            float incident=exp(-r*r*.42)*(.30+.70*energyHeat(mix(energyCenter(u_time),v_world,.30),u_time));
             float emission=energyHeat(v_world,u_time);
-            vec3 color=u_particle*(.42+v_depth*.20)*(1.0-incident*.82)
-                +u_energy*incident*.95+u_glow*emission*.20;
-            // Subpixel material texture breaks the smooth rope appearance,
-            // without replacing continuous fibres with detached point sprites.
-            float grain=.70+.30*(hash3(floor(v_world*240.0)).x*.5+.5);
-            float alpha=edge*fade*(.055+v_depth*.020)*grain;
+            float incident=clamp(emission*4.0,0.0,1.0);
+            // Reuse the ray-marched column extinction, instead of tracing
+            // procedural density again for every subpixel fibre fragment.
+            float column=clamp(texture(u_volume,gl_FragCoord.xy/u_resolution).a/.72,0.0,.96);
+            float depth=clamp((.90-viewPoint(v_world).z)/1.8,0.0,1.0);
+            float transmission=pow(1.0-column,depth*2.0);
+            float matter=matterDensity(v_world,u_time);
+            vec3 color=u_particle*(.21+v_depth*.27)*(.50+matter*.50)
+                +u_energy*incident*3.0+u_glow*incident*incident*.55;
+            color*=transmission;
+            // Broad erosion creates differently sized wisps; fine coverage
+            // turns each wisp into porous, irregular microfibres, not a cable.
+            float lengths=3.0+15.0*fract(v_seed*.56984);
+            float fragments=smoothstep(.20,.58,materialNoise(v_age*lengths,v_seed+4.1));
+            float grain=.06+.94*smoothstep(.24,.78,materialNoise(v_age*167.0,v_seed*1.31));
+            float packing=.45+matter*matter*5.50;
+            float alpha=min(.85,edge*fade*(.20+v_depth*.10)*fragments*grain*packing);
             result=vec4(color*u_brightness,alpha);
         }
     `;
@@ -193,13 +230,13 @@
             for(int i=0;i<20;i++) {
                 float z=.90-(float(i)+.5)*.09;
                 vec3 p=worldPoint(vec3(xy,z));
-                float heat=energyHeat(p,u_time);
-                float density=heat*.26;
-                vec3 light=u_energy*(.80+heat*.75)+u_glow*heat*.16;
+                float heat=energyHeat(p,u_time),matter=matterDensity(p,u_time);
+                float density=matter*.12;
+                vec3 light=u_energy*heat*3.5+u_glow*heat*heat*.40;
                 color+=(1.0-opacity)*light*density;
                 opacity+=(1.0-opacity)*density;
             }
-            result=vec4(color*u_brightness,opacity*.58);
+            result=vec4(color*u_brightness,opacity*.72);
         }
     `;
     const COPY=HEADER+`
@@ -234,7 +271,10 @@
         void main() {
             vec4 scene=texture(u_image,v_uv);
             vec3 light=scene.rgb+texture(u_bloom,v_uv).rgb*.38;
-            vec3 color=1.0-exp(-light*1.35);
+            // Map energy, not each RGB channel separately: bright red should
+            // retain its hue instead of bleaching into peach/white highlights.
+            float peak=max(light.r,max(light.g,light.b));
+            vec3 color=light*((1.0-exp(-peak*1.35))/max(.0001,peak));
             float coverage=1.0-pow(max(0.0,1.0-scene.a),1.4);
             float alpha=max(coverage,max(color.r,max(color.g,color.b)));
             result=vec4(color,alpha);
@@ -367,6 +407,7 @@
             this.quad(this.targets.scene);
             const strands=this.programs.strands;this.use(strands);
             this.texture(strands,'u_history',this.histories[this.historyIndex].texture);
+            this.texture(strands,'u_volume',this.targets.energy.texture,1);
             gl.uniform2f(this.uniform(strands,'u_resolution'),this.width,this.height);
             this.scalar(strands,'u_time',t);this.scalar(strands,'u_size',config.size);this.scalar(strands,'u_brightness',config.brightness);
             this.vector(strands,'u_particle',rgb(config.particleColor));this.vector(strands,'u_energy',rgb(config.energyColor));

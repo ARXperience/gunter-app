@@ -43,7 +43,7 @@ function environment(options={}) {
     gl.getExtension=name=>name==='EXT_color_buffer_float'?(options.noFloat?null:{}):name==='WEBGL_lose_context'?{loseContext(){losses++;}}:null;
     function record(mode,count,instances=0) {
         assert.equal(mode,gl.TRIANGLES);assert.ok(count===3||count===6);
-        for(const name of ['u_history','u_image','u_bloom'])if(program[name])
+        for(const name of ['u_history','u_image','u_bloom','u_volume'])if(program[name])
             assert.notEqual(textures.get(program[name][0]),framebuffer?.texture,'no framebuffer texture feedback');
         draws.push({program,framebuffer,texture:framebuffer?.texture,count,instances,viewport:viewport.slice(),
             time:program.u_time?.[0],initialize:program.u_initialize?.[0]});
@@ -104,6 +104,16 @@ check('particle, energy and emissive colors are independent shader uniforms',()=
     const p=e.core.programs.strands.program;
     assert.deepEqual(Array.from(p.u_particle),[0,1,0]);assert.deepEqual(Array.from(p.u_energy),[0,0,1]);assert.deepEqual(Array.from(p.u_glow),[1,0,0]);
     assert.deepEqual(Array.from(e.core.programs.volume.program.u_energy),[0,0,1]);
+    e.core.dispose();released(e);
+});
+check('filament depth attenuation reuses the existing integrated volume without extra targets',()=>{
+    const e=environment();e.render();
+    assert.equal(e.core.programs.strands.program.u_volume[0],1);
+    assert.equal(e.core.targets.energy.texture.internal,e.gl.RGBA16F);
+    assert.equal(e.live.Framebuffer.size,6);assert.equal(e.live.Texture.size,6);
+    const fragment=e.core.programs.strands.program.shaders.find(s=>s.source.includes('uniform sampler2D u_volume')).source;
+    assert.match(fragment,/texture\(u_volume,gl_FragCoord.xy\/u_resolution\)/);
+    assert.match(fragment,/pow\(1\.0-column,depth\*2\.0\)/);
     e.core.dispose();released(e);
 });
 check('finite input bounds and the legacy energy color alias remain supported',()=>{
