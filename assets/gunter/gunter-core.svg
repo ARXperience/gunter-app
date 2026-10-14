@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" fill="none" role="img" aria-label="Núcleo de Gunter">
+  <defs>
+    <radialGradient id="mist"><stop stop-color="#ba81ff" stop-opacity=".5"/><stop offset=".5" stop-color="#7d36d9" stop-opacity=".2"/><stop offset="1" stop-color="#7d36d9" stop-opacity="0"/></radialGradient>
+    <radialGradient id="nucleus"><stop stop-color="#fff"/><stop offset=".23" stop-color="#fff0ff"/><stop offset=".5" stop-color="#c791ff" stop-opacity=".65"/><stop offset="1" stop-color="#a358ea" stop-opacity="0"/></radialGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <circle cx="160" cy="160" r="150" fill="url(#mist)"/>
+  <g filter="url(#glow)" stroke-width="1.5">
+    <ellipse cx="160" cy="160" rx="98" ry="64" stroke="#c697ff" transform="rotate(14 160 160)"/>
+    <ellipse cx="160" cy="160" rx="99" ry="64" stroke="#f7e6ff" transform="rotate(46 160 160)"/>
+    <ellipse cx="160" cy="160" rx="97" ry="58" stroke="#b580ee" transform="rotate(83 160 160)"/>
+    <ellipse cx="160" cy="160" rx="97" ry="62" stroke="#ead4ff" transform="rotate(117 160 160)"/>
+    <ellipse cx="160" cy="160" rx="98" ry="62" stroke="#b380ed" transform="rotate(151 160 160)"/>
+    <circle cx="160" cy="160" r="59" stroke="#ffb562" stroke-width="2.8"/>
+  </g>
+  <g fill="#c394f5" opacity=".65">
+    <circle cx="140" cy="122" r="1"/><circle cx="171" cy="110" r=".7"/><circle cx="191" cy="132" r="1.1"/>
+    <circle cx="120" cy="151" r="1.2"/><circle cx="197" cy="157" r=".8"/><circle cx="132" cy="180" r="1"/>
+    <circle cx="149" cy="198" r=".9"/><circle cx="173" cy="187" r="1.2"/><circle cx="198" cy="177" r=".8"/>
+    <circle cx="169" cy="135" r=".8"/><circle cx="144" cy="153" r="1"/><circle cx="159" cy="179" r="1"/>
+    <circle cx="130" cy="134" r=".7"/><circle cx="182" cy="195" r=".8"/><circle cx="177" cy="154" r="1"/>
+  </g>
+  <circle cx="160" cy="160" r="41" fill="url(#nucleus)"/>
+</svg>

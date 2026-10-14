@@ -205,3 +205,52 @@ html body.gunter-page-day .gunter-command-nav__mobile-panel a { color: var(--con
 @keyframes console-orbit { to { transform: rotate(360deg); } }
 .gunter-console__mic-level { width: 70px; height: 8px; accent-color: var(--console-accent, #5bd7dc); }
 .gunter-console__mic-level[hidden] { display: none; }
+
+/* Abstract identity shared by the orbital home and assistant bubble. These
+   rules are deliberately scoped: no navigation, forms or settings change. */
+.gunter-energy-core {
+  position: relative;
+  display: block;
+  isolation: isolate;
+  overflow: visible;
+  --core-violet: #bc8fff;
+  --core-amber: #ffb55d;
+}
+.gunter-energy-core > .gunter-particle-art__canvas,
+.gunter-energy-core > .gunter-core-fallback {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+.gunter-energy-core > .gunter-core-fallback[hidden] { display: none !important; }
+body.at-light .gunter-energy-core,
+html[data-color-mode="light"] .gunter-energy-core {
+  --core-violet: #7446ad;
+  --core-amber: #a86222;
+}
+body.at-light .gunter-core-fallback,
+html[data-color-mode="light"] .gunter-core-fallback { filter: saturate(.9) brightness(.74); }
+.gunter-core-avatar {
+  display: inline-block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: 1;
+  vertical-align: middle;
+}
+.gn-particle-surface.gunter-energy-core {
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+}
+.gunter-energy-core[data-core-state="speaking"] { --core-active: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .gunter-energy-core, .gunter-energy-core * { animation: none !important; transition: none !important; }
+}
+html.reduce-motion .gunter-energy-core,
+html.reduce-motion .gunter-energy-core * { animation: none !important; transition: none !important; }

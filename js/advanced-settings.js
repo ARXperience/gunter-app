@@ -327,7 +327,7 @@
         { id: 'warm',               icon: '☕', name: 'Cálido',                  hint: 'Cercano y relajado' },
         { id: 'chaotic_scientist',  icon: '🧪', name: 'Científico caótico',      hint: 'Sarcástico, ácido, brillante' },
         { id: 'energetic_cartoon',  icon: '🎉', name: 'Caricatura energética',   hint: 'Hiperactivo, optimista, motivador' },
-        { id: 'minimal_penguin',    icon: '🐧', name: 'Pingüino minimalista',    hint: 'Seco, breve, raro' },
+        { id: 'minimal_penguin',    icon: '◉', name: 'Minimalista',            hint: 'Seco, breve, raro' },
         { id: 'executive',          icon: '💼', name: 'Ejecutivo premium',       hint: 'Clara, profesional, calmada' },
         { id: 'focus_coach',        icon: '🎯', name: 'Coach de enfoque',        hint: 'Firme, motivador, guiado' }
     ];

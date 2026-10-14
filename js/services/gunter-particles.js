@@ -1,347 +1,276 @@
-/* Localized Gunter hologram: original Stitch geometry, camera and orbital interaction.
- * Three.js r125 is vendored locally as an ES module. Nothing is drawn on the page background. */
+/* Gunter's abstract energy identity. One local canvas renderer, no audio capture,
+ * network, models or invented spectrum. Speaking topology follows real playback. */
 (function () {
     'use strict';
     if (window.GunterParticles) return;
-    const sourceURL = document.currentScript?.src || new URL('js/services/gunter-particles.js', location.href).href;
-    const libraryURL = new URL('../../assets/vendor/three-r125.module.js', sourceURL).href;
-    const records = new Map(), pending = new WeakSet();
-    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-    let libraryPromise, raf = 0, lastFrame = 0, disposed = false;
-
-    function loadThree() {
-        if (window.THREE?.WebGLRenderer) return Promise.resolve(window.THREE);
-        if (!libraryPromise) libraryPromise = import(libraryURL).then(THREE => {
-            window.THREE = THREE;
-            return THREE;
-        });
-        return libraryPromise;
+    const source = document.currentScript?.src || new URL('js/services/gunter-particles.js', location.href).href;
+    const fallbackURL = new URL('../../assets/gunter/gunter-core.svg', source).href;
+    const records = new Map();
+    const motionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    let raf = 0, lastFrame = 0, disposed = false, voiceSpeaking = false;
+    let conversation = window.GunterConversationState?.getState?.().value || 'idle';
+    let savedReduced = false;
+    const TAU = Math.PI * 2;
+    function refreshPreferences() {
+        try { savedReduced = JSON.parse(window.localStorage?.getItem('gunter_prefs') || '{}').reduceMotion === true; }
+        catch (_) { savedReduced = false; }
     }
-
-    const visibilityObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
-        for (const entry of entries) {
-            const record = records.get(entry.target);
-            if (record) { record.visible = entry.isIntersecting; record.dirty = true; }
-        }
+    refreshPreferences();
+    function reduced() { return !!motionQuery?.matches || savedReduced || document.documentElement.classList.contains('reduce-motion'); }
+    function light() { return document.body.classList.contains('at-light') || document.documentElement.dataset.colorMode === 'light'; }
+    function state() {
+        let active = voiceSpeaking;
+        try {
+            const playback = window.GunterVoice?.getPlaybackState?.();
+            if (typeof playback?.speaking === 'boolean') active = playback.speaking;
+        } catch (_) { /* visual state must never interrupt the assistant */ }
+        if (active) return 'speaking';
+        // The conversational brain may be ready to speak before audio starts.
+        if (conversation === 'speaking') return 'thinking';
+        return ['thinking', 'listening_query', 'listening_wake', 'awaiting_confirmation', 'error'].includes(conversation) ? conversation : 'idle';
+    }
+    const observer = 'IntersectionObserver' in window ? new window.IntersectionObserver(entries => {
+        entries.forEach(entry => { const record = records.get(entry.target); if (record) { record.visible = entry.isIntersecting; record.dirty = true; } });
         schedule();
-    }, { rootMargin: '40px' }) : null;
-    function isLight() { return document.body.classList.contains('at-light') || document.documentElement.dataset.colorMode === 'light'; }
-
-    function buildGeometry(THREE, variant) {
-        const hero = variant === 'hero', penguinCount = hero ? 2400 : variant === 'chat' ? 1200 : 800;
-        const cyan = new THREE.Color(0x55c6d5), deep = new THREE.Color(0x102d3d);
-        const turquoise = new THREE.Color(0x2dd4bf), electric = new THREE.Color(0x95edee), white = new THREE.Color(0xffffff);
-        const belly = new THREE.Color(0xeaf5ef), beak = new THREE.Color(0xf5a136), feet = new THREE.Color(0xd9842a), eye = new THREE.Color(0x111923);
-        const rings = [
-            { radius: 3.8, y: 1.2, count: 420, speed: .65, color: white, ticks: true, tiltX: .1, tiltZ: -.05 },
-            { radius: 5.6, y: 0, count: 680, speed: -.45, color: electric, ticks: true, tiltX: -.15, tiltZ: .12 },
-            { radius: 7.8, y: -1, count: 780, speed: .38, color: cyan, ticks: true, tiltX: .18, tiltZ: -.2 },
-            { radius: 9.8, y: .6, count: 680, speed: -.28, color: turquoise, ticks: false, tiltX: -.08, tiltZ: .15 },
-            { radius: 12, y: -.5, count: 640, speed: .22, color: deep, ticks: true, tiltX: .05, tiltZ: -.08 }
-        ].slice(0, hero ? 5 : variant === 'chat' ? 2 : 1);
-        if (!hero) rings.forEach(ring => { ring.count = Math.round(ring.count * .3); });
-        const count = penguinCount + (hero ? 3200 : rings.reduce((sum, ring) => sum + ring.count, 0));
-        const positions = new Float32Array(count * 3), base = new Float32Array(count * 3), velocities = new Float32Array(count * 3);
-        const colors = new Float32Array(count * 3), baseColors = new Float32Array(count * 3);
-        const speeds = new Float32Array(count);
-        let index = 0;
-        function add(x, y, z, color, speed = 0) {
-            const p = index * 3;
-            const figureScale = hero && index < penguinCount ? 1.32 : 1;
-            x *= figureScale; y *= figureScale; z *= figureScale;
-            positions[p] = base[p] = x; positions[p + 1] = base[p + 1] = y; positions[p + 2] = base[p + 2] = z;
-            colors[p] = baseColors[p] = color.r; colors[p + 1] = baseColors[p + 1] = color.g; colors[p + 2] = baseColors[p + 2] = color.b;
-            speeds[index] = speed; index++;
-        }
-        for (let i = 0; i < penguinCount; i++) {
-            let x, y, z, color;
-            const part = Math.random();
-            if (part < .44) {
-                const theta = Math.random() * Math.PI * 2, phi = Math.acos(Math.random() * 2 - 1);
-                x = 2.1 * Math.sin(phi) * Math.cos(theta) * (.85 + .15 * Math.random());
-                y = 3.5 * Math.cos(phi) - .2; z = 1.6 * Math.sin(phi) * Math.sin(theta) * (.85 + .15 * Math.random());
-                color = z > .18 ? (Math.random() > .13 ? belly : cyan) : deep;
-            } else if (part < .68) {
-                if (Math.random() < .28) {
-                    const side = i % 2 ? -1 : 1, pupil = Math.random() < .55, angle = Math.random() * Math.PI * 2;
-                    const radius = pupil ? Math.sqrt(Math.random()) * .115 : .2 + Math.random() * .09;
-                    x = side * .57 + Math.cos(angle) * radius;
-                    y = 3.48 + Math.sin(angle) * radius * 1.14;
-                    z = 1.205 + (pupil ? .045 : 0);
-                    color = pupil ? eye : white;
-                } else {
-                    const theta = Math.random() * Math.PI * 2, phi = Math.acos(Math.random() * 2 - 1), radius = 1.5 * (.88 + .12 * Math.random());
-                    x = radius * Math.sin(phi) * Math.cos(theta) * .92;
-                    y = 3.3 + radius * Math.cos(phi) * .95; z = radius * Math.sin(phi) * Math.sin(theta) * .88;
-                    color = z > .2 ? (Math.random() > .16 ? belly : electric) : deep;
-                }
-            } else if (part < .88) {
-                const side = Math.random() > .5 ? 1 : -1, t = Math.random();
-                x = side * (1.9 + t * 1.5 + (Math.random() - .5) * .3); y = 1.9 - t * 3.8; z = (Math.random() - .5) * .5; color = deep;
-            } else if (part < .94) {
-                const t = Math.random();
-                x = (Math.random() - .5) * .4 * (1 - t); y = 3.2 - t * .45; z = 1.35 + t * 1.5; color = beak;
-            } else {
-                const side = Math.random() > .5 ? 1 : -1;
-                x = side * (1 + Math.random() * .7); y = -3.8 + (Math.random() - .5) * .4; z = Math.random() - .5; color = feet;
-            }
-            add(x, y, z, color);
-        }
-        // Preserve the five isometric planes, dense tick marks, and 3,200 ring points in the source.
-        for (const ring of rings) for (let k = 0; k < ring.count && index < count; k++) {
-            const angle = k / ring.count * Math.PI * 2, tick = ring.ticks && k % 6 === 0;
-            const radius = ring.radius + (tick ? (Math.random() - .5) * .4 : 0) + (Math.random() - .5) * .2;
-            const x = radius * Math.cos(angle), y = ring.y + (Math.random() - .5) * .2, z = radius * Math.sin(angle);
-            const tiltedY = y * Math.cos(ring.tiltX) - z * Math.sin(ring.tiltX), tiltedZ = y * Math.sin(ring.tiltX) + z * Math.cos(ring.tiltX);
-            add(x * Math.cos(ring.tiltZ) - tiltedY * Math.sin(ring.tiltZ), x * Math.sin(ring.tiltZ) + tiltedY * Math.cos(ring.tiltZ),
-                tiltedZ, tick ? white : ring.color, ring.speed);
-        }
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
-        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3).setUsage(THREE.DynamicDrawUsage));
-        geometry.setDrawRange(0, index);
-        return { geometry, positions, base, velocities, colors, baseColors, speeds, penguinCount, count: index };
+    }, { rootMargin: '24px' }) : null;
+    function listen(record, element, type, handler, options) {
+        element.addEventListener(type, handler, options);
+        record.listeners.push(() => element.removeEventListener(type, handler, options));
     }
-
-    function makeTexture(THREE) {
-        const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
-        const context = canvas.getContext('2d'), glow = context.createRadialGradient(32, 32, 0, 32, 32, 32);
-        glow.addColorStop(0, 'rgba(255,255,255,1)'); glow.addColorStop(.25, 'rgba(149,237,238,.95)');
-        glow.addColorStop(.65, 'rgba(38,141,169,.35)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
-        context.fillStyle = glow; context.fillRect(0, 0, 64, 64);
-        return new THREE.CanvasTexture(canvas);
+    function seededPoints(count) {
+        // Stable geometry prevents flicker, including on low-motion devices.
+        let seed = 1917;
+        const random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+        return Array.from({ length: count }, () => ({
+            angle: random() * TAU, radius: Math.pow(random(), .68), depth: random() * 2 - 1,
+            phase: random() * TAU, size: .3 + random() * .7, brightness: random()
+        }));
     }
-    function applyPalette(record) {
-        record.light = isLight();
-        record.material.blending = record.light ? record.THREE.NormalBlending : record.THREE.AdditiveBlending;
-        record.material.needsUpdate = true; record.dirty = true;
-        record.themeColors = Float32Array.from(record.figure.baseColors, (component, i) => {
-            if (!record.light) return component;
-            // Dark teal pigments keep the cloud visible on light surfaces, without a black tile.
-            return i % 3 === 0 ? .025 + component * .05 : i % 3 === 1 ? .16 + component * .22 : .22 + component * .23;
-        });
-    }
-    function listen(record, element, type, handler, passive = true) {
-        element.addEventListener(type, handler, { passive });
-        record.listeners.push(() => element.removeEventListener(type, handler));
-    }
-    // A static projection of the very same 3D geometry covers devices with WebGL disabled.
-    // It deliberately has no alternative silhouette and no continuously running software loop.
-    function softwareRenderer(canvas, THREE) {
-        const context = canvas.getContext('2d');
-        if (!context) return null;
-        let width = 1, height = 1, ratio = 1;
-        const vertex = new THREE.Vector3(), projected = new THREE.Vector3();
-        return {
-            isSoftwareRenderer: true,
-            setPixelRatio(value) { ratio = value; },
-            setClearColor() {},
-            setSize(w, h) { width = w; height = h; canvas.width = Math.round(w * ratio); canvas.height = Math.round(h * ratio); },
-            render(scene, camera) {
-                scene.updateMatrixWorld(true); camera.updateMatrixWorld(true);
-                context.setTransform(ratio, 0, 0, ratio, 0, 0); context.clearRect(0, 0, width, height);
-                context.globalCompositeOperation = isLight() ? 'source-over' : 'lighter';
-                const mesh = scene.children[0].children[0];
-                const position = mesh.geometry.attributes.position.array, colors = mesh.geometry.attributes.color.array;
-                for (let i = 0; i < mesh.geometry.drawRange.count; i++) {
-                    const p = i * 3;
-                    vertex.set(position[p], position[p + 1], position[p + 2]).applyMatrix4(mesh.matrixWorld).applyMatrix4(camera.matrixWorldInverse);
-                    if (vertex.z >= -.1) continue;
-                    projected.copy(vertex).applyMatrix4(camera.projectionMatrix);
-                    if (Math.abs(projected.x) > 1.04 || Math.abs(projected.y) > 1.04) continue;
-                    const x = (projected.x + 1) * width / 2, y = (1 - projected.y) * height / 2;
-                    const radius = Math.max(.35, mesh.material.size * height / (-vertex.z * 4));
-                    context.fillStyle = 'rgb(' + Math.round(colors[p] * 255) + ',' + Math.round(colors[p + 1] * 255) + ',' + Math.round(colors[p + 2] * 255) + ')';
-                    context.globalAlpha = .12; context.beginPath(); context.arc(x, y, radius * 2, 0, Math.PI * 2); context.fill();
-                    context.globalAlpha = .78; context.beginPath(); context.arc(x, y, radius, 0, Math.PI * 2); context.fill();
-                }
-                context.globalAlpha = 1;
-            },
-            dispose() {},
-            forceContextLoss() {}
-        };
-    }
-    function createRecord(el, THREE) {
-        const variant = el.dataset.gunterParticles || 'thumb';
-        let canvas = document.createElement('canvas');
-        let renderer;
-        try { renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'low-power' }); }
-        catch (_) { canvas = document.createElement('canvas'); renderer = softwareRenderer(canvas, THREE); }
-        if (!renderer) return null;
+    function mountOne(el) {
+        if (records.has(el) || !el.isConnected || disposed) return;
+        const variant = ['hero', 'chat'].includes(el.dataset.gunterParticles) ? el.dataset.gunterParticles : 'thumb';
+        const fallback = document.createElement('img');
+        fallback.src = fallbackURL; fallback.alt = ''; fallback.className = 'gunter-core-fallback';
+        fallback.style.cssText = 'display:block;width:100%;height:100%;object-fit:contain;';
+        fallback.setAttribute('aria-hidden', 'true'); fallback.draggable = false;
+        const canvas = document.createElement('canvas');
         canvas.className = 'gunter-particle-art__canvas'; canvas.setAttribute('aria-hidden', 'true');
-        canvas.style.cssText = 'display:block;width:100%;height:100%;';
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, variant === 'hero' ? 1.75 : 2)); renderer.setClearColor(0x000000, 0);
-        const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(40, 1, .1, 1000);
-        camera.position.set(0, 13, 23); camera.lookAt(0, 0, 0);
-        camera.zoom = variant === 'hero' ? 1 : variant === 'chat' ? 1.75 : 2.15;
-        const group = new THREE.Group(); group.rotation.set(.52, -.42, 0); scene.add(group);
-        const figure = buildGeometry(THREE, variant), texture = makeTexture(THREE);
-        const material = new THREE.PointsMaterial({ size: variant === 'hero' ? .46 : .43, vertexColors: true,
-            map: texture, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-        const points = new THREE.Points(figure.geometry, material); points.frustumCulled = false; group.add(points);
-        const record = { el, THREE, variant, canvas, renderer, scene, camera, group, figure, texture, material, visible: !visibilityObserver,
-            dirty: true, elapsed: 0, spin: 0, hover: 0, active: false, mouseX: 0, mouseY: 0, targetX: 0, targetY: 0,
-            contextLost: false, listeners: [], width: 0, height: 0 };
-        records.set(el, record); el.replaceChildren(canvas); el.classList.add('gunter-particle-art');
-        el.dataset.particlesReady = 'true'; el.dataset.particlesRenderer = renderer.isSoftwareRenderer ? 'static-3d' : 'webgl'; applyPalette(record);
+        canvas.style.cssText = 'display:block;width:100%;height:100%;position:absolute;inset:0;pointer-events:none;';
+        let context;
+        try { context = canvas.getContext('2d', { alpha: true }); } catch (_) { /* use static identity */ }
+        const mobile = window.matchMedia?.('(max-width: 700px)')?.matches || false;
+        const record = { el, variant, mobile, canvas, fallback, context, width: 0, height: 0, ratio: 1,
+            visible: true, dirty: true, time: 0, activity: state() === 'speaking' ? 1 : 0,
+            pointerX: 0, pointerY: 0, targetX: 0, targetY: 0, listeners: [],
+            particles: seededPoints(variant === 'hero' ? (mobile ? 420 : 880) : variant === 'chat' ? 150 : 65) };
+        records.set(el, record);
+        el.classList.add('gunter-particle-art', 'gunter-energy-core');
+        el.replaceChildren(fallback);
+        el.dataset.particlesRenderer = context ? 'canvas-2d' : 'static-svg';
+        el.dataset.particlesReady = context ? 'true' : 'fallback';
+        el.dataset.coreState = state();
+        if (context) el.appendChild(canvas);
         const resize = () => {
             const box = el.getBoundingClientRect(); record.width = box.width; record.height = box.height;
-            if (box.width <= 0 || box.height <= 0) return;
-            camera.aspect = box.width / box.height; camera.updateProjectionMatrix(); renderer.setSize(box.width, box.height, false);
+            if (!context || box.width <= 0 || box.height <= 0) return;
+            record.ratio = Math.min(window.devicePixelRatio || 1, variant === 'hero' ? 1.5 : 1.75);
+            canvas.width = Math.max(1, Math.round(box.width * record.ratio));
+            canvas.height = Math.max(1, Math.round(box.height * record.ratio));
             record.dirty = true; schedule();
         };
-        if ('ResizeObserver' in window) { record.resizeObserver = new ResizeObserver(resize); record.resizeObserver.observe(el); }
+        if ('ResizeObserver' in window) { record.resizeObserver = new window.ResizeObserver(resize); record.resizeObserver.observe(el); }
         else listen(record, window, 'resize', resize);
-        if (variant === 'hero' && !renderer.isSoftwareRenderer) {
-            const updatePointer = event => {
-                if (reducedMotion.matches) return;
+        if (variant === 'hero' && context) {
+            const pointer = event => {
+                if (reduced()) return;
                 const box = el.getBoundingClientRect();
                 if (!box.width || !box.height) return;
-                record.targetX = Math.max(-1, Math.min(1, (event.clientX - box.left) / box.width * 2 - 1)) * 14;
-                record.targetY = -Math.max(-1, Math.min(1, (event.clientY - box.top) / box.height * 2 - 1)) * 12;
-                record.active = true; schedule();
+                record.targetX = Math.max(-1, Math.min(1, (event.clientX - box.left) / box.width * 2 - 1));
+                record.targetY = Math.max(-1, Math.min(1, (event.clientY - box.top) / box.height * 2 - 1));
+                schedule();
             };
-            listen(record, el, 'pointermove', updatePointer);
-            listen(record, el, 'pointerdown', updatePointer);
-            const resetPointer = () => { record.active = false; record.targetX = record.targetY = 0; schedule(); };
-            listen(record, el, 'pointerleave', resetPointer); listen(record, el, 'pointercancel', resetPointer);
-            listen(record, el, 'pointerup', event => { if (event.pointerType !== 'mouse') resetPointer(); });
+            const reset = () => { record.targetX = record.targetY = 0; schedule(); };
+            listen(record, el, 'pointermove', pointer, { passive: true });
+            listen(record, el, 'pointerleave', reset, { passive: true });
+            listen(record, el, 'pointercancel', reset, { passive: true });
         }
-        listen(record, canvas, 'webglcontextlost', event => { event.preventDefault(); record.contextLost = true; }, false);
-        listen(record, canvas, 'webglcontextrestored', () => { record.contextLost = false; record.dirty = true; schedule(); });
-        visibilityObserver?.observe(el); resize(); schedule(); return record;
-    }
-
-    function render(record, dt) {
-        const motion = !reducedMotion.matches, step = motion ? Math.min(dt * 60, 2) : 0;
-        if (motion) record.elapsed += dt;
-        const smooth = 1 - Math.pow(.92, step || 1);
-        record.mouseX += (record.targetX - record.mouseX) * smooth; record.mouseY += (record.targetY - record.mouseY) * smooth;
-        record.hover += ((record.active && motion ? 1 : 0) - record.hover) * (1 - Math.pow(.94, step || 1));
-        const hover = motion ? record.hover : 0, t = record.elapsed;
-        record.group.rotation.y = -.42 + (motion ? Math.sin(t * .3) * .05 + record.mouseX * .02 : 0);
-        record.group.rotation.x = .52 + (motion ? Math.cos(t * .25) * .03 - record.mouseY * .02 : 0);
-        // Integrate speed: changing hover state never makes the rings jump back in time.
-        if (motion) record.spin += dt * (1 + hover * 4.2);
-        const f = record.figure;
-        for (let i = 0; i < f.count; i++) {
-            const p = i * 3;
-            if (i >= f.penguinCount) {
-                // The base point already contains its azimuth. Rotate the entire plane by one
-                // shared angle; adding the azimuth again folds a tilted ring over itself.
-                const angle = record.spin * f.speeds[i], cos = Math.cos(angle), sin = Math.sin(angle);
-                const pulse = motion ? 1 + .02 * Math.sin(t * 4 + i) : 1;
-                f.positions[p] = (f.base[p] * cos - f.base[p + 2] * sin) * pulse;
-                f.positions[p + 1] = f.base[p + 1] * pulse; f.positions[p + 2] = (f.base[p] * sin + f.base[p + 2] * cos) * pulse;
-            } else if (motion && record.variant === 'hero') {
-                // Source spring behaviour, with substeps so mobile frame rates retain the same feel.
-                const substeps = Math.max(1, Math.ceil(step)), h = step / substeps;
-                for (let sub = 0; sub < substeps; sub++) {
-                    const dx = f.positions[p] - record.mouseX, dy = f.positions[p + 1] - record.mouseY;
-                    const distance = Math.sqrt(dx * dx + dy * dy) + .001;
-                    if (distance < 6.4 && hover > .05) {
-                        const force = (1 - distance / 6.4) * 3.6 * hover;
-                        f.velocities[p] += (dx / distance * force * .5 + (Math.random() - .5) * .2) * h;
-                        f.velocities[p + 1] += (dy / distance * force * .5 + (Math.random() - .5) * .2) * h;
-                        f.velocities[p + 2] += (Math.random() - .5) * force * .95 * h;
-                    }
-                    for (let axis = 0; axis < 3; axis++) {
-                        f.velocities[p + axis] += (f.base[p + axis] - f.positions[p + axis]) * .07 * h;
-                        f.velocities[p + axis] *= Math.pow(.84, h); f.positions[p + axis] += f.velocities[p + axis] * h;
-                    }
-                }
-            } else {
-                f.positions[p] = f.base[p]; f.positions[p + 1] = f.base[p + 1]; f.positions[p + 2] = f.base[p + 2];
-                f.velocities[p] = f.velocities[p + 1] = f.velocities[p + 2] = 0;
-            }
-            for (let axis = 0; axis < 3; axis++) {
-                const color = record.themeColors[p + axis], target = record.light ? color * .65 : 1;
-                f.colors[p + axis] = color + (target - color) * hover * (i >= f.penguinCount ? .85 : .6);
-            }
-        }
-        f.geometry.attributes.position.needsUpdate = true; f.geometry.attributes.color.needsUpdate = true;
-        record.renderer.render(record.scene, record.camera); record.dirty = false;
-    }
-    function schedule() { if (!raf && !document.hidden && !disposed) raf = requestAnimationFrame(tick); }
-    function tick(now) {
-        raf = 0;
-        if (document.hidden || disposed) { lastFrame = 0; return; }
-        const delta = lastFrame ? Math.min((now - lastFrame) / 1000, .05) : 1 / 60;
-        if (lastFrame && delta < 1 / 32) { schedule(); return; }
-        lastFrame = now;
-        let keepAnimating = false;
-        for (const record of records.values()) {
-            if (!record.el.isConnected) { destroyRecord(record); continue; }
-            if (!record.visible || record.contextLost || !record.width || !record.height) continue;
-            const moving = !reducedMotion.matches && record.variant !== 'thumb' && !record.renderer.isSoftwareRenderer;
-            if (record.dirty || moving) render(record, delta);
-            if (moving) keepAnimating = true;
-        }
-        if (keepAnimating) schedule(); else lastFrame = 0;
-    }
-    function destroyRecord(record) {
-        visibilityObserver?.unobserve(record.el); record.resizeObserver?.disconnect(); record.listeners.forEach(remove => remove());
-        record.figure.geometry.dispose(); record.material.dispose(); record.texture.dispose(); record.renderer.dispose();
-        record.renderer.forceContextLoss(); record.canvas.remove(); records.delete(record.el);
-        delete record.el.dataset.particlesReady; delete record.el.dataset.particlesRenderer;
+        observer?.observe(el); resize(); schedule();
     }
     function mount(root = document) {
-        if (disposed) return;
         const elements = [...(root.querySelectorAll?.('[data-gunter-particles]') || [])];
         if (root.matches?.('[data-gunter-particles]')) elements.push(root);
-        for (const el of elements) {
-            if (records.has(el) || pending.has(el) || !el.isConnected) continue;
-            pending.add(el);
-            loadThree().then(THREE => {
-                if (!disposed && el.isConnected && !records.has(el) && !createRecord(el, THREE)) el.dataset.particlesReady = 'unavailable';
-            }).catch(error => {
-                el.dataset.particlesReady = 'unavailable';
-                console.warn('[Gunter hologram] No se pudo cargar el renderer local.', error);
-            }).finally(() => pending.delete(el));
-        }
+        elements.forEach(mountOne);
     }
-    function replaceLegacyDashboardMascot() {
-        const image = document.querySelector('.prism-hero__img-wrap > img');
-        if (!image) return;
-        const avatar = document.createElement('span'); avatar.dataset.gunterParticles = 'hero';
-        avatar.setAttribute('role', 'img'); avatar.setAttribute('aria-label', 'Gunter en partículas'); image.replaceWith(avatar);
+    function glow(context, x, y, radius, stops) {
+        const gradient = context.createRadialGradient(x, y, 0, x, y, Math.max(radius, .1));
+        stops.forEach(([offset, color]) => gradient.addColorStop(offset, color));
+        context.fillStyle = gradient; context.beginPath(); context.arc(x, y, radius, 0, TAU); context.fill();
     }
-    function init() {
-        replaceLegacyDashboardMascot(); mount();
-        const mutations = new MutationObserver(entries => {
-            let removed = false;
-            for (const entry of entries) {
-                if (entry.type === 'attributes') {
-                    for (const record of records.values()) if (record.light !== isLight()) applyPalette(record);
-                    schedule(); continue;
-                }
-                removed ||= entry.removedNodes.length > 0;
-                for (const node of entry.addedNodes) if (node.nodeType === 1) mount(node);
+    function trace(context, points, color, width, opacity, blur) {
+        if (opacity <= .01) return;
+        context.beginPath(); points.forEach(([x, y], index) => index ? context.lineTo(x, y) : context.moveTo(x, y));
+        context.globalAlpha = opacity; context.strokeStyle = color; context.lineWidth = width;
+        context.shadowColor = color; context.shadowBlur = blur; context.stroke(); context.shadowBlur = 0; context.globalAlpha = 1;
+    }
+    function render(record, dt) {
+        const context = record.context;
+        if (!context || !record.width || !record.height) { record.dirty = false; return; }
+        const motion = !reduced(), current = state(), talking = current === 'speaking';
+        if (record.el.dataset.coreState !== current) record.el.dataset.coreState = current;
+        if (motion) record.time += dt;
+        record.activity = motion ? record.activity + ((talking ? 1 : 0) - record.activity) * (1 - Math.exp(-dt * 5)) : talking ? 1 : 0;
+        record.pointerX += ((motion ? record.targetX : 0) - record.pointerX) * .08;
+        record.pointerY += ((motion ? record.targetY : 0) - record.pointerY) * .08;
+        const time = motion ? record.time : 0, active = record.activity, isLight = light();
+        const hero = record.variant === 'hero', compact = record.variant === 'thumb';
+        const width = record.width, height = record.height, size = Math.min(width, height);
+        const cx = width / 2, cy = height / 2, scale = size * (compact ? .94 : .96);
+        const purple = isLight ? '#7135b4' : '#c198ff', violet = isLight ? '#9050c7' : '#9661ef';
+        const white = isLight ? '#7433ac' : '#fff4ff', amber = isLight ? '#b6651c' : '#ffb95e';
+        context.setTransform(record.ratio, 0, 0, record.ratio, 0, 0); context.clearRect(0, 0, width, height);
+        context.globalCompositeOperation = isLight ? 'source-over' : 'lighter';
+        const pulse = motion ? 1 + Math.sin(time * .65) * .025 : 1;
+        glow(context, cx, cy, scale * .46, [[0, isLight ? '#9a67d41f' : '#8231e724'], [.55, isLight ? '#ae7adc12' : '#6230ce14'], [1, '#7b36ba00']]);
+        // A luminous nucleus and distributed spherical mist, never a silhouette.
+        const cloudRadius = scale * (.165 + active * .115) * pulse;
+        context.shadowBlur = 0;
+        for (const particle of record.particles) {
+            const a = particle.angle + time * (.075 + particle.depth * .025);
+            const irregular = 1 + active * (.24 * Math.sin(a * 5 + time * 1.2 + particle.phase) + .16 * Math.sin(a * 9 - time * .75));
+            const radius = particle.radius * cloudRadius * irregular;
+            const x = cx + Math.cos(a) * radius;
+            const y = cy + Math.sin(a) * radius * (.87 + particle.depth * .12);
+            const glint = motion ? .65 + .35 * Math.sin(time * .8 + particle.phase) : .9;
+            context.fillStyle = particle.brightness > .83 ? white : violet;
+            context.globalAlpha = (isLight ? .48 : .68) * glint * (1 - particle.radius * .58);
+            context.beginPath(); context.arc(x, y, Math.max(.35, scale * .0017 * particle.size), 0, TAU); context.fill();
+            if (active > .025) {
+                // Clustered fine grain gives speech an organic, dense inner cloud
+                // rather than enlarging the idle sphere or drawing an audio meter.
+                const knotAngle = particle.phase + time * .14 + Math.sin(particle.angle * 4 + time * .3) * .22;
+                const knotRadius = scale * (.115 + Math.sin(particle.angle * 3 + time * .35) * .035) * Math.pow(particle.radius, 1.6);
+                const knotX = cx + Math.cos(knotAngle) * knotRadius * 1.18;
+                const knotY = cy + Math.sin(knotAngle) * knotRadius * .86;
+                const grain = Math.max(.24, scale * .00075 * particle.size);
+                context.globalAlpha = active * (isLight ? .33 : .4) * (.45 + particle.brightness * .55);
+                context.beginPath();
+                context.arc(knotX, knotY, grain, 0, TAU);
+                context.arc(knotX + Math.cos(particle.angle) * grain * 4, knotY + Math.sin(particle.phase) * grain * 5, grain * .8, 0, TAU);
+                context.arc(knotX - Math.sin(particle.angle) * grain * 3, knotY - Math.cos(particle.phase) * grain * 6, grain * .7, 0, TAU);
+                context.fill();
             }
-            if (removed) for (const record of records.values()) if (!record.el.isConnected) destroyRecord(record);
+        }
+        context.globalAlpha = 1;
+        // Idle intersecting orbital ribbons fade out as the core becomes a living
+        // cloud of branching wisps while audio is genuinely being played.
+        const orbitCount = compact ? 3 : 6, samples = compact ? 40 : hero ? 116 : 64;
+        for (let orbit = 0; orbit < orbitCount; orbit++) {
+            const points = [], angle = orbit * Math.PI / orbitCount + time * (orbit % 2 ? -.055 : .04) + record.pointerX * .05;
+            const radius = scale * (.275 + (orbit % 3) * .028);
+            const flatten = .5 + (orbit % 3) * .14 + record.pointerY * .025;
+            for (let i = 0; i <= samples; i++) {
+                const a = i / samples * TAU, wave = Math.sin(a * 3 + time * .42 + orbit) * .025;
+                const x = Math.cos(a) * radius * (1 + wave), y = Math.sin(a) * radius * flatten;
+                points.push([cx + x * Math.cos(angle) - y * Math.sin(angle), cy + x * Math.sin(angle) + y * Math.cos(angle)]);
+            }
+            trace(context, points, orbit === 0 ? amber : orbit % 2 ? white : purple,
+                Math.max(.6, scale * .0024), (.57 + (orbit % 2) * .14) * (1 - active), compact ? 2 : scale * .02);
+        }
+        const ringRadius = scale * .193 * pulse;
+        context.globalAlpha = .82 * (1 - active); context.strokeStyle = amber;
+        context.lineWidth = Math.max(1, scale * .006); context.shadowColor = amber; context.shadowBlur = scale * .025;
+        context.beginPath(); context.arc(cx, cy, ringRadius, 0, TAU); context.stroke();
+        context.shadowBlur = 0; context.globalAlpha = 1;
+        if (active > .025) {
+            const tendrils = compact ? 8 : hero ? (record.mobile ? 24 : 78) : 22;
+            for (let branch = 0; branch < tendrils; branch++) {
+                const points = [], phase = branch * 2.399963229728653;
+                const variation = (Math.sin(branch * 13.17) + 1) / 2;
+                const clusterX = Math.cos(phase * .47 + time * .14) * scale * .055 * variation;
+                const clusterY = Math.sin(phase * .62 + time * .16) * scale * .048 * variation;
+                const length = compact ? 28 : hero && !record.mobile ? 66 : 42;
+                for (let i = 0; i < length; i++) {
+                    const u = i / (length - 1), envelope = Math.pow(Math.sin(u * Math.PI), .7);
+                    const fold = Math.sin(u * 8 + phase + time * .42) * .2 + Math.sin(u * 18 - time * .7 + phase) * .055;
+                    const r = scale * (.022 + envelope * (.17 + variation * .15) * (.64 + .36 * Math.sin(u * 9 + phase + time * .23)));
+                    const a = phase + u * TAU * (.72 + variation * .68) + time * (.12 + variation * .09) + fold;
+                    // Neighboring fibers braid into transient folds and a few
+                    // wisps trail outward; no radial spokes or perfect hoops.
+                    const tail = branch % 7 === 0 ? Math.pow(u, 5) * scale * .15 : 0;
+                    points.push([cx + clusterX + Math.cos(a) * (r + tail) * (1 + Math.sin(u * 5 + phase + time * .25) * .16),
+                        cy + clusterY + Math.sin(a) * (r + tail) * (.67 + variation * .16) + Math.sin(u * 13 + time * .32 + phase) * scale * .013]);
+                }
+                const color = branch % 31 === 0 ? amber : branch % 5 === 0 ? white : branch % 2 ? purple : violet;
+                // Five bounded spans taper strand ends without a separate
+                // shader, offscreen renderer or unbounded trail buffer.
+                for (let span = 0; span < 5; span++) {
+                    const begin = Math.floor(span / 5 * (length - 1)), end = Math.ceil((span + 1) / 5 * (length - 1));
+                    const alpha = [.18, .58, .84, .52, .12][span] * active * (.34 + variation * .35);
+                    trace(context, points.slice(begin, end + 1), color, Math.max(.3, scale * .00095 * (.55 + variation)), alpha,
+                        compact ? .5 : scale * .0025);
+                }
+            }
+        }
+        glow(context, cx, cy, scale * (.108 + active * .025), [[0, isLight ? '#7d36b36b' : `rgba(240,201,255,${.51 - active * .41})`],
+            [.35, isLight ? '#9660d340' : `rgba(193,128,255,${.27 - active * .21})`], [1, '#8544c200']]);
+        glow(context, cx, cy, scale * .037 * (1 - active * .65), [[0, isLight ? '#713aaaea' : `rgba(255,255,255,${.98 - active * .7})`],
+            [.35, isLight ? '#8f53cabf' : `rgba(255,245,255,${.87 - active * .68})`], [1, '#bd7cff00']]);
+        context.globalCompositeOperation = 'source-over'; context.globalAlpha = 1;
+        record.fallback.hidden = true; record.fallback.style.display = 'none'; record.dirty = false;
+    }
+    function schedule() { if (!raf && !disposed && !document.hidden) raf = window.requestAnimationFrame(tick); }
+    function tick(now) {
+        raf = 0;
+        if (disposed || document.hidden) { lastFrame = 0; return; }
+        if (lastFrame && now - lastFrame < 32) { schedule(); return; }
+        const dt = lastFrame ? Math.min((now - lastFrame) / 1000, .06) : 1 / 30;
+        lastFrame = now; let continuing = false;
+        for (const record of records.values()) {
+            if (!record.el.isConnected) { destroy(record); continue; }
+            if (!record.visible || !record.width || !record.height || !record.context) continue;
+            const moving = !reduced() && (record.variant !== 'thumb' || state() === 'speaking' || record.activity > .01);
+            if (record.dirty || moving) render(record, dt);
+            continuing ||= moving;
+        }
+        if (continuing) schedule(); else lastFrame = 0;
+    }
+    function destroy(record) {
+        observer?.unobserve(record.el); record.resizeObserver?.disconnect(); record.listeners.forEach(remove => remove());
+        record.canvas.remove(); record.fallback.remove(); records.delete(record.el);
+        delete record.el.dataset.particlesReady; delete record.el.dataset.particlesRenderer;
+    }
+    function invalidate() { records.forEach(record => { record.dirty = true; record.el.dataset.coreState = state(); }); schedule(); }
+    function init() {
+        mount();
+        const mutations = new window.MutationObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.type === 'attributes') { refreshPreferences(); invalidate(); }
+                else for (const node of entry.addedNodes) if (node.nodeType === 1) mount(node);
+            });
+            for (const record of records.values()) if (!record.el.isConnected) destroy(record);
         });
         mutations.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
         mutations.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-color-mode'] });
-        const onMotion = () => {
-            for (const record of records.values()) {
-                record.dirty = true; record.active = false; record.hover = 0;
-                record.mouseX = record.mouseY = record.targetX = record.targetY = 0;
-                record.figure.velocities.fill(0);
-            }
-            schedule();
-        };
-        reducedMotion.addEventListener?.('change', onMotion);
+        const onConversation = event => { conversation = event.detail?.value || 'idle'; invalidate(); };
+        const onVoice = event => { voiceSpeaking = event.detail?.speaking === true || event.detail?.state === 'speaking'; invalidate(); };
+        const onMotion = () => { refreshPreferences(); invalidate(); };
+        const onStorage = event => { if (event.key === 'gunter_prefs' || event.key === null) onMotion(); };
+        window.addEventListener('gunter-conversation-state', onConversation);
+        window.addEventListener('gunter-voice-state', onVoice);
+        window.addEventListener('storage', onStorage); motionQuery?.addEventListener?.('change', onMotion);
         document.addEventListener('visibilitychange', () => {
-            if (document.hidden) { cancelAnimationFrame(raf); raf = 0; lastFrame = 0; } else schedule();
+            if (document.hidden) { window.cancelAnimationFrame(raf); raf = 0; lastFrame = 0; }
+            else invalidate();
         });
         window.addEventListener('pagehide', event => {
-            cancelAnimationFrame(raf); raf = 0; lastFrame = 0;
+            window.cancelAnimationFrame(raf); raf = 0; lastFrame = 0;
             if (event.persisted) return;
-            disposed = true;
-            for (const record of records.values()) destroyRecord(record);
-            mutations.disconnect(); visibilityObserver?.disconnect(); reducedMotion.removeEventListener?.('change', onMotion);
+            disposed = true; records.forEach(destroy); mutations.disconnect(); observer?.disconnect();
+            window.removeEventListener('gunter-conversation-state', onConversation);
+            window.removeEventListener('gunter-voice-state', onVoice);
+            window.removeEventListener('storage', onStorage); motionQuery?.removeEventListener?.('change', onMotion);
         });
-        window.addEventListener('pageshow', () => schedule());
+        window.addEventListener('pageshow', invalidate);
     }
     window.GunterParticles = { mount };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();

@@ -136,7 +136,7 @@
                     </div>`).join('') : '<p style="color:var(--text-muted);">Sin fases.</p>')}
                 ${section('🔒 Restricciones', list(p.constraints))}
                 ${section('🧪 Supuestos a validar', list(p.assumptions))}
-                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted); margin-top: var(--space-4);">🐧 ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
+                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted); margin-top: var(--space-4);">◉ ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
             `;
         },
         estrategico: (p) => {
@@ -176,7 +176,7 @@
                     </div>
                 `)}
                 ${p.strategic_recommendation ? section('🎓 Recomendación estratégica', `<p>${escapeHtml(p.strategic_recommendation)}</p>`) : ''}
-                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted);">🐧 ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
+                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted);">◉ ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
             `;
         },
         ideas: (p) => {
@@ -201,7 +201,7 @@
                         </tr>`).join('')}</tbody></table>`)}
                 ${section('🎭 Enfoques contraintuitivos', list(p.contrarian_takes))}
                 ${p.curious_fact ? section('🤯 Dato curioso', `<p>${escapeHtml(p.curious_fact)}</p>`) : ''}
-                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted);">🐧 ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
+                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted);">◉ ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
             `;
         },
         tecnico: (p) => {
@@ -244,7 +244,7 @@
                     </div>`).join('') || '<p style="color:var(--text-muted);">Sin pasos.</p>')}
                 ${section('⚠️ Riesgos técnicos', list(p.risks_technical))}
                 ${section('➡️ Próximas acciones para desarrollo', list(p.next_actions_for_dev))}
-                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted);">🐧 ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
+                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted);">◉ ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
             `;
         },
         narrativo: (p) => {
@@ -274,7 +274,7 @@
                         <span style="flex:1; font-size:12px; color:var(--text-muted);">${escapeHtml(r.reason || '')}</span>
                     </div>`).join('') || '<p style="color:var(--text-muted);">Sin segmentos.</p>')}
                 ${section('✂️ Ediciones recomendadas', list(p.recommended_edits))}
-                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted);">🐧 ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
+                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted);">◉ ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
             `;
         },
         riesgos: (p) => {
@@ -304,7 +304,7 @@
                                 <td>${escapeHtml(r.owner || '-')}</td>
                             </tr>`).join('')}</tbody></table>` : '<p style="color:var(--text-muted);">Sin riesgos identificados.</p>')}
                 <p style="margin-top:12px;"><strong>Riesgo más crítico:</strong> ${escapeHtml(p.top_risk || '-')} · <strong>Nivel residual:</strong> ${pill(p.residual_risk_level || '-', '#f59e0b')}</p>
-                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted);">🐧 ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
+                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted);">◉ ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
             `;
         },
         plan_accion: (p) => {
@@ -339,7 +339,7 @@
                     ${section('🗓️ Próximos 7 días', list(p.next_7_days))}
                     ${section('🗓️ Próximos 30 días', list(p.next_30_days))}
                 </div>
-                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted);">🐧 ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
+                ${p.gunter_note ? `<blockquote style="border-left:3px solid var(--accent-primary,#00d4ff); padding: 8px 14px; color: var(--text-muted);">◉ ${escapeHtml(p.gunter_note)}</blockquote>` : ''}
             `;
         }
     };

@@ -17,7 +17,7 @@
 
     const STEPS = [
         {
-            title: '¡Hola! Soy Gunter 🐧',
+            title: '¡Hola! Soy Gunter',
             body: 'Tu asistente para reuniones y proyectos. Puedo grabar, transcribir, analizar y hasta responder desde WhatsApp.\n\n¿Te muestro lo esencial?',
             primary: 'Sí, muéstrame',
             skip: 'Saltar',
@@ -46,7 +46,7 @@
         },
         {
             title: 'Estoy aquí para ti',
-            body: 'Este botón flotante 🐧 me abre desde cualquier página. Prueba decirme:\n\n• "activa la memoria"\n• "ponte más divertido"\n• "qué es el forecast"\n\nO simplemente charla conmigo.',
+            body: 'Este botón flotante me abre desde cualquier página. Prueba decirme:\n\n• "activa la memoria"\n• "ponte más divertido"\n• "qué es el forecast"\n\nO simplemente charla conmigo.',
             highlightSelector: '#gunter-companion',
             primary: 'Empezar',
             emoji: '💜'

@@ -74,14 +74,14 @@
 
     // Welcome instructivo: Gunter enseña y recomienda
     const WELCOME_BY_PAGE = {
-        dashboard:   '🐧 ¡Wenk! Soy Gunter, tu asistente. Puedo:\n• Iniciar reuniones ("nueva reunión")\n• Explicarte funciones ("qué es el forecast")\n• Activar funciones ("activa la memoria")\n\n💡 Recomiendo activar la Memoria conversacional y el Pulso proactivo para empezar.',
-        'new-project': '🐧 Antes de iniciar la reunión, elige un entorno (Empresarial, Artístico, Podcast o Zen). Cada uno adapta cómo yo analizo lo que dicen.\n\n¿Necesitas ayuda? Pregúntame "qué es Empresarial" o cualquier otra.',
-        day:         '🐧 En tu Día puedes:\n• Escribir en la barra de captura ("recuérdame llamar a Ana")\n• Activar el Planificador diario ("activa el planificador")\n• Ver tus compromisos ("qué compromisos tengo")\n\n💡 Recomiendo activar la Memoria y el Planificador diario.',
-        meeting:     '🐧 Estoy grabando y escuchando la reunión.\n\nAl terminar te ayudo con:\n• Análisis PMBOK\n• Detección de compromisos\n• Follow-up\n\nDurante la reunión mantén el volumen normal.',
-        results:     '🐧 Aquí tienes el análisis. Puedo:\n• Resumirte los puntos clave ("resume")\n• Generar slides con IA ("genera slides")\n• Extraer compromisos ("detecta compromisos")\n\n¿Con cuál te ayudo?',
-        config:      '🐧 En Configuración activas las funciones Premium.\n\nPregúntame:\n• "qué es la memoria conversacional"\n• "qué hace el forecast"\n• "activa el pulso proactivo"\n\nO explora las pestañas.',
-        index:       '🐧 ¡Hola! Regístrate y te muestro cómo funciona todo. Puedes preguntarme cualquier cosa.',
-        default:     '🐧 ¡Wenk! ¿En qué te ayudo? Prueba: "qué puedes hacer" para ver mis funciones.'
+        dashboard:   '¡Wenk! Soy Gunter, tu asistente. Puedo:\n• Iniciar reuniones ("nueva reunión")\n• Explicarte funciones ("qué es el forecast")\n• Activar funciones ("activa la memoria")\n\n💡 Recomiendo activar la Memoria conversacional y el Pulso proactivo para empezar.',
+        'new-project': 'Antes de iniciar la reunión, elige un entorno (Empresarial, Artístico, Podcast o Zen). Cada uno adapta cómo yo analizo lo que dicen.\n\n¿Necesitas ayuda? Pregúntame "qué es Empresarial" o cualquier otra.',
+        day:         'En tu Día puedes:\n• Escribir en la barra de captura ("recuérdame llamar a Ana")\n• Activar el Planificador diario ("activa el planificador")\n• Ver tus compromisos ("qué compromisos tengo")\n\n💡 Recomiendo activar la Memoria y el Planificador diario.',
+        meeting:     'Estoy grabando y escuchando la reunión.\n\nAl terminar te ayudo con:\n• Análisis PMBOK\n• Detección de compromisos\n• Follow-up\n\nDurante la reunión mantén el volumen normal.',
+        results:     'Aquí tienes el análisis. Puedo:\n• Resumirte los puntos clave ("resume")\n• Generar slides con IA ("genera slides")\n• Extraer compromisos ("detecta compromisos")\n\n¿Con cuál te ayudo?',
+        config:      'En Configuración activas las funciones Premium.\n\nPregúntame:\n• "qué es la memoria conversacional"\n• "qué hace el forecast"\n• "activa el pulso proactivo"\n\nO explora las pestañas.',
+        index:       '¡Hola! Regístrate y te muestro cómo funciona todo. Puedes preguntarme cualquier cosa.',
+        default:     '¡Wenk! ¿En qué te ayudo? Prueba: "qué puedes hacer" para ver mis funciones.'
     };
 
     // ─────────────────────────────────────
@@ -442,7 +442,7 @@
                 ['warm',             '☕ Cálido (cercano, amigo relajado)'],
                 ['chaotic_scientist','🧪 Científico caótico (sarcástico, ácido, mordaz)'],
                 ['energetic_cartoon','🎉 Caricatura energética (hiperactivo, exclamaciones)'],
-                ['minimal_penguin',  '🐧 Pingüino minimalista (seco, breve, raro)'],
+                ['minimal_penguin',  'Minimalista (seco, breve, raro)'],
                 ['executive',        '💼 Ejecutivo premium (clara, profesional, calmada)'],
                 ['focus_coach',      '🎯 Coach de enfoque (firme, motivador, guiado)']
             ];
@@ -507,7 +507,7 @@
             const res = window.GunterRules.addRule(ruleMatch[1].trim());
             if (res?.dup) return { reply: 'Esa regla ya existe. Escribí "mis reglas" para verlas.', intent: 'rule', __clientHandled: true };
             if (res?.full) return { reply: 'Límite de 40 reglas alcanzado. Borrá alguna con "borra la regla N".', intent: 'rule', __clientHandled: true };
-            return { reply: `📏 Regla guardada: "${res.text}"\n\nLa voy a respetar en todas nuestras conversaciones. Si me equivoco, recordámela — soy un pingüino, no un santo.`, intent: 'rule', __clientHandled: true };
+            return { reply: `📏 Regla guardada: "${res.text}"\n\nLa voy a respetar en todas nuestras conversaciones. Si me equivoco, recordámela — también puedo equivocarme.`, intent: 'rule', __clientHandled: true };
         }
         if (/^\s*(mis reglas|que reglas|qué reglas|lista de reglas)\s*\??\s*$/i.test(text) && window.GunterRules) {
             return { reply: window.GunterRules.formatList(), intent: 'rule', __clientHandled: true };

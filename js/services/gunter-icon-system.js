@@ -38,7 +38,8 @@
         arrows: '<path d="M7 7h14l-4-4m4 4-4 4M17 17H3l4 4m-4-4 4-4"/>',
         lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3m-4 5v2"/>',
         help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.2 1.8c-1.1 1-1.7 1.4-1.7 3.2m0 3h.01"/>',
-        penguin: '<ellipse cx="12" cy="13" rx="7" ry="9"/><path d="M8 11h.01M16 11h.01m-6.5 3.5h5L12 17zM8 21l-1 1m9-1 1 1"/>'
+        core: '<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-32 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(32 12 12)"/>'
+        ,penguin: '<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-32 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(32 12 12)"/>'
         ,clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
         ,pause: '<path d="M8 5v14m8-14v14"/>'
         ,play: '<path d="m8 5 12 7-12 7z"/>'
@@ -63,7 +64,7 @@
     };
     const GLYPHS = new Map([
         ['📋', 'task'], ['📅', 'calendar'], ['⏰', 'reminder'], ['💬', 'message'], ['📝', 'file'],
-        ['🧠', 'brain'], ['🐧', 'penguin'], ['⚠', 'warning'], ['🏢', 'building'], ['🎨', 'palette'],
+        ['🧠', 'brain'], ['🐧', 'core'], ['⚠', 'warning'], ['🏢', 'building'], ['🎨', 'palette'],
         ['🎙', 'microphone'], ['🎵', 'music'], ['✨', 'sparkle'], ['✅', 'check'], ['🔔', 'bell'],
         ['🔒', 'lock'], ['📁', 'folder'], ['🔍', 'search'], ['🌐', 'globe'], ['📞', 'phone'],
         ['🛡', 'shield'], ['🗑', 'trash'], ['💡', 'sparkle'], ['🔗', 'link'], ['🎤', 'microphone'],

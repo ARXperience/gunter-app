@@ -43,7 +43,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="assets/gunter/gunter_transparent_default_1769134184933.png">
+    <link rel="apple-touch-icon" href="assets/gunter/gunter-core.svg">
 
 
     <!-- Chart.js -->
@@ -59,16 +59,17 @@
     <link rel="stylesheet" href="styles/gunter-legacy-overrides.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-prism.css?v66b-gunter-pixar-1783590000000">
     <link rel="stylesheet" href="styles/gunter-cinematic.css?v83-static-polar">
-    <script src="js/services/gunter-cinematic-shell.js?v81-static-polar" defer></script>
+    <script src="js/services/gunter-cinematic-shell.js?v135-orbit-home" defer></script>
     <link rel="stylesheet" href="styles/gunter-command-center.css?v117-responsive-config">
     <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
-    <script src="js/services/gunter-particles.js?v10-stitch-figure" defer></script>
+    <script src="js/services/gunter-particles.js?v135-orbit-home" defer></script>
     <script src="js/services/gunter-command-center.js?v120-voice-ui" defer></script>
-    <script src="js/services/gunter-icon-system.js?v3-unified-icons" defer></script>
+    <script src="js/services/gunter-icon-system.js?v135-orbit-home" defer></script>
     <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
     <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
     <script src="js/services/connection-manager.js?v87-context-sync" defer></script>
     <script src="js/services/web-node-runtime.js?v84-control" defer></script>
+<link rel="stylesheet" href="styles/gunter-orbit-home.css?v135-orbit-home">
 </head>
 
 <body class="at-dark">
@@ -287,7 +288,7 @@
                     <div class="gunter-insights__avatar" id="gunter-results"></div>
                     <div class="gunter-insights__content">
                         <h3 class="gunter-insights__title">
-                            🐧 Resumen de Gunter
+                            ◉ Resumen de Gunter
                         </h3>
                         <div class="gunter-insights__text" id="gunter-summary">
                             <p>Cargando análisis...</p>
@@ -365,7 +366,7 @@
         <div class="chat-window" id="chat-window">
             <div class="chat-window__header">
                 <div class="chat-window__title">
-                    <span class="chat-window__icon">🐧</span>
+                    <span class="chat-window__icon"><img src="assets/gunter/gunter-core.svg" alt="" width="24" height="24"></span>
                     <span>Gunter AI</span>
                 </div>
                 <div class="chat-window__actions">
@@ -388,7 +389,7 @@
             </div>
             <div class="chat-window__messages" id="chat-messages">
                 <div class="chat-message chat-message--bot">
-                    <div class="chat-message__avatar">🐧</div>
+                    <div class="chat-message__avatar"><img src="assets/gunter/gunter-core.svg" alt="" width="28" height="28"></div>
                     <div class="chat-message__content">
                         ¡Hola! Soy Gunter, tu asistente de proyecto. Puedo responder preguntas sobre este proyecto
                         basándome en la transcripción y el análisis. ¿En qué puedo ayudarte?
@@ -412,7 +413,7 @@
     <script src="js/config.js?v103-api-base"></script>
     <script src="js/premium-features-service.js?v122-identity-context" defer></script>
     <!-- Hooks premium: isEnabled('meetingMemory'), isEnabled('meetingDecisionTimeline') -->
-    <script src="js/theme-manager.js?v67-security-20260828" defer></script>
+    <script src="js/theme-manager.js?v135-orbit-home" defer></script>
     <script src="js/theme-backgrounds.js" defer></script>
     <script src="js/data-service.js" defer></script>
 
@@ -431,11 +432,11 @@
 
     <script src="js/ai-analysis.js" defer></script>
     <script src="js/analyses-engine.js" defer></script>
-    <script src="js/analyses-renderer.js" defer></script>
+    <script src="js/analyses-renderer.js?v135-orbit-home" defer></script>
     <script src="js/slide-generator.js" defer></script>
     <script src="js/slide-renderer.js" defer></script>
     <script src="js/services/slide-exporter.js" defer></script>
-    <script src="js/gunter-avatar.js" defer></script>
+    <script src="js/gunter-avatar.js?v135-orbit-home" defer></script>
     <script src="js/audio-trimmer.js" defer></script>
     <script src="js/audio-chunker.js" defer></script>
     <script src="js/services/stt-provider.js?v122-identity-context" defer></script>
@@ -1060,7 +1061,7 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = `chat-message chat-message--${sender}`;
 
-            const avatar = sender === 'bot' ? '🐧' : '👤';
+            const avatar = sender === 'bot' ? '<img src="assets/gunter/gunter-core.svg" alt="" width="28" height="28">' : '👤';
 
             messageDiv.innerHTML = `
                 <div class="chat-message__avatar">${avatar}</div>
@@ -1079,7 +1080,7 @@
             typingDiv.className = 'chat-message chat-message--bot chat-message--typing';
 
             typingDiv.innerHTML = `
-                <div class="chat-message__avatar">🐧</div>
+                <div class="chat-message__avatar"><img src="assets/gunter/gunter-core.svg" alt="" width="28" height="28"></div>
                 <div class="chat-message__content">
                     <span class="typing-dot"></span>
                     <span class="typing-dot"></span>
@@ -1251,7 +1252,7 @@ ${context}`;
             const messagesContainer = document.getElementById('chat-messages');
             messagesContainer.innerHTML = `
                 <div class="chat-message chat-message--bot">
-                    <div class="chat-message__avatar">🐧</div>
+                    <div class="chat-message__avatar"><img src="assets/gunter/gunter-core.svg" alt="" width="28" height="28"></div>
                     <div class="chat-message__content">
                         ✅ ¡Conversación guardada! ¿En qué más puedo ayudarte con el proyecto?
                     </div>
@@ -1285,7 +1286,7 @@ ${context}`;
 
                 const messagesHtml = conv.messages.map(m => `
                     <div class="saved-message saved-message--${m.sender}">
-                        <span class="saved-message__sender">${m.sender === 'bot' ? '🐧 Gunter' : '👤 Tú'}</span>
+                        <span class="saved-message__sender">${m.sender === 'bot' ? '◉ Gunter' : '👤 Tú'}</span>
                         ${m.text}
                     </div>
                 `).join('');
@@ -1624,9 +1625,9 @@ ${context}`;
 
 
     <script src="js/services/diagnostics-service.js?v2-admin-stats" defer></script>
-    <script src="js/services/gunter-companion.js?v124-conversational-followups" defer></script>
+    <script src="js/services/gunter-companion.js?v135-orbit-home" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
-    <script src="js/services/gunter-onboarding.js?v67-security-20260828" defer></script>
+    <script src="js/services/gunter-onboarding.js?v135-orbit-home" defer></script>
 </body>
 
 </html>

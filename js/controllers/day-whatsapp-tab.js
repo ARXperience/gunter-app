@@ -114,7 +114,7 @@
                 warm: 'Cálido',
                 chaotic_scientist: 'Científico caótico',
                 energetic_cartoon: 'Caricatura energética',
-                minimal_penguin: 'Pingüino minimalista',
+                minimal_penguin: 'Minimalista',
                 executive: 'Ejecutivo',
                 focus_coach: 'Coach'
             };
@@ -178,7 +178,7 @@
                     ${full.history.map(h => `
                         <div style="margin-bottom: 10px;">
                             <div style="font-size: 10px; color: var(--gday-text-mute); letter-spacing: 0.5px;">
-                                ${h.role === 'user' ? '👤 Usuario' : '🐧 Gunter'} · ${timeShort(h.at)}
+                                ${h.role === 'user' ? '👤 Usuario' : '◉ Gunter'} · ${timeShort(h.at)}
                             </div>
                             <div style="font-size: 13px; color: var(--gday-text); margin-top: 2px;">${esc(h.content)}</div>
                         </div>

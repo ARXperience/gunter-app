@@ -1,6 +1,6 @@
 /* =============================================
-   GUNTER - Interactive SVG Avatar
-   Mouse-following animation
+   GUNTER - Core Avatar Compatibility API
+   Uses the shared abstract core without changing conversation callers.
    ============================================= */
 
 class GunterAvatar {
@@ -35,146 +35,29 @@ class GunterAvatar {
 
     init() {
         this.render();
-        this.setupMouseTracking();
-        this.startBlinking();
-        this.animate();
-        // Start ambient idle tics after 5s so entrance animations finish first
-        setTimeout(() => this.startIdleLoop(), 5000);
+        // The shared core renderer owns visual motion; retain the avatar API
+        // without running the former character's idle or gaze loops in parallel.
     }
 
     render() {
-        const size = this.options.size;
-
+        const size = Number(this.options.size) || 120;
         this.container.innerHTML = `
-            <svg class="gunter-svg" viewBox="0 0 100 100" width="${size}" height="${size}">
-                <defs>
-                    <!-- Glow filter -->
-                    <filter id="gunter-glow-${this.container.id}" x="-50%" y="-50%" width="200%" height="200%">
-                        <feGaussianBlur stdDeviation="2" result="blur"/>
-                        <feMerge>
-                            <feMergeNode in="blur"/>
-                            <feMergeNode in="SourceGraphic"/>
-                        </feMerge>
-                    </filter>
-                    
-                    <!-- Gradient for body -->
-                    <linearGradient id="body-gradient-${this.container.id}" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" style="stop-color:#2a2a3e"/>
-                        <stop offset="100%" style="stop-color:#1a1a2e"/>
-                    </linearGradient>
-                    
-                    <!-- Belly gradient -->
-                    <linearGradient id="belly-gradient-${this.container.id}" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" style="stop-color:#f8f8ff"/>
-                        <stop offset="100%" style="stop-color:#e8e8f0"/>
-                    </linearGradient>
-                </defs>
-                
-                <!-- Shadow -->
-                <ellipse cx="50" cy="92" rx="25" ry="5" fill="rgba(0,0,0,0.2)" class="gunter-shadow"/>
-                
-                <!-- Body -->
-                <ellipse cx="50" cy="58" rx="28" ry="32" fill="url(#body-gradient-${this.container.id})" class="gunter-body"/>
-                
-                <!-- Belly -->
-                <ellipse cx="50" cy="62" rx="18" ry="22" fill="url(#belly-gradient-${this.container.id})" class="gunter-belly"/>
-                
-                <!-- Flippers -->
-                <g class="gunter-flippers">
-                    <ellipse cx="22" cy="58" rx="8" ry="16" fill="#1a1a2e" transform="rotate(-15 22 58)" class="gunter-flipper-left"/>
-                    <ellipse cx="78" cy="58" rx="8" ry="16" fill="#1a1a2e" transform="rotate(15 78 58)" class="gunter-flipper-right"/>
-                </g>
-                
-                <!-- Feet -->
-                <ellipse cx="38" cy="88" rx="10" ry="5" fill="#ff6b35"/>
-                <ellipse cx="62" cy="88" rx="10" ry="5" fill="#ff6b35"/>
-                
-                <!-- Head -->
-                <circle cx="50" cy="30" r="22" fill="url(#body-gradient-${this.container.id})" class="gunter-head"/>
-                
-                <!-- Face mask (white area) -->
-                <ellipse cx="50" cy="32" rx="14" ry="12" fill="white" class="gunter-face"/>
-                
-                <!-- Eyes container -->
-                <g class="gunter-eyes">
-                    <!-- Left eye -->
-                    <g class="gunter-eye gunter-eye-left">
-                        <circle cx="43" cy="28" r="5" fill="white" class="gunter-eye-white"/>
-                        <circle cx="43" cy="28" r="3" fill="#1a1a2e" class="gunter-pupil gunter-pupil-left"/>
-                        <circle cx="44" cy="27" r="1" fill="white" class="gunter-eye-shine"/>
-                    </g>
-                    <!-- Right eye -->
-                    <g class="gunter-eye gunter-eye-right">
-                        <circle cx="57" cy="28" r="5" fill="white" class="gunter-eye-white"/>
-                        <circle cx="57" cy="28" r="3" fill="#1a1a2e" class="gunter-pupil gunter-pupil-right"/>
-                        <circle cx="58" cy="27" r="1" fill="white" class="gunter-eye-shine"/>
-                    </g>
-                    <!-- Blink overlay (hidden by default) -->
-                    <rect x="36" y="24" width="14" height="0" fill="#2a2a3e" class="gunter-blink-left"/>
-                    <rect x="50" y="24" width="14" height="0" fill="#2a2a3e" class="gunter-blink-right"/>
-                </g>
-                
-                <!-- Beak -->
-                <polygon points="50,34 45,40 55,40" fill="#ff9500" class="gunter-beak"/>
-                
-                <!-- Mode-specific outfit layer (populated by setMode) -->
-                <g class="gunter-outfit"></g>
-
-                <!-- State indicator (glow ring) -->
-                <circle cx="50" cy="50" r="45" fill="none" stroke="var(--accent-primary, #00d4ff)" stroke-width="2" opacity="0" class="gunter-state-ring" filter="url(#gunter-glow-${this.container.id})"/>
-            </svg>
+            <span class="gunter-svg gunter-core-avatar" data-gunter-particles="avatar" data-state="default" role="img" aria-label="Núcleo de Gunter" style="display:block;position:relative;width:${size}px;height:${size}px">
+                <img src="assets/gunter/gunter-core.svg" alt="" width="${size}" height="${size}" style="width:100%;height:100%;object-fit:contain">
+                <svg viewBox="0 0 100 100" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="var(--accent-primary,#9b86f8)" stroke-width="1" opacity="0" class="gunter-state-ring"/>
+                </svg>
+            </span>
         `;
-
-        // Cache elements
         this.svg = this.container.querySelector('.gunter-svg');
-        this.leftPupil = this.container.querySelector('.gunter-pupil-left');
-        this.rightPupil = this.container.querySelector('.gunter-pupil-right');
         this.stateRing = this.container.querySelector('.gunter-state-ring');
-        this.leftFlipper = this.container.querySelector('.gunter-flipper-left');
-        this.rightFlipper = this.container.querySelector('.gunter-flipper-right');
-        this.blinkLeft = this.container.querySelector('.gunter-blink-left');
-        this.blinkRight = this.container.querySelector('.gunter-blink-right');
-        this.body = this.container.querySelector('.gunter-body');
-        this.outfit = this.container.querySelector('.gunter-outfit');
-
-        // Apply initial outfit
         this.setMode(this.mode);
+        window.GunterParticles?.mount?.(this.svg, { variant: 'avatar' });
     }
 
     setMode(mode) {
         this.mode = mode;
-        if (!this.outfit) return;
-        const outfits = {
-            empresarial: `
-                <!-- Tie -->
-                <polygon points="50,42 46,48 54,48" fill="#1a2e4a"/>
-                <polygon points="46,48 54,48 56,78 50,84 44,78" fill="#00d4ff"/>
-                <rect x="36" y="41" width="28" height="2" fill="#1a2e4a"/>`,
-            artistico: `
-                <!-- Painter's beret -->
-                <ellipse cx="50" cy="12" rx="18" ry="5" fill="#ff006e"/>
-                <circle cx="62" cy="10" r="2" fill="#f8f8ff"/>
-                <!-- Scarf -->
-                <path d="M32,44 Q50,50 68,44 L66,52 Q50,58 34,52 Z" fill="#ffaa00" opacity="0.85"/>`,
-            podcast: `
-                <!-- Headphones band -->
-                <path d="M28,22 Q50,2 72,22" stroke="#ffaa00" stroke-width="3" fill="none"/>
-                <rect x="22" y="20" width="8" height="12" rx="3" fill="#ffaa00"/>
-                <rect x="70" y="20" width="8" height="12" rx="3" fill="#ffaa00"/>
-                <!-- Mic -->
-                <rect x="48" y="72" width="4" height="10" rx="2" fill="#ffaa00"/>
-                <circle cx="50" cy="70" r="3.5" fill="#2a1f0e" stroke="#ffaa00" stroke-width="1"/>`,
-            zen: `
-                <!-- Halo -->
-                <ellipse cx="50" cy="10" rx="18" ry="3" fill="none" stroke="#e8c87a" stroke-width="1.5" opacity="0.9"/>
-                <ellipse cx="50" cy="10" rx="14" ry="2" fill="#e8c87a" opacity="0.25"/>
-                <!-- Robe/wrap -->
-                <path d="M28,52 Q50,46 72,52 L74,84 Q50,92 26,84 Z" fill="#b48a48" opacity="0.85"/>
-                <path d="M28,52 Q50,46 72,52" stroke="#e8c87a" stroke-width="1.5" fill="none"/>
-                <!-- Lotus mark -->
-                <circle cx="50" cy="68" r="2" fill="#e8c87a"/>`
-        };
-        this.outfit.innerHTML = outfits[mode] || outfits.empresarial;
+        if (this.svg) this.svg.dataset.mode = mode;
     }
 
     setupMouseTracking() {
@@ -258,6 +141,8 @@ class GunterAvatar {
 
     setState(state) {
         this.state = state;
+        this.container.dataset.state = state;
+        if (this.svg) this.svg.dataset.state = state;
 
         const colors = {
             default: 'var(--accent-primary, #00d4ff)',

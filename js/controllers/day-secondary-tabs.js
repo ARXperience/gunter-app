@@ -92,7 +92,7 @@
             warm: 'Cálido',
             chaotic_scientist: 'Científico caótico',
             energetic_cartoon: 'Caricatura energética',
-            minimal_penguin: 'Pingüino minimalista',
+            minimal_penguin: 'Minimalista',
             executive: 'Ejecutivo clásico',
             focus_coach: 'Coach de enfoque'
         })[id] || id;

@@ -8,7 +8,7 @@
     'use strict';
     if (window.GunterCinematicShell) return;
 
-    const MASCOT_SOURCE = 'assets/gunter/gunter-prism-nobg.png';
+    const MASCOT_SOURCE = 'assets/gunter/gunter-core.svg';
     const PAGE_MAP = [
         ['login.html', 'login'], ['dashboard.html', 'dashboard'], ['day.html', 'day'],
         ['config.html', 'config'], ['new-project.html', 'new-project'],
@@ -54,11 +54,11 @@
             rig.setAttribute('aria-hidden', 'true');
         }
 
-        const body = mascotImage('gunter-character-body', src);
-        const head = createElement('div', 'gunter-character-head');
-        head.append(mascotImage('gunter-character-head__image', src));
-        rig.append(body, head);
-        rigs.push(rig);
+        // Preserve the shared shell API, but render one complete core instead
+        // of splitting a former character image into body and head crops.
+        const core = mascotImage('gunter-core-image', MASCOT_SOURCE);
+        core.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain';
+        rig.append(core);
         return rig;
     }
 
@@ -70,7 +70,7 @@
 
     function enhanceMascot(original) {
         if (!original || original.closest('.gunter-character-rig')) return original?.closest('.gunter-character-rig') || null;
-        const rig = createHeadRig(original.getAttribute('src') || MASCOT_SOURCE, original.alt || 'Gunter', 'gunter-character-rig--hero');
+        const rig = createHeadRig(MASCOT_SOURCE, original.alt || 'Gunter', 'gunter-character-rig--hero');
         original.replaceWith(rig);
         return rig;
     }

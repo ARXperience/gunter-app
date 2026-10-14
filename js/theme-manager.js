@@ -14,11 +14,11 @@ class GunterThemeManager {
         this.themeStylesheet = null;
         this.transitionDuration = 300; // ms
         this.avatarImages = {
-            default: 'assets/gunter/gunter_transparent_default_1769134184933.png',
-            listening: 'assets/gunter/gunter_transparent_listening_1769134210443.png',
-            analyzing: 'assets/gunter/gunter_transparent_analyzing_1769134251133.png',
-            alert: 'assets/gunter/gunter_transparent_alert_1769134280215.png',
-            celebration: 'assets/gunter/gunter_transparent_celebration_1769134301694.png'
+            default: 'assets/gunter/gunter-core.svg',
+            listening: 'assets/gunter/gunter-core.svg',
+            analyzing: 'assets/gunter/gunter-core.svg',
+            alert: 'assets/gunter/gunter-core.svg',
+            celebration: 'assets/gunter/gunter-core.svg'
         };
     }
 
@@ -180,6 +180,7 @@ class GunterThemeManager {
 
         avatars.forEach(img => {
             img.src = src;
+            img.dataset.state = state;
         });
     }
 

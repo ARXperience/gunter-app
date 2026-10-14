@@ -11,7 +11,7 @@
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = "v114-conversational-task-cancel-20261009";
+const SW_VERSION = "v135-orbit-home-20261013";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;
@@ -37,6 +37,13 @@ const PRECACHE_URLS = [
     '/index.html',
     '/login.html',
     '/manifest.json',
+    '/assets/gunter/gunter-core.svg',
+    '/assets/gunter/gunter-core-192.png',
+    '/assets/gunter/gunter-core-512.png',
+    '/styles/gunter-orbit-home.css?v135-orbit-home',
+    '/styles/gunter-hologram.css?v135-orbit-home',
+    '/js/services/gunter-orbit-home.js?v135-orbit-home',
+    '/js/services/gunter-particles.js?v135-orbit-home',
     '/styles/variables.css',
     '/styles/components.css',
     '/styles/responsive-mobile.css',
@@ -174,8 +181,8 @@ self.addEventListener('push', event => {
     const options = {
         body: String(payload.body || 'Tienes una actualización pendiente.').slice(0, 500),
         tag: String(payload.tag || 'gunter-update').slice(0, 120),
-        icon: '/assets/gunter/gunter_transparent_alert_1769134280215.png',
-        badge: '/assets/gunter/gunter_transparent_default_1769134184933.png',
+        icon: '/assets/gunter/gunter-core.svg',
+        badge: '/assets/gunter/gunter-core.svg',
         renotify: priority !== 'normal', requireInteraction: priority === 'urgent',
         silent: priority === 'low', data: { url: safeNotificationUrl(payload.url), ...(payload.data || {}) }
     };
