@@ -52,18 +52,25 @@
     let localPreRoll = [];
     let localProvider = false;
     let localStarting = false;
+    let browserStarting = false;
+    let startPending = false;
     let captureGeneration = 0;
     let suspendedForCapture = false;
+    let meetingCaptureActive = false;
     let running = false;
     let mode = 'off';
     let phase = 'off';
     let indicatorLabel = '';
     let queryTimeout = null;
     let permissionGranted = false;
+    let microphonePermission = null;
+    let permissionCheck = null;
     let lastError = null;
     let lastHeard = '';
     let restartTimer = null;
-    let userWantsRunning = false;   // persistente: si el user lo apagó, no reiniciamos
+    let userWantsRunning = true;   // El ajuste habilitado inicia la escucha; stop explícito la pausa.
+    let manualSessionStarted = false;
+    let lastKnownWakeEnabled = !!getConfig().enabled;
     let lastInvocation = null;
 
     function setIndicator(state, label) {
@@ -81,6 +88,33 @@
             return { enabled: false, wakeWord: 'Hi Gunter', autoStopSeconds: 20, responseMode: 'text' };
         }
         return window.PremiumFeaturesService.getWakeWordConfig();
+    }
+
+    async function restoreGrantedPermission() {
+        if (microphonePermission) {
+            permissionGranted = microphonePermission.state === 'granted';
+            return permissionGranted;
+        }
+        if (permissionGranted || !navigator.permissions?.query) return permissionGranted;
+        if (!permissionCheck) permissionCheck = (async () => {
+            try {
+                microphonePermission = await navigator.permissions.query({ name: 'microphone' });
+                const changed = () => {
+                    permissionGranted = microphonePermission.state === 'granted';
+                    if (!permissionGranted) {
+                        stop({ preserveIntent: true });
+                        lastError = microphonePermission.state === 'denied' ? humanError('denied') : null;
+                        if (lastError) setIndicator('error', lastError);
+                    }
+                    refresh();
+                };
+                if (microphonePermission.addEventListener) microphonePermission.addEventListener('change', changed);
+                else microphonePermission.onchange = changed;
+                permissionGranted = microphonePermission.state === 'granted';
+            } catch { /* Safari and some WebViews do not expose microphone permission queries. */ }
+            return permissionGranted;
+        })().finally(() => { permissionCheck = null; });
+        return permissionCheck;
     }
 
     async function requestPermission() {
@@ -225,7 +259,8 @@
             return;
         }
         const generation = ++captureGeneration;
-        const isCurrent = () => generation === captureGeneration && getConfig().enabled && usesLocalAudio()
+        const isCurrent = () => generation === captureGeneration && getConfig().enabled && userWantsRunning
+            && !suspendedForCapture && !meetingCaptureActive && usesLocalAudio()
             && window.GunterRuntimeState?.getState?.().loaded === true;
         localStarting = true;
         let stream;
@@ -250,6 +285,12 @@
             const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg']
                 .find(value => window.MediaRecorder.isTypeSupported?.(value));
             localRecorder = mime ? new MediaRecorder(localStream, { mimeType: mime }) : new MediaRecorder(localStream);
+            const rearmEndedCapture = () => {
+                if (generation !== captureGeneration || !running) return;
+                stop({ preserveIntent: true });
+                restartTimer = setTimeout(() => start(), 600);
+            };
+            localRecorder.onstop = rearmEndedCapture;
             localRecorder.ondataavailable = event => {
                 if (!event.data?.size) return;
                 if (localSpeech) localClip.push(event.data);
@@ -260,9 +301,10 @@
             };
             localRecorder.onerror = event => {
                 lastError = event?.error?.message || 'Error de captura local';
-                stop(); setIndicator('error', lastError);
+                stop({ preserveIntent: true }); setIndicator('error', lastError);
             };
             localUnsubscribe = window.GunterVoiceActivity.onChange(state => {
+                if (state.reason === 'capture-ended') { rearmEndedCapture(); return; }
                 if (!running || localBusy) return;
                 if (state.reason === 'speech-started' && !window.GunterVoice?.isSpeaking?.()) {
                     clearTimeout(localEndTimer);
@@ -303,8 +345,9 @@
             maybeShowAndroidWarning();
         } catch (error) {
             if (!isCurrent()) return;
+            if (error.name === 'NotAllowedError') permissionGranted = false;
             lastError = error.name === 'NotAllowedError' ? 'Permiso de micrófono rechazado' : error.message;
-            stop(); setIndicator('error', lastError);
+            stop({ preserveIntent: true }); setIndicator('error', lastError);
         } finally {
             localStarting = false;
         }
@@ -315,14 +358,29 @@
         if (hybrid.loaded !== true) return;
         const cfg = getConfig();
         if (!cfg.enabled) { setIndicator('off', ''); return; }
-        if (running || localStarting) return;
+        if (fromUserGesture) { userWantsRunning = true; manualSessionStarted = true; }
+        if (cfg.listeningMode === 'manual' && !manualSessionStarted) return;
+        if (!userWantsRunning || suspendedForCapture || meetingCaptureActive) return;
+        if (running || localStarting || browserStarting || startPending) return;
+        const generation = captureGeneration;
+        if (!permissionGranted && !fromUserGesture) {
+            startPending = true;
+            try { await restoreGrantedPermission(); }
+            finally { startPending = false; }
+            if (generation !== captureGeneration || !getConfig().enabled || !userWantsRunning
+                || suspendedForCapture || meetingCaptureActive) return;
+            if (microphonePermission?.state === 'denied') {
+                lastError = humanError('denied');
+                setIndicator('error', lastError);
+                return;
+            }
+        }
         if (usesLocalAudio()) return startLocal(fromUserGesture);
         if (!SR) { lastError = humanError('unsupported'); setIndicator('error', lastError); return; }
 
         // Aviso Android una vez por sesión (no bloquea, solo informa)
         maybeShowAndroidWarning();
 
-        const generation = captureGeneration;
         if (!permissionGranted) {
             if (!fromUserGesture) {
                 phase = 'permission_pending';
@@ -330,8 +388,12 @@
                 notifyState();
                 return;
             }
-            const p = await requestPermission();
-            if (generation !== captureGeneration || !getConfig().enabled || usesLocalAudio()) return;
+            startPending = true;
+            let p;
+            try { p = await requestPermission(); }
+            finally { startPending = false; }
+            if (generation !== captureGeneration || !getConfig().enabled || usesLocalAudio()
+                || suspendedForCapture || meetingCaptureActive || !userWantsRunning) return;
             if (p !== 'granted') {
                 // Fase E.E8 — mensaje humano + toast
                 const code = p === 'denied' ? 'rejected' : 'no_mic';
@@ -357,6 +419,9 @@
             recognition.maxAlternatives = 3;  // más alternativas = más chance de match
 
             recognition.onstart = () => {
+                browserStarting = false;
+                if (generation !== captureGeneration || !getConfig().enabled || !userWantsRunning
+                    || suspendedForCapture || meetingCaptureActive || usesLocalAudio()) return;
                 running = true;
                 localProvider = false;
                 mode = 'wake';
@@ -418,6 +483,7 @@
                     const repeatedCall = invocation || detectInvocation(bestText);
                     if (repeatedCall) {
                         if (repeatedCall.command) handleQuery(repeatedCall.command);
+                        else enterQueryMode(repeatedCall);
                         return;
                     }
                     handleQuery(bestText);
@@ -429,8 +495,7 @@
                 console.warn('[wake-word] error:', e.error, e.message);
                 if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
                     permissionGranted = false;
-                    userWantsRunning = false;
-                    stop();
+                    stop({ preserveIntent: true });
                     setIndicator('error', 'Permiso de micrófono rechazado');
                     return;
                 }
@@ -438,6 +503,7 @@
             };
 
             recognition.onend = () => {
+                browserStarting = false;
                 running = false;
                 phase = 'off';
                 notifyState();
@@ -454,8 +520,10 @@
             };
 
             try {
+                browserStarting = true;
                 recognition.start();
             } catch (e) {
+                browserStarting = false;
                 if (e.name === 'InvalidStateError') {
                     // Reintentar con más delay
                     try { recognition.abort(); } catch {}
@@ -465,6 +533,7 @@
                 throw e;
             }
         } catch (e) {
+            browserStarting = false;
             console.error('[wake-word] start failed:', e);
             lastError = e.message;
             setIndicator('error', 'Error al iniciar micrófono');
@@ -472,18 +541,20 @@
     }
 
     function stop(options = {}) {
+        const ownedLocalCapture = localProvider || localStarting;
         captureGeneration++;
-        if (!options.preserveIntent) userWantsRunning = false;
+        if (!options.preserveIntent) { userWantsRunning = false; manualSessionStarted = false; }
         if (queryTimeout) { clearTimeout(queryTimeout); queryTimeout = null; }
         if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
         clearTimeout(localClipTimer); clearTimeout(localEndTimer);
         localUnsubscribe?.(); localUnsubscribe = null;
+        if (localRecorder) localRecorder.onstop = null;
         try { localRecorder?.stop?.(); } catch {}
         try { localStream?.getTracks?.().forEach(track => track.stop()); } catch {}
         localRecorder = null; localStream = null;
         localProvider = false;
         localClip = []; localPreRoll = []; localSpeech = false; localBusy = false;
-        window.GunterVoiceActivity?.stop?.('wake-stopped');
+        if (ownedLocalCapture) window.GunterVoiceActivity?.stop?.('wake-stopped');
         if (recognition) {
             recognition.onstart = null;
             recognition.onend = null;
@@ -492,6 +563,7 @@
             try { recognition.abort(); } catch {}
         }
         recognition = null;
+        browserStarting = false;
         running = false;
         mode = 'off';
         setIndicator('off', '');
@@ -535,24 +607,18 @@
         setIndicator('query', '🎤 Te escucho…');
         notifyState();
 
-        // Feedback hablado por estilo (preferimos GunterVoice → TTS humano)
-        // Fase E.E5: si hay reunión activa, NO interrumpimos con feedback hablado;
-        // sólo cambia el indicador visual.
+        // Conserva el origen wake: la política de voz también aplica en reuniones.
+        // El mismo acuse queda visible cuando la respuesta hablada está desactivada.
         try {
-            const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
-            const context = meetingActive ? 'meeting' : 'wake-word-feedback';
-            if (!canSpeakWakeReply(context)) {
-                // Solo visual; no hablar feedback durante grabación
+            const feedback = pickWakeFeedback(invocation);
+            const context = 'wake-word-feedback';
+            if (window.GunterCompanion?.say) {
+                window.GunterCompanion.say(feedback, { voiceContext: context, wakeWordResponse: true,
+                    skipVoice: !canSpeakWakeReply(context) });
+            } else if (canSpeakWakeReply(context)) {
+                window.GunterVoice?.speak?.(feedback, { context, volume: 0.85 });
             } else {
-                const feedback = pickWakeFeedback(invocation);
-                if (window.GunterVoice?.speak) {
-                    // 'wake-word-feedback' tiene límite ultra-corto (80 chars)
-                    window.GunterVoice.speak(feedback, { context: 'wake-word-feedback', volume: 0.85 });
-                } else if ('speechSynthesis' in window) {
-                    const u = new SpeechSynthesisUtterance(feedback);
-                    u.lang = 'es-MX'; u.volume = 0.4; u.rate = 1.15;
-                    speechSynthesis.speak(u);
-                }
+                window.GunterNotificationsService?.showToast?.(feedback, { variant: 'info', silent: true });
             }
         } catch {}
 
@@ -618,13 +684,14 @@
         // through every settings/action path. They must never turn STT output
         // into an implicit authorization when the guarded companion is absent.
         ensureAssistantOpen();
-        window.GunterVoice?.speak?.('El chat seguro no está disponible en esta página. Abre el asistente y vuelve a intentarlo.',
-            { context: 'wake-word-response' });
+        const unavailableReply = 'El chat seguro no está disponible en esta página. Abre el asistente y vuelve a intentarlo.';
+        window.GunterNotificationsService?.showToast?.(unavailableReply, { variant: 'warn', silent: true });
+        if (canSpeakWakeReply()) window.GunterVoice?.speak?.(unavailableReply, { context: 'wake-word-response' });
         return;
 
         const voiceDestination = resolveVoiceNavigation(text);
         if (voiceDestination) {
-            const context = window.GunterVoice?.isMeetingActive?.() ? 'meeting' : 'wake-word-response';
+            const context = 'wake-word-response';
             ensureAssistantOpen();
             if (window.GunterCompanion?.say) window.GunterCompanion.say(`Abriendo ${voiceDestination.label}.`, { voiceContext: context, wakeWordResponse: true });
             window.location.assign(voiceDestination.href);
@@ -642,8 +709,7 @@
             try {
                 const result = await window.GunterAssistantTools.dispatch(text);
                 if (result?.handled) {
-                    const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
-                    const context = meetingActive ? 'meeting' : 'wake-word-response';
+                    const context = 'wake-word-response';
                     ensureAssistantOpen();
                     if (window.GunterCompanion?.say) window.GunterCompanion.say(result.reply, { voiceContext: context, wakeWordResponse: true });
                     else if (canSpeakWakeReply(context)) window.GunterVoice?.speak?.(result.reply, { context });
@@ -658,8 +724,7 @@
             try {
                 const action = await window.GunterActions.dispatch(text);
                 if (action?.reply) {
-                    const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
-                    const context = meetingActive ? 'meeting' : 'wake-word-response';
+                    const context = 'wake-word-response';
                     ensureAssistantOpen();
                     if (window.GunterCompanion?.say) {
                         window.GunterCompanion.say(action.reply, { voiceContext: context, wakeWordResponse: true });
@@ -679,8 +744,7 @@
             try {
                 const toolResult = await window.GunterAssistantTools.dispatch(text);
                 if (toolResult?.handled) {
-                    const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
-                    const speechContext = meetingActive ? 'meeting' : 'wake-word-response';
+                    const speechContext = 'wake-word-response';
                     ensureAssistantOpen();
                     if (window.GunterCompanion?.say) {
                         window.GunterCompanion.say(toolResult.reply, { voiceContext: speechContext, wakeWordResponse: true });
@@ -696,8 +760,7 @@
 
         const clarification = window.GunterAssistantTools?.clarifyRequest?.(text);
         if (clarification) {
-            const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
-            const speechContext = meetingActive ? 'meeting' : 'wake-word-response';
+            const speechContext = 'wake-word-response';
             ensureAssistantOpen();
             if (window.GunterCompanion?.say) {
                 window.GunterCompanion.say(clarification.reply, { voiceContext: speechContext, wakeWordResponse: true });
@@ -713,8 +776,7 @@
             locale: navigator.language || 'es-CO'
         });
         if (temporal) {
-            const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
-            const speechContext = meetingActive ? 'meeting' : 'wake-word-response';
+            const speechContext = 'wake-word-response';
             ensureAssistantOpen();
             if (window.GunterCompanion?.say) {
                 window.GunterCompanion.say(temporal.reply, { voiceContext: speechContext, wakeWordResponse: true });
@@ -737,10 +799,8 @@
             } catch { /* noop */ }
         }
 
-        // Fase E.E5/E2 — contexto correcto:
-        // si hay reunión activa, pasamos context: 'meeting' (que respeta voiceInMeetings).
-        const meetingActive = !!window.GunterVoice?.isMeetingActive?.();
-        const speechContext = meetingActive ? 'meeting' : 'wake-word-response';
+        // El servicio de voz aplica voiceInMeetings sin perder el origen wake.
+        const speechContext = 'wake-word-response';
 
         // Path 1: Pipeline completo (day.html)
         if (window.GunterPipeline?.handleUserInput) {
@@ -821,39 +881,47 @@
             mode,
             phase,
             label: indicatorLabel,
-            provider: localProvider ? 'moonshine.local' : SR ? 'browser.speech-recognition' : 'none',
+            provider: usesLocalAudio() ? 'moonshine.local' : SR ? 'browser.speech-recognition' : 'none',
             supported: !!(SR || localCaptureSupported),
-            permission: permissionGranted ? 'granted' : phase === 'error' ? 'error' : 'pending',
+            permission: permissionGranted ? 'granted' : microphonePermission?.state === 'denied' ? 'denied' : phase === 'error' ? 'error' : 'pending',
             error: lastError,
             lastHeard,
             lastInvocation
         };
     }
-    function isActive() { return running; }
+    function isActive() { return getState().active; }
     function getLastHeard() { return lastHeard; }
 
     function refresh() {
         const cfg = getConfig();
-        if (cfg.enabled && !running && permissionGranted && userWantsRunning !== false) {
-            start();
-        } else if (!cfg.enabled) {
+        if (!!cfg.enabled !== lastKnownWakeEnabled) {
+            lastKnownWakeEnabled = !!cfg.enabled;
+            userWantsRunning = lastKnownWakeEnabled;
+        }
+        if (!cfg.enabled) {
             stop();
-        } else if (cfg.enabled && !permissionGranted && !running && phase !== 'error') {
-            phase = 'permission_pending'; notifyState();
+        } else if (cfg.listeningMode === 'manual' && !manualSessionStarted) {
+            if (running || localStarting || browserStarting || startPending) stop({ preserveIntent: true });
+            else setIndicator('off', '');
+        } else if (userWantsRunning && !suspendedForCapture && !meetingCaptureActive) {
+            if (!permissionGranted && !running && phase !== 'error') {
+                phase = 'permission_pending'; notifyState();
+            }
+            return start();
         }
     }
 
     function suspendForCapture() {
         // PTT debe ser el único dueño del micrófono, también cuando la
         // activación usa SpeechRecognition en vez de Moonshine local.
-        suspendedForCapture = running || localStarting;
-        if (suspendedForCapture) stop();
+        suspendedForCapture = true;
+        if (running || localStarting || browserStarting || startPending) stop({ preserveIntent: true });
     }
 
     function resumeAfterCapture() {
         if (!suspendedForCapture) return;
         suspendedForCapture = false;
-        if (getConfig().enabled && permissionGranted) start();
+        refresh();
     }
 
     // Toggle debug mode with ?debug=wake
@@ -863,11 +931,34 @@
     }
 
     window.addEventListener('gunterPremiumFeaturesChange', (e) => {
-        if (e.detail?.key === 'wakeWordEnabled' || e.detail?.key === null) refresh();
+        if (e.detail?.key === 'wakeWordEnabled' || e.detail?.key === 'wakeWordListeningMode' || e.detail?.key === null) {
+            if (e.detail?.key === 'wakeWordEnabled') userWantsRunning = !!getConfig().enabled;
+            if (e.detail?.key === 'wakeWordListeningMode') {
+                manualSessionStarted = false;
+                const cfg = getConfig();
+                userWantsRunning = !!cfg.enabled && cfg.listeningMode !== 'manual';
+            }
+            refresh();
+        }
     });
     window.addEventListener('gunter-hybrid-state', event => {
         const hybrid = event.detail || {};
-        if (hybrid.loaded !== true || ((running || localStarting) && localProvider !== (hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY'))) stop();
+        if (hybrid.loaded !== true || ((running || localStarting || browserStarting)
+            && (localProvider || localStarting) !== (hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY'))) stop({ preserveIntent: true });
+        if (hybrid.loaded === true) refresh();
+    });
+
+    window.addEventListener('gunter-recording-started', () => {
+        meetingCaptureActive = true;
+        if (running || localStarting || browserStarting || startPending) stop({ preserveIntent: true });
+    });
+    window.addEventListener('gunter-recording-stopped', () => {
+        meetingCaptureActive = false;
+        refresh();
+    });
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') refresh();
     });
 
     window.addEventListener('gunter-voice-state', event => {

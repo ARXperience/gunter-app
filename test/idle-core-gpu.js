@@ -170,6 +170,39 @@ check('one fixed floating atlas supplies density, energy, irradiance and facing 
     }
     e.core.dispose();released(e);
 });
+check('the connected energy support stays anchored inside material and is buried by actual depth density',()=>{
+    const e=environment();
+    const field=e.core.programs.field.program.shaders.find(s=>s.source.includes('out vec4 result')).source;
+    const center=field.match(/vec3 energyCenter\(float t\)\s*\{([\s\S]*?)\n        \}/)[1];
+    assert.match(center,/idleCenter\(t\)\*\.25\+worldPoint\(vec3\(u_pointer\.xy\*\.14,0\)\)/,
+        'the current follows the material center with a bounded internal excursion');
+    assert.match(field,/energyCurve\(clamp\(energyFrame\(p,t\)\.x,-\.27,\.27\),t\)/,
+        'incident light and matter transport share the shortened connected source');
+    assert.match(field,/float support=exp\(-pow\(radial,2\.2\)\)\*\(1\.0-smoothstep\(\.9,1\.45,radial\)\)/,
+        'the emitting tube has finite 3D support rather than a luminous tail outside the body');
+    assert.match(field,/if\(heat>\.0001\)\s*\{\s*vec3 depth=worldPoint\(vec3\(0,0,\.18\)\);\s*float cover=density\+matterDensity\(p\+depth,u_time\)\+matterDensity\(p-depth,u_time\);\s*heat\*=smoothstep\(\.025,\.18,cover\);/,
+        'only the emitter neighbourhood pays for actual front/back material containment');
+    assert.match(field,/result=vec4\(density,heat,light,facing\)/,'both visible passes receive the contained heat');
+    e.core.dispose();released(e);
+});
+check('buried gas emits within the depth march while only matter extinguishes it and front fibres cover it',()=>{
+    const e=environment();
+    const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('vec4 material=mediumAt(p)')).source;
+    const extinction=volume.match(/float density=([^;]+);/)[1];
+    assert.match(extinction,/mass\*mass\*grain/);assert.doesNotMatch(extinction,/material\.g|heat|emission/,
+        'the energy support cannot create an opaque glowing front shell');
+    assert.match(volume,/color\+=\(1\.0-opacity\)\*\(scattered\*density\+emitted\*emission\)/,
+        'emission passes through the opacity already accumulated in front of its 3D sample');
+    assert.match(volume,/opacity\+=\(1\.0-opacity\)\*density/);
+    const strands=e.core.programs.strands.program.shaders.find(s=>s.source.includes('uniform sampler2D u_volume')).source;
+    assert.match(strands,/viewPoint\(v_world-energySource\(v_world,u_time\)\)\.z/,
+        'a filament covers the energy according to its 3D position relative to the current');
+    assert.match(strands,/color=mix\(color,coat,frontCover\*\.88\)/,'front microfibres keep their shaded material color');
+    assert.match(strands,/transmission=mix\(transmission,1\.0,frontCover\*\.85\)/,
+        'the full column must not erase fibres lying in front of the energy');
+    assert.match(strands,/\*\(1\.0\+frontCover\*\.75\)\)\*transmission/,'front material has visible covering alpha');
+    e.core.dispose();released(e);
+});
 check('avatars reuse the atlas across colors, brightness, size, resolution and older timestamps',()=>{
     const e=environment(),first=e.render(8),field=e.core.field,steps=e.core.steps;
     const builds=e.core.fieldBuilds,created=e.created.Texture.length;
@@ -369,6 +402,26 @@ check('Measured RMS reaches all GPU passes, scales mildly, reuses resources and 
     assert.equal(e.live.Framebuffer.size,7);assert.ok(e.core.steps>steps);
     e.core.setAudioLevel(0,false);e.render(8.1);assert.equal(e.core.programs.volume.program.u_audio[0],0);
     assert.equal(e.core.programs.strands.program.u_size[0],1);e.core.dispose();released(e);
+});
+check('combined inertial pointer and measured audio retain one contained medium and the existing GPU budget',()=>{
+    const e=environment();e.render(8);const created=e.created.Texture.length,field=e.core.field;
+    e.core.setAudioLevel(1,true);
+    for(const [x,y] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+        e.core.setPointer(x,y);advanceSteps(e,45);
+        const state=interaction(e.core);
+        for(const name of ['simulation','field','volume','strands']) {
+            const draw=e.draws.filter(d=>d.program===e.core.programs[name].program).at(-1);
+            assertPointerDraw(draw,state);
+            assert.equal(draw.program.u_audio[0],1-Math.exp(-5));
+        }
+        const builds=e.core.fieldBuilds;
+        e.render(e.core.displayTime,{...defaults,particleColor:'#137a99',energyColor:'#00ff00',glowColor:'#ff0000'});
+        assert.equal(e.core.fieldBuilds,builds,'color changes reuse the same contained medium at the same phase');
+    }
+    assert.equal(e.core.field,field);assert.equal(e.created.Texture.length,created);
+    assert.equal(e.live.Framebuffer.size,7);assert.equal(e.live.Texture.size,7);
+    assert.equal(e.core.stats().volumeGrid,48);assert.equal(e.core.stats().volumeSamples,40);
+    e.core.dispose();released(e);
 });
 check('Invalid, absent or muted samples cannot leave invented audio amplitude across restore/dispose',()=>{
     const e=environment();e.render(8);

@@ -425,10 +425,14 @@
                 return 'requires_connection';
             }
             if (key === 'voiceEnabled') {
+                if (state.voiceMode === 'text_only') return 'inactive';
                 const runtime = window.GunterRuntimeState?.getState?.() || {};
                 const localOnly = runtime.mode === 'LOCAL' || runtime.privacy === 'LOCAL_ONLY';
                 if (localOnly && (runtime.loaded !== true || !runtime.localTTSAvailable)) return 'unavailable';
                 if (!localOnly && !voiceSupported() && !runtime.localTTSAvailable) return 'unavailable';
+                const playbackError = window.GunterVoice?.getPlaybackState?.()?.error;
+                if (playbackError?.code === 'VOICE_PLAYBACK_BLOCKED') return 'pending_interaction';
+                if (playbackError) return 'error';
             }
             if (key === 'wakeWordEnabled' || key === 'dictationEnabled') {
                 if (!navigator.mediaDevices?.getUserMedia ||
@@ -482,6 +486,7 @@
             tone: state.voiceTone,
             inMeetings: state.voiceInMeetings,
             onlyAfterWakeWord: state.voiceOnlyAfterWakeWord,
+            wakeWordResponseMode: state.wakeWordResponseMode,
             supported: voiceSupported() || !!window.GunterRuntimeState?.getState?.()?.localTTSAvailable
         };
     }

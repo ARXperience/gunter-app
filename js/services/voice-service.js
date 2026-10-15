@@ -49,6 +49,8 @@
     let analysisContext = null;
     let playbackAnalysis = null;
     let audioBuffering = false;
+    let playbackContext = 'chat';
+    let playbackError = null;
     let audioSignal = { source: 'assistant', level: 0, active: false, available: false, at: Date.now() };
 
     // Optional visual metering. It never decodes a second audio file or opens a
@@ -238,6 +240,14 @@
         } catch { /* entorno sin CustomEvent */ }
     }
 
+    function failPlayback(code, message) {
+        // A failed answer remains available as text. Do not retry every queued
+        // segment or silently choose a different provider in local mode.
+        cancel('voice-unavailable');
+        playbackError = { code, message, at: Date.now() };
+        notifyVoiceState('unavailable', { ...playbackError });
+    }
+
     // ---------- Detector global de reunión activa (Fase E.E2) ----------
     // Cualquier código puede marcar/desmarcar:
     //   GunterVoice.setMeetingActive(true)  / .setMeetingActive(false)
@@ -246,6 +256,7 @@
     let _meetingActive = false;
     function setMeetingActive(active) {
         _meetingActive = !!active;
+        if (_meetingActive && !shouldSpeak(playbackContext)) cancel('meeting-voice-disabled');
         try { window.dispatchEvent(new CustomEvent('gunter-voice-meeting-state', { detail: { meetingActive: _meetingActive } })); } catch {}
     }
     function isMeetingActive() {
@@ -254,24 +265,28 @@
 
     // ---------- Filter: should we speak in this context? ----------
     function shouldSpeak(context = 'chat') {
-        if (!window.PremiumFeaturesService) return false;
-        if (context === 'entry' && window.PremiumFeaturesService.isEnabled?.('entryVoiceGreeting') === false) return false;
-        const cfg = window.PremiumFeaturesService.getVoiceConfig();
+        const service = window.PremiumFeaturesService;
+        const cfg = service?.getVoiceConfig?.();
+        if (!cfg) return false;
+        if (context === 'entry' && service.isEnabled?.('entryVoiceGreeting') === false) return false;
         if (!cfg.enabled) return false;
+
+        const fromWakeWord = ['wake', 'wake-word-response', 'wake-word-feedback'].includes(context);
+        const wakeResponseMode = cfg.wakeWordResponseMode ?? service.getWakeWordConfig?.()?.responseMode;
+        if (fromWakeWord && wakeResponseMode === 'text') return false;
 
         // Fase E.E2: si hay reunión activa, ELEVAR el contexto a 'meeting'
         // automáticamente (caller puede no saberlo). Excepción: notification
         // siempre debe poder sonar (recordatorios urgentes).
         const effectiveContext = (_meetingActive && context !== 'notification') ? 'meeting' : context;
-        if (cfg.onlyAfterWakeWord && !['wake-word-response', 'wake-word-feedback', 'notification'].includes(effectiveContext)) return false;
+        if (effectiveContext === 'meeting' && !cfg.inMeetings) return false;
+        if (cfg.onlyAfterWakeWord && !fromWakeWord && effectiveContext !== 'notification') return false;
 
         switch (cfg.mode) {
             case 'text_only':          return false;
             case 'notifications_only': return effectiveContext === 'notification';
-            case 'wake_word_only':     return effectiveContext === 'wake-word-response' || effectiveContext === 'meeting' && cfg.inMeetings;
-            case 'live_voice':
-                if (effectiveContext === 'meeting' && !cfg.inMeetings) return false;
-                return true;
+            case 'wake_word_only':     return fromWakeWord || effectiveContext === 'meeting' && cfg.inMeetings;
+            case 'live_voice':        return true;
             default: return true;
         }
     }
@@ -345,7 +360,10 @@
     function speakFallback(text, sv, token = generation) {
         if (token !== generation) return;
         if (audioAnalysisEnabled) emitAudioLevel(0, false, false, 'browser-synthesis-signal-unavailable');
-        if (!('speechSynthesis' in window)) { speaking = false; processQueue(); return; }
+        if (!('speechSynthesis' in window)) {
+            failPlayback('BROWSER_TTS_UNAVAILABLE', 'La voz del navegador no está disponible. La respuesta sigue escrita en pantalla.');
+            return;
+        }
         const u = new SpeechSynthesisUtterance(String(text).slice(0, 800));
         u.lang = 'es-MX';
         u.rate = sv.speed;
@@ -357,14 +375,22 @@
         }
         currentUtterance = u;
         u.onstart = () => { if (token === generation) { fallbackPlaying = true; notifyVoiceState('speaking'); } };
-        u.onend = u.onerror = () => {
+        u.onend = () => {
             if (token !== generation) return;
             currentUtterance = null;
             fallbackPlaying = false;
             speaking = false;
             processQueue();
         };
-        speechSynthesis.speak(u);
+        u.onerror = event => {
+            if (token !== generation) return;
+            const blocked = event?.error === 'not-allowed';
+            failPlayback(blocked ? 'VOICE_PLAYBACK_BLOCKED' : 'BROWSER_TTS_FAILED', blocked
+                ? 'El navegador bloqueó el audio. Pulsa Probar voz para volver a intentarlo.'
+                : 'No pude reproducir la voz del navegador. La respuesta sigue escrita en pantalla.');
+        };
+        try { speechSynthesis.speak(u); }
+        catch { failPlayback('BROWSER_TTS_FAILED', 'No pude reproducir la voz del navegador. La respuesta sigue escrita en pantalla.'); }
     }
 
     function releaseAudioUrl(url) {
@@ -391,6 +417,7 @@
     function prefetchNext() {
         if (!queue.length || prefetched) return;
         const item = queue[0];
+        if (!shouldSpeak(item.opts.context || 'chat')) return;
         const controller = new AbortController();
         const deadline = setTimeout(() => controller.abort(), 5000);
         const entry = { item, controller, promise: null, claimed: false };
@@ -464,7 +491,10 @@
     async function speak(text, opts = {}) {
         if (!text) return;
         const context = opts.context || 'chat';
-        if (!opts.force && !shouldSpeak(context)) return;
+        // Even explicit playback requests respect the user's voice, wake-word
+        // and meeting preferences. All reply routes share this decision.
+        if (!shouldSpeak(context)) return;
+        voicePolicySnapshot = getVoicePolicySnapshot();
 
         // v2 (F1) — registrar respuestas habladas en la memoria conversacional cross-sesión.
         // Solo para contextos conversacionales (chat/wake), no notificaciones técnicas.
@@ -483,13 +513,18 @@
         const sv = getStyleConfig();
         let stripped = stripMarkdown(text);
 
-        // Fase E.E3 — truncation context-aware con shortenForSpeech
-        const skipTruncation = context === 'notification' || opts.full === true;
+        // Conversation replies must include the complete answer, regardless of
+        // whether they arrive at once or through beginStream(). Short summaries
+        // remain available for meeting excerpts and explicit summary callers.
+        const conversational = ['chat', 'day', 'wake', 'wake-word-response'].includes(context);
+        const skipTruncation = opts.full === true || (opts.summary !== true && (conversational || context === 'notification'));
         if (!skipTruncation) {
             const max = getMaxCharsFor(context);
             if (stripped.length > max) stripped = _truncate(stripped, max);
         }
 
+        if (!stripped) return;
+        playbackError = null;
         for (const part of splitForPlayback(stripped)) queue.push({ text: part, sv, opts });
         if (!speaking) processQueue();
     }
@@ -500,14 +535,16 @@
     function beginStream(opts = {}) {
         const token = generation;
         const context = opts.context || 'chat';
-        const enabled = opts.force || shouldSpeak(context);
+        const enabled = shouldSpeak(context);
+        if (enabled) voicePolicySnapshot = getVoicePolicySnapshot();
         const sv = getStyleConfig();
         let pending = '';
         let closed = false;
         function enqueue(text) {
             const cleaned = stripMarkdown(text);
-            if (!cleaned || token !== generation || !enabled) return;
-            queue.push({ text: cleaned, sv, opts });
+            if (!cleaned || token !== generation || !enabled || !shouldSpeak(context)) return;
+            playbackError = null;
+            for (const part of splitForPlayback(cleaned)) queue.push({ text: part, sv, opts });
             if (!speaking) processQueue();
         }
         function drain(force = false) {
@@ -530,7 +567,7 @@
         }
         return {
             append(delta) {
-                if (closed || token !== generation || !enabled) return;
+                if (closed || token !== generation || !enabled || !shouldSpeak(context)) return;
                 pending += String(delta || '');
                 drain();
             },
@@ -551,7 +588,15 @@
             notifyVoiceState('idle', { reason: 'queue-empty' });
             return;
         }
+        if (!shouldSpeak(next.opts.context || 'chat')) {
+            if (prefetched?.item === next) {
+                prefetched.controller.abort();
+                prefetched = null;
+            }
+            return processQueue();
+        }
         speaking = true;
+        playbackContext = next.opts.context || 'chat';
         const token = generation;
         lastSpokenText = next.text;
         speechStartedAt = Date.now();
@@ -571,6 +616,12 @@
             const url = prepared.url;
             clearTimeout(synthesisDeadline);
             if (token !== generation) { releaseAudioUrl(url); return; }
+            if (!shouldSpeak(next.opts.context || 'chat')) {
+                releaseAudioUrl(url);
+                speaking = false;
+                processQueue();
+                return;
+            }
             voiceMetric('audioReady', { chars: next.text.length });
             const audio = new Audio(url);
             audio.volume = next.opts.volume ?? 1;
@@ -599,7 +650,7 @@
             audio.addEventListener('playing', () => {
                 if (token === generation) voiceMetric('playbackStart', { chars: next.text.length });
             }, { once: true });
-            audio.onended = audio.onerror = () => {
+            audio.onended = () => {
                 if (token !== generation) return;
                 releaseAudioAnalysis('ended');
                 currentAudio = null;
@@ -607,6 +658,13 @@
                 releaseAudioUrl(url);
                 speaking = false;
                 processQueue();
+            };
+            audio.onerror = () => {
+                if (token !== generation) return;
+                const hybrid = window.GunterRuntimeState?.getState?.();
+                failPlayback(hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL'
+                    ? 'LOCAL_TTS_PLAYBACK_FAILED' : 'VOICE_PLAYBACK_FAILED',
+                'No pude reproducir el audio de la respuesta. El texto sigue disponible en pantalla.');
             };
             let played = false;
             await audio.play().then(() => { played = true; }).catch(err => {
@@ -618,11 +676,13 @@
                 releaseAudioUrl(url);
                 console.warn('[voice] audio.play() failed, fallback:', err);
                 const hybrid = window.GunterRuntimeState?.getState?.();
+                if (err?.name === 'NotAllowedError') {
+                    failPlayback('VOICE_PLAYBACK_BLOCKED', 'El navegador bloqueó el audio. Pulsa Probar voz para volver a intentarlo.');
+                    return;
+                }
                 if (hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL') {
-                    speaking = false;
-                    notifyVoiceState('unavailable', { code: 'LOCAL_TTS_PLAYBACK_FAILED' });
+                    failPlayback('LOCAL_TTS_PLAYBACK_FAILED', 'No pude reproducir la voz local. La respuesta sigue escrita en pantalla.');
                     window.GunterNotificationsService?.showToast?.('No pude reproducir la voz local; la respuesta sigue escrita en pantalla.', { variant: 'warn', silent: true });
-                    processQueue();
                 } else speakFallback(next.text, next.sv, token);
             });
             if (played && token === generation) {
@@ -633,10 +693,8 @@
             if (token !== generation) return;
             const hybrid = window.GunterRuntimeState?.getState?.();
             if (hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL') {
-                speaking = false;
-                notifyVoiceState('unavailable', { code: err.code || 'LOCAL_TTS_UNAVAILABLE' });
+                failPlayback(err.code || 'LOCAL_TTS_UNAVAILABLE', 'La voz local no está disponible. La respuesta sigue escrita en pantalla.');
                 window.GunterErrors?.toast?.(err, { context: 'audio', silent: true });
-                processQueue();
                 return;
             }
             // Fallback al synthesizer del navegador
@@ -646,7 +704,7 @@
                 window.GunterNotificationsService?.showToast?.('La voz local no respondió; usaré temporalmente la voz del navegador.', { variant: 'warn', silent: true });
             }
             speakFallback(next.text, next.sv, token);
-            notifyVoiceState('fallback', { context: next.opts.context || 'chat', code: err.code || 'TTS_UNAVAILABLE' });
+            if (token === generation) notifyVoiceState('fallback', { context: next.opts.context || 'chat', code: err.code || 'TTS_UNAVAILABLE' });
         } finally {
             clearTimeout(synthesisDeadline);
             if (synthesisController === controller) synthesisController = null;
@@ -729,7 +787,8 @@
         getAudioAnalysisState: () => ({ ...audioSignal, enabled: audioAnalysisEnabled }),
         getPlaybackState: () => {
             const playing = !!(currentAudio && !currentAudio.paused && !currentAudio.ended) || fallbackPlaying;
-            return { speaking: playing, pending: speaking && !playing, text: lastSpokenText, startedAt: speechStartedAt, queued: queue.length };
+            return { speaking: playing, pending: speaking && !playing, text: lastSpokenText, startedAt: speechStartedAt, queued: queue.length,
+                error: playbackError ? { ...playbackError } : null };
         }
     };
 
@@ -739,9 +798,28 @@
         speak(d.text, d);
     });
 
-    // Cancel on disable
+    function getVoicePolicySnapshot() {
+        const service = window.PremiumFeaturesService;
+        const cfg = service?.getVoiceConfig?.();
+        return JSON.stringify([
+            !!cfg?.enabled, cfg?.mode, !!cfg?.onlyAfterWakeWord,
+            cfg?.wakeWordResponseMode ?? service?.getWakeWordConfig?.()?.responseMode ?? 'voice',
+            !!cfg?.inMeetings, service?.isEnabled?.('entryVoiceGreeting') !== false
+        ]);
+    }
+
+    let voicePolicySnapshot = getVoicePolicySnapshot();
+    // Bulk preference updates also include unrelated memory and visual changes.
+    // Invalidate speech only when a preference governing replies really changed.
     window.addEventListener('gunterPremiumFeaturesChange', (e) => {
-        if (e.detail?.key === 'voiceEnabled' && !e.detail.value) cancel();
+        const key = e.detail?.key;
+        if (key == null || ['voiceEnabled', 'voiceMode', 'voiceOnlyAfterWakeWord', 'wakeWordResponseMode', 'voiceInMeetings', 'entryVoiceGreeting'].includes(key)) {
+            const nextPolicy = getVoicePolicySnapshot();
+            if (nextPolicy === voicePolicySnapshot) return;
+            voicePolicySnapshot = nextPolicy;
+            // Invalidate pending streams too, even when synthesis has not begun.
+            cancel('voice-preference-changed');
+        }
     });
 
     // Pause on tab hide

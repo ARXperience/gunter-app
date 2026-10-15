@@ -1277,10 +1277,6 @@ Gunter:`;
         // Voz (habla el mensaje completo, no por chunks)
         if (!options.skipVoice && window.GunterVoice?.speak) {
             try {
-                if (options.wakeWordResponse && window.PremiumFeaturesService?.getWakeWordConfig?.().responseMode !== 'voice') {
-                    setMascotState('default');
-                    return;
-                }
                 window.GunterVoice.speak(fullText, {
                     context: options.voiceContext || 'chat',
                     full: options.fullVoice === true,
@@ -1288,9 +1284,9 @@ Gunter:`;
                 });
             } catch { /* noop */ }
         }
-        // Mascota talking
-        setMascotState('talking');
-        setTimeout(() => setMascotState('default'), Math.min(3500, 800 + fullText.length * 30));
+        // Spoken state follows actual playback, including long replies and
+        // text-only settings; rendering a text answer does not imply audio.
+        setMascotState(window.GunterVoice?.getPlaybackState?.().speaking ? 'talking' : 'default');
     }
 
     function _afterUserMessage(text) {
@@ -1546,6 +1542,9 @@ Gunter:`;
         }
     });
     window.addEventListener('gunter-barge-in', interrupt);
+    window.addEventListener('gunter-voice-state', () => {
+        setMascotState(window.GunterVoice?.getPlaybackState?.().speaking ? 'talking' : 'default');
+    });
 
     // Auto-mount
     if (typeof window !== 'undefined') {

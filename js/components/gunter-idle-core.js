@@ -38,7 +38,10 @@
             return vec3(.14*sin(t*.24),.12*cos(t*.27+1.3),.09*sin(t*.19));
         }
         vec3 energyCenter(float t) {
-            return idleCenter(t)+worldPoint(vec3(u_pointer.xy*.24,0));
+            // Keep the current anchored to the material's own interior. The
+            // pointer deforms it within that body, rather than pulling a shell
+            // of light out in front of the filaments.
+            return idleCenter(t)*.25+worldPoint(vec3(u_pointer.xy*.14,0));
         }
         vec3 energyFrame(vec3 p,float t) {
             vec3 q=p-energyCenter(t);
@@ -58,23 +61,26 @@
                 .10*sin(along*4.5+t*.23)*(1.0+u_audio*.12));
         }
         vec3 energySource(vec3 p,float t) {
-            return energyWorld(energyCurve(clamp(energyFrame(p,t).x,-.34,.34),t),t);
+            return energyWorld(energyCurve(clamp(energyFrame(p,t).x,-.27,.27),t),t);
         }
         // A single thick, bent support carries a travelling pulse. Its floor
         // never switches off into isolated spots; the same current drives matter.
         float energyHeat(vec3 p,float t) {
             vec3 q=energyFrame(p,t);
-            float along=clamp(q.x,-.34,.34);
+            float along=clamp(q.x,-.27,.27);
             vec3 d=q-energyCurve(along,t);
             d.y+=.035*sin(q.z*8.3+t*.31);
             d.z+=.030*sin(q.y*7.1-t*.27);
-            float radius=(.21+.030*sin(along*6.8-t*.48))*(1.0+u_audio*.08);
-            float support=exp(-pow(length(d*vec3(1.0,1.05,1.12))/radius,2.2));
+            float radius=(.145+.018*sin(along*6.8-t*.48))*(1.0+u_audio*.06);
+            float radial=length(d*vec3(1.0,1.05,1.12))/radius;
+            // A finite support leaves a material coat on every side of the
+            // current, including at the limits of inertial pointer/audio input.
+            float support=exp(-pow(radial,2.2))*(1.0-smoothstep(.9,1.45,radial));
             float pulse=.67+.33*sin(along*5.4-t*.82);
             return support*pulse*(1.0+u_audio*.12);
         }
         vec3 energyTransport(vec3 p,float t) {
-            float along=clamp(energyFrame(p,t).x,-.34,.34);
+            float along=clamp(energyFrame(p,t).x,-.27,.27);
             vec3 tangent=normalize(vec3(1.0,(.75*cos(along*5.0-t*.45)+.54*cos(along*9.0+t*.18))*(1.0+u_audio*.18),
                 .45*cos(along*4.5+t*.23)*(1.0+u_audio*.12)));
             vec3 direction=energyWorld(tangent,t)-energyCenter(t);
@@ -189,6 +195,14 @@
             vec3 grid=vec3(mod(cell,48.0),tile.x+tile.y*8.0);
             vec3 p=(grid/47.0*2.0-1.0)*.96;
             float density=matterDensity(p,u_time),heat=energyHeat(p,u_time);
+            // The gas occupies cavities inside the folded matter. Test a
+            // short depth neighbourhood only inside its finite support, so
+            // sparse material does not turn into an exposed luminous coating.
+            if(heat>.0001) {
+                vec3 depth=worldPoint(vec3(0,0,.18));
+                float cover=density+matterDensity(p+depth,u_time)+matterDensity(p-depth,u_time);
+                heat*=smoothstep(.025,.18,cover);
+            }
             vec3 source=energySource(p,u_time),delta=source-p;
             float distance=length(delta);
             vec3 direction=delta/max(.001,distance);
@@ -297,16 +311,23 @@
             vec4 material=mediumAt(v_world);
             float emission=material.g;
             float incident=clamp(emission*1.7+material.b*.65,0.0,1.0);
+            float frontCover=smoothstep(.06,.23,viewPoint(v_world-energySource(v_world,u_time)).z)
+                *(1.0-smoothstep(.015,.20,emission));
             // Reuse the ray-marched column extinction, instead of tracing
             // procedural density again for every subpixel fibre fragment.
             float column=clamp(texture(u_volume,gl_FragCoord.xy/u_resolution).a/.72,0.0,.96);
             float depth=clamp((.90-viewPoint(v_world).z)/1.8,0.0,1.0);
             float transmission=pow(1.0-column,depth*2.0);
+            transmission=mix(transmission,1.0,frontCover*.85);
             float matter=material.r;
             vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,emission+material.b*.45));
             vec3 color=u_particle*tint*material.b*(.55+material.a*2.0)*(1.0-emission*.65)
                 +u_energy*incident*(1.1+u_audio*.22)
                 +u_glow*emission*emission*(.35+u_pointer.z*.32+u_audio*.65);
+            // Front microfibres cover the buried emitter. Keep their shaded
+            // material response instead of painting emission over their face.
+            vec3 coat=u_particle*tint*material.b*(.35+material.a*.90);
+            color=mix(color,coat,frontCover*.88);
             // Broad erosion creates differently sized wisps; fine coverage
             // turns each wisp into porous, irregular microfibres, not a cable.
             float lengths=3.0+15.0*fract(v_seed*.56984);
@@ -314,7 +335,8 @@
             fragments=mix(fragments,.75,smoothstep(.35,.70,matter)*.55);
             float grain=.06+.94*smoothstep(.24,.78,materialNoise(v_age*167.0,v_seed*1.31));
             float packing=.45+matter*matter*5.50;
-            float alpha=min(.85,edge*fade*(.20+v_depth*.10)*fragments*grain*packing)*transmission;
+            float alpha=min(.90,edge*fade*(.20+v_depth*.10)*fragments*grain*packing
+                *(1.0+frontCover*.75))*transmission;
             result=vec4(color*u_brightness,alpha);
         }
     `;
@@ -342,14 +364,18 @@
                 float mass=max(0.0,material.r-.12);
                 // Beer-Lambert extinction separates porous matter from the
                 // emitting gas; front coats partially obscure deeper folds.
-                float density=1.0-exp(-(mass*mass*grain*18.0+material.g*1.6)*(1.92/40.0)*u_density);
+                float density=1.0-exp(-mass*mass*grain*18.0*(1.92/40.0)*u_density);
                 float heat=material.g,incident=material.b;
                 float face=material.a*material.a;
                 vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,heat+incident*.45));
-                vec3 light=u_particle*tint*incident*(.10+face*3.8)*(1.0-heat*.65)
-                    +u_energy*(heat*(2.8+u_pointer.z*heat*.32+u_audio*.45)+incident*.10)
-                    +u_glow*heat*heat*(.25+u_pointer.z*.28+u_audio*.65);
-                color+=(1.0-opacity)*light*density;
+                vec3 scattered=u_particle*tint*incident*(.10+face*3.8)*(1.0-heat*.65)
+                    +u_energy*incident*.10;
+                vec3 emitted=u_energy*(2.4+u_pointer.z*heat*.28+u_audio*.40)
+                    +u_glow*heat*(.25+u_pointer.z*.28+u_audio*.65);
+                float emission=1.0-exp(-heat*3.0*(1.92/40.0));
+                // Emission is accumulated at its buried 3D sample. Only the
+                // actual matter extinguishes it; the gas has no front surface.
+                color+=(1.0-opacity)*(scattered*density+emitted*emission);
                 opacity+=(1.0-opacity)*density;
                 if(opacity>.985)break;
             }

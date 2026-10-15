@@ -118,8 +118,8 @@
         {
             id: 'voiceEnabled',
             icon: '🗣️',
-            title: 'Voz humanizada de Gunter',
-            description: 'Gunter habla con voz natural, expresiva y configurable — o responde solo por texto.',
+            title: 'Respuestas por voz',
+            description: 'Elige si Gunter responde con voz al escribirle o hablarle. El texto permanece en el chat.',
             custom: renderVoiceCard
         },
         { id: 'dictationEnabled', icon: '🎤', title: 'Reconocimiento y dictado',
@@ -439,7 +439,7 @@
             <!-- Fase F.F6 — Resumen funciones premium activas -->
             ${activeCategory === 'premium' ? renderActiveSummary() : ''}
 
-            <details class="gps__catalog" ${catalogOpen ? 'open' : ''}>
+            <details class="gps__catalog" ${catalogOpen || activeCategory === 'voice' ? 'open' : ''}>
                 <summary><span>Módulos de esta sección</span><small>${FEATURE_MAP.filter(f => (FEATURE_CATEGORIES[f.id] || 'premium') === activeCategory).length} opciones · abre para configurar</small></summary>
                 <div class="gps__grid" id="gps-grid">
                     ${cards}
@@ -483,6 +483,8 @@
         const voiceStatus = svc.getFeatureStatus('voiceEnabled');
         const voiceState = voiceStatus === 'inactive' ? { label: 'Desactivada por el usuario', cls: 'off' }
             : voiceStatus === 'unavailable' ? { label: 'Sin motor disponible', cls: 'warn' }
+                : voiceStatus === 'pending_interaction' ? { label: 'El navegador requiere habilitar el audio', cls: 'warn' }
+                : voiceStatus === 'error' ? { label: 'Error al reproducir voz', cls: 'err' }
                 : voiceCfg.mode === 'text_only' ? { label: 'Configurada solo texto', cls: 'warn' }
                     : { label: 'Disponible · ' + (voiceCfg.mode || 'live'), cls: 'on' };
 
@@ -493,7 +495,7 @@
             : wakeStatus === 'unavailable' ? { label: 'Sin Moonshine o micrófono', cls: 'warn' }
                 : wakeStatus === 'error' ? { label: 'Error de escucha', cls: 'err' }
                     : liveWake.active ? { label: liveWake.label || 'Captura activa', cls: 'on' }
-                        : { label: wakeStatus === 'pending_permission' ? 'Pendiente de permiso' : 'Disponible; pulsa para escuchar', cls: 'warn' };
+                        : { label: wakeStatus === 'pending_permission' ? 'Pendiente de permiso' : liveWake.label || 'Disponible; escucha aún no iniciada', cls: 'warn' };
 
         // WhatsApp
         let waState = { label: 'Sin asistente', cls: 'off' };
@@ -550,7 +552,7 @@
         const VOICE_MODE_LABELS = {
             text_only: 'Solo texto',
             notifications_only: 'Sólo notificaciones',
-            live_voice: 'Conversación viva',
+            live_voice: 'Todas las respuestas con voz',
             wake_word_only: 'Sólo tras "Hi Gunter"'
         };
         const voiceModeLabel = VOICE_MODE_LABELS[voiceCfg.mode] || voiceCfg.mode || '—';
@@ -669,17 +671,21 @@
             window.addEventListener('gunterPremiumFeaturesChange', handler);
             window.addEventListener('gunter-knowledge-sync', handler);
             window.addEventListener('wake-word-state', handler);
+            window.addEventListener('gunter-voice-state', handler);
             const liveBadge = () => {
                 for (const id of ['voiceEnabled', 'wakeWordEnabled', 'dictationEnabled']) {
                     const card = rootEl?.querySelector(`[data-feature="${id}"]`);
                     const current = card?.querySelector('.gps-card__controls > .gps-badge');
                     if (current) current.outerHTML = badge(S().getFeatureStatus(id));
                 }
+                const guidance = rootEl?.querySelector('[data-voice-guidance]');
+                if (guidance) guidance.textContent = voiceGuidance();
             };
             window.addEventListener('wake-word-state', liveBadge);
             window.addEventListener('gunter-push-to-talk-state', liveBadge);
             window.addEventListener('gunter-hybrid-state', liveBadge);
             window.addEventListener('gunter-microphone-permission-state', liveBadge);
+            window.addEventListener('gunter-voice-state', liveBadge);
             rootEl.__statusBoardWired = true;
         }
     }
@@ -939,6 +945,17 @@
     }
 
     // ---------- Voice (custom card) ----------
+    function voiceGuidance() {
+        const cfg = S().getVoiceConfig();
+        if (!cfg.enabled || cfg.mode === 'text_only') return 'Responde solo por texto. La escucha por nombre es independiente y puede seguir activada.';
+        const error = window.GunterVoice?.getPlaybackState?.()?.error;
+        if (error?.message) return error.message;
+        if (cfg.mode === 'notifications_only') return 'La conversación responde por texto; solo las notificaciones usan voz.';
+        if (cfg.onlyAfterWakeWord || cfg.mode === 'wake_word_only') return 'Habla después de decir «Gunter»; los mensajes escritos responden por texto. La respuesta hablada respeta la elección de abajo.';
+        return 'Responde con voz al escribirle y hablarle, si el motor y el navegador lo permiten.'
+            + (cfg.wakeWordResponseMode === 'text' ? ' Las órdenes por nombre están configuradas para responder solo por texto.' : '');
+    }
+
     function renderVoiceCard(feature) {
         const enabled = S().isEnabled(feature.id);
         const cfg = S().getVoiceConfig();
@@ -959,26 +976,20 @@
                         <h4>${esc(feature.title)}</h4>
                         <p>${esc(feature.description)}</p>
                     </div>
-                    <button class="gps-switch" role="switch" aria-checked="${enabled}"
+                    <button class="gps-switch" role="switch" aria-label="${esc(feature.title)}" aria-checked="${enabled}"
                         data-switch="${feature.id}"></button>
                 </div>
                 <div class="gps-card__controls">
                     ${badge(status)}
                     <button class="gps-card__toggle-cfg" aria-expanded="false" data-toggle-cfg="${feature.id}">Configurar</button>
                 </div>
+                <div class="gps-pills" data-enum="voiceMode" role="group" aria-label="Cómo responde Gunter">
+                    ${modes.map(m => `<button class="gps-pill ${cfg.mode === m ? 'is-active' : ''}" aria-pressed="${cfg.mode === m}" data-enum-value="${m}">${humanVoiceMode(m)}</button>`).join('')}
+                </div>
+                <p class="gps-sub__hint" data-voice-guidance role="status" aria-live="polite">${esc(voiceGuidance())}</p>
                 <div class="gps-card__details" data-details="${feature.id}">
                     ${status === 'unavailable' ? `<div class="gps-warning gps-warning--error">El motor de voz configurado no está disponible en este entorno. Revisa el runtime local.</div>` : ''}
                     <div class="gps-sub__hint">Motor seleccionado: Supertonic 3 · voz masculina M1. ${motorHint}</div>
-
-                    <div class="gps-sub">
-                        <div>
-                            <div class="gps-sub__label">Modo de voz</div>
-                            <div class="gps-sub__hint">Qué tanto habla Gunter</div>
-                        </div>
-                    </div>
-                    <div class="gps-pills" data-enum="voiceMode">
-                        ${modes.map(m => `<button class="gps-pill ${cfg.mode === m ? 'is-active' : ''}" data-enum-value="${m}">${humanVoiceMode(m)}</button>`).join('')}
-                    </div>
 
                     <div class="gps-sub" style="margin-top:12px;">
                         <div>
@@ -1017,7 +1028,7 @@
                     <div class="gps-sub">
                         <div>
                             <div class="gps-sub__label">Voz solo tras "Hi Gunter"</div>
-                            <div class="gps-sub__hint">Requiere activación de wake word</div>
+                            <div class="gps-sub__hint">Restringe la voz a órdenes por nombre; no activa ni desactiva el micrófono.</div>
                         </div>
                         <button class="gps-switch" role="switch" aria-checked="${cfg.onlyAfterWakeWord}" data-switch="voiceOnlyAfterWakeWord"></button>
                     </div>
@@ -1045,7 +1056,7 @@
                         <h4>${esc(feature.title)}</h4>
                         <p>${esc(feature.description)}</p>
                     </div>
-                    <button class="gps-switch" role="switch" aria-checked="${enabled}"
+                    <button class="gps-switch" role="switch" aria-label="${esc(feature.title)}" aria-checked="${enabled}"
                         data-switch="${feature.id}"></button>
                 </div>
                 <div class="gps-card__controls">
@@ -1059,7 +1070,7 @@
                     <div class="gps-sub">
                         <div>
                             <div class="gps-sub__label">Palabra de activación</div>
-                            <div class="gps-sub__hint">Dirás esto para despertarlo</div>
+                            <div class="gps-sub__hint">También reconoce «Gunter», «Hola Gunter», «Hi Gunter» y variantes.</div>
                         </div>
                         <input type="text" value="${esc(cfg.wakeWord)}" data-field="wakeWord" maxlength="30"
                             style="background: transparent; border: 1px solid var(--gps-border); color: var(--gps-text); padding: 4px 10px; border-radius: 6px; font-family: inherit; font-size: 12px; width: 140px; text-align: right;">
@@ -1073,11 +1084,12 @@
                     </div>
 
                     <div class="gps-sub" style="margin-top:10px;">
-                        <div class="gps-sub__label">Cómo responde</div>
+                        <div class="gps-sub__label">Respuesta tras decir su nombre</div>
                     </div>
                     <div class="gps-pills" data-enum="wakeWordResponseMode">
-                        ${rm.map(m => `<button class="gps-pill ${cfg.responseMode === m ? 'is-active' : ''}" data-enum-value="${m}">${m === 'voice' ? 'Con voz' : 'Solo texto'}</button>`).join('')}
+                        ${rm.map(m => `<button class="gps-pill ${cfg.responseMode === m ? 'is-active' : ''}" aria-pressed="${cfg.responseMode === m}" data-enum-value="${m}">${m === 'voice' ? 'Con voz (si está habilitada)' : 'Solo texto'}</button>`).join('')}
                     </div>
+                    <div class="gps-sub__hint">Desactivar las respuestas por voz no apaga la escucha: puedes hablarle y recibir su respuesta escrita.</div>
 
                     <div class="gps-sub" style="margin-top:10px;">
                         <div>
@@ -1091,10 +1103,10 @@
 
                     <!-- Fase F.F4 — Probar Hi Gunter + microcopy -->
                     <div class="gps-warning" style="margin-top:12px; font-size: 12px;">
-                        Para usar <strong>"Hi Gunter"</strong>, el navegador pedirá permiso de micrófono al hacer click en el botón de prueba o al activarlo en una sesión.
+                        Autoriza el micrófono una vez. En modo continuo, la escucha se reanuda al entrar con permiso concedido y motor disponible: no necesitas pulsar un botón para cada orden. Si el navegador exige interacción inicial, usa «Autorizar y activar escucha». Mantén la aplicación abierta y visible.
                     </div>
                     <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-                        <button class="gps-inline-btn gps-inline-btn--primary" data-action="wake-test">🎙️ Probar "Hi Gunter"</button>
+                        <button class="gps-inline-btn gps-inline-btn--primary" data-action="wake-test">🎙️ Autorizar y activar escucha</button>
                     </div>
                 </div>
             </div>
@@ -1212,6 +1224,14 @@
         if (!container) return;
         const key = container.dataset.enum;
         const value = pill.dataset.enumValue;
+        if (key === 'voiceMode' && S().ENUMS.voiceMode.includes(value)) {
+            // An explicit mode selection is one coherent user choice. Loading
+            // the page never upgrades or overwrites a saved text-only policy.
+            S().updateMany({ voiceMode: value, voiceEnabled: value !== 'text_only',
+                voiceOnlyAfterWakeWord: value === 'wake_word_only',
+                ...(value === 'live_voice' ? { wakeWordResponseMode: 'voice' } : {}) });
+            return;
+        }
         S().set(key, value);
     }
 
@@ -1391,9 +1411,9 @@
             return;
         }
         const cfg = S().getVoiceConfig();
-        if (!cfg.enabled) {
+        if (!cfg.enabled || !window.GunterVoice?.shouldSpeak?.('chat')) {
             if (window.GunterNotificationsService?.showToast) {
-                window.GunterNotificationsService.showToast('La voz está desactivada. Actívala primero en esta misma tarjeta.', { variant: 'info', duration: 4000, silent: true });
+                window.GunterNotificationsService.showToast('Selecciona «Todas las respuestas con voz» para probar la voz del chat. Se conservan las restricciones de reuniones.', { variant: 'info', duration: 4000, silent: true });
             }
             return;
         }
@@ -1459,6 +1479,7 @@
             active: 'Activada y disponible',
             inactive: 'Desactivada por el usuario',
             pending_permission: 'Activada, pendiente de permiso',
+            pending_interaction: 'Activada, navegador pendiente de interacción',
             unavailable: 'Activada, sin modelo o dispositivo',
             requires_connection: 'Requiere conexión',
             coming_soon: 'Próximamente',
@@ -1480,7 +1501,7 @@
         return ({
             text_only: 'Solo texto',
             notifications_only: 'Solo notificaciones',
-            live_voice: 'Voz en vivo',
+            live_voice: 'Todas las respuestas con voz',
             wake_word_only: 'Tras "Hi Gunter"'
         })[m] || m;
     }

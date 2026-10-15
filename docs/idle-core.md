@@ -146,6 +146,21 @@ Gunter conserva el audio nativo y el núcleo no inventa intensidad.
 
 ## Validación y estado visual
 
+Energía contenida (`v149-contained-voice`): soporte finito de la corriente
+anclado al interior de la materia, cobertura según densidad real por delante y
+por detrás, emisión separada de extinción y fibras cercanas que ocultan parte
+de la luz. Se conservaron los siete targets y 2.560 filamentos base.
+23 contratos GPU correctos. Comparación visual de reposo y desplazamiento con
+RMS máximo: energía dentro de las capas, esquinas transparentes, cero errores
+WebGL. Captura aislada: `output/playwright/core-contained-energy.png`.
+El cambio de escala y emisión sigue alimentándose con amplitud medida; los
+extremos de esta captura se forzaron solo para comprobar contención, no son una
+medición de voz. Punto de reversión: `2fc155bec0d4694b8df46adb929f7f01b7283a24`.
+También se comprobó el reproductor real con el WAV PCM existente: nivel bajo
+≈0,057, alto ≈0,354, volumen medio ≈0,177 y mute/interrupción a cero. No se generó
+TTS ni se solicitó el micrófono. Capturas: `core-contained-audio-{low,high}.png`
+en `output/playwright/`.
+
 Audio real (`v148-real-audio`): 20 contratos GPU, 38 del wrapper y 15 del medidor.
 En Chrome se reprodujo el WAV PCM de prueba existente por el propio servicio
 GunterVoice y `HTMLAudioElement`/Web Audio: RMS bajo ≈0,056, alto ≈0,354 y volumen

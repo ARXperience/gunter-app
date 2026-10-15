@@ -58,8 +58,8 @@ check('the card exposes seven idle settings with three paired HEX controls and t
     const card = html.match(/<section[^>]+id="core-visual-settings"[\s\S]*?<\/section>/)?.[0];
     assert.ok(card);
     assert.match(card, /Núcleo generado/);
-    assert.match(card, /en reposo/);
-    assert.match(card, /Sin interacción con el mouse ni el audio/);
+    assert.match(card, /energía permanece entre las partículas/);
+    assert.match(card, /reacciona al puntero y al audio real/);
     const inputs = [...card.matchAll(/<input\b[^>]*>/g)].map(match =>
         Object.fromEntries([...match[0].matchAll(/([\w-]+)="([^"]*)"/g)].map(attribute => [attribute[1], attribute[2]])));
     assert.deepEqual(inputs.map(input => input.id), Object.entries(fields).flatMap(([key, id]) => colorKeys.includes(key) ? [id, id + '-hex'] : [id]));
