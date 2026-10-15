@@ -4,10 +4,11 @@
    ============================================= */
 
 (function () {
-    const TABS = ['account', 'premium', 'voice', 'conversations', 'actions', 'connections', 'preferences', 'data', 'diagnostics'];
+    const TABS = ['account', 'schedule', 'premium', 'voice', 'conversations', 'actions', 'connections', 'preferences', 'data', 'diagnostics'];
     const ADVANCED_TABS = new Set(['premium', 'voice', 'conversations', 'actions', 'connections']);
     const TITLES = {
         account: { t: 'Mi cuenta', s: 'Tu identidad y cómo quieres que Gunter te llame.' },
+        schedule: { t: 'Agenda y ubicación', s: 'Tu jornada, margen entre reuniones y zona horaria, en un solo lugar.' },
         premium: { t: 'Asistente e IA', s: 'Personalidad, conocimiento y decisiones con controles claros.' },
         voice: { t: 'Voz y escucha', s: 'Micrófono, activación y dictado local con estados verificables.' },
         conversations: { t: 'Conversaciones y memoria', s: 'Tus recuerdos e historial bajo tu control.' },
@@ -17,10 +18,36 @@
         data: { t: 'Datos y privacidad', s: 'Respaldos, almacenamiento y eliminación segura.' },
         diagnostics: { t: 'Diagnóstico', s: 'Comprobaciones reales, sin revelar registros privados.' }
     };
+    const SECTION_HINTS = {
+        account: 'Cambiar tu nombre preferido no modifica el usuario de acceso ni tus credenciales.',
+        schedule: 'La jornada orienta las sugerencias. Gunter no mueve compromisos ni confirma cambios por ti.',
+        premium: 'Personalidad y recomendaciones no conceden permiso para ejecutar acciones externas.',
+        voice: 'Responder con voz y capturar el micrófono son decisiones independientes. La escucha necesita permiso.',
+        conversations: 'Solo tu cuenta puede consultar sus recuerdos. Los respaldos se administran en Datos y privacidad.',
+        actions: 'Activar una herramienta no elimina sus confirmaciones ni los permisos del dispositivo.',
+        connections: 'Una función activada puede necesitar una cuenta conectada o un dispositivo autorizado.',
+        preferences: 'Los colores, el tamaño y el movimiento del núcleo se previsualizan sin modificar sus funciones.',
+        data: 'Los respaldos pueden contener información personal. La eliminación siempre requiere confirmación.',
+        diagnostics: 'Los estados se comprueban en este entorno. No se deducen errores de registros que no estén disponibles.'
+    };
+    const SEARCH_TERMS = {
+        account: 'nombre perfil usuario registro identidad apodo',
+        schedule: 'agenda calendario jornada horarios días margen ciudad ubicación hora zona horaria planificación',
+        premium: 'personalidad humor estilo inteligencia cerebro modelo razonamiento bienvenida proactivo',
+        voice: 'voz audio micrófono escucha dictado hablar silencio hi gunter activación idioma transcripción',
+        conversations: 'memoria recuerdos historial conversación preferencias personales',
+        actions: 'herramientas permisos automatizaciones notificaciones recordatorios alertas',
+        connections: 'conexiones dispositivos redes whatsapp instagram messenger google calendar api',
+        preferences: 'apariencia accesibilidad tema claro oscuro colores núcleo partículas animaciones tamaño',
+        data: 'datos privacidad exportar importar respaldo papelera borrar almacenamiento limpieza',
+        diagnostics: 'diagnóstico errores logs registros motores local moonshine ministral supertonic runtime servidor'
+    };
 
     function activateTab(name) {
         if (name === 'trash') name = 'data';
+        if (['calendar', 'agenda'].includes(name)) name = 'schedule';
         if (!TABS.includes(name)) name = 'premium';
+        const previousSection = document.getElementById('main-content')?.dataset.configSection;
 
         document.querySelectorAll('.config-tab').forEach(btn => {
             btn.classList.toggle('is-active', btn.dataset.tab === name);
@@ -45,16 +72,38 @@
         const subEl = document.getElementById('config-header-subtitle');
         if (titleEl) titleEl.textContent = TITLES[name].t;
         if (subEl) subEl.textContent = TITLES[name].s;
+        const pathEl = document.getElementById('config-section-path');
+        if (pathEl) pathEl.textContent = `Configuración / ${TITLES[name].t}`;
+        const contextTitle = document.getElementById('config-context-title');
+        const contextDescription = document.getElementById('config-context-description');
+        const contextHint = document.getElementById('config-context-hint');
+        if (contextTitle) contextTitle.textContent = TITLES[name].t;
+        if (contextDescription) contextDescription.textContent = TITLES[name].s;
+        if (contextHint) contextHint.textContent = SECTION_HINTS[name];
+        document.getElementById('main-content')?.setAttribute('data-config-section', name);
 
         // URL hash so navigation from sidebar can deep-link
         try { history.replaceState(null, '', '#' + name); } catch {}
 
         // Lazy-load the panel data
         if (name === 'data') renderTrash();
-        if (['premium', 'voice', 'preferences'].includes(name)) loadPreferences();
+        if (['premium', 'schedule', 'voice', 'preferences'].includes(name)) loadPreferences();
         if (name === 'connections') loadDataStatus();
         if (ADVANCED_TABS.has(name)) { mountPremium(); window.GunterAdvancedSettings?.setCategory?.(name); }
         if (name === 'voice') updateVoiceDependencies();
+        if (name === 'diagnostics') mountRuntimeControls();
+        updatePanelIndex(name);
+        // Switching a long panel must not land midway through the next one.
+        // Keep the user's scroll untouched when the section heading is visible.
+        if (previousSection && previousSection !== name) {
+            const header = document.querySelector('.config-header');
+            const navigation = document.querySelector('.gunter-command-nav');
+            const navBottom = navigation?.getBoundingClientRect?.().bottom || 157;
+            const headerTop = header?.getBoundingClientRect?.().top;
+            if (Number.isFinite(headerTop) && headerTop < navBottom + 12) {
+                header.scrollIntoView?.({ block: 'start', behavior: 'auto' });
+            }
+        }
     }
 
     let premiumMounted = false;
@@ -63,13 +112,81 @@
         if (window.GunterAdvancedSettings?.mount) {
             window.GunterAdvancedSettings.mount('#premium-panel');
             premiumMounted = true;
-            window.GunterControlPlaneSettings?.mount?.('#premium-panel');
-            const plane = document.querySelector('#premium-panel > .cp-settings');
-            if (plane) plane.hidden = !['premium'].includes((location.hash || '#premium').slice(1));
         } else {
             const el = document.getElementById('premium-panel');
             if (el) el.innerHTML = '<p class="settings-empty">Cargando módulo premium…</p>';
         }
+    }
+    function mountRuntimeControls() {
+        window.GunterControlPlaneSettings?.mount?.('#config-runtime-content');
+    }
+
+    function initContextState() {
+        const label = document.getElementById('config-context-state');
+        const orbit = document.getElementById('config-context-orbit');
+        if (!label || !orbit) return;
+        const update = () => {
+            const voice = window.GunterVoice?.getPlaybackState?.() || {};
+            const wake = window.GunterWakeWord?.getState?.() || {};
+            const dictation = window.GunterSTT?.pushToTalk?.getState?.() || {};
+            const speaking = voice.speaking === true || voice.state === 'speaking';
+            const preparing = voice.pending === true;
+            const listening = wake.active === true || dictation.phase === 'recording';
+            orbit.dataset.state = speaking ? 'speaking' : preparing ? 'processing' : listening ? 'listening' : 'idle';
+            label.textContent = speaking ? 'Reproduciendo voz' : preparing ? 'Preparando audio' : listening ? 'Captura de micrófono activa' : 'Sin captura ni reproducción activa';
+        };
+        ['gunter-voice-state', 'wake-word-state', 'gunter-push-to-talk-state'].forEach(name => window.addEventListener(name, update));
+        update();
+    }
+
+    function updatePanelIndex(name) {
+        const panel = document.getElementById(`config-panel-${name}`);
+        const index = document.getElementById('config-panel-index');
+        if (!panel || !index) return;
+        index.replaceChildren();
+        const headings = [...panel.querySelectorAll('.gps-card__title h4, .settings-card h3, .config-advanced > summary > span')];
+        headings.forEach((heading, position) => {
+            const target = heading.closest('.gps-card, .settings-card, .config-advanced');
+            if (!target) return;
+            if (!target.id) target.id = `config-option-${name}-${position}`;
+            const link = document.createElement('button');
+            link.type = 'button';
+            link.textContent = heading.textContent.replace(/^[^\p{L}\p{N}]+/u, '').trim();
+            link.addEventListener('click', () => {
+                if (target.tagName === 'DETAILS') target.open = true;
+                target.scrollIntoView({ block: 'start', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+                target.setAttribute('tabindex', '-1');
+                target.focus({ preventScroll: true });
+            });
+            index.appendChild(link);
+        });
+    }
+
+    function initSectionSearch() {
+        const input = document.getElementById('config-section-search');
+        const status = document.getElementById('config-search-status');
+        if (!input || !status) return;
+        const normalize = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        input.addEventListener('input', () => {
+            const query = normalize(input.value);
+            const tabs = [...document.querySelectorAll('.config-tab')];
+            let matches = 0;
+            tabs.forEach(tab => {
+                const searchable = normalize(`${tab.textContent} ${SEARCH_TERMS[tab.dataset.tab] || ''}`);
+                tab.hidden = Boolean(query && !query.split(/\s+/).every(word => searchable.includes(word)));
+                if (!tab.hidden) matches++;
+            });
+            document.querySelectorAll('.config-nav-group').forEach(group => { group.hidden = Boolean(query); });
+            status.hidden = !query;
+            status.textContent = matches ? `${matches} ${matches === 1 ? 'sección encontrada' : 'secciones encontradas'}` : 'Sin coincidencias. Prueba con voz, memoria, agenda o datos.';
+        });
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Escape') { input.value = ''; input.dispatchEvent(new Event('input')); }
+            if (event.key === 'Enter') {
+                const first = [...document.querySelectorAll('.config-tab')].find(tab => !tab.hidden);
+                if (first) { event.preventDefault(); activateTab(first.dataset.tab); first.focus(); }
+            }
+        });
     }
 
     function initTabs() {
@@ -77,14 +194,17 @@
         tabs.forEach((btn, index) => {
             btn.addEventListener('click', () => activateTab(btn.dataset.tab));
             btn.addEventListener('keydown', event => {
-                const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length
-                    : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length
+                const next = ['ArrowRight', 'ArrowDown'].includes(event.key) ? (index + 1) % tabs.length
+                    : ['ArrowLeft', 'ArrowUp'].includes(event.key) ? (index + tabs.length - 1) % tabs.length
                     : event.key === 'Home' ? 0
                     : event.key === 'End' ? tabs.length - 1 : -1;
                 if (next < 0) return;
                 event.preventDefault();
-                activateTab(tabs[next].dataset.tab);
-                tabs[next].focus();
+                const direction = ['ArrowLeft', 'ArrowUp', 'End'].includes(event.key) ? -1 : 1;
+                let visibleNext = next;
+                while (tabs[visibleNext]?.hidden && visibleNext !== index) visibleNext = (visibleNext + direction + tabs.length) % tabs.length;
+                activateTab(tabs[visibleNext].dataset.tab);
+                tabs[visibleNext].focus();
             });
         });
         const initial = (location.hash || '').replace('#', '') || 'premium';
@@ -107,17 +227,35 @@
             destination.appendChild(card);
         };
         move('#pref-entry-greeting', 'premium');
+        move('#calendar-planning-form', 'schedule');
+        move('#pref-city', 'schedule');
         move('#pref-language', 'voice');
         move('#push-settings-card', 'actions');
         move('#status-openai', 'connections', true);
         move('#social-settings-panel', 'connections');
         move('#personal-memory-card', 'conversations', true);
         move('#conv-memory-card', 'conversations', true);
+        const memoryBackup = document.querySelector('.personal-memory-backup');
+        const storageHeading = document.querySelector('#storage-card')?.previousElementSibling;
+        if (memoryBackup && storageHeading) {
+            memoryBackup.classList.add('settings-card');
+            const heading = memoryBackup.querySelector('h4');
+            if (heading) { const title = document.createElement('h3'); title.textContent = heading.textContent; heading.replaceWith(title); }
+            storageHeading.before(memoryBackup);
+        }
+        const connectionIntro = document.querySelector('#status-openai')?.closest('.settings-card');
+        if (connectionIntro) {
+            const advanced = document.createElement('details');
+            advanced.className = 'config-advanced';
+            const summary = document.createElement('summary'); summary.textContent = 'Proveedores y claves del servidor';
+            connectionIntro.before(advanced); advanced.append(summary, connectionIntro);
+        }
         const trashCard = document.querySelector('#trash-list')?.closest('.settings-card');
         const dangerHeading = document.querySelector('#config-panel-data .data-section-title--danger');
         if (trashCard && dangerHeading) dangerHeading.before(trashCard);
         const intro = document.querySelector('#config-panel-data .data-section-intro p');
         if (intro) intro.innerHTML = 'Aquí gestionas respaldos, almacenamiento y privacidad. <strong>Las acciones de borrado requieren confirmación.</strong>';
+        document.querySelector('#conv-memory-card .settings-card__hint:last-child')?.replaceChildren(document.createTextNode('El historial se guarda solo cuando Memoria conversacional está activada en esta sección.'));
     }
 
     function updateVoiceDependencies() {
@@ -128,7 +266,7 @@
         el.textContent = window.PremiumFeaturesService?.isEnabled?.('dictationEnabled') === false ? 'Dictado desactivado por el usuario.'
             : !capture ? 'Este navegador no permite capturar audio. Usa el chat de texto.'
             : runtime.loaded !== true ? 'Comprobando el estado de Moonshine y del servidor…'
-                : runtime.flags?.['stt.local'] === false ? 'El motor Moonshine está desactivado. Activa STT local en Configuración → Asistente e IA → Centro de control.'
+                : runtime.flags?.['stt.local'] === false ? 'El motor Moonshine está desactivado. Activa STT local en Configuración → Diagnóstico → Motores locales.'
                 : runtime.localSTTAvailable ? 'Moonshine local listo. La grabación queda en este dispositivo hasta el envío al servidor local.'
                     : 'Moonshine no está listo. En LOCAL_ONLY la transcripción no usará cloud; revisa el modelo y runtime local.';
     }
@@ -764,8 +902,13 @@
     // ---------- Boot ----------
     function boot() {
         document.getElementById('config-open-assistant')?.addEventListener('click', () => window.GunterCompanion?.expand?.());
+        document.getElementById('config-context-ask')?.addEventListener('click', () => window.GunterCompanion?.expand?.());
         arrangeExistingControls();
         initTabs();
+        initSectionSearch();
+        initContextState();
+        window.addEventListener('gunterPremiumFeaturesChange', () => updatePanelIndex((location.hash || '#premium').slice(1)));
+        window.addEventListener('gunter-hybrid-state', () => updatePanelIndex((location.hash || '#premium').slice(1)));
         initAccount();
         initCoreVisualSettings();
         initCalendarPlanning();

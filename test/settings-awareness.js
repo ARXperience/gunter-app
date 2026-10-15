@@ -40,6 +40,18 @@ test('all actual defaults use shared metadata outside Configuración, without pa
     assert.match(response.reply, /Conversaciones y memoria/);
 });
 
+test('reorganized schedule and technical controls keep exact conversational destinations', async () => {
+    const h = fixture();
+    h.root.location.hash = '#schedule';
+    assert.match(h.tools.getCurrentPage().label, /Agenda y ubicación/);
+    assert.equal((await h.tools.dispatch('llévame a configuración de agenda')).status, 'complete');
+    assert.equal(h.assigned.at(-1), 'config.html#schedule');
+    assert.equal((await h.tools.dispatch('llévame a motores locales')).status, 'complete');
+    assert.equal(h.assigned.at(-1), 'config.html#diagnostics');
+    assert.equal(h.tools.getSettingsCatalog().find(item => item.key === 'runtime.privacy').route, 'config.html#diagnostics');
+    assert.equal(h.writes.length, 0);
+});
+
 test('activation and enums use canonical set after confirmation; voice settings reconcile together', async () => {
     const h = fixture();
     const svc = h.root.PremiumFeaturesService;

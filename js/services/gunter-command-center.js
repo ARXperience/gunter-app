@@ -90,23 +90,11 @@
             </a>
             <div class="gw-assistant-state" role="status"><i aria-hidden="true"></i><span data-workspace-state>Verificando</span></div>
             <div class="gunter-command-nav__links">
-                ${navLink('Núcleo', 'day.html', meta.active === 'day' && !location.hash)}
-                ${navLink('Agenda', 'day.html#events', false)}
-                ${navLink('Reuniones', 'dashboard.html', meta.active === 'meetings')}
-                ${navLink('Tareas', 'day.html#tasks', false)}
-                ${navLink('Resultados', 'results.html', PAGE === 'results.html')}
-                ${navLink('Recordatorios', 'day.html#reminders', false)}
-                ${navLink('Conexiones', 'config.html#connections', PAGE === 'config.html' && location.hash === '#connections')}
-                ${navLink('Actividad', 'day.html#activity', false)}
-                <details class="gunter-command-nav__menu">
-                    <summary>${icon('menu')}<span>Más</span><span class="gunter-command-nav__chevron" aria-hidden="true">⌄</span></summary>
-                    <div class="gunter-command-nav__popover" aria-label="Herramientas para organizar">
-                        ${navLink('Conversaciones', 'day.html#conversations', false)}
-                        ${navLink('Captura rápida', 'day.html#capture', false)}
-                        ${navLink('Memoria', 'config.html#data', false)}
-                        ${navLink('Nueva reunión', 'new-project.html', false)}
-                    </div>
-                </details>
+                ${sectorLink('Núcleo', 'day.html', 'home', '01 / INICIO')}
+                ${sectorLink('Organización', 'day.html#events', 'organize', '02 / TU DÍA')}
+                ${sectorLink('Conversaciones', 'day.html#conversations', 'message', '03 / CANALES')}
+                ${sectorLink('Reuniones', 'dashboard.html', 'calendar', '04 / TRABAJO')}
+                ${sectorLink('Configuración', 'config.html#preferences', 'settings', '05 / AJUSTES')}
             </div>
             <time class="gw-local-time" aria-label="Hora local"></time>
             <button class="gw-theme-toggle" type="button" data-workspace-theme aria-label="Cambiar tema claro u oscuro" title="Cambiar tema">◐</button>
@@ -240,6 +228,11 @@
             'Preparar reunión': 'plus', 'Sala de reunión': 'calendar', 'Nueva reunión': 'plus'
         };
         return `<a href="${href}" class="${active ? 'is-active' : ''}"${active ? ' aria-current="page"' : ''}>${icon(names[label] || 'sparkle')}<span>${label}</span></a>`;
+    }
+
+    function sectorLink(label, href, name, caption) {
+        const compact = { 'Organización': 'Tu día', 'Conversaciones': 'Chats', 'Configuración': 'Ajustes' }[label] || label;
+        return `<a href="${href}" data-workspace-sector aria-label="${label}">${icon(name)}<span class="gw-sector-label">${label}<small>${caption}</small></span><span class="gw-sector-compact" aria-hidden="true">${compact}</span></a>`;
     }
 
     function breadcrumb(meta) {
@@ -563,6 +556,92 @@
         return ['tasks', 'events', 'reminders', 'capture', 'chat'].includes(target) ? target : 'overview';
     }
 
+    // Describes real destinations only. No capabilities, telemetry or records are
+    // synthesized by the presentation shell.
+    function workspaceDescriptor(page = PAGE, view = 'overview') {
+        const meeting = ['dashboard.html', 'new-project.html', 'meeting.html', 'results.html'].includes(page);
+        if (page === 'config.html' || page === 'admin.html') return {
+            sector: 'config.html#preferences', title: 'Sistema', marker: '05 / AJUSTES',
+            purpose: 'Configura el asistente, tus datos y los permisos de tu cuenta.',
+            links: [['Mi cuenta', 'config.html#account', 'shield'], ['Asistente e IA', 'config.html#premium', 'brain'], ['Voz y escucha', 'config.html#voice', 'microphone'], ['Datos y memoria', 'config.html#data', 'folder']]
+        };
+        if (meeting) return {
+            sector: 'dashboard.html', title: 'Reuniones', marker: '04 / TRABAJO',
+            purpose: page === 'meeting.html' ? 'Captura la conversación y consulta su transcripción sin salir de la sala.'
+                : page === 'results.html' ? 'Revisa el análisis y contrástalo con la transcripción original.'
+                    : page === 'new-project.html' ? 'Define el contexto y el objetivo antes de iniciar la captura.'
+                        : 'Prepara una reunión o retoma un proyecto existente.',
+            links: [['Mis reuniones', 'dashboard.html', 'calendar'], ['Preparar reunión', 'new-project.html', 'plus'], ['Resultados', 'results.html', 'chart']]
+        };
+        if (view === 'conversations') return {
+            sector: 'day.html#conversations', title: 'Conversaciones', marker: '03 / CANALES',
+            purpose: 'Consulta los canales vinculados y revisa las respuestas antes de enviarlas.',
+            links: [['Conversaciones', 'day.html#conversations', 'message'], ['Vincular canales', 'config.html#connections', 'link'], ['Conversar con Gunter', 'day.html#chat', 'assistant']]
+        };
+        return {
+            sector: view === 'overview' ? 'day.html' : 'day.html#events', title: 'Organización', marker: '02 / TU DÍA',
+            purpose: ({ tasks: 'Revisa, completa y reorganiza tus tareas. Los cambios conservan sus confirmaciones.',
+                events: 'Consulta compromisos, encuentra espacios y organiza tu agenda.',
+                reminders: 'Revisa avisos y seguimientos. Confirma los cambios antes de aplicarlos.',
+                capture: 'Escribe una instrucción o adjunta un documento para revisarlo con Gunter.',
+                chat: 'Conversa, pide ayuda y confirma las acciones propuestas por Gunter.',
+                activity: 'Consulta la actividad registrada en tu cuenta.' })[view] || 'Trabaja con tus herramientas y datos autorizados.',
+            links: [['Agenda', 'day.html#events', 'calendar'], ['Tareas', 'day.html#tasks', 'task'], ['Recordatorios', 'day.html#reminders', 'reminder'], ['Captura rápida', 'day.html#capture', 'capture'], ['Actividad', 'day.html#activity', 'activity'], ['Conversar con Gunter', 'day.html#chat', 'message']]
+        };
+    }
+
+    function decorateWorkspace(container, nav) {
+        // Configuración owns its existing tab/inspector composition. Inicio is
+        // deliberately not mounted until a real interior route is opened.
+        if (PAGE === 'config.html') return null;
+        let deck = container.closest('.gw-workspace-grid');
+        if (deck) return deck;
+        deck = el('div', 'gw-workspace-grid');
+        const rail = el('aside', 'gw-workspace-rail', `
+            <section class="gw-section-menu">
+                <header><span class="gw-rail-marker" data-workspace-marker></span><strong data-workspace-group></strong>${icon('menu')}</header>
+                <nav class="gw-section-links" aria-label="Herramientas de esta sección" data-workspace-links></nav>
+            </section>
+            <div class="gw-section-original-tabs" data-workspace-tabs></div>
+            <div class="gw-section-context" data-workspace-summary></div>`);
+        const inspector = el('aside', 'gw-workspace-inspector', `
+            <div class="gw-context-map">
+                <svg aria-hidden="true" viewBox="0 0 260 240" fill="none"><path d="M10 63h45l44 35M249 71h-42l-40 31M13 178h40l47-33M247 176h-44l-40-32"/>
+                <ellipse cx="130" cy="120" rx="91" ry="39"/><ellipse cx="130" cy="120" rx="91" ry="39" transform="rotate(62 130 120)"/><ellipse cx="130" cy="120" rx="91" ry="39" transform="rotate(-62 130 120)"/>
+                <circle cx="130" cy="120" r="18"/><circle cx="10" cy="63" r="4"/><circle cx="249" cy="71" r="4"/><circle cx="13" cy="178" r="4"/><circle cx="247" cy="176" r="4"/></svg>
+                <img src="assets/gunter/gunter-core.svg" width="54" height="54" alt="">
+                <nav class="gw-context-map-routes" aria-label="Rutas relacionadas" data-workspace-orbits></nav>
+            </div>
+            <span class="gw-rail-marker">ASISTENTE / CONTEXTO</span>
+            <h2>Gunter, a tu lado</h2>
+            <p class="gw-context-purpose" data-workspace-purpose></p>
+            <dl class="gw-context-status"><div><dt>Asistente</dt><dd data-workspace-assistant>Verificando</dd></div><div><dt>Privacidad</dt><dd data-workspace-privacy>Verificando</dd></div></dl>
+            <button type="button" class="gw-context-chat" data-workspace-open-chat>${icon('message')}Conversar con Gunter</button>
+            <a class="gw-context-settings" href="config.html#actions">${icon('shield')}Permisos y acciones</a>`);
+        inspector.querySelector('[data-workspace-open-chat]').addEventListener('click', () => nav.querySelector('[data-workspace-chat]')?.click());
+        container.before(deck);
+        deck.append(rail, container, inspector);
+        const tabs = document.getElementById('gday-tabs');
+        if (tabs) {
+            const disclosure = el('details', 'gw-tools-disclosure', '<summary>Más herramientas<span aria-hidden="true">⌄</span></summary>');
+            disclosure.append(tabs); // Keep the original tablist and lazy mounters.
+            rail.querySelector('[data-workspace-tabs]').append(disclosure);
+        }
+        if (PAGE === 'dashboard.html') {
+            const stats = container.querySelector('.stats-row');
+            if (stats) rail.querySelector('[data-workspace-summary]').append(stats);
+        }
+        if (PAGE === 'new-project.html') {
+            container.querySelectorAll('.env-card__features').forEach(features => {
+                const disclosure = el('details', 'gw-environment-details', '<summary>Qué incluye este enfoque</summary>');
+                features.before(disclosure); disclosure.append(features);
+                // Opening the explanation must not choose a meeting environment.
+                disclosure.addEventListener('click', event => event.stopPropagation());
+            });
+        }
+        return deck;
+    }
+
     function setupWorkspace(container, nav, flow) {
         let heading;
         if (PAGE === 'day.html') {
@@ -594,6 +673,35 @@
             const selected = document.querySelector('.gday__tab[aria-selected="true"]');
             const view = resolveWorkspace(PAGE, location.hash, selected?.dataset.tab || 'today');
             document.body.dataset.workspaceView = view;
+            document.body.classList.add('gunter-sector-layout');
+            const descriptor = workspaceDescriptor(PAGE, view);
+            const deck = PAGE !== 'day.html' || view !== 'overview' ? decorateWorkspace(container, nav) : container.closest('.gw-workspace-grid');
+            if (deck) {
+                deck.querySelector('[data-workspace-group]').textContent = descriptor.title;
+                deck.querySelector('[data-workspace-marker]').textContent = descriptor.marker;
+                deck.querySelector('[data-workspace-purpose]').textContent = descriptor.purpose;
+                const menu = deck.querySelector('[data-workspace-links]');
+                if (menu.dataset.group !== descriptor.marker) {
+                    menu.innerHTML = descriptor.links.map(([label, href, name]) => `<a href="${href}">${icon(name)}<span>${label}</span></a>`).join('');
+                    menu.dataset.group = descriptor.marker;
+                    deck.querySelector('[data-workspace-orbits]').innerHTML = descriptor.links.slice(0, 3).map(([label, href]) => `<a href="${href}"><i aria-hidden="true"></i>${label}</a>`).join('');
+                }
+                if (PAGE === 'results.html' && !deck.querySelector('[data-result-index]')) {
+                    const links = [...container.querySelectorAll('#results-content > .result-section[id]')].map(section => {
+                        const label = section.querySelector('h2')?.textContent.trim();
+                        return label ? [label, `#${section.id}`, 'file'] : null;
+                    }).filter(Boolean);
+                    if (links.length) {
+                        const index = el('nav', 'gw-result-index');
+                        index.setAttribute('aria-label', 'Secciones del resultado');
+                        index.dataset.resultIndex = '';
+                        index.innerHTML = '<span class="gw-rail-marker">EN ESTE RESULTADO</span>' + links.map(([label, href]) => {
+                            const link = document.createElement('a'); link.href = href; link.textContent = label; return link.outerHTML;
+                        }).join('');
+                        deck.querySelector('[data-workspace-tabs]').append(index);
+                    }
+                }
+            }
             if (heading) {
                 const label = labels[view] || [selected?.querySelector('span:nth-child(2)')?.textContent || 'Herramientas', 'Trabaja con tus herramientas y datos autorizados.'];
                 heading.querySelector('[data-workspace-title]').textContent = label[0];
@@ -601,13 +709,19 @@
             }
             const activePath = PAGE === 'day.html' && view !== 'overview' ? `day.html#${view}`
                 : PAGE === 'config.html' && location.hash === '#connections' ? 'config.html#connections'
-                    : ['new-project.html', 'meeting.html'].includes(PAGE) ? 'dashboard.html' : PAGE;
+                    : PAGE;
             nav.querySelectorAll('a[href]').forEach(link => {
+                const active = link.getAttribute('href') === (link.hasAttribute('data-workspace-sector') ? descriptor.sector : activePath);
+                link.classList.toggle('is-active', active);
+                if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+            });
+            deck?.querySelectorAll('[data-workspace-links] a').forEach(link => {
                 const active = link.getAttribute('href') === activePath;
                 link.classList.toggle('is-active', active);
                 if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
             });
             if (PAGE === 'config.html' && location.hash !== '#connections') nav.querySelector('.gunter-command-nav__settings')?.setAttribute('aria-current', 'page');
+            syncState();
         }
         function queueSync() {
             if (queued) return;
@@ -627,6 +741,12 @@
                 awaiting_confirmation: 'Confirmación', error: 'Revisar estado', unavailable: 'Asistente' };
             nav.querySelector('[data-workspace-state]').textContent = names[value] || 'Asistente';
             nav.dataset.assistantState = value;
+            const deck = container.closest('.gw-workspace-grid');
+            const state = deck?.querySelector('[data-workspace-assistant]');
+            if (state) state.textContent = names[value] || 'Asistente';
+            const privacy = deck?.querySelector('[data-workspace-privacy]');
+            const runtime = window.GunterRuntimeState?.getState?.();
+            if (privacy) privacy.textContent = runtime?.loaded === true ? runtime.privacy === 'LOCAL_ONLY' ? 'Solo local' : 'Estándar' : 'Sin verificar';
         }
         function clock() {
             const now = new Date(), time = nav.querySelector('.gw-local-time');
@@ -639,6 +759,7 @@
         observer?.observe(tabs, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-selected'] });
         window.addEventListener('hashchange', queueSync);
         for (const event of ['gunter-conversation-state', 'gunter-voice-state', 'gunter-push-to-talk-state', 'wake-word-state']) window.addEventListener(event, syncState);
+        window.addEventListener('gunter-hybrid-state', syncState);
         const clockTimer = window.setInterval(clock, 30000);
         window.addEventListener('pagehide', event => { if (!event.persisted) { observer?.disconnect(); window.clearInterval(clockTimer); } });
         sync(); syncState(); clock();
@@ -669,7 +790,7 @@
         requestAnimationFrame(() => document.body.classList.add('gunter-command-ready'));
     }
 
-    window.GunterCommandCenter = { init, resolveWorkspace };
+    window.GunterCommandCenter = { init, resolveWorkspace, workspaceDescriptor };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();
 })();

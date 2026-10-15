@@ -11,6 +11,11 @@
 
 Las 18 políticas del Control Plane publican `advancedSchema` con tipos, rangos y unidades. El servidor vuelve a validarlos, rechaza revisiones obsoletas y conserva el estado predeterminado del módulo cuando se modifica únicamente un campo avanzado. Las políticas guardadas no demuestran por sí mismas que un motor esté activo ni conceden permisos a dispositivos.
 
+Ubicaciones: Agenda y ubicación usa `config.html#schedule`; los alias anteriores
+`#calendar` y `#agenda` siguen funcionando. Motores locales y Controles técnicos
+están en `config.html#diagnostics`, separados de personalidad y preferencias.
+La navegación conversacional y los consejos de diagnóstico utilizan esas rutas.
+
 Cuenta, contraseña, respaldos, núcleo visual, autorización del micrófono y conexiones se explican y localizan, pero requieren sus controles específicos: el chat no acepta credenciales ni promete modificar cualquier ajuste arbitrario. Los campos sin esquema de validación quedan en consulta, no en escritura.
 
 Pruebas focalizadas: `node test/settings-awareness.js`; contratos existentes afectados: `node test/assistant-core.js '--filter=registro expone|toggles y campos avanzados|apariencia|ambig'`, `node test/voice-settings.js`, `node test/voice-preferences.js`.

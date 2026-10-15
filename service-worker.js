@@ -11,7 +11,7 @@
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = "v155-unified-interior-20261015";
+const SW_VERSION = "v159-structured-workspaces-20261015";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;
@@ -44,22 +44,24 @@ const PRECACHE_URLS = [
     '/js/components/gunter-idle-core.js?v149-contained-voice',
     '/js/services/voice-service.js?v154-unified-settings',
     '/js/services/voice-activity-service.js?v141-video-core',
-    '/js/config-settings.js?v154-unified-settings',
+    '/js/config-settings.js?v159-section-navigation',
     '/styles/gunter-orbit-home.css?v135-orbit-home',
     '/styles/gunter-hologram.css?v135-orbit-home',
     '/js/services/gunter-orbit-home.js?v135-orbit-home',
     '/js/services/gunter-particles.js?v149-contained-voice',
     '/styles/gunter-workspace.css?v139-orbital-workspaces',
     '/styles/gunter-interior.css?v155-unified-interior',
+    '/styles/gunter-workspace-layout.css?v158-structured-workspaces',
+    '/styles/pages/config-layout.css?v157-section-navigation',
     '/js/premium-features-service.js?v154-unified-settings',
-    '/js/advanced-settings.js?v154-unified-settings',
+    '/js/advanced-settings.js?v156-structured-workspaces',
     '/js/services/actions-service.js?v154-unified-settings',
-    '/js/core/assistant-tools.js?v154-unified-settings',
-    '/js/services/diagnostics-service.js?v154-unified-settings',
+    '/js/core/assistant-tools.js?v156-structured-workspaces',
+    '/js/services/diagnostics-service.js?v156-structured-workspaces',
     '/styles/pages/orbital-day.css?v139-orbital-workspaces',
     '/styles/pages/orbital-meetings.css?v139-orbital-workspaces',
     '/styles/pages/orbital-settings.css?v144b-material-core',
-    '/js/services/gunter-command-center.js?v139-orbital-workspaces',
+    '/js/services/gunter-command-center.js?v156-structured-workspaces',
     '/js/controllers/day-tabs.js?v139-orbital-workspaces',
     '/js/theme-backgrounds.js?v139-orbital-workspaces',
     '/styles/variables.css',

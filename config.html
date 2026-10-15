@@ -59,7 +59,7 @@
     <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
     <script src="js/components/gunter-idle-core.js?v149-contained-voice" defer></script>
     <script src="js/services/gunter-particles.js?v149-contained-voice" defer></script>
-    <script src="js/services/gunter-command-center.js?v139-orbital-workspaces" defer></script>
+    <script src="js/services/gunter-command-center.js?v156-structured-workspaces" defer></script>
     <script src="js/services/gunter-icon-system.js?v135-orbit-home" defer></script>
 <link rel="stylesheet" href="styles/gunter-orbit-home.css?v135-orbit-home">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
@@ -67,6 +67,8 @@
     <link rel="stylesheet" href="styles/pages/orbital-settings.css?v144b-material-core">
     <link rel="stylesheet" href="styles/gunter-idle-core.css?v142b-idle-core">
     <link rel="stylesheet" href="styles/gunter-interior.css?v155-unified-interior">
+    <link rel="stylesheet" href="styles/gunter-workspace-layout.css?v158-structured-workspaces">
+    <link rel="stylesheet" href="styles/pages/config-layout.css?v157-section-navigation">
 </head>
 
 <body class="at-dark gunter-config-page gunter-workspace">
@@ -82,12 +84,12 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
-                Volver al Dashboard
+                Reuniones
             </a>
-            <p class="orbital-settings-kicker">Gunter / Núcleo de control</p>
+            <p class="orbital-settings-kicker">Gunter / Configuración</p>
             <h1 class="config-header__title text-gradient" id="config-header-title">Configuración</h1>
             <p class="config-header__subtitle" id="config-header-subtitle">
-                Administra tus proyectos, preferencias y datos desde un solo lugar.
+                Tu cuenta, tu asistente y tus preferencias.
             </p>
             <button type="button" class="btn btn--secondary config-header__ask" id="config-open-assistant">Preguntar a Gunter</button>
             </div>
@@ -99,20 +101,29 @@
             </div>
         </header>
 
-        <!-- Tabs (Nuevo Proyecto vive en dashboard.html, no aquí) -->
-        <nav class="config-tabs" role="tablist" aria-label="Secciones de configuración">
+        <div class="config-layout">
+        <aside class="config-navigation" aria-label="Índice de configuración">
+            <label class="config-search" for="config-section-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input type="search" id="config-section-search" aria-label="Buscar una sección de configuración" placeholder="Buscar una sección…" autocomplete="off" aria-controls="config-section-list"></label>
+            <p id="config-search-status" class="config-search-status" role="status" aria-live="polite" hidden></p>
+        <nav class="config-tabs" id="config-section-list" role="tablist" aria-orientation="vertical" aria-label="Secciones de configuración">
+            <span class="config-nav-group" data-config-group="personal">Personal</span>
             <button class="config-tab" id="config-tab-account" role="tab" data-tab="account" aria-controls="config-panel-account" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="user" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg> Mi cuenta</button>
+            <button class="config-tab" id="config-tab-schedule" role="tab" data-tab="schedule" aria-controls="config-panel-schedule" aria-selected="false" tabindex="-1"><svg class="gunter-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-11 5h4"/></svg> Agenda y ubicación</button>
+            <span class="config-nav-group" data-config-group="assistant">Asistente</span>
             <button class="config-tab" id="config-tab-premium" role="tab" data-tab="premium" aria-controls="config-panel-premium" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="brain" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 18V5a3 3 0 0 0-5.8-1A4 4 0 0 0 4 11a4 4 0 0 0 2 7h6Zm0 0V5a3 3 0 0 1 5.8-1A4 4 0 0 1 20 11a4 4 0 0 1-2 7h-6Z"/></svg> Asistente e IA</button>
             <button class="config-tab" id="config-tab-voice" role="tab" data-tab="voice" aria-controls="config-panel-voice" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="microphone" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5m-4 0h8"/></svg> Voz y escucha</button>
             <button class="config-tab" id="config-tab-conversations" role="tab" data-tab="conversations" aria-controls="config-panel-conversations" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="message" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 1 1 16.1-3.8Z"/></svg> Conversaciones y memoria</button>
+            <span class="config-nav-group" data-config-group="system">Herramientas y sistema</span>
             <button class="config-tab" id="config-tab-actions" role="tab" data-tab="actions" aria-controls="config-panel-actions" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="shield" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></svg> Acciones y permisos</button>
             <button class="config-tab" id="config-tab-connections" role="tab" data-tab="connections" aria-controls="config-panel-connections" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="link" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l2-2A5 5 0 0 0 12 3.9l-1.1 1.1M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1"/></svg> Conexiones y dispositivos</button>
             <button class="config-tab" id="config-tab-preferences" role="tab" data-tab="preferences" aria-controls="config-panel-preferences" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="palette" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 1.7-3.1 1 1 0 0 1 .8-1.5H18a3 3 0 0 0 3-3A10 10 0 0 0 12 3Z"/></svg> Apariencia y accesibilidad</button>
             <button class="config-tab" id="config-tab-data" role="tab" data-tab="data" aria-controls="config-panel-data" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3"/></svg> Datos y privacidad</button>
             <button class="config-tab" id="config-tab-diagnostics" role="tab" data-tab="diagnostics" aria-controls="config-panel-diagnostics" aria-selected="false" tabindex="-1"><svg class="gunter-icon" data-gunter-icon="activity" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg> Diagnóstico</button>
         </nav>
-
-
+        <p class="config-navigation__note">Los ajustes conservan tus decisiones. Los permisos sensibles siempre requieren autorización.</p>
+        </aside>
+        <div class="config-content" id="config-active-workspace">
+        <div class="config-section-toolbar"><span id="config-section-path">Configuración / Asistente e IA</span><span class="config-section-toolbar__save">Preferencias de esta cuenta</span></div>
 
         <!-- TAB: PREMIUM -->
         <section class="config-tab-panel" id="config-panel-account" role="tabpanel" aria-labelledby="config-tab-account" tabindex="0" data-panel="account" hidden>
@@ -127,6 +138,7 @@
                 <p class="settings-card__hint" id="account-profile-status" role="status" aria-live="polite">Verificando tu cuenta…</p>
             </form>
         </section>
+        <section class="config-tab-panel" id="config-panel-schedule" role="tabpanel" aria-labelledby="config-tab-schedule" tabindex="0" data-panel="schedule" hidden></section>
         <section class="config-tab-panel" id="config-panel-premium" role="tabpanel" aria-labelledby="config-tab-premium" tabindex="0" data-panel="premium" hidden>
             <div id="premium-panel"></div>
             <div class="settings-card"><h3>Bienvenida contextual</h3><p class="settings-card__hint">Un saludo por ingreso real, con tu nombre preferido, hora y actividades verificadas. Cambiar de sección o recargar no lo repite.</p><div class="settings-row settings-row--toggle"><label for="pref-entry-greeting">Saludar al entrar</label><input type="checkbox" id="pref-entry-greeting" class="form-toggle" checked></div></div>
@@ -449,8 +461,20 @@
                 <button type="button" class="btn btn--secondary" id="config-diagnostics-run">Revisar ahora</button>
                 <pre id="config-diagnostics-result" class="config-diagnostics-result" role="status" aria-live="polite">Todavía no he comprobado este dispositivo.</pre>
             </div>
+            <details class="config-advanced" id="config-runtime-controls"><summary><span>Motores locales</span><small>Controles técnicos · permisos y dispositivos</small></summary><div id="config-runtime-content"></div></details>
         </section>
-
+        </div>
+        <aside class="config-context" aria-label="Ayuda de esta sección">
+            <div class="config-context__orbit" id="config-context-orbit" aria-hidden="true"><span></span><span></span><span></span><i></i><b></b><b></b><b></b></div>
+            <p class="config-context__state" id="config-context-state" role="status" aria-live="polite">Sin reproducción activa</p>
+            <p class="config-context__kicker">Contexto de configuración</p>
+            <h2 id="config-context-title">Asistente e IA</h2>
+            <p id="config-context-description">Personalidad, conocimiento y decisiones con controles claros.</p>
+            <div class="config-context__index"><h3>En esta sección</h3><nav id="config-panel-index" aria-label="Opciones de la sección actual"></nav></div>
+            <p class="config-context__hint" id="config-context-hint">Puedes pedirle a Gunter que explique una opción antes de cambiarla.</p>
+            <button type="button" class="btn btn--secondary" id="config-context-ask">Consultar a Gunter<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></button>
+        </aside>
+        </div>
         <!-- (Audio Trimmer overlay eliminado: pertenecía al flujo Nuevo Proyecto) -->
     </main>
 
@@ -477,7 +501,7 @@
     <script src="js/core/time-parser.js?v128-reminder-edit" defer></script>
     <script src="js/services/jobs-service.js?v130-reminders-view" defer></script>
     <script src="js/services/voice-activity-service.js?v141-video-core" defer></script>
-    <script src="js/core/assistant-tools.js?v154-unified-settings" defer></script>
+    <script src="js/core/assistant-tools.js?v156-structured-workspaces" defer></script>
     <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
     <script src="js/services/voice-service.js?v154-unified-settings" defer></script>
     <script src="js/services/wake-word-service.js?v149-contained-voice" defer></script>
@@ -491,7 +515,7 @@
     <script src="js/adapters/index.js" defer></script>
 
     <script src="js/premium-features-service.js?v154-unified-settings" defer></script>
-    <script src="js/advanced-settings.js?v154-unified-settings" defer></script>
+    <script src="js/advanced-settings.js?v156-structured-workspaces" defer></script>
     <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
     <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
     <script src="js/services/connection-manager.js?v87-context-sync" defer></script>
@@ -505,7 +529,7 @@
     <script src="js/controllers/conversation-memory-panel.js" defer></script>
     <script src="js/controllers/personal-memory-panel.js?v2-backup" defer></script>
 
-    <script src="js/config-settings.js?v154-unified-settings" defer></script>
+    <script src="js/config-settings.js?v159-section-navigation" defer></script>
     <script src="js/controllers/presence-settings.js?v115-presence" defer></script>
     <!-- (ai-analysis, cache-service, audio-chunker, audio-trimmer eliminados:
          pertenecían al flujo Nuevo Proyecto que ahora vive en dashboard.html) -->
@@ -779,7 +803,7 @@
 
 
 
-    <script src="js/services/diagnostics-service.js?v154-unified-settings" defer></script>
+    <script src="js/services/diagnostics-service.js?v156-structured-workspaces" defer></script>
     <script src="js/services/gunter-companion.js?v154-unified-settings" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-onboarding.js?v135-orbit-home" defer></script>

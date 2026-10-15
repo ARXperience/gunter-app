@@ -63,7 +63,8 @@ for (const id of ['premium', 'voice', 'conversations', 'actions', 'connections',
     assert.match(config, new RegExp(`id="config-panel-${id}"[^>]*role="tabpanel"[^>]*aria-labelledby="config-tab-${id}"`));
 }
 assert.doesNotMatch(config, /<button[^>]+\bonclick=/i, 'configuration controls are bound without inline handlers');
-assert.match(read('js/config-settings.js'), /event\.key === 'ArrowRight'/, 'configuration tabs support arrow-key navigation');
+assert.match(read('js/config-settings.js'), /\['ArrowRight', 'ArrowDown'\]\.includes\(event\.key\)/, 'configuration rail supports horizontal and vertical forward navigation');
+assert.match(read('js/config-settings.js'), /\['ArrowLeft', 'ArrowUp'\]\.includes\(event\.key\)/, 'configuration rail supports horizontal and vertical backward navigation');
 assert.match(read('js/config-settings.js'), /event\.key === 'Home'/, 'configuration tabs support Home/End navigation');
 assert.match(read('js/config-settings.js'), /addEventListener\('hashchange'/, 'configuration deep links activate the matching tab');
 
@@ -94,7 +95,7 @@ assert.match(commandNav, /\.gunter-home__focus.*focusCommand/s, 'the home CTA fo
 assert.match(commandNav, /GunterParticles\?\.mount\?\./, 'the home mascot mounts the shared particle renderer');
 assert.match(commandNav, /data-gunter-particles="hero"/, 'the home mascot uses the particle hero variant');
 assert.match(read('js/services/gunter-particles.js'), /GunterIdleCore/, 'the shared generated core supplies the existing identity hosts');
-assert.doesNotMatch(read('js/services/gunter-particles.js'), /pointermove|gunter-audio-level|createElement\('video'\)/, 'the first generated-core phase is idle only');
+assert.doesNotMatch(read('js/services/gunter-particles.js'), /createElement\('video'\)/, 'the generated core remains shader-based rather than a video overlay');
 assert.match(read('styles/gunter-command-center.css'), /body\.gunter-page-day \.gunter-command-nav__brand,[\s\S]*body\.gunter-page-day \.gunter-command-nav__links \{ display: none !important; \}/, 'the duplicated top brand bar is hidden on the mobile home screen');
 assert.match(read('js/services/gunter-companion.js'), /data-gunter-particles="chat"/, 'the floating Gunter companion uses the particle mascot');
 assert.match(read('js/services/gunter-cinematic-shell.js'), /MASCOT_SOURCE = 'assets\/gunter\/gunter-core\.svg'/, 'meeting shell reuses the abstract core instead of a legacy raster character');

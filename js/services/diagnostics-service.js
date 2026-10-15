@@ -9,18 +9,18 @@
         VOICE_PLAYBACK_FAILED: ['El reproductor no pudo reproducir la respuesta.', 'Prueba la voz y revisa el dispositivo de salida y el volumen de la pestaña.'],
         BROWSER_TTS_UNAVAILABLE: ['La síntesis de voz del navegador no está disponible.', 'Revisa el motor de voz configurado en Voz y escucha.'],
         BROWSER_TTS_FAILED: ['La síntesis de voz del navegador falló.', 'Prueba la voz desde Voz y escucha para comprobar el reproductor.'],
-        LOCAL_TTS_NOT_INSTALLED: ['El motor o los pesos de Supertonic local no están disponibles.', 'Revisa el estado de los motores en Configuración → Asistente e IA.'],
-        LOCAL_TTS_UNAVAILABLE: ['Supertonic no pudo generar la voz local.', 'Revisa el estado del motor en Asistente e IA; la respuesta escrita sigue disponible.'],
+        LOCAL_TTS_NOT_INSTALLED: ['El motor o los pesos de Supertonic local no están disponibles.', 'Revisa el estado de los motores en Configuración → Diagnóstico → Motores locales.'],
+        LOCAL_TTS_UNAVAILABLE: ['Supertonic no pudo generar la voz local.', 'Revisa el estado del motor en Diagnóstico → Motores locales; la respuesta escrita sigue disponible.'],
         LOCAL_TTS_BUSY: ['El motor local está atendiendo otra generación de voz.', 'Espera a que termine o interrumpe la respuesta anterior.'],
-        LOCAL_TTS_TIMEOUT: ['La generación de voz local excedió el tiempo permitido.', 'Revisa el estado del motor en Asistente e IA; no se cambió a otra voz y el texto sigue disponible.'],
-        LOCAL_STT_NOT_INSTALLED: ['El modelo o runtime de Moonshine no está instalado.', 'Revisa el motor local en Configuración → Asistente e IA.'],
+        LOCAL_TTS_TIMEOUT: ['La generación de voz local excedió el tiempo permitido.', 'Revisa el estado del motor en Diagnóstico → Motores locales; no se cambió a otra voz y el texto sigue disponible.'],
+        LOCAL_STT_NOT_INSTALLED: ['El modelo o runtime de Moonshine no está instalado.', 'Revisa el motor local en Configuración → Diagnóstico → Motores locales.'],
         LOCAL_STT_UNAVAILABLE: ['Moonshine no pudo transcribir el audio.', 'Revisa el estado del motor local y el formato de la grabación.'],
         LOCAL_STT_BUSY: ['Moonshine está transcribiendo otra grabación.', 'Espera a que termine la transcripción actual.'],
         LOCAL_STT_INVALID_AUDIO: ['La grabación no pudo leerse como audio válido.', 'Comprueba que la grabación no esté vacía y usa un formato admitido.'],
         LOCAL_STT_AUDIO_TOO_LARGE: ['La grabación excede el límite del transcriptor local.', 'Divide el audio en fragmentos de hasta 120 segundos o 30 MB.'],
-        LOCAL_PROVIDER_NOT_INSTALLED: ['El proveedor local requerido no está instalado.', 'Revisa sus archivos y su estado en Asistente e IA.'],
-        LOCAL_MODEL_NOT_INSTALLED: ['El modelo local requerido no está instalado.', 'Revisa sus archivos y su estado en Asistente e IA.'],
-        LOCAL_PROVIDER_UNAVAILABLE: ['La IA local no está disponible.', 'Revisa el motor y el modelo en Configuración → Asistente e IA.'],
+        LOCAL_PROVIDER_NOT_INSTALLED: ['El proveedor local requerido no está instalado.', 'Revisa sus archivos y su estado en Diagnóstico → Motores locales.'],
+        LOCAL_MODEL_NOT_INSTALLED: ['El modelo local requerido no está instalado.', 'Revisa sus archivos y su estado en Diagnóstico → Motores locales.'],
+        LOCAL_PROVIDER_UNAVAILABLE: ['La IA local no está disponible.', 'Revisa el motor y el modelo en Configuración → Diagnóstico → Motores locales.'],
         NETWORK_UNAVAILABLE: ['La conexión necesaria para esa función no está disponible.', 'Revisa la conexión con el servidor; no cambies la privacidad para ocultar el problema.'],
         LOCAL_ONLY_MODE: ['La privacidad LOCAL_ONLY impide esa conexión externa.', 'Usa una herramienta local compatible; no he cambiado tu privacidad.'],
         PERMISSION_DENIED: ['La acción fue rechazada por falta de permiso.', 'Revisa el permiso concreto antes de volver a solicitar la acción.'],
@@ -82,7 +82,7 @@
         const model = (ready, installed, flag, error) => ({
             status: classify(ready, modelsKnown),
             reason: !modelsKnown ? 'Estado del runtime todavía no recibido.' : ready ? 'Runtime local listo.' : flag === false ? 'El motor local está desactivado en el Centro de control.' : knownCause(error)?.reason || (installed ? 'Instalado, pero el runtime todavía no está listo.' : 'Modelo o runtime no instalado.'),
-            advice: modelsKnown && !ready ? knownCause(error)?.advice || 'Revisa el estado del motor en Configuración → Asistente e IA.' : undefined
+            advice: modelsKnown && !ready ? knownCause(error)?.advice || 'Revisa el estado del motor en Configuración → Diagnóstico → Motores locales.' : undefined
         });
         const stt = model(runtime.localSTTAvailable, runtime.localSTTInstalled, runtime.flags?.['stt.local'], runtime.localSTTError);
         const llm = model(runtime.localBrainAvailable, runtime.localBrainInstalled, runtime.flags?.['ai.local'], runtime.localBrainError);

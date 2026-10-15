@@ -144,10 +144,11 @@ check('preview respects disabled output and silent meetings without silently doi
     assert.match(env.window.feedback.textContent, /silenciada durante esta reunión/);
 });
 check('runtime controls cannot be hidden in every configuration category', () => {
-    const css = read('styles/pages/config-settings.css');
-    assert.match(css, /#premium-panel:not\(\[data-category="premium"\]\) > \.cp-settings/);
-    const controller = read('js/advanced-settings.js');
-    assert.match(controller, /controlPlanePanel\.hidden = activeCategory !== 'premium'/);
+    const html = read('config.html');
+    assert.equal((html.match(/id="config-runtime-content"/g) || []).length, 1);
+    assert.ok(html.indexOf('id="config-runtime-content"') > html.indexOf('id="config-panel-diagnostics"'));
+    assert.match(configUi, /GunterControlPlaneSettings\?\.mount\?\.\('#config-runtime-content'\)/);
+    assert.doesNotMatch(ui, /controlPlanePanel\.hidden/);
 });
 check('microphone dependency explains disabled local engine separately from missing model', () => {
     const env = setup();

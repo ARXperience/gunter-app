@@ -56,12 +56,6 @@
             Array.from(rootEl.querySelectorAll('[data-toggle-cfg][aria-expanded="true"]'))
                  .map(b => b.dataset.toggleCfg)
         );
-        const catalogOpen = rootEl.querySelector('.gps__catalog')?.open === true;
-        // Control Plane mounts its own interactive section into this host.
-        // Preserve the live node (and delegated listeners) across voice/status
-        // refreshes; replacing it would make its controls disappear.
-        const controlPlanePanel = rootEl.querySelector(':scope > .cp-settings');
-        controlPlanePanel?.remove();
         // También preservamos la posición de scroll del grid para que el usuario
         // no pierda el lugar al cambiar un toggle.
         const scrollY = window.scrollY;
@@ -81,8 +75,8 @@
                         <div class="gps__section-divider" data-section="intelligence">
                             <span class="gps__section-icon">✨</span>
                             <div class="gps__section-text">
-                                <h4>Inteligencia Premium</h4>
-                                <p>Funciones que combinan tu memoria de proyectos con IA para planear, priorizar y delegar.</p>
+                                <h4>Inteligencia contextual</h4>
+                                <p>Conocimiento y herramientas para acompañar tu trabajo.</p>
                             </div>
                         </div>
                     `;
@@ -91,8 +85,8 @@
                         <div class="gps__section-divider gps__section-divider--advanced" data-section="advanced">
                             <span class="gps__section-icon">🧠</span>
                             <div class="gps__section-text">
-                                <h4>Funciones avanzadas (v2)</h4>
-                                <p>Memoria de largo plazo, comportamiento autónomo y análisis predictivo. Lo que convierte a Gunter en copiloto.</p>
+                                <h4>Comportamiento avanzado</h4>
+                                <p>Amplía capacidades sin cambiar sus permisos ni autorizaciones.</p>
                             </div>
                         </div>
                     `;
@@ -103,35 +97,17 @@
         }).join('');
 
         rootEl.innerHTML = `
-            <div class="gps__intro">
-                <span class="gps__intro-icon">✨</span>
-                <div>
-                    <h3>${({ premium: 'Asistente e IA', voice: 'Voz y escucha', conversations: 'Conversaciones y memoria', actions: 'Acciones y permisos', connections: 'Conexiones y dispositivos' })[activeCategory] || 'Funciones de Gunter'}</h3>
-                    <p>Los cambios se guardan con tus preferencias. Revisa los requisitos de cada módulo antes de activarlo.</p>
-                </div>
+            <div class="gps__intro gps__intro--workspace">
+                <p>Cambios automáticos · revisa el estado de cada función</p>
                 <div class="gps__intro-actions">
-                    <button class="gps-inline-btn" id="gps-reset">Restablecer</button>
-                    <button class="gps-inline-btn" id="gps-export">Exportar</button>
+                    <details class="gps__manage"><summary>Gestionar preferencias</summary><div>
+                    <button class="gps-inline-btn" id="gps-export">Exportar preferencias</button>
+                    <button class="gps-inline-btn" id="gps-reset">Restablecer preferencias</button>
+                    </div></details>
                 </div>
             </div>
-
-            <!-- Fase F.F2 — Dashboard "Estado actual de Gunter" -->
-            ${activeCategory === 'premium' ? renderStatusBoard() : ''}
-
-            <!-- Fase F.F6 — Resumen funciones premium activas -->
-            ${activeCategory === 'premium' ? renderActiveSummary() : ''}
-
-            <details class="gps__catalog" ${catalogOpen || activeCategory === 'voice' ? 'open' : ''}>
-                <summary><span>Módulos de esta sección</span><small>${FEATURE_MAP.filter(f => (FEATURE_CATEGORIES[f.id] || 'premium') === activeCategory).length} opciones · abre para configurar</small></summary>
-                <div class="gps__grid" id="gps-grid">
-                    ${cards}
-                </div>
-            </details>
+            <div class="gps__grid gps__grid--settings" id="gps-grid">${cards}</div>
         `;
-        if (controlPlanePanel) {
-            rootEl.prepend(controlPlanePanel);
-            controlPlanePanel.hidden = activeCategory !== 'premium';
-        }
         wireMaster();
         wireStatusBoard();
 
@@ -145,12 +121,9 @@
         // Restaurar scroll
         if (scrollY) window.scrollTo(0, scrollY);
 
-        // Auto-refresh del board cada 5s para reflejar conexiones (WhatsApp/Calendar)
+        // The dedicated Diagnóstico section owns system state. Do not add a
+        // second dashboard or poll it while the user edits preferences.
         if (rootEl.__statusInterval) clearInterval(rootEl.__statusInterval);
-        rootEl.__statusInterval = setInterval(() => {
-            const board = rootEl.querySelector('#gn-status-board');
-            if (board) board.outerHTML = renderStatusBoard();
-        }, 5000);
     }
 
     // ---------- Fase F.F2 — Dashboard de estado ----------
@@ -426,7 +399,7 @@
                 </div>
                 <div class="gps-card__controls">
                     ${badge(status)}
-                    <button class="gps-card__toggle-cfg" aria-expanded="false" data-toggle-cfg="${feature.id}">Configurar</button>
+                    <button class="gps-card__toggle-cfg" aria-expanded="false" data-toggle-cfg="${feature.id}">${hasExtras ? 'Opciones avanzadas' : 'Ver detalles'}</button>
                 </div>
                 <div class="gps-card__details" data-details="${feature.id}">
                     ${subs}
@@ -466,8 +439,7 @@
                     <code class="gps-generic-cfg__code">${esc(feature.id)}</code>
                 </div>
                 <p class="gps-generic-cfg__hint">
-                    Esta función no tiene opciones adicionales: el switch principal de arriba la controla por completo.
-                    Si necesitas cambiar su comportamiento, búscalo en <em>Preferencias</em> o consulta la documentación de Gunter.
+                    El interruptor de esta función es su único ajuste. No modifica los permisos del navegador ni las confirmaciones de acciones.
                 </p>
             </div>
         `;

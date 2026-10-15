@@ -34,7 +34,7 @@
         settings: 'config.html#preferences', preferences: 'config.html#preferences', account: 'config.html#account',
         connections: 'config.html#connections', data: 'config.html#data', assistant: 'config.html#premium',
         'ai assistant': 'config.html#premium', trash: 'config.html#trash',
-        'advanced settings': 'config.html#premium', voice: 'config.html#voice',
+        'advanced settings': 'config.html#diagnostics', 'schedule settings': 'config.html#schedule', voice: 'config.html#voice',
         'conversation settings': 'config.html#conversations', permissions: 'config.html#actions', diagnostics: 'config.html#diagnostics', administration: 'admin.html'
     });
     const NAVIGATION_LABELS = Object.freeze(Object.fromEntries(Object.entries(NAVIGATION_TARGETS).map(([label, target]) => [target, label])));
@@ -47,7 +47,9 @@
             tasks: ['tareas', 'pendientes'], agenda: ['agenda', 'calendario', 'eventos'], reminders: ['recordatorios'],
             commitments: ['compromisos', 'promesas'],
             activity: ['actividad', 'historial'], settings: ['configuracion', 'ajustes'], preferences: ['preferencias'], account: ['mi cuenta', 'mi perfil', 'nombre preferido'],
-            connections: ['conexiones', 'datos y conexiones', 'redes sociales', 'dispositivos'], data: ['datos y privacidad', 'mis datos', 'respaldo', 'restauracion'], assistant: ['asistente ia', 'asistente e ia', 'funciones del asistente', 'configuracion avanzada', 'opciones avanzadas', 'ajustes avanzados'],
+            connections: ['conexiones', 'datos y conexiones', 'redes sociales', 'dispositivos'], data: ['datos y privacidad', 'mis datos', 'respaldo', 'restauracion'], assistant: ['asistente ia', 'asistente e ia', 'funciones del asistente'],
+            'advanced settings': ['configuracion avanzada', 'opciones avanzadas', 'ajustes avanzados', 'motores locales', 'centro de control'],
+            'schedule settings': ['configuracion de agenda', 'ajustes de agenda', 'planificacion de agenda', 'horarios y jornada'],
             voice: ['voz y escucha', 'configuracion de voz', 'ajustes de voz', 'escucha', 'microfono'],
             'conversation settings': ['conversaciones y memoria', 'configuracion de memoria', 'mis recuerdos'],
             permissions: ['acciones y permisos', 'permisos'], diagnostics: ['diagnostico', 'diagnosticos', 'estado del sistema'],
@@ -179,7 +181,7 @@
         focus_coach: ['coach de enfoque'], direct: ['directo'], coach: ['coach'], fun: ['divertido'], strategic: ['estrategico']
     });
     const SETTINGS_SECTIONS = Object.freeze({
-        account: 'Mi cuenta', premium: 'Asistente e IA', voice: 'Voz y escucha', conversations: 'Conversaciones y memoria',
+        account: 'Mi cuenta', premium: 'Asistente e IA', voice: 'Voz y escucha', conversations: 'Conversaciones y memoria', schedule: 'Agenda y ubicación',
         actions: 'Acciones y permisos', connections: 'Conexiones y dispositivos', preferences: 'Apariencia y accesibilidad', data: 'Datos y privacidad', diagnostics: 'Diagnóstico'
     });
     const USER_ACTION_SETTINGS = Object.freeze([
@@ -192,7 +194,7 @@
         ['personalMemory.backup', 'Respaldo de memoria personal', ['exportar recuerdos', 'importar recuerdos', 'exportacion de memoria', 'importacion de memoria'], 'data', 'Exporta solo recuerdos de tu cuenta. La importación valida archivo y vista previa antes de confirmar; puede contener información personal.'],
         ['data.privacy', 'Datos y privacidad', ['borrar datos', 'restaurar datos', 'eliminar datos'], 'data', 'Administra respaldos, almacenamiento y eliminación mediante los controles existentes y sus confirmaciones.'],
         ['connection.accounts', 'Conexiones y dispositivos', ['conectar cuenta', 'conectar redes', 'vincular dispositivo'], 'connections', 'Conecta cuentas y dispositivos usando su flujo oficial. Activar una preferencia no inicia sesión ni concede acceso a un dispositivo.'],
-        ['runtime.privacy', 'Privacidad y modo de ejecución', ['local only', 'modo local', 'modo cloud', 'modo auto', 'privacidad local'], 'premium', 'Selecciona el modo y privacidad de los motores existentes. LOCAL_ONLY no permite sustituir un fallo local por un servicio cloud.']
+        ['runtime.privacy', 'Privacidad y modo de ejecución', ['local only', 'modo local', 'modo cloud', 'modo auto', 'privacidad local'], 'diagnostics', 'Selecciona el modo y privacidad de los motores existentes. LOCAL_ONLY no permite sustituir un fallo local por un servicio cloud.']
     ]);
     function wordsForKey(key) { return String(key).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[._]/g, ' '); }
     function matchSettings(text, items) {
@@ -1069,7 +1071,7 @@
                 let items = [], controlUnavailable = false;
                 try { items = (await control?.settings?.())?.items || []; } catch { controlUnavailable = true; }
                 if (runtime.GunterAuth && taskOwnerId() !== ownerId) return { ...match, args: { ...match.args, accountUnavailable: true } };
-                items = items.map(item => ({ ...item, source: 'control', location: 'Configuración → Asistente e IA → Centro de control', route: 'config.html#premium' }));
+                items = items.map(item => ({ ...item, source: 'control', location: 'Configuración → Diagnóstico → Controles técnicos', route: 'config.html#diagnostics' }));
                 if (match.toolId === 'settings.list') return { ...match, args: { ...match.args, ownerId,
                     items: [...preferences, ...items], controlUnavailable, unavailable: !preferences.length && !items.length } };
                 return { ...match, args: { ...resolveSettingChange(match.args.rawText, items), ownerId,
@@ -1697,7 +1699,7 @@
                 if ((args.enabled === true || args.field) && !args.setting.available) return { ok: false, reply: `No puedo cambiar ${args.setting.label}: no está disponible (${args.setting.lockedReason || 'plan o despliegue'}).` };
                 if (args.missingField) return { ok: false, reply: `¿Qué opción de ${args.setting.label} quieres cambiar? Dime el campo avanzado y su valor.` };
                 if (args.missingValue) return { ok: false, reply: `¿Qué valor quieres poner en ${args.field} de ${args.setting.label}?` };
-                if (args.jsonRequired) return { ok: false, reply: `Ese campo requiere un objeto JSON válido. Puedes consultar su formato desde Configuración → Asistente IA.` };
+                if (args.jsonRequired) return { ok: false, reply: `Ese campo requiere un objeto JSON válido. Puedes consultar su formato desde Configuración → Diagnóstico → Controles técnicos.` };
                 if (args.invalidValue) return { ok: false, reply: `Ese valor no es válido para ${args.field}. ${args.valueHint || (/days|minutes|limit|budget|threshold|ram|storage/i.test(args.field || '') ? 'Indica un número igual o mayor que cero.' : 'Indica sí/no o un valor compatible.')}` };
                 if (args.enabled === undefined && (!args.field || args.value === undefined)) return { ok: false, reply: 'Dime qué campo avanzado y qué valor quieres aplicar.' };
                 return { ok: true };
