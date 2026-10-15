@@ -11,7 +11,7 @@
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = "v149-contained-voice-20261015";
+const SW_VERSION = "v155-unified-interior-20261015";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;
@@ -42,14 +42,20 @@ const PRECACHE_URLS = [
     '/assets/gunter/gunter-core-512.png',
     '/styles/gunter-idle-core.css?v142b-idle-core',
     '/js/components/gunter-idle-core.js?v149-contained-voice',
-    '/js/services/voice-service.js?v149-contained-voice',
+    '/js/services/voice-service.js?v154-unified-settings',
     '/js/services/voice-activity-service.js?v141-video-core',
-    '/js/config-settings.js?v144b-material-core',
+    '/js/config-settings.js?v154-unified-settings',
     '/styles/gunter-orbit-home.css?v135-orbit-home',
     '/styles/gunter-hologram.css?v135-orbit-home',
     '/js/services/gunter-orbit-home.js?v135-orbit-home',
     '/js/services/gunter-particles.js?v149-contained-voice',
     '/styles/gunter-workspace.css?v139-orbital-workspaces',
+    '/styles/gunter-interior.css?v155-unified-interior',
+    '/js/premium-features-service.js?v154-unified-settings',
+    '/js/advanced-settings.js?v154-unified-settings',
+    '/js/services/actions-service.js?v154-unified-settings',
+    '/js/core/assistant-tools.js?v154-unified-settings',
+    '/js/services/diagnostics-service.js?v154-unified-settings',
     '/styles/pages/orbital-day.css?v139-orbital-workspaces',
     '/styles/pages/orbital-meetings.css?v139-orbital-workspaces',
     '/styles/pages/orbital-settings.css?v144b-material-core',

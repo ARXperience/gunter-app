@@ -2,7 +2,7 @@
 <html lang="es">
 
 <head>
-    <script src="js/services/log-buffer.js?v66b-gunter-pixar-1783590000000"></script>
+    <script src="js/services/log-buffer.js?v154-unified-settings"></script>
     <script src="js/services/auth-service.js?v122-identity-context"></script>
     <script src="js/services/data-repository.js?v3-backup" defer></script>
     <script src="js/services/gunter-memory.js?v3-backup" defer></script>
@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="styles/animations.css">
     <link rel="stylesheet" href="styles/pages/config.css">
     <link rel="stylesheet" href="styles/pages/config-polish.css">
-    <link rel="stylesheet" href="styles/pages/config-settings.css?v7-eight-sections">
+    <link rel="stylesheet" href="styles/pages/config-settings.css?v154-unified-settings">
     <link rel="stylesheet" href="styles/pages/advanced-settings.css?v149-contained-voice">
     <!-- (audio-trimmer.css eliminado: pertenecía al flujo Nuevo Proyecto) -->
 
@@ -66,6 +66,7 @@
     <link rel="stylesheet" href="styles/gunter-workspace.css?v139-orbital-workspaces">
     <link rel="stylesheet" href="styles/pages/orbital-settings.css?v144b-material-core">
     <link rel="stylesheet" href="styles/gunter-idle-core.css?v142b-idle-core">
+    <link rel="stylesheet" href="styles/gunter-interior.css?v155-unified-interior">
 </head>
 
 <body class="at-dark gunter-config-page gunter-workspace">
@@ -157,7 +158,7 @@
             <div class="settings-card">
                 <h3>Prueba de micrófono y transcripción</h3>
                 <p class="settings-card__hint">Graba una frase. El texto aparecerá como borrador editable en el chat; ninguna orden se ejecuta antes de enviarla.</p>
-                <div class="settings-row"><button type="button" class="btn btn--primary" id="voice-test-button">Iniciar prueba</button><span id="voice-test-state" role="status" aria-live="polite">Desactivado</span></div>
+                <div class="settings-row"><button type="button" class="btn btn--primary" id="voice-test-button">Iniciar prueba</button><span id="voice-test-state" role="status" aria-live="polite">Sin captura activa</span></div>
                 <div class="settings-row"><label for="voice-max-seconds">Duración máxima (30–120 s)</label><input id="voice-max-seconds" type="number" min="30" max="120" class="form-input"></div>
                 <div class="settings-row"><label for="voice-silence-seconds">Finalizar tras silencio (5–30 s)</label><input id="voice-silence-seconds" type="number" min="5" max="30" class="form-input"></div>
                 <p id="voice-test-dependency" class="settings-card__hint" role="status"></p>
@@ -476,9 +477,9 @@
     <script src="js/core/time-parser.js?v128-reminder-edit" defer></script>
     <script src="js/services/jobs-service.js?v130-reminders-view" defer></script>
     <script src="js/services/voice-activity-service.js?v141-video-core" defer></script>
-    <script src="js/core/assistant-tools.js?v131-commitment-followup" defer></script>
+    <script src="js/core/assistant-tools.js?v154-unified-settings" defer></script>
     <script src="js/core/workflow-orchestrator.js?v89-natural-workflows" defer></script>
-    <script src="js/services/voice-service.js?v149-contained-voice" defer></script>
+    <script src="js/services/voice-service.js?v154-unified-settings" defer></script>
     <script src="js/services/wake-word-service.js?v149-contained-voice" defer></script>
 
     <!-- Adapters (Fase 7) -->
@@ -489,8 +490,8 @@
     <script src="js/adapters/voice-adapter.js?v116-supertonic3" defer></script>
     <script src="js/adapters/index.js" defer></script>
 
-    <script src="js/premium-features-service.js?v149-contained-voice" defer></script>
-    <script src="js/advanced-settings.js?v149-contained-voice" defer></script>
+    <script src="js/premium-features-service.js?v154-unified-settings" defer></script>
+    <script src="js/advanced-settings.js?v154-unified-settings" defer></script>
     <script src="js/services/control-plane-service.js?v95-device-access" defer></script>
     <script src="js/services/procedure-recorder.js?v103-device-runtime" defer></script>
     <script src="js/services/connection-manager.js?v87-context-sync" defer></script>
@@ -504,7 +505,7 @@
     <script src="js/controllers/conversation-memory-panel.js" defer></script>
     <script src="js/controllers/personal-memory-panel.js?v2-backup" defer></script>
 
-    <script src="js/config-settings.js?v144b-material-core" defer></script>
+    <script src="js/config-settings.js?v154-unified-settings" defer></script>
     <script src="js/controllers/presence-settings.js?v115-presence" defer></script>
     <!-- (ai-analysis, cache-service, audio-chunker, audio-trimmer eliminados:
          pertenecían al flujo Nuevo Proyecto que ahora vive en dashboard.html) -->
@@ -768,7 +769,7 @@
 
     <!-- Medieval Futuristic Theme -->
     <script src="js/services/sw-updater.js?v115-stable-entry" defer></script>
-    <script src="js/services/theme-toggle.js?v80-polar" defer></script>    <script src="js/services/actions-service.js?v122-identity-context" defer></script>    <script src="js/services/nlp-llm-service.js?v122-identity-context" defer></script>    <script src="js/services/commitments-service.js?v131-commitment-followup" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/theme-toggle.js?v80-polar" defer></script>    <script src="js/services/actions-service.js?v154-unified-settings" defer></script>    <script src="js/services/nlp-llm-service.js?v122-identity-context" defer></script>    <script src="js/services/commitments-service.js?v131-commitment-followup" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-rules-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-mood-service.js?v122-identity-context" defer></script>
 
@@ -778,8 +779,8 @@
 
 
 
-    <script src="js/services/diagnostics-service.js?v2-admin-stats" defer></script>
-    <script src="js/services/gunter-companion.js?v149-contained-voice" defer></script>
+    <script src="js/services/diagnostics-service.js?v154-unified-settings" defer></script>
+    <script src="js/services/gunter-companion.js?v154-unified-settings" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-onboarding.js?v135-orbit-home" defer></script>
 </body>

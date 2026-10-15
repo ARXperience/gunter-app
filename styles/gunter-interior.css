@@ -1,0 +1,461 @@
+/* Gunter Executive Telemetry — presentation only.
+   The original controls, state attributes and permission gates own behavior.
+   Every rule excludes the approved home stage, including its shared widgets. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) {
+  --gw-bg: #050811;
+  --gw-surface: #0a0f1d;
+  --gw-raised: #111a2c;
+  --gw-ink: #f0f4ff;
+  --gw-muted: #a0b1c8;
+  --gw-border: #2a3c51;
+  --gw-cyan: #8aebff;
+  --gw-amber: #ffb95f;
+  --gw-violet: #d9b0ff;
+  --gw-success: #9ee2c6;
+  --gw-danger: #ffb4ab;
+  --gw-on-accent: #042832;
+  --gi-line: color-mix(in srgb, var(--gw-cyan) 16%, transparent);
+  --gi-glass: color-mix(in srgb, var(--gw-surface) 91%, transparent);
+  --gi-hover: color-mix(in srgb, var(--gw-cyan) 7%, var(--gw-surface));
+  --gi-glow: 0 0 24px color-mix(in srgb, var(--gw-cyan) 9%, transparent);
+  --gd-primary-grad: linear-gradient(115deg, #8aebff, #43cfe5);
+  --accent-primary: var(--gw-cyan);
+  --accent: var(--gw-cyan);
+  --text-primary: var(--gw-ink);
+  --text-secondary: var(--gw-muted);
+  --text-muted: var(--gw-muted);
+  --bg-deep-navy: var(--gw-bg);
+  --bg-obsidian: var(--gw-bg);
+  --bg-card: var(--gw-surface);
+  --bg-input: var(--gw-bg);
+  --glass-border: var(--gw-border);
+  --border-subtle: var(--gw-border);
+  background: var(--gw-bg) !important;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+html body.gunter-workspace.at-light:not(.gunter-orbit-home-active) {
+  --gw-bg: #edf3f8;
+  --gw-surface: #f9fcff;
+  --gw-raised: #e2edf5;
+  --gw-ink: #172b42;
+  --gw-muted: #4b627a;
+  --gw-border: #bed0df;
+  --gw-cyan: #075e77;
+  --gw-amber: #8c4c0b;
+  --gw-violet: #714394;
+  --gw-success: #1e6f52;
+  --gw-danger: #a32c3d;
+  --gw-on-accent: #fff;
+  --gd-primary-grad: linear-gradient(115deg, #075e77, #0b7084);
+  --gi-glass: color-mix(in srgb, var(--gw-surface) 94%, transparent);
+}
+
+/* The quiet circuit atmosphere belongs to the workspace, never to Inicio. */
+html body.gunter-workspace:not(.gunter-orbit-home-active)::before {
+  content: '' !important;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 54% 19%, color-mix(in srgb, var(--gw-violet) 8%, transparent), transparent 57%),
+    linear-gradient(90deg, transparent calc(50% - .5px), color-mix(in srgb, var(--gw-cyan) 5%, transparent) 50%, transparent calc(50% + .5px)) !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__main, .dashboard-main, .config-page, .results-page, .meeting-page, .gadm) {
+  position: relative;
+  z-index: 1;
+  max-width: 1660px !important;
+  padding-inline: clamp(18px, 3.2vw, 54px) !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gw-page-heading, .config-header, .dashboard-header, .results-header, .meeting-header, .gadm__head) {
+  position: relative;
+  padding-bottom: 24px !important;
+  margin-bottom: 25px !important;
+  border-bottom: 1px solid var(--gi-line) !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gw-page-heading h1, .config-header__title, .dashboard-header__title, .results-header__title, .meeting-header__title, .gadm__head h1) {
+  font-size: clamp(25px, 2.65vw, 36px) !important;
+  font-weight: 500 !important;
+  letter-spacing: .035em !important;
+  line-height: 1.25 !important;
+  background: none !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.orbital-settings-kicker, .orbital-section-intro__index, .gday__eyebrow, .conv-hub__eyebrow) {
+  color: var(--gw-cyan) !important;
+  font: 600 10px/1.6 'Space Grotesk', sans-serif !important;
+  letter-spacing: .16em !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gw-section-marker {
+  width: 10px;
+  height: 10px;
+  margin-bottom: 12px;
+  border-color: var(--gw-cyan);
+  box-shadow: 0 0 11px color-mix(in srgb, var(--gw-cyan) 22%, transparent);
+}
+
+/* Existing navigation becomes the reference's bowed tactical rail. No links
+   are duplicated, relabeled as fictional modules, or removed. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav {
+  background: color-mix(in srgb, var(--gw-bg) 96%, transparent) !important;
+  border-bottom-color: var(--gi-line) !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__brand {
+  padding: 9px 12px !important;
+  border: 1px solid color-mix(in srgb, var(--gw-cyan) 26%, var(--gw-border));
+  border-radius: 5px 14px 5px 14px;
+  background: var(--gi-glass);
+  box-shadow: var(--gi-glow);
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__links {
+  border-color: var(--gi-line) !important;
+  border-radius: 15px !important;
+  background: var(--gi-glass) !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__links > :is(a, details > summary) {
+  letter-spacing: .075em !important;
+  border-radius: 9px !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__links > a.is-active {
+  color: var(--gw-cyan) !important;
+  background: var(--gi-hover) !important;
+  border-color: color-mix(in srgb, var(--gw-cyan) 55%, var(--gw-border)) !important;
+  box-shadow: var(--gi-glow) !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gw-assistant-state {
+  border-color: color-mix(in srgb, var(--gw-amber) 30%, var(--gw-border));
+  background: color-mix(in srgb, var(--gw-amber) 4%, var(--gw-surface));
+  font-size: 9px;
+  padding: 6px 10px;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__dock {
+  min-width: 0 !important;
+  border-color: color-mix(in srgb, var(--gw-cyan) 25%, var(--gw-border)) !important;
+  background: var(--gi-glass) !important;
+  box-shadow: 0 12px 35px rgb(0 0 0 / .22), var(--gi-glow) !important;
+  backdrop-filter: blur(12px);
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__dock :is(a, button) {
+  background: transparent !important;
+  border-radius: 23px !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__dock .gunter-command-nav__voice {
+  color: var(--gw-cyan) !important;
+  background: color-mix(in srgb, var(--gw-cyan) 8%, transparent) !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__dock .gunter-command-nav__voice[aria-pressed='true'] {
+  color: var(--gw-amber) !important;
+  background: color-mix(in srgb, var(--gw-amber) 9%, transparent) !important;
+}
+
+/* Frequency selector: every configuration category stays visible, including
+   the last one. Long labels wrap instead of disappearing off the rail. */
+html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-header {
+  min-height: 0 !important;
+  max-width: none !important;
+  gap: 20px;
+  padding-bottom: 16px !important;
+  margin-bottom: 16px !important;
+}
+
+html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-header__copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 22px; flex: 1; max-width: none; }
+html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-header__back { grid-column: 1; grid-row: 1; justify-self: start; min-height: 24px; margin: 0 !important; }
+html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-header .orbital-settings-kicker { display: none; }
+html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-header__title { grid-column: 1; grid-row: 2; margin: 0 !important; font-size: 28px !important; }
+html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-header__subtitle { grid-column: 1; grid-row: 3; max-width: 78ch; margin: 0 !important; font-size: 13px !important; }
+html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-header__ask { grid-column: 2; grid-row: 2 / 4; align-self: center; margin: 0 !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .config-orbit-index { width: 100px; height: 100px; flex-basis: 100px; margin-right: 0; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .config-orbit-index__core { width: 38px; height: 38px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .config-orbit-index__core svg { width: 18px; height: 18px; }
+
+html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-tabs {
+  flex-wrap: wrap !important;
+  align-items: stretch !important;
+  gap: 5px !important;
+  padding: 8px !important;
+  margin-bottom: 20px !important;
+  border-color: var(--gi-line) !important;
+  background: var(--gi-glass) !important;
+  border-radius: 15px !important;
+  overflow: visible !important;
+}
+
+html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-tabs .config-tab {
+  flex: 1 0 135px !important;
+  min-height: 44px !important;
+  padding: 9px 10px !important;
+  gap: 6px !important;
+  border-radius: 10px !important;
+  font-size: 10px !important;
+  line-height: 1.5 !important;
+  letter-spacing: .055em !important;
+  white-space: normal !important;
+}
+
+html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-tabs .config-tab.is-active {
+  color: var(--gw-cyan) !important;
+  border-color: color-mix(in srgb, var(--gw-cyan) 60%, var(--gw-border)) !important;
+  background: var(--gi-hover) !important;
+  box-shadow: inset 0 0 16px color-mix(in srgb, var(--gw-cyan) 4%, transparent), var(--gi-glow) !important;
+}
+
+/* Detail hierarchy: status/requirements form the inspector column; controls
+   remain the primary workspace. Nested features never create a second grid. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps { --gps-radius: 13px; --gps-off: var(--gw-muted); gap: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__intro { display: grid !important; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; min-height: 76px; padding: 13px 18px !important; gap: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__intro h3 { font-size: 18px !important; letter-spacing: .04em !important; margin: 0 0 3px !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__intro p { max-width: 78ch; font-size: 12px; line-height: 1.5; margin: 0 !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__intro-icon { font-size: 20px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__intro-actions { width: auto; margin-left: 0; flex-wrap: nowrap; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__catalog { min-width: 0; margin: 0; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__catalog > summary { min-height: 44px; border-bottom: 1px solid var(--gi-line); padding-block: 10px; gap: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__catalog > summary span { font: 600 11px/1.5 'Space Grotesk', sans-serif; letter-spacing: .09em; text-transform: uppercase; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__catalog > .gps__grid { grid-template-columns: minmax(0, 1fr) !important; gap: 12px !important; padding-block: 15px 22px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card { padding: 20px !important; gap: 15px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card__head { align-items: flex-start; gap: 13px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card__title h4 { font-size: 16px !important; line-height: 1.45 !important; letter-spacing: .025em !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card__title p { max-width: 90ch; font-size: 12px; line-height: 1.65; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card__icon { width: 34px; height: 34px; border-radius: 50%; background: transparent; border-color: var(--gi-line); font-size: 17px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card__controls { gap: 12px; padding-left: 47px; flex-wrap: wrap; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card__details { padding-top: 16px; border-top-color: var(--gi-line); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-sub { min-height: 48px; gap: 20px; border-top-color: var(--gi-line); padding-block: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-sub__label { color: var(--gw-ink); font-size: 13px; line-height: 1.6; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-sub__hint { color: var(--gw-muted); font-size: 11px; line-height: 1.6; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__section-divider { margin-top: 0; padding: 14px 2px; border-bottom-color: var(--gi-line); }
+
+/* These remain real data surfaces, not decorative fake metrics. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.settings-card, .gps-card, .gps__intro, .gn-status-board, .gn-active-summary, .social-settings__section, .gday__card, .gpi-card, .project-card, .gadm__card, .env-card, .analysis-card, .orbital-meeting-context) {
+  position: relative;
+  color: var(--gw-ink) !important;
+  border: 1px solid var(--gi-line) !important;
+  border-top-color: color-mix(in srgb, var(--gw-cyan) 24%, var(--gw-border)) !important;
+  border-radius: 13px !important;
+  background: var(--gi-glass) !important;
+  box-shadow: inset 1px 1px 0 rgb(220 245 255 / .025) !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.settings-card, .gday__card, .gpi-card, .gadm__card) { padding: clamp(18px, 2vw, 26px) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card--active { border-left-color: color-mix(in srgb, var(--gw-cyan) 38%, transparent) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card--active::before { width: 55px; height: 1px; background: var(--gw-cyan); opacity: .7; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.settings-card h3, .gday__card h3, .gpi-card h3, .gadm__card h2, .cp-settings__head h2) { font-size: 17px !important; letter-spacing: .035em !important; line-height: 1.5 !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.settings-card__hint, .gps-warning, .cp-hybrid-note, .cp-governance-note) { line-height: 1.7; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-status-board { padding: 20px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-status-board__grid { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 8px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-status-item { border-color: var(--gi-line); background: color-mix(in srgb, var(--gw-raised) 38%, transparent); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-status-item__label { font-size: 10px; letter-spacing: .06em; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-status-item__value { font-size: 12px; line-height: 1.5; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-status-detail > summary { min-height: 44px; padding-top: 13px; color: var(--gw-cyan); font-size: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gn-active-summary { padding: 18px 20px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .cp-settings { padding: 20px; border: 1px solid var(--gi-line); border-radius: 13px; background: var(--gi-glass); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .cp-settings__head { padding-top: 0; padding-bottom: 18px; gap: 18px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .cp-settings__head p { margin-block: 6px; font-size: 12px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.cp-hybrid-runtime, .cp-plan, .cp-capability, .cp-node, .cp-map-group, .cp-map-row, .settings-row) { border-color: var(--gi-line); }
+
+/* Shared activation control: one visual state model for native and ARIA
+   switches, with a 44px touch area but a compact 36x20px painted track. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gps-switch, .settings-row--toggle input[type='checkbox']) {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex: 0 0 44px;
+  width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gps-switch, .settings-row--toggle input[type='checkbox'])::before {
+  content: '';
+  position: absolute;
+  inset: 12px 4px;
+  border: 1px solid color-mix(in srgb, var(--gw-muted) 35%, transparent);
+  border-radius: 20px;
+  background: var(--gw-raised);
+  transition: border-color .2s ease, background-color .2s ease;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gps-switch, .settings-row--toggle input[type='checkbox'])::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  left: 7px;
+  top: 15px;
+  border-radius: 50%;
+  background: var(--gw-muted);
+  box-shadow: none;
+  transform: none;
+  transition: transform .2s ease, background-color .2s ease;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gps-switch[aria-checked='true'], .settings-row--toggle input[type='checkbox']:checked) { background: transparent !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gps-switch[aria-checked='true'], .settings-row--toggle input[type='checkbox']:checked)::before { background: var(--gw-cyan); border-color: var(--gw-cyan); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gps-switch[aria-checked='true'], .settings-row--toggle input[type='checkbox']:checked)::after { transform: translateX(16px); background: var(--gw-on-accent); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-switch--readonly { cursor: default; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .cp-switch { min-width: 44px; min-height: 44px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .cp-switch span { inset: 12px 4px; background: var(--gw-raised); border-color: var(--gw-border); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .cp-switch span::after { width: 14px; height: 14px; top: 2px; left: 2px; background: var(--gw-muted); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .cp-switch input:checked + span { background: var(--gw-cyan); border-color: var(--gw-cyan); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .cp-switch input:checked + span::after { transform: translateX(16px); background: var(--gw-on-accent); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .cp-switch:focus-within { outline: 2px solid var(--gw-cyan); outline-offset: 3px; border-radius: 18px; }
+
+/* One action/field language from simple settings to advanced inspectors. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.btn, .gday__btn, .gps-action, .gps-inline-btn, .gps-card__toggle-cfg, .gpi-btn, .gctrl-btn, .abtn, .cp-btn, .theme-chooser button) {
+  min-height: 40px;
+  padding: 9px 15px !important;
+  border: 1px solid var(--gw-border) !important;
+  border-radius: 10px !important;
+  background: color-mix(in srgb, var(--gw-raised) 55%, var(--gw-surface)) !important;
+  color: var(--gw-ink) !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  font-weight: 500 !important;
+  letter-spacing: .025em !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.btn--primary, .gday__btn--primary, .gps-action--primary, .gps-inline-btn--primary, .gpi-btn--primary, .cp-btn--primary, .glogin__btn) {
+  border-color: var(--gw-cyan) !important;
+  color: var(--gw-on-accent) !important;
+  background: var(--gd-primary-grad) !important;
+  box-shadow: var(--gi-glow) !important;
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.btn--danger, .gday__btn--danger, .gps-action--danger, .cp-btn--danger, .abtn--danger) { color: var(--gw-danger) !important; background: color-mix(in srgb, var(--gw-danger) 6%, var(--gw-surface)) !important; border-color: color-mix(in srgb, var(--gw-danger) 40%, var(--gw-border)) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gps-card__toggle-cfg[aria-expanded='true'], .theme-chooser button.is-active) { color: var(--gw-cyan) !important; background: var(--gi-hover) !important; border-color: var(--gw-cyan) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-pills { gap: 6px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-pill { min-height: 38px; padding: 8px 12px; border-radius: 9px; font-size: 12px; font-weight: 500; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-pill.is-active { color: var(--gw-cyan); background: var(--gi-hover); border-color: var(--gw-cyan); box-shadow: inset 0 -2px var(--gw-cyan); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-voice-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-voice-card { padding: 12px; background: color-mix(in srgb, var(--gw-raised) 45%, transparent); border-color: var(--gi-line); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-voice-card.is-active { color: var(--gw-cyan); background: var(--gi-hover); border-color: var(--gw-cyan); box-shadow: inset 0 0 18px color-mix(in srgb, var(--gw-cyan) 4%, transparent); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-voice-card__icon { font-size: 17px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-voice-card__hint { font-size: 11px; line-height: 1.5; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='hidden']), select, textarea) {
+  border-color: var(--gw-border) !important;
+  border-radius: 9px !important;
+  background: color-mix(in srgb, var(--gw-bg) 80%, var(--gw-surface)) !important;
+  color: var(--gw-ink) !important;
+  caret-color: var(--gw-cyan);
+}
+
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(input, select, textarea):focus-visible { border-color: var(--gw-cyan) !important; outline: 2px solid color-mix(in srgb, var(--gw-cyan) 35%, transparent) !important; outline-offset: 2px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gps-badge, .cp-status, .status-badge, .gday__chip, .conv-provider) { border-radius: 20px !important; letter-spacing: .035em; box-shadow: none !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-badge { padding: 4px 8px; font-size: 9px; line-height: 1.5; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-badge::before { width: 5px; height: 5px; box-shadow: none; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gps-warning, .gps-generic-cfg, .config-diagnostics-result, .data-section-intro, .settings-empty) { border-radius: 10px; border-color: var(--gi-line); background: color-mix(in srgb, var(--gw-raised) 35%, transparent); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .settings-card--danger { border-color: color-mix(in srgb, var(--gw-danger) 36%, var(--gw-border)) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.config-diagnostics-result, .gadm__logs) { color: var(--gw-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Day modules, meetings and evidence keep their existing reading order and
+   data-driven layouts; circuit edges and real selected states unify them. */
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tabs { padding: 6px 0 16px !important; border-bottom-color: var(--gi-line) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab-group-label { color: var(--gw-cyan); font-size: 9px; letter-spacing: .13em; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab { border-radius: 10px !important; font-size: 12px !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .gday__tab.is-active { background: var(--gi-hover) !important; border-color: color-mix(in srgb, var(--gw-cyan) 55%, var(--gw-border)) !important; box-shadow: var(--gi-glow) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.conv-hub__grid, .gday__quickbar, .gday__reminder-detail) { border: 1px solid var(--gi-line) !important; border-radius: 14px !important; background: var(--gi-glass) !important; box-shadow: none !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-list__item.is-active { background: var(--gi-hover); box-shadow: inset 2px 0 var(--gw-cyan); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-thread__header { border-bottom-color: var(--gi-line); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-insight { border-color: color-mix(in srgb, var(--gw-violet) 27%, var(--gw-border)); background: color-mix(in srgb, var(--gw-violet) 4%, var(--gw-surface)); border-radius: 10px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-insight__orb { color: var(--gw-violet); border-color: var(--gw-violet); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-message { background: var(--gw-surface); border-color: var(--gi-line); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .conv-message.is-out { background: var(--gi-hover); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.personal-memory-item, .trash-item) { border-color: var(--gi-line); background: color-mix(in srgb, var(--gw-raised) 25%, transparent); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) .personal-memory-item { border-left: 2px solid color-mix(in srgb, var(--gw-violet) 55%, var(--gw-border)); }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.results-tabs, .meeting-tabs, .env-tabs) { border-color: var(--gi-line); background: var(--gi-glass); border-radius: 11px; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.result-section, .transcription-panel, .meeting-transcript, .meeting-chat) { border-color: var(--gi-line) !important; }
+html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.stat-card, .cp-ops-metric) { border-color: var(--gi-line) !important; box-shadow: none !important; }
+
+/* Expanded desktop: the same real links form an arc, echoing the ZIP's HUD. */
+@media (min-width: 1420px) {
+  html body.gunter-workspace:not(.gunter-orbit-home-active) { padding-top: 133px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav { height: 126px !important; min-height: 126px !important; padding: 0 !important; align-items: flex-start !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__brand { position: absolute; top: 16px; left: 24px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gw-assistant-state { position: absolute; top: 76px; left: 25px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__links { position: relative; flex: none !important; width: min(950px, calc(100vw - 450px)); height: 112px; justify-content: center; align-items: flex-start; gap: 4px !important; margin: 0 auto !important; padding: 10px 8px !important; border: 0 !important; background: transparent !important; overflow: visible; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__links::before { content: ''; position: absolute; z-index: -1; pointer-events: none; top: 12px; left: 2%; width: 96%; height: 115px; border-top: 1px solid color-mix(in srgb, var(--gw-cyan) 27%, transparent); border-radius: 50%; box-shadow: 0 -6px 21px -17px var(--gw-cyan); }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__links > :is(a, details) { flex: 1 1 0; min-width: 0; position: relative; margin-top: var(--gi-sector-y, 0px) !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__links > a { display: flex !important; align-items: center; justify-content: center; min-height: 44px !important; padding: 9px 5px !important; border-color: var(--gi-line) !important; background: var(--gi-glass) !important; font-size: 10px !important; letter-spacing: .04em !important; white-space: nowrap; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__links > a::before { content: ''; flex: 0 0 4px; width: 4px; height: 4px; border: 1px solid currentColor; border-radius: 50%; margin-right: 6px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__links > :is(:first-child, :last-child) { --gi-sector-y: 41px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__links > :is(:nth-child(2), :nth-last-child(2)) { --gi-sector-y: 25px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__links > :is(:nth-child(3), :nth-last-child(3)) { --gi-sector-y: 13px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__links > :is(:nth-child(4), :nth-last-child(4)) { --gi-sector-y: 5px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__menu > summary { min-height: 44px !important; padding: 9px 5px !important; background: var(--gi-glass) !important; border-color: var(--gi-line) !important; font-size: 10px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gw-local-time { position: absolute; top: 25px; right: 80px; font-size: 11px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gw-theme-toggle { position: absolute; top: 66px; right: 73px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__settings { position: absolute; top: 66px; right: 26px; }
+}
+
+@media (min-width: 1160px) {
+  html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .gps[data-category='premium'] { display: grid; grid-template-columns: minmax(0, 1fr) 315px; align-items: start; gap: 18px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps[data-category='premium'] > .gps__intro { grid-column: 1 / -1; grid-row: 1; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps[data-category='premium'] > .gps__catalog { grid-column: 1; grid-row: 2 / 5; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps[data-category='premium'] > .gn-status-board { grid-column: 2; grid-row: 2; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps[data-category='premium'] > .gn-active-summary { grid-column: 2; grid-row: 3; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps[data-category='premium'] > .cp-settings { grid-column: 1 / -1; grid-row: 5; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps[data-category='premium'] .gn-status-board__grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 760px) {
+  html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__main, .dashboard-main, .config-page, .results-page, .meeting-page, .gadm) { padding-inline: 16px !important; }
+  html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-header { min-height: 0 !important; align-items: flex-start; }
+  html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-header__copy { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+  html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-header__ask { grid-column: 1; grid-row: 4; justify-self: start; margin-top: 6px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .config-orbit-index { display: none; }
+  html body.gunter-workspace.gunter-config-page:not(.gunter-orbit-home-active) .config-tabs .config-tab { flex-basis: 130px !important; justify-content: flex-start; padding-inline: 9px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__intro { grid-template-columns: 20px minmax(0, 1fr); padding: 14px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__intro-actions { grid-column: 2; width: 100%; margin-left: 0; padding-left: 0; justify-content: flex-start; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card { padding: 16px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card__controls { padding-left: 0; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card__head { gap: 9px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card__icon { width: 27px; height: 27px; flex-basis: 27px; font-size: 14px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-card__title h4 { font-size: 15px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__catalog > summary { flex-wrap: wrap; gap: 4px 10px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps__catalog > summary small { display: block; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gps-sub { gap: 12px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .cp-settings { padding: 16px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__dock .gw-dock-core { flex: 0 0 44px; min-width: 44px; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__dock .gw-write { flex: 0 0 auto; min-width: 84px; min-height: 44px !important; white-space: nowrap; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__dock .gw-write span { white-space: nowrap; overflow-wrap: normal; word-break: normal; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__dock .gunter-command-nav__voice { flex: 1 1 auto; min-width: 44px; min-height: 44px !important; padding-inline: 7px !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__dock .gunter-command-nav__voice span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) .gunter-command-nav__dock .gunter-icon { flex: 0 0 17px; }
+}
+
+/* Short, useful surface/selection transitions; no endlessly animated HUD. */
+@media (prefers-reduced-motion: no-preference) {
+  html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.config-tab, .gps-card, .gps-pill, .gps-voice-card, .gday__tab, .project-card, .conv-list__item) { transition: border-color .22s ease, background-color .22s ease, color .22s ease !important; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gps-card, .project-card, .analysis-card):hover { border-color: color-mix(in srgb, var(--gw-cyan) 45%, var(--gw-border)) !important; transform: none !important; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.btn, .gps-action, .gps-inline-btn, .gps-card__toggle-cfg, .cp-btn, .abtn):hover:not(:disabled) { border-color: var(--gw-cyan) !important; filter: none; }
+}
+
+@media (forced-colors: active) {
+  html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gps-switch, .settings-row--toggle input[type='checkbox'])::before { border: 1px solid ButtonText; background: Canvas; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gps-switch[aria-checked='true'], .settings-row--toggle input[type='checkbox']:checked)::before { background: Highlight; }
+  html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gps-switch, .settings-row--toggle input[type='checkbox'])::after { background: ButtonText; }
+}
