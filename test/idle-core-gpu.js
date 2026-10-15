@@ -3,6 +3,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../js/components/gunter-idle-core.js'),'utf8');
 const defaults={particleColor:'#b8bec9',energyColor:'#ff452b',glowColor:'#ff6d35',brightness:1,density:1,speed:1,size:1};
+const STEP=1/45;
 let checks=0;
 const check=(name,fn)=>{fn();console.log('ok '+(++checks)+' - '+name);};
 function environment(options={}) {
@@ -52,7 +53,8 @@ function environment(options={}) {
             samplers[name]={unit:samplerUnit,texture};
         }
         draws.push({program,framebuffer,texture:framebuffer?.texture,count,instances,viewport:viewport.slice(),
-            time:program.u_time?.[0],density:program.u_density?.[0],initialize:program.u_initialize?.[0],samplers});
+            time:program.u_time?.[0],density:program.u_density?.[0],initialize:program.u_initialize?.[0],samplers,
+            pointer:program.u_pointer?.slice(),pointerFlow:program.u_pointerFlow?.slice()});
     }
     gl.drawArrays=(mode,first,count)=>record(mode,count);
     gl.drawArraysInstanced=(mode,first,count,instances)=>{assert.ok(instances>0&&instances<=5120*95);record(mode,count,instances);};
@@ -69,6 +71,28 @@ function environment(options={}) {
         restored(){listeners.get('webglcontextrestored')();}};
 }
 function released(env){Object.entries(env.live).forEach(([kind,set])=>assert.equal(set.size,0,kind+' leaked'));}
+function interaction(core) {
+    const state=core.stats().interaction;
+    assert.ok(state,'interaction is observable without accessing private pointer state');
+    assert.deepEqual(Object.keys(state).sort(),['activity','vx','vy','x','y']);
+    const result=Object.fromEntries(Object.entries(state));
+    assert.ok(Object.values(result).every(Number.isFinite),'interaction remains finite');
+    assert.ok(Math.hypot(result.x,result.y)<=1+1e-12,'interaction stays inside the normalized disc');
+    assert.ok(result.activity>=0&&result.activity<=1,'activity stays normalized');
+    return result;
+}
+function near(actual,expected,message,tolerance=1e-10) {
+    assert.ok(Math.abs(actual-expected)<=tolerance,message+': '+actual+' ≈ '+expected);
+}
+function neutral(core) {assert.deepEqual(interaction(core),{x:0,y:0,activity:0,vx:0,vy:0});}
+function advanceSteps(env,count) {
+    for(let i=0;i<count;i++)env.render(env.core.simulationTime+STEP);
+}
+function assertPointerDraw(draw,state) {
+    assert.ok(draw,'the pass was dispatched');
+    assert.deepEqual(draw.pointer,[state.x,state.y,state.activity],'pass receives current interaction');
+    assert.deepEqual(draw.pointerFlow,[state.vx*.24,state.vy*.24,0],'pass receives shared pointer flow');
+}
 check('one transparent WebGL2 compositor uses floating material state and no point/buffer geometry',()=>{
     const e=environment();assert.ok(e.core.available);assert.equal(e.contexts.length,1);
     assert.equal(e.contexts[0].type,'webgl2');assert.equal(e.contexts[0].attributes.alpha,true);
@@ -178,6 +202,113 @@ check('the atlas rebuilds for display phase and square-root density without real
     assert.equal(e.core.field,field);assert.equal(e.created.Texture.length,created);
     e.core.dispose();released(e);
 });
+check('pointer targets use an 8 rad/s critically damped response only on fixed GPU advection steps',()=>{
+    const e=environment(),target={x:.75,y:-.5},omega=8;
+    neutral(e.core);e.core.setPointer(target.x,target.y);neutral(e.core);
+    e.render(8);neutral(e.core);
+    assertPointerDraw(e.draws.find(d=>d.program===e.core.programs.simulation.program),interaction(e.core));
+    const steps=e.core.steps;
+    e.render(8.005);e.render(8.005,{...defaults,brightness:2});e.render(4);
+    neutral(e.core);assert.equal(e.core.steps,steps,'initialization, presentation and older avatars do not integrate pointer motion');
+    let previousActivity=0;
+    for(let i=1;i<=60;i++) {
+        advanceSteps(e,1);
+        const state=interaction(e.core),elapsed=i*STEP,decay=Math.exp(-omega*elapsed);
+        const response=1-(1+omega*elapsed)*decay;
+        near(state.x,target.x*response,'critical x displacement');
+        near(state.y,target.y*response,'critical y displacement');
+        near(state.vx,target.x*omega*omega*elapsed*decay,'critical x velocity');
+        near(state.vy,target.y*omega*omega*elapsed*decay,'critical y velocity');
+        assert.ok(state.activity>=previousActivity,'activation approaches its target monotonically');
+        if(i===1)assert.ok(state.activity>0&&state.activity<1,'activation also starts smoothly');
+        previousActivity=state.activity;
+        assert.ok(state.x>=0&&state.x<=target.x,'approach does not overshoot x');
+        assert.ok(state.y<=0&&state.y>=target.y,'approach does not overshoot y');
+    }
+    assert.equal(e.core.steps,steps+60);
+    e.core.dispose();released(e);
+});
+check('pointer coordinates clamp radially and invalid inputs select a finite inactive target',()=>{
+    const e=environment();e.render(8);
+    const response=1-(1+8*STEP)*Math.exp(-8*STEP);
+    e.core.setPointer(3,4);neutral(e.core);advanceSteps(e,1);
+    let state=interaction(e.core);
+    near(state.x,.6*response,'radial normalization preserves x direction');
+    near(state.y,.8*response,'radial normalization preserves y direction');
+    e.core.resetPointer();e.core.setPointer(1e308,-1e308);advanceSteps(e,1);
+    state=interaction(e.core);
+    near(state.x,Math.SQRT1_2*response,'large finite coordinates do not overflow');
+    near(state.y,-Math.SQRT1_2*response,'large finite coordinates preserve direction');
+    for(const [x,y] of [[NaN,.5],[.5,NaN],[Infinity,.5],[.5,-Infinity],['.5',.5],[.5,undefined]]) {
+        e.core.resetPointer();e.core.setPointer(x,y);advanceSteps(e,1);neutral(e.core);
+    }
+    e.core.setPointer(.8,-.6,false);advanceSteps(e,1);neutral(e.core);
+    e.core.dispose();released(e);
+});
+check('leaving or invalidating the pointer returns smoothly to neutral without resetting material history',()=>{
+    for(const leave of [core=>core.setPointer(.4,.3,false),core=>core.setPointer(NaN,.3)]) {
+        const e=environment();e.render(8);e.core.setPointer(.8,-.6);advanceSteps(e,90);
+        const before=interaction(e.core),histories=e.core.histories.slice(),steps=e.core.steps;
+        const builds=e.core.fieldBuilds,created=e.created.Texture.length;
+        assert.ok(before.activity>.99);
+        leave(e.core);assert.deepEqual(interaction(e.core),before,'exit changes the target without teleporting material');
+        e.render(e.core.displayTime);assert.equal(e.core.fieldBuilds,builds,'an unintegrated target does not invalidate the atlas');
+        advanceSteps(e,90);
+        const after=interaction(e.core);
+        assert.ok(after.activity<before.activity&&Math.hypot(after.x,after.y)<Math.hypot(before.x,before.y));
+        for(const value of Object.values(after))near(value,0,'pointer settles after exit',1e-5);
+        assert.equal(e.core.steps,steps+90);assert.deepEqual(e.core.histories,histories);
+        assert.equal(e.created.Texture.length,created);
+        assert.equal(e.draws.filter(d=>d.program===e.core.programs.simulation.program&&d.initialize===1).length,1);
+        e.core.dispose();released(e);
+    }
+});
+check('all four GPU material passes share pointer uniforms and avatars never advance them twice',()=>{
+    const e=environment();e.render(8);e.core.setPointer(.6,.8);advanceSteps(e,1);
+    const state=interaction(e.core),steps=e.core.steps,builds=e.core.fieldBuilds,history=e.core.historyIndex;
+    for(const name of ['simulation','field','volume','strands']) {
+        const draw=e.draws.filter(d=>d.program===e.core.programs[name].program).at(-1);
+        assertPointerDraw(draw,state);
+    }
+    const histories=e.core.histories.slice(),field=e.core.field,created=e.created.Texture.length;
+    const framebuffers=e.created.Framebuffer.length,programs=e.created.Program.length;
+    const time=e.core.displayTime;
+    e.render(time,{...defaults,particleColor:'#00ff00',brightness:2,size:.7});
+    e.render(time-.1,{...defaults,energyColor:'#0000ff'});
+    e.core.setPointer(-.8,.6);e.render(time);
+    assert.deepEqual(interaction(e.core),state,'same and older avatars preserve one shared inertial state');
+    assert.equal(e.core.steps,steps);assert.equal(e.core.historyIndex,history);assert.equal(e.core.fieldBuilds,builds);
+    assert.deepEqual(e.core.histories,histories);assert.equal(e.core.field,field);
+    assert.equal(e.created.Texture.length,created);assert.equal(e.core.stats().filaments,2560);
+    advanceSteps(e,1);
+    assert.equal(e.core.steps,steps+1);assert.equal(e.core.fieldBuilds,builds+1);
+    const next=interaction(e.core);assert.notDeepEqual(next,state);
+    for(const name of ['simulation','field','volume','strands'])assertPointerDraw(e.draws.filter(d=>d.program===e.core.programs[name].program).at(-1),next);
+    assert.equal(e.created.Texture.length,created);assert.equal(e.created.Framebuffer.length,framebuffers);
+    assert.equal(e.created.Program.length,programs);assert.equal(e.core.stats().filaments,2560);
+    assert.equal(e.live.Framebuffer.size,7);assert.equal(e.live.Texture.size,7);
+    e.core.dispose();released(e);
+});
+check('resetPointer clears inertia immediately and invalidates a same-phase atlas exactly once',()=>{
+    const e=environment();e.render(8);
+    assert.equal(e.core.resetPointer(),false,'an already neutral pointer does not change');
+    e.core.setPointer(.5,-.8);
+    assert.equal(e.core.resetPointer(),true,'a pending target also counts as changed');neutral(e.core);
+    e.core.setPointer(.5,-.8);advanceSteps(e,12);
+    const histories=e.core.histories.slice(),field=e.core.field,created=e.created.Texture.length;
+    const time=e.core.displayTime,steps=e.core.steps,builds=e.core.fieldBuilds,history=e.core.historyIndex;
+    assert.equal(e.core.resetPointer(),true);neutral(e.core);
+    assert.equal(e.core.resetPointer(),false,'repeated reset is idempotent');
+    e.render(time);assert.equal(e.core.fieldBuilds,builds+1,'reset rebuilds cached pointer material at the same phase');
+    for(const name of ['field','volume','strands'])assertPointerDraw(e.draws.filter(d=>d.program===e.core.programs[name].program).at(-1),interaction(e.core));
+    e.render(time);assert.equal(e.core.fieldBuilds,builds+1,'neutral material is cached for subsequent avatars');
+    assert.equal(e.core.steps,steps);assert.equal(e.core.historyIndex,history);assert.deepEqual(e.core.histories,histories);
+    assert.equal(e.core.field,field);assert.equal(e.created.Texture.length,created);
+    advanceSteps(e,1);neutral(e.core);
+    assertPointerDraw(e.draws.filter(d=>d.program===e.core.programs.simulation.program).at(-1),interaction(e.core));
+    assert.equal(e.draws.filter(d=>d.program===e.core.programs.simulation.program&&d.initialize===1).length,1);
+    e.core.dispose();released(e);
+});
 check('finite input bounds and the legacy energy color alias remain supported',()=>{
     const e=environment();let out=e.render(NaN,{density:999,brightness:Infinity,size:-10},NaN,Infinity);
     assert.equal(out.width,512);assert.equal(out.height,512);assert.equal(e.core.stats().filaments,5120);
@@ -205,13 +336,17 @@ check('shader/link and framebuffer failures release partial allocations with tru
     e.options.failFramebufferAt=0;assert.doesNotThrow(()=>e.render());e.core.dispose();released(e);
 });
 check('context loss recreates the atlas, invalidates its cache and releases all resources on disposal',()=>{
-    const e=environment();e.render();const field=e.core.field,builds=e.core.fieldBuilds;
+    const e=environment();e.render();e.core.setPointer(.7,.4);advanceSteps(e,12);
+    assert.ok(interaction(e.core).activity>0);
+    const field=e.core.field,builds=e.core.fieldBuilds;
     e.lost();assert.equal(e.core.available,false);assert.equal(e.events.at(-1).detail.available,false);
     assert.throws(()=>e.render(),/contexto WebGL2/);
     e.restored();assert.equal(e.core.available,true);assert.equal(e.events.at(-1).detail.available,true);
+    neutral(e.core);
     assert.notEqual(e.core.field,field);assert.notEqual(e.core.field.texture,field.texture);
     assert.equal(e.core.fieldTime,null);assert.equal(e.core.fieldDensity,null);
     e.render(8);assert.equal(e.core.fieldBuilds,builds+1);assert.equal(e.core.fieldTime,8);
+    advanceSteps(e,1);neutral(e.core);
     assert.equal(e.live.Framebuffer.size,7);assert.equal(e.live.Texture.size,7);
     const restoredField=e.core.field;
     e.core.dispose();e.core.dispose();assert.equal(e.losses(),1);released(e);

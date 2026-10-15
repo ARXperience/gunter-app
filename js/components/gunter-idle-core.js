@@ -1,6 +1,6 @@
 /* GunterIdleCore — GPU-advected material filaments and a shared energy volume.
- * renderTo(canvas, width, height, seconds, config); stats(); dispose().
- * WebGL2 only. No point sprites, media, input, device capture or assistant state.
+ * renderTo(canvas, width, height, seconds, config); setPointer(x,y,active);
+ * resetPointer(); stats(); dispose(). No DOM input, media or device capture.
  */
 (function () {
     'use strict';
@@ -9,6 +9,8 @@
     const HEADER='#version 300 es\nprecision highp float;\nprecision highp int;\n';
     const FIELD=`
         uniform float u_time;
+        uniform vec3 u_pointer,u_pointerFlow;
+        vec3 worldPoint(vec3 p);
         vec3 hash3(vec3 p) {
             p=fract(p*vec3(.1031,.1030,.0973)); p+=dot(p,p.yxz+33.33);
             return fract((p.xxy+p.yzz)*p.zyx)*2.0-1.0;
@@ -30,8 +32,11 @@
             curl=vec3(dy.z-dz.y,dz.x-dx.z,dx.y-dy.x);
             return mix(mix(mix(a,b,u.x),mix(c,d,u.x),u.y),mix(mix(e,g,u.x),mix(h,j,u.x),u.y),u.z);
         }
-        vec3 energyCenter(float t) {
+        vec3 idleCenter(float t) {
             return vec3(.14*sin(t*.24),.12*cos(t*.27+1.3),.09*sin(t*.19));
+        }
+        vec3 energyCenter(float t) {
+            return idleCenter(t)+worldPoint(vec3(u_pointer.xy*.24,0));
         }
         vec3 energyFrame(vec3 p,float t) {
             vec3 q=p-energyCenter(t);
@@ -71,16 +76,20 @@
             vec3 direction=energyWorld(tangent,t)-energyCenter(t);
             vec3 offset=p-energySource(p,t);
             vec3 drift=vec3(.0336*cos(t*.24),-.0324*sin(t*.27+1.3),.0171*cos(t*.19));
+            drift+=worldPoint(u_pointerFlow)*.45;
             return energyHeat(p,t)*(drift+direction*.12+cross(direction,offset)*.18);
         }
         float matterDensity(vec3 p,float t) {
             vec3 unused;
-            vec3 q=p-energyCenter(t)*.25;
+            vec3 q=p-idleCenter(t)*.25;
             vec3 warp=potential(q*1.85+vec3(t*.045,2.1-t*.035,-1.3+t*.025),unused);
             q+=warp*.18;
             vec3 coarse=potential(q*3.1+vec3(1.7+t*.04,-2.3-t*.03,t*.035),unused);
             float radius=length(q*vec3(.96,1.03,1.10))+coarse.x*.12;
             float envelope=1.0-smoothstep(.60,.81,radius);
+            // Anchor the envelope; only nearby folds bend with internal energy.
+            vec3 offset=p-energyCenter(t);
+            q-=worldPoint(vec3(u_pointer.xy*.24,0))*exp(-dot(offset,offset)/.18)*.22;
             float folds=.5+.5*sin(q.y*11.8+q.z*5.3+coarse.x*4.5+coarse.z*2.8+t*.14);
             // Finite folded coats with sparse matter between them, rather than
             // a uniformly filled sphere. The warped envelope leaves cavities.
@@ -93,7 +102,7 @@
             return envelope*packing*cavity*(.15+fine*fine*1.50);
         }
         vec3 velocity(vec3 p,float t,float row,float boundary) {
-            vec3 q=p-energyCenter(t)*.55,curl,fine,micro;
+            vec3 q=p-idleCenter(t)*.55,curl,fine,micro;
             potential(q*2.05+vec3(t*.055,-t*.045,t*.035),curl);
             potential(q*5.8+vec3(4.3-t*.23,-2.1+t*.19,t*.21),fine);
             potential(q*12.4+vec3(-5.7+t*.37,3.4-t*.31,t*.41),micro);
@@ -109,6 +118,9 @@
             // They change spacing and folds, not merely the object's rotation.
             v+=q*sin(t*.83+q.x*4.2-q.z*3.4)*.035;
             v+=energyTransport(p,t);
+            vec3 local=p-energyCenter(t);
+            float influence=u_pointer.z*exp(-dot(local,local)/.16);
+            v+=(fine*.12+micro*.055)*influence;
             float outside=max(0.0,length(p*vec3(.94,1.02,1.13))-.87);
             v-=p*outside*3.2*boundary;
             float core=step(.19,fract(row*.56984));
@@ -287,7 +299,7 @@
             float matter=material.r;
             vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,emission+material.b*.45));
             vec3 color=u_particle*tint*material.b*(.55+material.a*2.0)*(1.0-emission*.65)
-                +u_energy*incident*1.1+u_glow*emission*emission*.35;
+                +u_energy*incident*1.1+u_glow*emission*emission*(.35+u_pointer.z*.32);
             // Broad erosion creates differently sized wisps; fine coverage
             // turns each wisp into porous, irregular microfibres, not a cable.
             float lengths=3.0+15.0*fract(v_seed*.56984);
@@ -316,7 +328,7 @@
                 float z=.96-(float(i)+.5+jitter)*(1.92/40.0);
                 vec3 p=worldPoint(vec3(xy,z));
                 vec4 material=mediumAt(p);
-                vec3 detail=p-energyCenter(u_time)*.25;
+                vec3 detail=p-idleCenter(u_time)*.25;
                 vec3 unused;
                 float grains=potential(detail*83.0+vec3(u_time*.14,-u_time*.10,0),unused).x*.5+.5;
                 float grain=.08+1.85*smoothstep(.35,.65,grains);
@@ -328,7 +340,8 @@
                 float face=material.a*material.a;
                 vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,heat+incident*.45));
                 vec3 light=u_particle*tint*incident*(.10+face*3.8)*(1.0-heat*.65)
-                    +u_energy*(heat*2.8+incident*.10)+u_glow*heat*heat*.25;
+                    +u_energy*(heat*(2.8+u_pointer.z*heat*.32)+incident*.10)
+                    +u_glow*heat*heat*(.25+u_pointer.z*.28);
                 color+=(1.0-opacity)*light*density;
                 opacity+=(1.0-opacity)*density;
                 if(opacity>.985)break;
@@ -384,6 +397,7 @@
         constructor() {
             this.canvas=document.createElement('canvas');
             this.available=false;this.error='';this.frames=0;this.steps=0;this.fieldBuilds=0;this.resources=[];
+            this.pointerRevision=0;this.resetPointer();
             this.canvas.addEventListener('webglcontextlost',event=>{
                 event.preventDefault();this.available=false;this.error='Se perdió el contexto WebGL2.';
                 this.announce();
@@ -392,6 +406,7 @@
                 if(this.disposed)return;
                 this.resources=[];this.targets=null;this.histories=null;this.field=null;this.fieldTime=null;this.fieldDensity=null;
                 this.simulationTime=null;this.displayTime=null;
+                this.resetPointer();
                 this.width=this.height=0;this.initialize();this.announce();
             });
             this.initialize();
@@ -438,6 +453,40 @@
         use(program){this.gl.useProgram(program.program);}
         scalar(program,name,value){this.gl.uniform1f(this.uniform(program,name),value);}
         vector(program,name,value){this.gl.uniform3fv(this.uniform(program,name),value);}
+        setPointer(x,y,active=true) {
+            if(this.disposed)return;
+            active=active===true&&Number.isFinite(x)&&Number.isFinite(y);
+            x=active?x:0;y=active?y:0;
+            const scale=Math.max(1,Math.abs(x),Math.abs(y));x/=scale;y/=scale;
+            const radius=Math.hypot(x,y);
+            if(scale>1||radius>1){x/=radius;y/=radius;}
+            this.pointerTarget={x,y,active:active?1:0};
+        }
+        resetPointer() {
+            const p=this.pointer,target=this.pointerTarget;
+            const changed=!!(p&&(p.x||p.y||p.activity||p.vx||p.vy)||target&&(target.x||target.y||target.active));
+            this.pointer={x:0,y:0,activity:0,vx:0,vy:0};this.pointerTarget={x:0,y:0,active:0};
+            if(changed)this.pointerRevision++;
+            return changed;
+        }
+        advancePointer() {
+            const p=this.pointer,target=this.pointerTarget,omega=8,decay=Math.exp(-omega*STEP);
+            const before=[p.x,p.y,p.activity,p.vx,p.vy];
+            for(const [axis,velocity] of [['x','vx'],['y','vy']]) {
+                const d=p[axis]-target[axis],c=p[velocity]+omega*d;
+                p[axis]=target[axis]+(d+c*STEP)*decay;
+                p[velocity]=(p[velocity]-omega*c*STEP)*decay;
+                if(Math.abs(p[axis]-target[axis])<.0001&&Math.abs(p[velocity])<.0001){p[axis]=target[axis];p[velocity]=0;}
+            }
+            p.activity+=(target.active-p.activity)*(1-Math.exp(-7*STEP));
+            if(Math.abs(p.activity-target.active)<.0001)p.activity=target.active;
+            if(before.some((v,i)=>v!==[p.x,p.y,p.activity,p.vx,p.vy][i]))this.pointerRevision++;
+        }
+        interactionUniforms(program) {
+            const p=this.pointer;
+            this.vector(program,'u_pointer',[p.x,p.y,p.activity]);
+            this.vector(program,'u_pointerFlow',[p.vx*.24,p.vy*.24,0]);
+        }
         texture(program,name,texture,unit=0) {
             const gl=this.gl;gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);
             gl.uniform1i(this.uniform(program,name),unit);
@@ -479,7 +528,9 @@
         quad(target){this.destination(target);this.gl.drawArrays(this.gl.TRIANGLES,0,3);}
         simulate(time,initialize=false) {
             const gl=this.gl,p=this.programs.simulation,next=1-this.historyIndex;
+            if(!initialize)this.advancePointer();
             this.use(p);this.scalar(p,'u_time',time);this.scalar(p,'u_dt',STEP);
+            this.interactionUniforms(p);
             gl.uniform1i(this.uniform(p,'u_initialize'),initialize?1:0);
             this.texture(p,'u_history',this.histories[this.historyIndex].texture);
             gl.disable(gl.BLEND);this.quad(this.histories[next]);
@@ -498,12 +549,14 @@
         draw(config) {
             const gl=this.gl,t=this.displayTime,volume=this.programs.volume;
             const density=Math.sqrt(config.density);
-            if(this.fieldTime!==t||this.fieldDensity!==density) {
+            if(this.fieldTime!==t||this.fieldDensity!==density||this.fieldPointerRevision!==this.pointerRevision) {
                 const field=this.programs.field;gl.disable(gl.BLEND);this.use(field);
+                this.interactionUniforms(field);
                 this.scalar(field,'u_time',t);this.scalar(field,'u_density',density);this.quad(this.field);
-                this.fieldTime=t;this.fieldDensity=density;this.fieldBuilds++;
+                this.fieldTime=t;this.fieldDensity=density;this.fieldPointerRevision=this.pointerRevision;this.fieldBuilds++;
             }
             gl.disable(gl.BLEND);this.use(volume);
+            this.interactionUniforms(volume);
             this.texture(volume,'u_field',this.field.texture);
             gl.uniform2f(this.uniform(volume,'u_resolution'),this.width,this.height);
             this.scalar(volume,'u_time',t);this.scalar(volume,'u_size',config.size);this.scalar(volume,'u_brightness',config.brightness);
@@ -513,6 +566,7 @@
             const copy=this.programs.copy;this.use(copy);this.texture(copy,'u_image',this.targets.energy.texture);
             this.quad(this.targets.scene);
             const strands=this.programs.strands;this.use(strands);
+            this.interactionUniforms(strands);
             this.texture(strands,'u_history',this.histories[this.historyIndex].texture);
             this.texture(strands,'u_volume',this.targets.energy.texture,1);
             this.texture(strands,'u_field',this.field.texture,2);
@@ -551,7 +605,7 @@
             return {renderer:'webgl-filaments',simulation:'gpu-advected-material-filaments',available:this.available,frames:this.frames,
                 steps:this.steps,filaments:this.activeFilaments||0,segmentsPerFilament:HISTORY-1,
                 time:this.simulationTime,width:this.width,height:this.height,error:this.error,
-                volumeGrid:48,volumeSamples:40,fieldBuilds:this.fieldBuilds};
+                volumeGrid:48,volumeSamples:40,fieldBuilds:this.fieldBuilds,interaction:{...this.pointer}};
         }
         release() {
             if(!this.gl)return;

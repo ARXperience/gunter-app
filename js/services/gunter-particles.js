@@ -10,6 +10,7 @@
     const motionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
     let config, savedReduced = false, engine = null, engineError = '', raf = 0, lastFrame = 0;
     let animationTime = STATIC_TIME, disposed = false, suspended = false, mutations = null, drawBlocked = false;
+    let pointerOwner = null;
 
     const object = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     const clamp = (value, low, high, fallback) => typeof value === 'number' && Number.isFinite(value)
@@ -48,6 +49,29 @@
     function stopFrames() {
         if (raf) window.cancelAnimationFrame(raf);
         raf = 0; lastFrame = 0;
+    }
+    function clearPointer(immediate = false) {
+        const hadOwner = pointerOwner !== null; pointerOwner = null;
+        if (immediate) {
+            if (engine?.resetPointer?.()) records.forEach(record => { record.dirty = true; });
+        } else if (hadOwner) engine?.setPointer?.(0, 0, false);
+    }
+    function movePointer(event) {
+        if (disposed || suspended || document.hidden || reduced() || config.speed <= 0 || drawBlocked
+            || !engine?.available || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return;
+        // Observe only. Hosts stay pointer-transparent, and touch keeps native scroll/click behaviour.
+        if (event.pointerType && !['mouse', 'pen'].includes(event.pointerType)) { clearPointer(); return; }
+        const hovered = [...records.values()].filter(record => record.animated && record.visible && record.el.isConnected)
+            .map(record => ({ record, box: record.el.getBoundingClientRect() }))
+            .filter(({ box }) => event.clientX >= box.left && event.clientX <= box.left + box.width
+                && event.clientY >= box.top && event.clientY <= box.top + box.height)
+            .sort((a, b) => a.box.width * a.box.height - b.box.width * b.box.height)[0];
+        if (!hovered) { clearPointer(); return; }
+        const { record, box } = hovered, radius = Math.min(box.width, box.height) * .5;
+        if (!radius) { clearPointer(); return; }
+        pointerOwner = record;
+        engine.setPointer?.((event.clientX - box.left - box.width * .5) / radius,
+            (box.top + box.height * .5 - event.clientY) / radius, true);
     }
     function ensureEngine() {
         if (drawBlocked && !engine) return null;
@@ -112,6 +136,8 @@
                 && record.width >= 96 && record.height >= 96)
             .sort((a, b) => b.width * b.height - a.width * a.height).slice(0, 2) : [];
         const selected = new Set(eligible);
+        if (!active || reduced() || config.speed <= 0 || drawBlocked || !engine?.available
+            || (pointerOwner && !selected.has(pointerOwner))) clearPointer(true);
         for (const record of records.values()) {
             const animated = selected.has(record);
             if (record.animated !== animated) { record.animated = animated; record.dirty = true; }
@@ -212,6 +238,7 @@
         elements.forEach(mountOne);
     }
     function destroy(record) {
+        if (pointerOwner === record) clearPointer(true);
         observer?.unobserve(record.el); record.resizeObserver?.disconnect();
         if (record.revealedStatus) record.el.setAttribute('aria-hidden', record.originalAriaHidden);
         record.disposers.forEach(remove => remove()); record.canvas.remove(); record.status.remove();
@@ -244,13 +271,17 @@
             }
         });
         if (motionQuery?.addEventListener) listen(motionQuery, 'change', invalidate);
+        listen(window, 'pointermove', movePointer, { passive: true });
+        listen(window, 'pointerout', event => { if (!event.relatedTarget) clearPointer(); }, { passive: true });
+        listen(window, 'pointercancel', () => clearPointer(), { passive: true });
+        listen(window, 'blur', () => clearPointer());
         listen(window, 'gunter-idle-core-availability', invalidate);
         listen(document, 'visibilitychange', () => {
             if (document.hidden) stopFrames();
             invalidate();
         });
         listen(window, 'pagehide', event => {
-            suspended = true; stopFrames();
+            suspended = true; stopFrames(); clearPointer(true);
             records.forEach(record => {
                 if (record.el.dataset.particlesReady === 'true') record.el.dataset.particlesStatus = 'paused';
             });

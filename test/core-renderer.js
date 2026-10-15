@@ -23,6 +23,7 @@ function emitter(object = {}) {
             });
         },
         listenerCount(type) { return listeners.get(type)?.size || 0; },
+        listenerOptions(type) { return [...(listeners.get(type)?.values() || [])]; },
         allListeners() { return [...listeners].flatMap(([type, callbacks]) => callbacks.size ? [type] : []); },
         dispatchEvent(event) { this.fire(event.type, event); return true; }
     });
@@ -33,18 +34,18 @@ function classes() {
         remove: (...names) => names.forEach(name => values.delete(name)) };
 }
 function environment(options = {}) {
-    const nodes = [], frames = new Map(), observers = [], engines = [], renders = [], writes = [];
+    const nodes = [], frames = new Map(), observers = [], engines = [], renders = [], writes = [], inputs = [];
     const storage = new Map([['gunter_prefs', JSON.stringify(options.prefs || {})]]);
     let sequence = 0, now = 0, renderFailure = options.renderFailure === true;
     function element(tag = 'span') {
         const properties = new Map();
         const node = emitter({ tagName: tag.toUpperCase(), nodeType: 1, dataset: {}, classList: classes(),
             style: { setProperty: (name, value) => properties.set(name, value), getPropertyValue: name => properties.get(name) || '' },
-            children: [], attributes: {}, isConnected: true, width: 400, height: 400, hidden: false,
+            children: [], attributes: {}, isConnected: true, left: 0, top: 0, width: 400, height: 400, hidden: false,
             setAttribute(name, value) { this.attributes[name] = value; },
             getAttribute(name) { return this.attributes[name] ?? null; },
             removeAttribute(name) { delete this.attributes[name]; },
-            getBoundingClientRect() { return { left: 0, top: 0, width: this.width, height: this.height }; },
+            getBoundingClientRect() { return { left: this.left, top: this.top, width: this.width, height: this.height }; },
             querySelectorAll(selector) { return this.children.flatMap(child => [
                 ...(child.matches(selector) ? [child] : []), ...child.querySelectorAll(selector)
             ]); },
@@ -85,7 +86,20 @@ function environment(options = {}) {
         }
     });
     if (!options.missingEngine) window.GunterIdleCore = class {
-        constructor() { this.available = options.webgl !== false; this.error = this.available ? '' : 'WebGL disabled'; this.disposes = 0; engines.push(this); }
+        constructor() {
+            this.available = options.webgl !== false; this.error = this.available ? '' : 'WebGL disabled'; this.disposes = 0;
+            this.pointerTarget = { x: 0, y: 0, active: false }; this.pointerDirty = false; engines.push(this);
+        }
+        setPointer(x, y, active = true) {
+            assert.ok(Number.isFinite(x) && Number.isFinite(y));
+            this.pointerTarget = { x, y, active }; this.pointerDirty ||= active;
+            inputs.push({ engine: this, kind: 'pointer', x, y, active });
+        }
+        resetPointer() {
+            const changed = this.pointerDirty;
+            this.pointerTarget = { x: 0, y: 0, active: false }; this.pointerDirty = false;
+            inputs.push({ engine: this, kind: 'reset', changed }); return changed;
+        }
         renderTo(canvas, width, height, time, config) {
             assert.equal(canvas.tagName, 'CANVAS');
             if (renderFailure) throw new Error('draw failed');
@@ -103,7 +117,7 @@ function environment(options = {}) {
     const visibility = (visible, target = art) => observers.find(observer => observer instanceof window.IntersectionObserver)
         .callback([{ target, isIntersecting: visible }]);
     if (!options.loading && options.autoVisible !== false) visibility(true);
-    return { art, body, window, document, nodes, frames, observers, motion, engines, renders, writes,
+    return { art, body, window, document, nodes, frames, observers, motion, engines, renders, writes, inputs,
         api: window.GunterParticles, visibility, canvas: target => (target || art).children[0],
         step(milliseconds = 34) {
             now += milliseconds; const scheduled = [...frames.values()]; frames.clear(); scheduled.forEach(callback => callback(now));
@@ -123,6 +137,23 @@ function environment(options = {}) {
             visibility(true, next); return next;
         }
     };
+}
+function pointerInputs(env) { return env.inputs.filter(input => input.kind === 'pointer'); }
+function pointerAt(env, x, y, pointerType = 'mouse', extras = {}) {
+    env.window.fire('pointermove', { clientX: x, clientY: y, pointerType, ...extras });
+}
+function lastPointer(env) {
+    const input = pointerInputs(env).at(-1);
+    assert.ok(input, 'the wrapper forwarded a pointer target');
+    return { x: input.x, y: input.y, active: input.active };
+}
+function assertReset(env) {
+    assert.equal(env.inputs.at(-1)?.kind, 'reset');
+    const active = env.inputs.findLastIndex(input => input.kind === 'pointer' && input.active);
+    assert.ok(active >= 0);
+    assert.ok(env.inputs.slice(active + 1).some(input => input.kind === 'reset' && input.changed),
+        'the active shared interaction was cleared');
+    assert.deepEqual(env.engines[0].pointerTarget, { x: 0, y: 0, active: false });
 }
 
 check('Existing API mounts an idle canvas while preserving the host layout', () => {
@@ -325,9 +356,124 @@ check('OS and cross-tab preference changes freeze and resume without writing set
     assert.equal(env.frames.size, 0); assert.equal(env.api.getConfig().color, '#00bbff'); assert.equal(env.writes.length, 0);
     env.setPrefs({ reduceMotion: false }); env.window.fire('storage', { key: 'gunter_prefs' }); assert.equal(env.frames.size, 1);
 });
-check('Idle rendering installs no pointer, audio, microphone, or assistant state listeners', () => {
+check('Pointer targets use the displayed host rectangle, its short dimension and an upward positive Y axis', () => {
+    const env = environment({ width: 400, height: 200, dpr: 2 });
+    env.art.left = 120; env.art.top = 80; env.art.style.transform = 'scale(1)';
+    const config = plain(env.api.getConfig()), renders = env.renders.length;
+    pointerAt(env, 320, 180); assert.deepEqual(lastPointer(env), { x: 0, y: 0, active: true });
+    pointerAt(env, 420, 130); assert.deepEqual(lastPointer(env), { x: 1, y: .5, active: true });
+    pointerAt(env, 120, 280, 'pen'); assert.deepEqual(lastPointer(env), { x: -2, y: -1, active: true });
+    assert.ok(pointerInputs(env).every(input => input.engine === env.engines[0]), 'input uses the shared compositor');
+    assert.equal(env.renders.length, renders, 'observing input does not create an extra render loop');
+    assert.deepEqual(plain(env.api.getConfig()), config); assert.equal(env.writes.length, 0);
+    assert.equal(env.art.style.transform, 'scale(1)'); assert.equal(env.art.dataset.coreState, 'idle');
+});
+check('Overlapping hosts select the smallest eligible animated rectangle and ignore thumbnails and static cores', () => {
+    const env = environment(), chat = env.append('chat', 200), third = env.append('hero', 180), thumb = env.append('thumb', 44);
+    chat.left = chat.top = 100; third.left = third.top = 110; thumb.left = thumb.top = 175;
+    assert.equal(third.dataset.particlesStatus, 'static');
+    pointerAt(env, 210, 190); assert.deepEqual(lastPointer(env), { x: .1, y: .1, active: true });
+    env.visibility(false, chat); assertReset(env);
+    assert.equal(third.dataset.particlesStatus, 'animated');
+    pointerAt(env, 210, 190); assert.deepEqual(lastPointer(env), { x: 1 / 9, y: 1 / 9, active: true });
+    env.visibility(false, third); assertReset(env);
+    pointerAt(env, 210, 190); assert.deepEqual(lastPointer(env), { x: .05, y: .05, active: true });
+    third.isConnected = false; chat.isConnected = false;
+    pointerAt(env, 210, 190); assert.deepEqual(lastPointer(env), { x: .05, y: .05, active: true });
+    assert.equal(env.engines.length, 1);
+});
+check('Thumbnails, small hosts, invisible hosts and unavailable compositors do not accept pointer input', () => {
+    for (const options of [{ variant: 'thumb', width: 200 }, { width: 80 }, { autoVisible: false },
+        { webgl: false }, { missingEngine: true }]) {
+        const env = environment(options);
+        pointerAt(env, 30, 30); pointerAt(env, 35, 35, 'pen');
+        assert.equal(pointerInputs(env).length, 0);
+    }
+    const env = environment(); env.art.isConnected = false;
+    pointerAt(env, 100, 100); assert.equal(pointerInputs(env).length, 0, 'detached records are ignored before mutation delivery');
+});
+check('Pointer observation leaves native touch and click behavior intact and sends each soft exit once', () => {
+    for (const exit of ['outside', 'pointerout', 'pointercancel', 'blur', 'touch']) {
+        const env = environment(); let intercepted = 0;
+        const event = { preventDefault() { intercepted++; }, stopPropagation() { intercepted++; },
+            stopImmediatePropagation() { intercepted++; } };
+        pointerAt(env, 250, 150, 'mouse', event);
+        const count = pointerInputs(env).length;
+        env.window.fire('pointerout', { relatedTarget: env.body });
+        assert.equal(pointerInputs(env).length, count, 'moving between page descendants keeps interaction active');
+        const leave = () => {
+            if (exit === 'outside') pointerAt(env, 500, 500, 'mouse', event);
+            else if (exit === 'touch') pointerAt(env, 200, 200, 'touch', event);
+            else env.window.fire(exit, { ...event, relatedTarget: null });
+        };
+        leave(); assert.deepEqual(lastPointer(env), { x: 0, y: 0, active: false });
+        assert.equal(pointerInputs(env).length, count + 1, exit + ' sends one neutral target');
+        leave(); assert.equal(pointerInputs(env).length, count + 1, 'repeated exits do not resubmit targets');
+        assert.equal(env.inputs.filter(input => input.kind === 'reset' && input.changed).length, 0, 'normal exits retain core inertia');
+        assert.equal(intercepted, 0); assert.equal(env.frames.size, 1);
+        pointerAt(env, 250, 150); assert.equal(lastPointer(env).active, true, 'mouse can return after an exit');
+    }
+    const env = environment(); pointerAt(env, 250, 150);
+    const count = pointerInputs(env).length;
+    pointerAt(env, NaN, 150); pointerAt(env, 250, Infinity);
+    assert.equal(pointerInputs(env).length, count, 'nonfinite browser coordinates never reach the core');
+});
+check('Pausing, reduced motion and a hidden page reset interaction immediately and block new targets until resume', () => {
+    for (const pause of ['speed', 'hidden', 'os', 'class', 'saved']) {
+        const env = environment(); pointerAt(env, 250, 150);
+        if (pause === 'speed') env.api.configure({ speed: 0 });
+        if (pause === 'hidden') { env.document.hidden = true; env.document.fire('visibilitychange'); }
+        if (pause === 'os') { env.motion.matches = true; env.motion.fire('change'); }
+        if (pause === 'class') {
+            env.document.documentElement.classList.add('reduce-motion');
+            env.mutate({ type: 'attributes', target: env.document.documentElement });
+        }
+        if (pause === 'saved') { env.setPrefs({ reduceMotion: true }); env.window.fire('storage', { key: 'gunter_prefs' }); }
+        assertReset(env);
+        const count = pointerInputs(env).length; pointerAt(env, 100, 100);
+        assert.equal(pointerInputs(env).length, count); assert.equal(env.frames.size, 0);
+        if (pause === 'speed') env.api.configure({ speed: 1 });
+        if (pause === 'hidden') { env.document.hidden = false; env.document.fire('visibilitychange'); }
+        if (pause === 'os') { env.motion.matches = false; env.motion.fire('change'); }
+        if (pause === 'class') {
+            env.document.documentElement.classList.remove('reduce-motion');
+            env.mutate({ type: 'attributes', target: env.document.documentElement });
+        }
+        if (pause === 'saved') { env.setPrefs({ reduceMotion: false }); env.window.fire('storage', { key: 'gunter_prefs' }); }
+        assert.equal(pointerInputs(env).length, count, 'resume does not restore a stale pointer target');
+        assert.deepEqual(env.engines[0].pointerTarget, { x: 0, y: 0, active: false });
+        pointerAt(env, 100, 100); assert.equal(pointerInputs(env).length, count + 1); assert.equal(lastPointer(env).active, true);
+    }
+});
+check('Removing the pointer owner clears shared interaction while preserving another animated host', () => {
+    const env = environment(), chat = env.append('chat', 200); chat.left = 500;
+    pointerAt(env, 600, 100); assert.equal(lastPointer(env).active, true);
+    chat.isConnected = false; env.mutate({ type: 'childList', addedNodes: [] });
+    assertReset(env); assert.equal(env.engines[0].disposes, 0); assert.equal(env.frames.size, 1);
+    const count = pointerInputs(env).length; pointerAt(env, 600, 100);
+    assert.equal(pointerInputs(env).length, count, 'removed owner cannot acquire input');
+    pointerAt(env, 200, 200); assert.equal(lastPointer(env).active, true);
+});
+check('BFCache clears interaction before suspension and resumes without a stale target', () => {
+    const env = environment(); pointerAt(env, 250, 150);
+    env.window.fire('pagehide', { persisted: true }); assertReset(env);
+    const count = pointerInputs(env).length; pointerAt(env, 250, 150);
+    assert.equal(pointerInputs(env).length, count); assert.equal(env.engines[0].disposes, 0);
+    env.window.fire('pageshow', { persisted: true });
+    assert.deepEqual(env.engines[0].pointerTarget, { x: 0, y: 0, active: false });
+    assert.equal(pointerInputs(env).length, count); assert.equal(env.engines.length, 1);
+    pointerAt(env, 250, 150); assert.equal(pointerInputs(env).length, count + 1);
+});
+check('Idle rendering observes only passive pointer movement and exits without audio, microphone or assistant state listeners', () => {
     const env = environment();
-    const types = ['pointermove', 'pointerleave', 'pointercancel', 'pointerdown', 'gunter-audio-level', 'gunter-voice-state',
+    for (const type of ['pointermove', 'pointerout', 'pointercancel']) {
+        assert.equal(env.window.listenerCount(type), 1);
+        assert.deepEqual(env.window.listenerOptions(type).map(option => option.passive), [true]);
+        assert.equal(env.document.listenerCount(type), 0); assert.equal(env.art.listenerCount(type), 0);
+    }
+    assert.equal(env.window.listenerCount('blur'), 1);
+    assert.equal(env.document.listenerCount('blur'), 0); assert.equal(env.art.listenerCount('blur'), 0);
+    const types = ['pointerleave', 'pointerdown', 'pointerup', 'click', 'touchstart', 'touchmove', 'mousemove', 'gunter-audio-level', 'gunter-voice-state',
         'gunter-conversation-state', 'gunter-push-to-talk-state', 'wake-word-state', 'gunter-vad-state'];
     for (const type of types) {
         assert.equal(env.window.listenerCount(type), 0); assert.equal(env.document.listenerCount(type), 0); assert.equal(env.art.listenerCount(type), 0);
@@ -336,6 +482,7 @@ check('Idle rendering installs no pointer, audio, microphone, or assistant state
     env.step(); assert.equal(env.art.dataset.coreState, 'idle'); assert.equal(env.art.dataset.audioLevel, undefined);
     assert.doesNotMatch(source, /getUserMedia|AudioContext|WebAudio|GunterVoice|GunterSTT|GunterWakeWord|\.fetch\(/);
     assert.doesNotMatch(source, /createElement\(['"](?:video|img)['"]\)|\.mp4|\.jpg/);
+    assert.doesNotMatch(source, /preventDefault|stopPropagation|stopImmediatePropagation|setPointerCapture|style\.transform/);
 });
 check('Unavailable WebGL exposes accessible status without a retry loop', () => {
     for (const options of [{ webgl: false, ariaHidden: true }, { missingEngine: true, ariaHidden: true }]) {
@@ -380,10 +527,14 @@ check('BFCache page hide freezes rendering and page show reuses existing canvas 
     assert.equal(env.canvas(), canvas); assert.equal(env.engines.length, 1); assert.equal(env.art.dataset.particlesReady, 'true');
 });
 check('Final page exit disposes the compositor, observers and listeners and prevents remounting', () => {
-    const env = environment(); env.append('thumb', 44); env.window.fire('pagehide', { persisted: false });
+    const env = environment(); env.append('thumb', 44); pointerAt(env, 250, 150);
+    env.window.fire('pagehide', { persisted: false }); assertReset(env);
     assert.equal(env.frames.size, 0); assert.equal(env.art.children.length, 0); assert.equal(env.engines[0].disposes, 1);
     assert.ok(env.observers.every(observer => observer.disconnected)); assert.deepEqual(env.window.allListeners(), []);
     assert.deepEqual(env.document.allListeners(), []); assert.deepEqual(env.motion.allListeners(), []);
+    const inputs = env.inputs.length;
+    pointerAt(env, 250, 150); env.window.fire('pointerout', { relatedTarget: null });
+    env.window.fire('pointercancel'); env.window.fire('blur'); assert.equal(env.inputs.length, inputs);
     env.api.mount(env.art); assert.equal(env.art.children.length, 0); assert.equal(env.engines.length, 1);
 });
 check('Deferred DOM initialization mounts once after the document is ready', () => {

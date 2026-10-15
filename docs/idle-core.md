@@ -95,7 +95,41 @@ la velocidad en su reloj; pausa y reanudación no saltan de forma. Un salto
 explícito de más de cuatro segundos en el uso directo reinicializa el material,
 evitando recuperar miles de pasos en un único frame.
 
+## Interacción interna del puntero
+
+El contenedor, el canvas, la cámara y la envolvente no se trasladan ni escalan
+por el mouse. Solo el emisor recibe un desplazamiento acotado de 0,24 unidades
+en el plano de la vista, con respuesta críticamente amortiguada (8 rad/s).
+Los pliegues próximos se deforman, la velocidad arrastra fibras y aumenta la
+turbulencia local. El glow adicional depende del calor próximo a ese emisor,
+no de un filtro uniforme aplicado al contenedor.
+
+El wrapper observa `pointermove` pasivamente sobre vistas grandes elegibles;
+no captura eventos ni bloquea enlaces o botones. En solapamientos prevalece la
+vista menor. Miniaturas y touch no controlan la interacción. Al salir, la energía
+retorna suavemente al reposo. Pausa, movimiento reducido, ocultación, desmontado
+y BFCache limpian el estado; no se guardan coordenadas ni nuevas preferencias.
+Todas las vistas reutilizan una sola inercia y el atlas existente, sin añadir
+partículas, buffers o dependencias.
+
+Uso directo: `core.setPointer(x, y, true)` acepta coordenadas de vista
+normalizadas (Y positiva hacia arriba), limitadas radialmente al disco unidad.
+`core.setPointer(0, 0, false)` libera con inercia; `core.resetPointer()` vuelve
+inmediatamente a neutral. La integración ocurre solo en pasos nuevos de
+advección, nunca por cada avatar ni por eventos del mouse.
+
 ## Validación y estado visual
+
+Interacción interna (`v147-internal-pointer`): 18 contratos GPU y 34 del wrapper.
+En navegador real se verificaron seguimiento, retorno, pausa, movimiento
+reducido, clics y cajas DOM/canvas invariables. Comparando dos simulaciones a la
+misma fase, la lectura GPU mostró desplazamiento de energía de 0,214 unidades
+en X y deformación media interior de 0,059 frente a 0,009 exterior: no es una
+traslación uniforme ni solo un cambio de color. Se conservaron los siete targets
+y 2.560 filamentos base, alfa transparente y cero errores WebGL. No se trabajó
+en audio ni se repitió el smoke general. La integración visual de Inicio se
+comprobó a 1.440 y 390 px con las API aisladas: no es una regresión del backend
+ni una prueba física de dispositivos móviles.
 
 Iteración de masa y flujo (posterior a `30b0ea0`, renderer `v146-matter-flow`):
 
@@ -176,7 +210,7 @@ Requiere revisión visual del usuario; no es una réplica del grafo TouchDesigne
 
 ## Límites y reversión
 
-- Solo idle: sin interacción con mouse, micrófono, audio ni estados del asistente.
+- Apariencia idle con interacción interna de mouse; sin micrófono, audio ni estados del asistente.
   Los servicios de conversación, permisos, modelos y voz no se modifican.
 - Requiere WebGL2 y `EXT_color_buffer_float`. Sin ese soporte se informa que el
   núcleo no está disponible y Gunter sigue funcionando; no se simula soporte con
@@ -198,3 +232,5 @@ Requiere revisión visual del usuario; no es una réplica del grafo TouchDesigne
   `30b0ea00966d6499c5d05568f6f779a0eeeca7c3`, etiqueta local
   `codex/core-phase2-before-volume`. Revertir el commit completo de esta
   iteración restaura también sus URLs y versión de caché, sin cambiar preferencias.
+- Antes de la interacción interna: commit `f7c85a7cd30a4e55a02aa613a31ebf3e2e9153d6`,
+  etiqueta local `codex/core-before-internal-pointer`.

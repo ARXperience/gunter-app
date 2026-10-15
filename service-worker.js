@@ -11,7 +11,7 @@
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = "v146-matter-flow-20261014";
+const SW_VERSION = "v147-internal-pointer-20261015";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;
@@ -41,14 +41,14 @@ const PRECACHE_URLS = [
     '/assets/gunter/gunter-core-192.png',
     '/assets/gunter/gunter-core-512.png',
     '/styles/gunter-idle-core.css?v142b-idle-core',
-    '/js/components/gunter-idle-core.js?v146-matter-flow',
+    '/js/components/gunter-idle-core.js?v147-internal-pointer',
     '/js/services/voice-service.js?v141-video-core',
     '/js/services/voice-activity-service.js?v141-video-core',
     '/js/config-settings.js?v144b-material-core',
     '/styles/gunter-orbit-home.css?v135-orbit-home',
     '/styles/gunter-hologram.css?v135-orbit-home',
     '/js/services/gunter-orbit-home.js?v135-orbit-home',
-    '/js/services/gunter-particles.js?v144b-material-core',
+    '/js/services/gunter-particles.js?v147-internal-pointer',
     '/styles/gunter-workspace.css?v139-orbital-workspaces',
     '/styles/pages/orbital-day.css?v139-orbital-workspaces',
     '/styles/pages/orbital-meetings.css?v139-orbital-workspaces',
