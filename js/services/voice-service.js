@@ -48,29 +48,52 @@
     let audioAnalysisEnabled = false;
     let analysisContext = null;
     let playbackAnalysis = null;
-    let audioSignal = { source: 'assistant', level: 0, active: false, available: false };
+    let audioBuffering = false;
+    let audioSignal = { source: 'assistant', level: 0, active: false, available: false, at: Date.now() };
 
     // Optional visual metering. It never decodes a second audio file or opens a
     // microphone. A running context is primed only by a real user gesture.
     function emitAudioLevel(level = 0, active = false, available = false, reason = '') {
-        audioSignal = { source: 'assistant', level: Math.max(0, Math.min(1, Number(level) || 0)), active, available, reason };
+        audioSignal = { source: 'assistant', level: Math.max(0, Math.min(1, Number(level) || 0)), active, available, reason, at: Date.now() };
         try { window.dispatchEvent(new CustomEvent('gunter-audio-level', { detail: audioSignal })); } catch {}
+    }
+
+    function hasAnalysisSignal(record) {
+        if (!record?.analyser || record.failed || record.context.state !== 'running') return false;
+        return !record.stream || (record.stream.active !== false &&
+            record.stream.getAudioTracks?.().some(track => track.readyState !== 'ended'));
     }
 
     function pauseAudioAnalysis(reason = 'paused') {
         if (playbackAnalysis?.frame) window.cancelAnimationFrame?.(playbackAnalysis.frame);
         if (playbackAnalysis) playbackAnalysis.frame = 0;
-        if (audioAnalysisEnabled || audioSignal.active) emitAudioLevel(0, false, !!playbackAnalysis?.analyser, reason);
+        if (audioAnalysisEnabled || audioSignal.active) emitAudioLevel(0, false, hasAnalysisSignal(playbackAnalysis), reason);
     }
 
     function releaseAudioAnalysis(reason = 'stopped') {
         pauseAudioAnalysis(reason);
         const record = playbackAnalysis;
         playbackAnalysis = null;
+        record?.removeStreamListeners?.();
         try { record?.source?.disconnect(); } catch {}
         try { record?.analyser?.disconnect(); } catch {}
         try { record?.stream?.getTracks?.().forEach(track => track.stop()); } catch {}
         if (audioAnalysisEnabled) emitAudioLevel(0, false, false, reason);
+    }
+
+    function failAudioAnalysis(record, reason) {
+        if (record !== playbackAnalysis) return;
+        record.failed = true;
+        // A captured stream is only a tap. A routed element must keep its
+        // existing audible graph even when optional sample reads fail.
+        if (record.stream) releaseAudioAnalysis(reason);
+        else pauseAudioAnalysis(reason);
+    }
+
+    function restartCurrentAudioAnalysis() {
+        if (audioAnalysisEnabled && currentAudio && !currentAudio.paused && !currentAudio.ended && !audioBuffering) {
+            startAudioAnalysis(currentAudio, generation);
+        }
     }
 
     function primeAudioAnalysis() {
@@ -78,8 +101,21 @@
         const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
         if (!AudioContextCtor) { emitAudioLevel(0, false, false, 'web-audio-unavailable'); return; }
         try {
-            if (!analysisContext || analysisContext.state === 'closed') analysisContext = new AudioContextCtor();
-            if (analysisContext.state === 'suspended') analysisContext.resume()?.catch?.(() => {});
+            if (!analysisContext) {
+                analysisContext = new AudioContextCtor();
+                analysisContext.addEventListener?.('statechange', () => {
+                    if (!audioAnalysisEnabled) return;
+                    if (analysisContext.state === 'running') restartCurrentAudioAnalysis();
+                    else pauseAudioAnalysis('context-suspended');
+                });
+            }
+            if (analysisContext.state === 'running') restartCurrentAudioAnalysis();
+            else if (analysisContext.state !== 'closed') {
+                const context = analysisContext;
+                Promise.resolve(context.resume()).then(() => {
+                    if (analysisContext === context) restartCurrentAudioAnalysis();
+                }).catch(() => { if (audioAnalysisEnabled) pauseAudioAnalysis('context-suspended'); });
+            } else emitAudioLevel(0, false, false, 'context-closed');
         } catch { emitAudioLevel(0, false, false, 'web-audio-unavailable'); }
     }
 
@@ -92,11 +128,23 @@
             record.samples = new Float32Array(record.analyser.fftSize);
             if (capture) {
                 const captureStream = audio.captureStream || audio.mozCaptureStream;
-                if (!captureStream) return null;
+                if (!captureStream) { record.analyser.disconnect(); return null; }
                 record.stream = captureStream.call(audio);
-                if (!record.stream.getAudioTracks?.().length) { record.stream.getTracks?.().forEach(track => track.stop()); return null; }
+                const tracks = record.stream.getAudioTracks?.() || [];
+                if (record.stream.active === false || !tracks.some(track => track.readyState !== 'ended')) {
+                    record.stream.getTracks?.().forEach(track => track.stop());
+                    record.analyser.disconnect();
+                    return null;
+                }
                 record.source = analysisContext.createMediaStreamSource(record.stream);
                 record.source.connect(record.analyser); // Tap only: the element still owns playback.
+                const ended = () => failAudioAnalysis(record, 'signal-ended');
+                tracks.forEach(track => track.addEventListener?.('ended', ended));
+                record.stream.addEventListener?.('inactive', ended);
+                record.removeStreamListeners = () => {
+                    tracks.forEach(track => track.removeEventListener?.('ended', ended));
+                    record.stream.removeEventListener?.('inactive', ended);
+                };
             } else {
                 record.source = analysisContext.createMediaElementSource(audio);
                 record.source.connect(record.analyser);
@@ -113,6 +161,7 @@
                 playbackAnalysis = record;
             } else {
                 try { record.source?.disconnect(); } catch {}
+                try { record.analyser?.disconnect(); } catch {}
                 try { record.stream?.getTracks?.().forEach(track => track.stop()); } catch {}
             }
             return null;
@@ -120,25 +169,38 @@
     }
 
     function startAudioAnalysis(audio, token) {
-        if (!audioAnalysisEnabled || token !== generation || currentAudio !== audio) return;
+        if (!audioAnalysisEnabled || token !== generation || currentAudio !== audio || audio.paused || audio.ended || audioBuffering) return;
         const record = playbackAnalysis || createPlaybackAnalysis(audio, token, true);
-        if (!record?.analyser || !window.requestAnimationFrame || analysisContext?.state !== 'running') {
+        if (!hasAnalysisSignal(record) || !window.requestAnimationFrame) {
             emitAudioLevel(0, false, false, 'signal-unavailable'); return;
         }
         if (record.frame) return;
         const sample = now => {
             record.frame = 0;
-            if (!audioAnalysisEnabled || record !== playbackAnalysis || token !== generation || audio.paused || audio.ended) return;
+            if (record !== playbackAnalysis || token !== generation) return;
+            if (!audioAnalysisEnabled || audio.paused || audio.ended || audioBuffering) {
+                if (audio.ended) releaseAudioAnalysis('ended');
+                else pauseAudioAnalysis(audioBuffering ? 'buffering' : 'paused');
+                return;
+            }
+            if (!hasAnalysisSignal(record)) {
+                if (record.context.state !== 'running') pauseAudioAnalysis('context-suspended');
+                else failAudioAnalysis(record, 'signal-ended');
+                return;
+            }
             if (now - record.lastFrame >= 1000 / 30) {
                 record.lastFrame = now;
-                if (record.context.state !== 'running') emitAudioLevel(0, false, false, 'context-suspended');
-                else {
+                try {
                     record.analyser.getFloatTimeDomainData(record.samples);
                     let sum = 0;
                     for (let i = 0; i < record.samples.length; i++) sum += record.samples[i] * record.samples[i];
-                    const level = Math.sqrt(sum / record.samples.length) * (audio.muted ? 0 : audio.volume);
+                    if (!Number.isFinite(sum)) { failAudioAnalysis(record, 'invalid-samples'); return; }
+                    // MediaElementSource already reflects the element's gain.
+                    // captureStream taps pre-output samples, so apply its gain once.
+                    const gain = audio.muted ? 0 : record.stream ? audio.volume : 1;
+                    const level = Math.sqrt(sum / record.samples.length) * gain;
                     emitAudioLevel(level, true, true);
-                }
+                } catch { failAudioAnalysis(record, 'sampling-failed'); return; }
             }
             record.frame = window.requestAnimationFrame(sample);
         };
@@ -153,8 +215,12 @@
             if (enabled) window.addEventListener(type, primeAudioAnalysis, { capture: true, passive: true });
             else window.removeEventListener?.(type, primeAudioAnalysis, true);
         }
-        if (!enabled) { pauseAudioAnalysis('disabled'); emitAudioLevel(0, false, false, 'disabled'); }
-        else if (currentAudio && !currentAudio.paused) startAudioAnalysis(currentAudio, generation);
+        if (!enabled) {
+            if (playbackAnalysis?.stream) releaseAudioAnalysis('disabled');
+            else pauseAudioAnalysis('disabled');
+            emitAudioLevel(0, false, false, 'disabled');
+        }
+        else if (currentAudio && !currentAudio.paused && !currentAudio.ended && !audioBuffering) startAudioAnalysis(currentAudio, generation);
         else emitAudioLevel(0, false, false, 'idle');
     }
 
@@ -510,12 +576,26 @@
             audio.volume = next.opts.volume ?? 1;
             currentAudio = audio;
             currentAudioUrl = url;
+            audioBuffering = false;
             // Do not reroute an element through a suspended context: that would
             // silence autoplay on mobile. In that case playback remains native.
             createPlaybackAnalysis(audio, token);
-            audio.addEventListener('playing', () => startAudioAnalysis(audio, token));
+            audio.addEventListener('playing', () => {
+                if (currentAudio !== audio) return;
+                audioBuffering = false;
+                startAudioAnalysis(audio, token);
+            });
             audio.addEventListener('pause', () => { if (currentAudio === audio) pauseAudioAnalysis(); });
-            audio.addEventListener('waiting', () => { if (currentAudio === audio) pauseAudioAnalysis('buffering'); });
+            audio.addEventListener('waiting', () => {
+                if (currentAudio !== audio) return;
+                audioBuffering = true;
+                pauseAudioAnalysis('buffering');
+            });
+            audio.addEventListener('volumechange', () => {
+                if (audioAnalysisEnabled && currentAudio === audio && (audio.muted || audio.volume === 0)) {
+                    emitAudioLevel(0, false, hasAnalysisSignal(playbackAnalysis), 'muted');
+                }
+            });
             audio.addEventListener('playing', () => {
                 if (token === generation) voiceMetric('playbackStart', { chars: next.text.length });
             }, { once: true });
@@ -646,7 +726,7 @@
         // Conversación continua / barge-in
         isSpeaking, isLikelyEcho,
         setAudioAnalysisEnabled,
-        getAudioAnalysisState: () => ({ ...audioSignal }),
+        getAudioAnalysisState: () => ({ ...audioSignal, enabled: audioAnalysisEnabled }),
         getPlaybackState: () => {
             const playing = !!(currentAudio && !currentAudio.paused && !currentAudio.ended) || fallbackPlaying;
             return { speaking: playing, pending: speaking && !playing, text: lastSpokenText, startedAt: speechStartedAt, queued: queue.length };
@@ -683,4 +763,5 @@
             analysisContext = null;
         }
     });
+    try { window.dispatchEvent(new CustomEvent('gunter-voice-ready')); } catch {}
 })();

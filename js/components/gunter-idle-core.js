@@ -1,6 +1,7 @@
 /* GunterIdleCore — GPU-advected material filaments and a shared energy volume.
  * renderTo(canvas, width, height, seconds, config); setPointer(x,y,active);
- * resetPointer(); stats(); dispose(). No DOM input, media or device capture.
+ * resetPointer(); setAudioLevel(rms,available); stats(); dispose().
+ * No DOM input, media or device capture; audio amplitude is supplied by the owner.
  */
 (function () {
     'use strict';
@@ -9,6 +10,7 @@
     const HEADER='#version 300 es\nprecision highp float;\nprecision highp int;\n';
     const FIELD=`
         uniform float u_time;
+        uniform float u_audio;
         uniform vec3 u_pointer,u_pointerFlow;
         vec3 worldPoint(vec3 p);
         vec3 hash3(vec3 p) {
@@ -50,8 +52,10 @@
             return q+energyCenter(t);
         }
         vec3 energyCurve(float along,float t) {
-            return vec3(along,.15*sin(along*5.0-t*.45)+.06*sin(along*9.0+t*.18),
-                .10*sin(along*4.5+t*.23));
+            // Deform one connected current. Audio changes its material flow,
+            // never spawns separate emitters or starts a synthetic pulse clock.
+            return vec3(along,(.15*sin(along*5.0-t*.45)+.06*sin(along*9.0+t*.18))*(1.0+u_audio*.18),
+                .10*sin(along*4.5+t*.23)*(1.0+u_audio*.12));
         }
         vec3 energySource(vec3 p,float t) {
             return energyWorld(energyCurve(clamp(energyFrame(p,t).x,-.34,.34),t),t);
@@ -64,20 +68,20 @@
             vec3 d=q-energyCurve(along,t);
             d.y+=.035*sin(q.z*8.3+t*.31);
             d.z+=.030*sin(q.y*7.1-t*.27);
-            float radius=.21+.030*sin(along*6.8-t*.48);
+            float radius=(.21+.030*sin(along*6.8-t*.48))*(1.0+u_audio*.08);
             float support=exp(-pow(length(d*vec3(1.0,1.05,1.12))/radius,2.2));
             float pulse=.67+.33*sin(along*5.4-t*.82);
-            return support*pulse;
+            return support*pulse*(1.0+u_audio*.12);
         }
         vec3 energyTransport(vec3 p,float t) {
             float along=clamp(energyFrame(p,t).x,-.34,.34);
-            vec3 tangent=normalize(vec3(1.0,.75*cos(along*5.0-t*.45)+.54*cos(along*9.0+t*.18),
-                .45*cos(along*4.5+t*.23)));
+            vec3 tangent=normalize(vec3(1.0,(.75*cos(along*5.0-t*.45)+.54*cos(along*9.0+t*.18))*(1.0+u_audio*.18),
+                .45*cos(along*4.5+t*.23)*(1.0+u_audio*.12)));
             vec3 direction=energyWorld(tangent,t)-energyCenter(t);
             vec3 offset=p-energySource(p,t);
             vec3 drift=vec3(.0336*cos(t*.24),-.0324*sin(t*.27+1.3),.0171*cos(t*.19));
             drift+=worldPoint(u_pointerFlow)*.45;
-            return energyHeat(p,t)*(drift+direction*.12+cross(direction,offset)*.18);
+            return energyHeat(p,t)*(drift+direction*(.12+u_audio*.05)+cross(direction,offset)*.18);
         }
         float matterDensity(vec3 p,float t) {
             vec3 unused;
@@ -90,6 +94,7 @@
             // Anchor the envelope; only nearby folds bend with internal energy.
             vec3 offset=p-energyCenter(t);
             q-=worldPoint(vec3(u_pointer.xy*.24,0))*exp(-dot(offset,offset)/.18)*.22;
+            q+=coarse*u_audio*.035*exp(-dot(offset,offset)/.18);
             float folds=.5+.5*sin(q.y*11.8+q.z*5.3+coarse.x*4.5+coarse.z*2.8+t*.14);
             // Finite folded coats with sparse matter between them, rather than
             // a uniformly filled sphere. The warped envelope leaves cavities.
@@ -121,6 +126,7 @@
             vec3 local=p-energyCenter(t);
             float influence=u_pointer.z*exp(-dot(local,local)/.16);
             v+=(fine*.12+micro*.055)*influence;
+            v+=(fine*.18+micro*.07)*u_audio*exp(-dot(local,local)/.18);
             float outside=max(0.0,length(p*vec3(.94,1.02,1.13))-.87);
             v-=p*outside*3.2*boundary;
             float core=step(.19,fract(row*.56984));
@@ -299,7 +305,8 @@
             float matter=material.r;
             vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,emission+material.b*.45));
             vec3 color=u_particle*tint*material.b*(.55+material.a*2.0)*(1.0-emission*.65)
-                +u_energy*incident*1.1+u_glow*emission*emission*(.35+u_pointer.z*.32);
+                +u_energy*incident*(1.1+u_audio*.22)
+                +u_glow*emission*emission*(.35+u_pointer.z*.32+u_audio*.65);
             // Broad erosion creates differently sized wisps; fine coverage
             // turns each wisp into porous, irregular microfibres, not a cable.
             float lengths=3.0+15.0*fract(v_seed*.56984);
@@ -340,8 +347,8 @@
                 float face=material.a*material.a;
                 vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,heat+incident*.45));
                 vec3 light=u_particle*tint*incident*(.10+face*3.8)*(1.0-heat*.65)
-                    +u_energy*(heat*(2.8+u_pointer.z*heat*.32)+incident*.10)
-                    +u_glow*heat*heat*(.25+u_pointer.z*.28);
+                    +u_energy*(heat*(2.8+u_pointer.z*heat*.32+u_audio*.45)+incident*.10)
+                    +u_glow*heat*heat*(.25+u_pointer.z*.28+u_audio*.65);
                 color+=(1.0-opacity)*light*density;
                 opacity+=(1.0-opacity)*density;
                 if(opacity>.985)break;
@@ -398,6 +405,7 @@
             this.canvas=document.createElement('canvas');
             this.available=false;this.error='';this.frames=0;this.steps=0;this.fieldBuilds=0;this.resources=[];
             this.pointerRevision=0;this.resetPointer();
+            this.audioRevision=0;this.setAudioLevel(0,false);
             this.canvas.addEventListener('webglcontextlost',event=>{
                 event.preventDefault();this.available=false;this.error='Se perdió el contexto WebGL2.';
                 this.announce();
@@ -407,6 +415,7 @@
                 this.resources=[];this.targets=null;this.histories=null;this.field=null;this.fieldTime=null;this.fieldDensity=null;
                 this.simulationTime=null;this.displayTime=null;
                 this.resetPointer();
+                this.setAudioLevel(0,false);
                 this.width=this.height=0;this.initialize();this.announce();
             });
             this.initialize();
@@ -453,6 +462,14 @@
         use(program){this.gl.useProgram(program.program);}
         scalar(program,name,value){this.gl.uniform1f(this.uniform(program,name),value);}
         vector(program,name,value){this.gl.uniform3fv(this.uniform(program,name),value);}
+        setAudioLevel(rms,available=true) {
+            if(this.disposed)return;
+            available=available===true&&Number.isFinite(rms);
+            const level=available?Math.max(0,Math.min(1,rms)):0;
+            if(this.audio?.level!==level||this.audio?.available!==available){
+                this.audio={level,available};this.audioRevision++;
+            }
+        }
         setPointer(x,y,active=true) {
             if(this.disposed)return;
             active=active===true&&Number.isFinite(x)&&Number.isFinite(y);
@@ -486,6 +503,7 @@
             const p=this.pointer;
             this.vector(program,'u_pointer',[p.x,p.y,p.activity]);
             this.vector(program,'u_pointerFlow',[p.vx*.24,p.vy*.24,0]);
+            this.scalar(program,'u_audio',this.audio.available?1-Math.exp(-this.audio.level*5):0);
         }
         texture(program,name,texture,unit=0) {
             const gl=this.gl;gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);
@@ -548,18 +566,20 @@
         }
         draw(config) {
             const gl=this.gl,t=this.displayTime,volume=this.programs.volume;
-            const density=Math.sqrt(config.density);
-            if(this.fieldTime!==t||this.fieldDensity!==density||this.fieldPointerRevision!==this.pointerRevision) {
+            const density=Math.sqrt(config.density),audio=this.audio.available?1-Math.exp(-this.audio.level*5):0;
+            const size=config.size*(1+audio*.04);
+            if(this.fieldTime!==t||this.fieldDensity!==density||this.fieldPointerRevision!==this.pointerRevision||this.fieldAudioRevision!==this.audioRevision) {
                 const field=this.programs.field;gl.disable(gl.BLEND);this.use(field);
                 this.interactionUniforms(field);
                 this.scalar(field,'u_time',t);this.scalar(field,'u_density',density);this.quad(this.field);
-                this.fieldTime=t;this.fieldDensity=density;this.fieldPointerRevision=this.pointerRevision;this.fieldBuilds++;
+                this.fieldTime=t;this.fieldDensity=density;this.fieldPointerRevision=this.pointerRevision;
+                this.fieldAudioRevision=this.audioRevision;this.fieldBuilds++;
             }
             gl.disable(gl.BLEND);this.use(volume);
             this.interactionUniforms(volume);
             this.texture(volume,'u_field',this.field.texture);
             gl.uniform2f(this.uniform(volume,'u_resolution'),this.width,this.height);
-            this.scalar(volume,'u_time',t);this.scalar(volume,'u_size',config.size);this.scalar(volume,'u_brightness',config.brightness);
+            this.scalar(volume,'u_time',t);this.scalar(volume,'u_size',size);this.scalar(volume,'u_brightness',config.brightness);
             this.scalar(volume,'u_density',density);this.vector(volume,'u_particle',rgb(config.particleColor));
             this.vector(volume,'u_energy',rgb(config.energyColor));this.vector(volume,'u_glow',rgb(config.glowColor));
             this.quad(this.targets.energy);
@@ -571,7 +591,7 @@
             this.texture(strands,'u_volume',this.targets.energy.texture,1);
             this.texture(strands,'u_field',this.field.texture,2);
             gl.uniform2f(this.uniform(strands,'u_resolution'),this.width,this.height);
-            this.scalar(strands,'u_time',t);this.scalar(strands,'u_size',config.size);this.scalar(strands,'u_brightness',config.brightness);
+            this.scalar(strands,'u_time',t);this.scalar(strands,'u_size',size);this.scalar(strands,'u_brightness',config.brightness);
             this.vector(strands,'u_particle',rgb(config.particleColor));this.vector(strands,'u_energy',rgb(config.energyColor));
             this.vector(strands,'u_glow',rgb(config.glowColor));
             this.activeFilaments=Math.round(BASE_FILAMENTS*config.density);
@@ -605,7 +625,7 @@
             return {renderer:'webgl-filaments',simulation:'gpu-advected-material-filaments',available:this.available,frames:this.frames,
                 steps:this.steps,filaments:this.activeFilaments||0,segmentsPerFilament:HISTORY-1,
                 time:this.simulationTime,width:this.width,height:this.height,error:this.error,
-                volumeGrid:48,volumeSamples:40,fieldBuilds:this.fieldBuilds,interaction:{...this.pointer}};
+                volumeGrid:48,volumeSamples:40,fieldBuilds:this.fieldBuilds,interaction:{...this.pointer},audio:{...this.audio}};
         }
         release() {
             if(!this.gl)return;
@@ -615,6 +635,7 @@
         }
         dispose() {
             if(this.disposed)return;
+            this.setAudioLevel(0,false);
             this.disposed=true;this.available=false;this.release();this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
             this.canvas.width=this.canvas.height=1;
         }

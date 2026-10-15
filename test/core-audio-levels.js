@@ -3,30 +3,46 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 
-function harness(file, { failTTS = false } = {}) {
+function harness(file, { failTTS = false, captureSupported = false, contextState = 'running', deferResume = false, failAnalyser = false } = {}) {
     const events = [], handlers = new Map(), frames = new Map(), contexts = [], audios = [];
     let frameId = 0, now = 0, permissions = 0, stoppedTracks = 0;
+    function target(value = {}) {
+        const listeners = new Map();
+        value.addEventListener = (type, listener) => listeners.set(type, [...(listeners.get(type) || []), listener]);
+        value.removeEventListener = (type, listener) => listeners.set(type, (listeners.get(type) || []).filter(entry => entry !== listener));
+        value.emit = type => [...(listeners.get(type) || [])].forEach(listener => listener());
+        return value;
+    }
+    function makeStream() {
+        const track = target({ readyState: 'live', stop() { this.readyState = 'ended'; stoppedTracks++; } });
+        return target({ active: true, track, getTracks: () => [track], getAudioTracks: () => [track] });
+    }
     class Node {
         constructor() { this.connections = []; this.disconnected = false; }
         connect(target) { this.connections.push(target); }
         disconnect() { this.disconnected = true; this.connections = []; }
     }
     class AudioContext {
-        constructor() { this.state = 'running'; this.destination = {}; this.sources = []; contexts.push(this); }
-        createAnalyser() { const node = new Node(); node.fftSize = 1024; node.getFloatTimeDomainData = data => data.fill(0.25); this.analyser = node; return node; }
-        createMediaElementSource(audio) { const node = new Node(); node.audio = audio; this.sources.push(node); return node; }
+        constructor() { target(this); this.state = contextState; this.destination = {}; this.sources = []; contexts.push(this); }
+        createAnalyser() { if (failAnalyser) throw new Error('no analyser'); const node = new Node(); node.fftSize = 1024; node.getFloatTimeDomainData = data => data.fill(0.25); this.analyser = node; return node; }
+        createMediaElementSource(audio) { assert.equal(audio.routed, undefined, 'an element is routed only once'); audio.routed = true; const node = new Node(); node.audio = audio; this.sources.push(node); return node; }
         createMediaStreamSource(stream) { const node = new Node(); node.stream = stream; this.sources.push(node); return node; }
-        resume() { this.state = 'running'; return Promise.resolve(); }
+        setState(state) { this.state = state; this.emit('statechange'); }
+        resume() {
+            if (deferResume) return new Promise(resolve => { this.finishResume = () => { this.setState('running'); resolve(); }; });
+            this.setState('running'); return Promise.resolve();
+        }
         close() { this.state = 'closed'; return Promise.resolve(); }
     }
     class Audio {
-        constructor(url) { this.url = url; this.paused = true; this.listeners = {}; this.ended = false; audios.push(this); }
+        constructor(url) { this.url = url; this.paused = true; this.listeners = {}; this.ended = false; this.volume = 1; this.muted = false; this.captureCalls = 0; audios.push(this); }
         addEventListener(type, listener) { (this.listeners[type] ||= []).push(listener); }
         emit(type) { (this.listeners[type] || []).forEach(listener => listener()); }
         async play() { this.paused = false; this.emit('playing'); }
         pause() { this.paused = true; this.emit('pause'); }
     }
-    const stream = { getTracks: () => [{ stop() { stoppedTracks++; } }], getAudioTracks: () => [{}] };
+    if (captureSupported) Audio.prototype.captureStream = function () { this.captureCalls++; return this.capturedStream = makeStream(); };
+    const stream = makeStream();
     const root = {
         AudioContext, CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
         dispatchEvent(event) { events.push(event); (handlers.get(event.type) || []).forEach(listener => listener(event)); },
@@ -135,6 +151,46 @@ async function test(name, fn) { await fn(); passed++; console.log('  ✓ ' + nam
         assert.equal(fallback.levels('assistant').at(-1).reason, 'browser-synthesis-signal-unavailable');
         assert.equal(fallback.levels('assistant').at(-1).available, false);
         fallback.root.GunterVoice.cancel();
+    });
+    await test('element volume is not applied twice, and captured pre-output samples use gain once',async()=>{
+        const h=harness('voice-service.js'),v=h.root.GunterVoice;v.setAudioAnalysisEnabled(true);h.gesture();await v.speak('Fixture');await tick();
+        h.audios[0].volume=.5;h.contexts[0].analyser.getFloatTimeDomainData=data=>data.fill(.125);h.step(0);
+        assert.equal(v.getAudioAnalysisState().level,.125);v.cancel();
+        const c=harness('voice-service.js',{captureSupported:true}),cv=c.root.GunterVoice;
+        cv.setAudioAnalysisEnabled(true);await cv.speak('Fixture');await tick();c.gesture();c.audios[0].volume=.5;c.step(0);
+        assert.equal(cv.getAudioAnalysisState().level,.125);cv.cancel();
+    });
+    await test('late user gesture attaches a single native playback tap after resume and reports real timestamps',async()=>{
+        const h=harness('voice-service.js',{captureSupported:true,contextState:'suspended',deferResume:true}),v=h.root.GunterVoice;
+        v.setAudioAnalysisEnabled(true);await v.speak('Fixture');await tick();assert.equal(h.contexts.length,0);
+        h.gesture();assert.equal(h.frames.size,0);h.contexts[0].finishResume();await tick();h.step(40);
+        assert.equal(v.getAudioAnalysisState().at,40);assert.equal(v.getAudioAnalysisState().enabled,true);
+        assert.ok(v.getAudioAnalysisState().level>0);h.gesture();h.step(80);
+        assert.equal(h.contexts[0].sources.length,1);assert.equal(h.audios[0].captureCalls,1);assert.equal(h.permissions(),0);v.cancel();
+    });
+    await test('sample failures and suspended contexts clear stale levels without muting routed speech',async()=>{
+        const h=harness('voice-service.js'),v=h.root.GunterVoice;v.setAudioAnalysisEnabled(true);h.gesture();await v.speak('Fixture');await tick();h.step(0);
+        h.contexts[0].setState('suspended');assert.equal(v.getAudioAnalysisState().level,0);assert.equal(h.frames.size,0);
+        h.contexts[0].setState('running');h.step(40);assert.ok(v.getAudioAnalysisState().level>0);
+        h.contexts[0].analyser.getFloatTimeDomainData=()=>{throw Error('signal failure');};h.step(80);
+        assert.equal(v.getAudioAnalysisState().level,0);assert.equal(v.getAudioAnalysisState().available,false);
+        assert.equal(h.frames.size,0);assert.equal(h.audios[0].paused,false);assert.equal(h.contexts[0].sources[0].disconnected,false);v.cancel();
+    });
+    await test('buffering, ended capture and mute clear the measured level and never request microphone input',async()=>{
+        const h=harness('voice-service.js',{captureSupported:true}),v=h.root.GunterVoice;
+        v.setAudioAnalysisEnabled(true);await v.speak('Fixture');await tick();h.gesture();h.step(0);
+        const a=h.audios[0];a.emit('waiting');assert.equal(v.getAudioAnalysisState().level,0);assert.equal(h.frames.size,0);
+        a.emit('playing');h.step(40);assert.ok(v.getAudioAnalysisState().level>0);
+        a.muted=true;a.emit('volumechange');h.step(80);assert.equal(v.getAudioAnalysisState().level,0);
+        a.capturedStream.track.readyState='ended';a.capturedStream.track.emit('ended');
+        assert.equal(v.getAudioAnalysisState().available,false);assert.equal(h.frames.size,0);assert.equal(h.permissions(),0);assert.equal(a.paused,false);v.cancel();
+    });
+    await test('non-finite analyser samples are unavailable, never a peak invented from invalid data',async()=>{
+        for(const sample of [NaN,Infinity]){
+            const h=harness('voice-service.js'),v=h.root.GunterVoice;v.setAudioAnalysisEnabled(true);h.gesture();await v.speak('Fixture');await tick();
+            h.contexts[0].analyser.getFloatTimeDomainData=data=>data.fill(sample);h.step(0);
+            assert.equal(v.getAudioAnalysisState().level,0);assert.equal(v.getAudioAnalysisState().available,false);assert.equal(h.frames.size,0);v.cancel();
+        }
     });
     await test('microphone metering reuses authorised stream and VAD analyser', async () => {
         const h = harness('voice-activity-service.js'), vad = h.root.GunterVoiceActivity;

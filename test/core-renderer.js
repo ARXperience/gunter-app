@@ -35,7 +35,8 @@ function classes() {
 }
 function environment(options = {}) {
     const nodes = [], frames = new Map(), observers = [], engines = [], renders = [], writes = [], inputs = [];
-    const storage = new Map([['gunter_prefs', JSON.stringify(options.prefs || {})]]);
+    const storage = new Map([['gunter_prefs', JSON.stringify(options.prefs || {})]]), metering = [];
+    let voiceSignal = { source: 'assistant', level: 0, active: false, available: false, enabled: false, at: 0 };
     let sequence = 0, now = 0, renderFailure = options.renderFailure === true;
     function element(tag = 'span') {
         const properties = new Map();
@@ -100,6 +101,10 @@ function environment(options = {}) {
             this.pointerTarget = { x: 0, y: 0, active: false }; this.pointerDirty = false;
             inputs.push({ engine: this, kind: 'reset', changed }); return changed;
         }
+        setAudioLevel(level, available) {
+            assert.ok(Number.isFinite(level));this.audio = { level, available };
+            inputs.push({engine:this,kind:'audio',level,available});
+        }
         renderTo(canvas, width, height, time, config) {
             assert.equal(canvas.tagName, 'CANVAS');
             if (renderFailure) throw new Error('draw failed');
@@ -108,16 +113,24 @@ function environment(options = {}) {
         }
         dispose() { this.disposes++; this.available = false; }
     };
-    for (const name of ['GunterVoice', 'GunterVoiceActivity', 'GunterConversationState', 'GunterSTT', 'GunterWakeWord']) {
+    if (!options.missingVoice) window.GunterVoice = {
+        setAudioAnalysisEnabled(enabled) { metering.push(enabled); voiceSignal = { ...voiceSignal, enabled, level:0, active:false, available:false, at:now }; },
+        getAudioAnalysisState() { return { ...voiceSignal }; }
+    };
+    for (const name of ['GunterVoiceActivity', 'GunterConversationState', 'GunterSTT', 'GunterWakeWord']) {
         Object.defineProperty(window, name, { get() { throw new Error(`Idle renderer accessed ${name}`); } });
     }
-    const context = vm.createContext({ window, document, console,
+    const context = vm.createContext({ window, document, console, Date:{now:()=>now},
         CustomEvent: class { constructor(type, options = {}) { this.type = type; this.detail = options.detail; } } });
     vm.runInContext(source, context, { filename: 'gunter-particles.js' });
     const visibility = (visible, target = art) => observers.find(observer => observer instanceof window.IntersectionObserver)
         .callback([{ target, isIntersecting: visible }]);
     if (!options.loading && options.autoVisible !== false) visibility(true);
-    return { art, body, window, document, nodes, frames, observers, motion, engines, renders, writes, inputs,
+    return { art, body, window, document, nodes, frames, observers, motion, engines, renders, writes, inputs, metering,
+        signal(patch = {}) {
+            voiceSignal = { source:'assistant',enabled:true,active:true,available:true,level:0,at:now,...patch };
+            window.fire('gunter-audio-level',{detail:{...voiceSignal}});
+        },
         api: window.GunterParticles, visibility, canvas: target => (target || art).children[0],
         step(milliseconds = 34) {
             now += milliseconds; const scheduled = [...frames.values()]; frames.clear(); scheduled.forEach(callback => callback(now));
@@ -148,7 +161,7 @@ function lastPointer(env) {
     return { x: input.x, y: input.y, active: input.active };
 }
 function assertReset(env) {
-    assert.equal(env.inputs.at(-1)?.kind, 'reset');
+    assert.equal(env.inputs.filter(input=>input.kind!=='audio').at(-1)?.kind, 'reset');
     const active = env.inputs.findLastIndex(input => input.kind === 'pointer' && input.active);
     assert.ok(active >= 0);
     assert.ok(env.inputs.slice(active + 1).some(input => input.kind === 'reset' && input.changed),
@@ -161,7 +174,7 @@ check('Existing API mounts an idle canvas while preserving the host layout', () 
     for (const method of ['mount', 'configure', 'getConfig', 'getDefaults']) assert.equal(typeof env.api[method], 'function');
     assert.equal(env.art.dataset.particlesRenderer, 'webgl-filaments'); assert.equal(env.art.dataset.coreState, 'idle');
     assert.equal(env.canvas().className, 'gunter-idle-core-canvas'); assert.equal(env.canvas().attributes.role, 'img');
-    assert.match(env.canvas().attributes['aria-label'], /reposo/);
+    assert.match(env.canvas().attributes['aria-label'], /Gunter/);
     assert.equal(env.art.classList.contains('gunter-video-core'), false); assert.equal(env.art.classList.contains('gunter-idle-core'), true);
     assert.equal(env.art.classList.contains('existing-layout'), true); assert.equal(env.art.dataset.particlesReady, 'true');
     assert.equal(env.nodes.some(node => ['VIDEO', 'IMG', 'SVG'].includes(node.tagName)), false);
@@ -464,7 +477,7 @@ check('BFCache clears interaction before suspension and resumes without a stale 
     assert.equal(pointerInputs(env).length, count); assert.equal(env.engines.length, 1);
     pointerAt(env, 250, 150); assert.equal(pointerInputs(env).length, count + 1);
 });
-check('Idle rendering observes only passive pointer movement and exits without audio, microphone or assistant state listeners', () => {
+check('Rendering observes passive pointers and the assistant meter, without microphone or synthetic state triggers', () => {
     const env = environment();
     for (const type of ['pointermove', 'pointerout', 'pointercancel']) {
         assert.equal(env.window.listenerCount(type), 1);
@@ -473,16 +486,52 @@ check('Idle rendering observes only passive pointer movement and exits without a
     }
     assert.equal(env.window.listenerCount('blur'), 1);
     assert.equal(env.document.listenerCount('blur'), 0); assert.equal(env.art.listenerCount('blur'), 0);
-    const types = ['pointerleave', 'pointerdown', 'pointerup', 'click', 'touchstart', 'touchmove', 'mousemove', 'gunter-audio-level', 'gunter-voice-state',
+    assert.equal(env.window.listenerCount('gunter-audio-level'),1);
+    const types = ['pointerleave', 'pointerdown', 'pointerup', 'click', 'touchstart', 'touchmove', 'mousemove', 'gunter-voice-state',
         'gunter-conversation-state', 'gunter-push-to-talk-state', 'wake-word-state', 'gunter-vad-state'];
     for (const type of types) {
         assert.equal(env.window.listenerCount(type), 0); assert.equal(env.document.listenerCount(type), 0); assert.equal(env.art.listenerCount(type), 0);
         env.window.fire(type, { detail: { speaking: true, value: 'thinking', active: true, source: 'microphone', level: 1 } });
     }
     env.step(); assert.equal(env.art.dataset.coreState, 'idle'); assert.equal(env.art.dataset.audioLevel, undefined);
-    assert.doesNotMatch(source, /getUserMedia|AudioContext|WebAudio|GunterVoice|GunterSTT|GunterWakeWord|\.fetch\(/);
+    assert.doesNotMatch(source, /getUserMedia|AudioContext|WebAudio|GunterSTT|GunterWakeWord|\.fetch\(/);
     assert.doesNotMatch(source, /createElement\(['"](?:video|img)['"]\)|\.mp4|\.jpg/);
     assert.doesNotMatch(source, /preventDefault|stopPropagation|stopImmediatePropagation|setPointerCapture|style\.transform/);
+});
+check('Only fresh real assistant RMS drives a smoothed level; event payloads and microphone are ignored',()=>{
+    const e=environment();assert.deepEqual(e.metering,[true]);
+    e.window.fire('gunter-audio-level',{detail:{source:'assistant',active:true,available:true,level:1}});
+    e.step();assert.equal(e.engines[0].audio.level,0);
+    e.signal({level:.25});e.step();const measured=e.engines[0].audio.level;
+    assert.ok(measured>0&&measured<.25);assert.equal(e.engines[0].audio.available,true);
+    e.window.fire('gunter-audio-level',{detail:{source:'microphone',level:1}});
+    e.step();assert.ok(e.engines[0].audio.level<.25);
+    e.step(300);assert.equal(e.engines[0].audio.level,0);assert.equal(e.engines[0].audio.available,false);
+    for(const patch of [{active:false},{available:false},{enabled:false},{source:'microphone'},{level:NaN},{at:undefined}]){
+        e.signal({level:1,...patch});e.step();assert.equal(e.engines[0].audio.level,0);
+    }
+});
+check('Audio loss and interruptions clear immediately, while measured silence releases without a fabricated pulse',()=>{
+    const e=environment();e.signal({level:.4});e.step();const high=e.engines[0].audio.level;
+    e.signal({level:0});e.step();assert.ok(e.engines[0].audio.level<high);
+    e.signal({level:1,active:false,available:false});assert.equal(e.engines[0].audio.level,0);
+    e.step();assert.equal(e.engines[0].audio.available,false);
+});
+check('Small chat cores react only during actual audio; thumbnails never start a metering loop',()=>{
+    const e=environment({variant:'chat',width:68});assert.equal(e.frames.size,0);assert.deepEqual(e.metering,[true]);
+    e.signal({level:.25});assert.equal(e.frames.size,1);e.step();assert.ok(e.engines[0].audio.level>0);
+    e.signal({active:false,available:false});assert.equal(e.frames.size,0);assert.equal(e.engines[0].audio.level,0);
+    const thumb=environment({variant:'thumb',width:48});assert.deepEqual(thumb.metering,[]);thumb.signal({level:1});assert.equal(thumb.frames.size,0);
+});
+check('Hidden, reduced, paused and exited views release metering without stopping speech',()=>{
+    for(const mode of ['hidden','reduced','paused','exit']){
+        const e=environment();e.signal({level:.3});e.step();
+        if(mode==='hidden'){e.document.hidden=true;e.document.fire('visibilitychange');}
+        if(mode==='reduced'){e.motion.matches=true;e.motion.fire('change');}
+        if(mode==='paused')e.api.configure({speed:0});
+        if(mode==='exit')e.window.fire('pagehide',{persisted:true});
+        assert.equal(e.metering.at(-1),false);assert.equal(e.engines[0].audio.level,0);assert.equal(e.frames.size,0);
+    }
 });
 check('Unavailable WebGL exposes accessible status without a retry loop', () => {
     for (const options of [{ webgl: false, ariaHidden: true }, { missingEngine: true, ariaHidden: true }]) {

@@ -118,7 +118,45 @@ normalizadas (Y positiva hacia arriba), limitadas radialmente al disco unidad.
 inmediatamente a neutral. La integración ocurre solo en pasos nuevos de
 advección, nunca por cada avatar ni por eventos del mouse.
 
+## Bioluminiscencia vinculada a voz real
+
+El wrapper reutiliza `GunterVoice.setAudioAnalysisEnabled` y su `AnalyserNode`:
+RMS de las muestras PCM de la reproducción actual, no una bandera `speaking`.
+Lee el estado del servicio (no el nivel de un evento arbitrario), acepta solo
+la fuente `assistant` activa/disponible y descarta muestras mayores de 250 ms.
+Ataque de 35 ms y caída de 120 ms usan tiempo real, independiente del control de
+velocidad orgánica. Fin, interrupción, buffering, señal perdida y visuales
+desactivadas limpian el nivel; una pausa medida libera la energía sin un pulso
+periódico artificial. No se abre ni solicita micrófono.
+
+`core.setAudioLevel(rms, available)` recibe RMS finito acotado a 0–1. La respuesta
+`1 - exp(-5*rms)` modifica la curva energética continua, su espesor, la advección
+de fibras y la turbulencia local; aumenta emisión/glow cerca de esa masa. El
+tamaño visual varía como máximo un 4 % mediante shaders, sin transformar ni
+mover el contenedor, ni guardar otro tamaño en las preferencias. No hay nuevos
+emisores, partículas, buffers, modelos o dependencias.
+
+Se analizan únicamente vistas visibles habilitadas. Los chat de 32–95 px pasan
+de estáticos a reactivos mientras hay señal de reproducción, dentro del límite
+compartido de dos vistas; los thumbnails decorativos siguen estáticos. Ocultar
+la página, BFCache, pausa o movimiento reducido detiene el análisis opcional sin
+desconectar la ruta audible. Web Audio se desbloquea mediante gesto del usuario.
+Si no está disponible, o se utiliza `speechSynthesis` sin señal PCM accesible,
+Gunter conserva el audio nativo y el núcleo no inventa intensidad.
+
 ## Validación y estado visual
+
+Audio real (`v148-real-audio`): 20 contratos GPU, 38 del wrapper y 15 del medidor.
+En Chrome se reprodujo el WAV PCM de prueba existente por el propio servicio
+GunterVoice y `HTMLAudioElement`/Web Audio: RMS bajo ≈0,056, alto ≈0,354 y volumen
+al 50 % ≈0,177. Se corrigió la ganancia aplicada dos veces al nodo de elemento;
+el tap `captureStream` conserva su ajuste pre-salida. Se comprobaron mute e
+interrupción a cero, núcleo/chat, cajas DOM fijas, shaders y ausencia de errores
+WebGL. También se verificó el desbloqueo tardío: un único contexto y tap de
+captura sobre el audio ya en reproducción, sin reiniciarlo ni pausarlo.
+No se generó TTS ni se cambió ningún proveedor o modelo. Esta es una
+prueba funcional del pipeline, no una validación de voz humana ni de todos los
+navegadores. Capturas: `output/playwright/core-real-audio-{low,high}.png`.
 
 Interacción interna (`v147-internal-pointer`): 18 contratos GPU y 34 del wrapper.
 En navegador real se verificaron seguimiento, retorno, pausa, movimiento
@@ -210,13 +248,16 @@ Requiere revisión visual del usuario; no es una réplica del grafo TouchDesigne
 
 ## Límites y reversión
 
-- Apariencia idle con interacción interna de mouse; sin micrófono, audio ni estados del asistente.
-  Los servicios de conversación, permisos, modelos y voz no se modifican.
+- Apariencia orgánica con interacción interna de mouse y audio medido del
+  asistente; sin captura del micrófono ni niveles inferidos de estados de voz.
+  Se extiende solo el análisis opcional de reproducción del servicio de voz;
+  no cambian conversación, permisos, modelos ni generación de voz.
 - Requiere WebGL2 y `EXT_color_buffer_float`. Sin ese soporte se informa que el
   núcleo no está disponible y Gunter sigue funcionando; no se simula soporte con
   video o con la nube de puntos anterior. Teléfonos físicos aún no verificados.
 - Máximo dos vistas grandes animadas, techo de 30 fps y resolución de 720 px;
-  miniaturas estáticas. Velocidad cero, reducción de movimiento, pestaña oculta
+  miniaturas decorativas estáticas y chat pequeño reactivo solo con audio real.
+  Velocidad cero, reducción de movimiento, pestaña oculta
   y vistas fuera de pantalla detienen la animación. Se liberan los recursos al
   salir y se recupera el contexto GPU si el navegador lo restablece.
 - Versión anterior conservada en el commit
@@ -234,3 +275,5 @@ Requiere revisión visual del usuario; no es una réplica del grafo TouchDesigne
   iteración restaura también sus URLs y versión de caché, sin cambiar preferencias.
 - Antes de la interacción interna: commit `f7c85a7cd30a4e55a02aa613a31ebf3e2e9153d6`,
   etiqueta local `codex/core-before-internal-pointer`.
+- Antes de audio real: commit `c9a60132f0e38bdccb2e7f8b89f47fc6bef621ff`.
+  Revertir esta iteración completa mantiene coherentes los tres assets y caché.

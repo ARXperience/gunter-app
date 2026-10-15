@@ -354,6 +354,33 @@ check('context loss recreates the atlas, invalidates its cache and releases all 
     assert.equal(e.core.field,null);assert.equal(e.core.fieldTime,null);assert.equal(e.core.fieldDensity,null);
     assert.throws(()=>e.render(),/disponible/);
 });
+check('Measured RMS reaches all GPU passes, scales mildly, reuses resources and invalidates only changed audio',()=>{
+    const e=environment();e.render(8);const histories=e.core.histories.slice(),field=e.core.field,steps=e.core.steps;
+    e.core.setAudioLevel(.25,true);e.render(8);const amplitude=1-Math.exp(-.25*5),builds=e.core.fieldBuilds;
+    assert.deepEqual(JSON.parse(JSON.stringify(e.core.stats().audio)),{level:.25,available:true});
+    for(const key of ['simulation','field','volume','strands']){
+        if(key==='simulation')continue;
+        assert.equal(e.core.programs[key].program.u_audio[0],amplitude);
+    }
+    for(const key of ['volume','strands'])assert.equal(e.core.programs[key].program.u_size[0],1+amplitude*.04);
+    e.core.setAudioLevel(.25,true);e.render(8);assert.equal(e.core.fieldBuilds,builds);
+    e.render(8.1);assert.equal(e.core.programs.simulation.program.u_audio[0],amplitude);
+    assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);assert.equal(e.core.field,field);
+    assert.equal(e.live.Framebuffer.size,7);assert.ok(e.core.steps>steps);
+    e.core.setAudioLevel(0,false);e.render(8.1);assert.equal(e.core.programs.volume.program.u_audio[0],0);
+    assert.equal(e.core.programs.strands.program.u_size[0],1);e.core.dispose();released(e);
+});
+check('Invalid, absent or muted samples cannot leave invented audio amplitude across restore/dispose',()=>{
+    const e=environment();e.render(8);
+    for(const level of [NaN,Infinity,'1',undefined]){
+        e.core.setAudioLevel(level);e.render(8);assert.equal(e.core.programs.volume.program.u_audio[0],0);
+        assert.equal(e.core.stats().audio.available,false);
+    }
+    e.core.setAudioLevel(20,true);e.render(8);assert.equal(e.core.stats().audio.level,1);
+    assert.ok(e.core.programs.volume.program.u_size[0]<=1.04);
+    e.lost();e.restored();e.render(8);assert.equal(e.core.stats().audio.level,0);assert.equal(e.core.stats().audio.available,false);
+    e.core.setAudioLevel(.7);e.core.dispose();assert.equal(e.core.stats().audio.level,0);released(e);
+});
 check('the core does not subscribe to input/media or fetch original footage',()=>{
     assert.doesNotMatch(source,/getUserMedia|AudioContext|pointermove|mousemove|gunter-audio-level|\bfetch\s*\(|gl\.POINTS|createElement\(['"]video/);
     const e=environment();assert.deepEqual([...e.listeners.keys()],['webglcontextlost','webglcontextrestored']);e.core.dispose();released(e);

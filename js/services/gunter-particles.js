@@ -11,6 +11,8 @@
     let config, savedReduced = false, engine = null, engineError = '', raf = 0, lastFrame = 0;
     let animationTime = STATIC_TIME, disposed = false, suspended = false, mutations = null, drawBlocked = false;
     let pointerOwner = null;
+    let voiceMeter = null, meterEnabled = false, bindingMeter = false, audioLive = false;
+    let audioLevel = 0, audioFrame = 0;
 
     const object = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     const clamp = (value, low, high, fallback) => typeof value === 'number' && Number.isFinite(value)
@@ -50,6 +52,48 @@
         if (raf) window.cancelAnimationFrame(raf);
         raf = 0; lastFrame = 0;
     }
+    function assistantSignal() {
+        if (!meterEnabled) return null;
+        try {
+            const signal = voiceMeter?.getAudioAnalysisState?.(), age = Date.now() - signal?.at;
+            return signal?.source === 'assistant' && signal.enabled === true && signal.active === true
+                && signal.available === true && Number.isFinite(signal.level) && signal.level >= 0
+                && Number.isFinite(age) && age >= 0 && age <= 250 ? signal : null;
+        } catch { return null; }
+    }
+    function clearAudio() {
+        if (audioLevel || audioLive) records.forEach(record => { record.dirty = true; });
+        audioLevel = 0; audioFrame = 0; audioLive = false;
+        engine?.setAudioLevel?.(0, false);
+    }
+    function syncAudioMeter(wanted) {
+        let service;
+        try { service = window.GunterVoice; } catch { service = null; }
+        bindingMeter = true;
+        try {
+            if (voiceMeter !== service) {
+                if (meterEnabled) voiceMeter?.setAudioAnalysisEnabled?.(false);
+                voiceMeter = service; meterEnabled = false; clearAudio();
+            }
+            wanted = wanted && typeof service?.setAudioAnalysisEnabled === 'function';
+            if (meterEnabled !== wanted) {
+                meterEnabled = wanted;
+                service?.setAudioAnalysisEnabled?.(wanted);
+            }
+        } catch { meterEnabled = false; clearAudio(); }
+        finally { bindingMeter = false; }
+        if (!wanted) clearAudio();
+    }
+    function sampleAudio(now, signal) {
+        if (!signal) { clearAudio(); return; }
+        // Wall-clock smoothing is independent of the user's organic motion speed.
+        const dt = audioFrame ? Math.max(0, Math.min(.1, (now - audioFrame) / 1000)) : FRAME_INTERVAL / 1000;
+        audioFrame = now;
+        const target = Math.min(1, signal.level), tau = target > audioLevel ? .035 : .12;
+        audioLevel += (target - audioLevel) * (1 - Math.exp(-dt / tau));
+        if (!target && audioLevel < .0001) audioLevel = 0;
+        engine?.setAudioLevel?.(audioLevel, true);
+    }
     function clearPointer(immediate = false) {
         const hadOwner = pointerOwner !== null; pointerOwner = null;
         if (immediate) {
@@ -61,7 +105,8 @@
             || !engine?.available || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return;
         // Observe only. Hosts stay pointer-transparent, and touch keeps native scroll/click behaviour.
         if (event.pointerType && !['mouse', 'pen'].includes(event.pointerType)) { clearPointer(); return; }
-        const hovered = [...records.values()].filter(record => record.animated && record.visible && record.el.isConnected)
+        const hovered = [...records.values()].filter(record => record.animated && record.visible && record.el.isConnected
+                && record.width >= 96 && record.height >= 96)
             .map(record => ({ record, box: record.el.getBoundingClientRect() }))
             .filter(({ box }) => event.clientX >= box.left && event.clientX <= box.left + box.width
                 && event.clientY >= box.top && event.clientY <= box.top + box.height)
@@ -131,9 +176,17 @@
     function reconcile() {
         if (disposed) return;
         const active = !suspended && !document.hidden;
+        const moving = active && !reduced() && config.speed > 0;
+        const candidates = [...records.values()].filter(record => record.visible && record.el.isConnected
+            && record.variant !== 'thumb' && record.width >= (record.variant === 'chat' ? 32 : 96)
+            && record.height >= (record.variant === 'chat' ? 32 : 96));
+        syncAudioMeter(moving && !drawBlocked && candidates.length > 0);
+        const signal = assistantSignal();
+        if (!signal) clearAudio(); else audioLive = true;
         const eligible = active && !reduced() && config.speed > 0 ? [...records.values()]
             .filter(record => record.visible && record.el.isConnected && record.variant !== 'thumb'
-                && record.width >= 96 && record.height >= 96)
+                && ((record.width >= 96 && record.height >= 96)
+                    || (audioLive && record.variant === 'chat' && record.width >= 32 && record.height >= 32)))
             .sort((a, b) => b.width * b.height - a.width * a.height).slice(0, 2) : [];
         const selected = new Set(eligible);
         if (!active || reduced() || config.speed <= 0 || drawBlocked || !engine?.available
@@ -147,12 +200,16 @@
             if (!active || !record.visible || !record.el.isConnected || !record.width || !record.height) continue;
             if (record.dirty) render(record, animationTime);
         }
+        if (!engine?.available || drawBlocked) syncAudioMeter(false);
         schedule();
     }
     function tick(now) {
         raf = 0;
         if (!canAnimate()) { lastFrame = 0; return; }
         if (lastFrame && now - lastFrame < FRAME_INTERVAL) { schedule(); return; }
+        const signal = assistantSignal();
+        if (!!signal !== audioLive) { reconcile(); if (!canAnimate()) return; }
+        sampleAudio(now, signal);
         animationTime += (lastFrame ? Math.min((now - lastFrame) / 1000, .1) : 0) * config.speed;
         lastFrame = now;
         for (const record of records.values()) {
@@ -202,8 +259,8 @@
         const canvas = document.createElement('canvas'), status = document.createElement('span');
         canvas.className = 'gunter-idle-core-canvas';
         canvas.setAttribute('role', 'img');
-        canvas.setAttribute('aria-label', 'Núcleo visual de Gunter en reposo');
-        canvas.textContent = 'Núcleo visual de Gunter en reposo';
+        canvas.setAttribute('aria-label', 'Núcleo visual de Gunter');
+        canvas.textContent = 'Núcleo visual de Gunter';
         status.className = 'gunter-idle-core-status'; status.setAttribute('role', 'status');
         status.hidden = true;
         const record = { el, variant, canvas, status, visible: !observer, animated: false, dirty: true,
@@ -244,6 +301,7 @@
         record.disposers.forEach(remove => remove()); record.canvas.remove(); record.status.remove();
         records.delete(record.el);
         if (!records.size) {
+            syncAudioMeter(false);
             stopFrames(); engine?.dispose(); engine = null; engineError = ''; drawBlocked = false;
         }
     }
@@ -275,13 +333,21 @@
         listen(window, 'pointerout', event => { if (!event.relatedTarget) clearPointer(); }, { passive: true });
         listen(window, 'pointercancel', () => clearPointer(), { passive: true });
         listen(window, 'blur', () => clearPointer());
+        listen(window, 'gunter-voice-ready', () => reconcile());
+        listen(window, 'gunter-audio-level', event => {
+            if (bindingMeter || event.detail?.source !== 'assistant' || !meterEnabled) return;
+            // Events only wake the loop. Levels come from the actual voice meter,
+            // not microphone events, "speaking" flags or arbitrary event payloads.
+            const live = !!assistantSignal();
+            if (live !== audioLive) reconcile();
+        });
         listen(window, 'gunter-idle-core-availability', invalidate);
         listen(document, 'visibilitychange', () => {
             if (document.hidden) stopFrames();
             invalidate();
         });
         listen(window, 'pagehide', event => {
-            suspended = true; stopFrames(); clearPointer(true);
+            suspended = true; stopFrames(); clearPointer(true); syncAudioMeter(false);
             records.forEach(record => {
                 if (record.el.dataset.particlesReady === 'true') record.el.dataset.particlesStatus = 'paused';
             });
