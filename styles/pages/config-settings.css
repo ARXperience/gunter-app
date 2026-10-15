@@ -55,7 +55,7 @@
 .config-tab-panel {
     animation: cfgTabIn 350ms cubic-bezier(.22,.61,.36,1) both;
 }
-#premium-panel:not([data-category="actions"]):not([data-category="connections"]) > .cp-settings { display: none; }
+#premium-panel:not([data-category="premium"]) > .cp-settings { display: none; }
 .config-diagnostics-result { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-primary); background: color-mix(in srgb, var(--bg-deep-navy) 90%, transparent); border: 1px solid var(--glass-border); border-radius: 10px; padding: 16px; line-height: 1.7; font: 500 13px/1.7 ui-monospace, monospace; }
 @media (max-width: 820px) { .config-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .config-tabs { grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; } .config-tab { font-size: 12px; min-height: 56px; padding: 8px 10px; } .settings-card { padding: 18px; } .settings-row select, .settings-row input:not([type="checkbox"]) { max-width: 100%; width: 100%; } }

@@ -11,317 +11,7 @@
 
     // ---------- FEATURE MAP (declarativo) ----------
     // Cada entrada = 1 card. `subs` = sub-opciones desplegables.
-    const FEATURE_MAP = [
-        {
-            id: 'productivityPanel',
-            icon: '📊',
-            title: 'Panel de productividad avanzada',
-            description: 'Mide tu rendimiento con datos de tareas, tiempo trabajado, objetivos cumplidos y ROI del tiempo.',
-            subs: [
-                { key: 'productivityTimeByTask',           label: 'Tiempo por tipo de tarea' },
-                { key: 'productivityWeeklyEfficiency',     label: 'Eficiencia semanal' },
-                { key: 'productivityGoalCompletion',       label: 'Cumplimiento de objetivos' },
-                { key: 'productivityRealProductiveHours',  label: 'Horas productivas reales' },
-                { key: 'productivityTimeROI',              label: 'ROI del tiempo' }
-            ]
-        },
-        {
-            id: 'meetingMemory',
-            icon: '🧠',
-            title: 'Memoria total de reuniones',
-            description: 'Busca en reuniones pasadas, recuerda decisiones y conecta conversaciones entre proyectos.',
-            subs: [
-                { key: 'meetingSemanticSearch',    label: 'Búsqueda semántica en transcripciones',
-                  subStatus: 'included_in_parent',
-                  hint: 'Ya activa con embeddings reales cuando el módulo está ON.' },
-                { key: 'meetingDecisionTimeline',  label: 'Timeline de decisiones',
-                  subStatus: 'included_in_parent',
-                  hint: 'El centro de decisiones tiene su propio timeline configurable.' },
-                { key: 'meetingCrossProjectLinks', label: 'Conectar reuniones entre proyectos',
-                  subStatus: 'coming_soon',
-                  hint: 'Cross-project link automático llegará en una próxima versión.' }
-            ]
-        },
-        {
-            id: 'smartDocuments',
-            icon: '📄',
-            title: 'Gestión inteligente de documentos',
-            description: 'Analiza recibos, contratos, facturas e imágenes para detectar vencimientos, valores y pagos.',
-            subs: [
-                { key: 'smartReceiptReading',        label: 'Leer recibos automáticamente',
-                  subStatus: 'included_in_parent',
-                  hint: 'Activa por defecto cuando el módulo está ON (Gemini Vision).' },
-                { key: 'smartDueDateDetection',      label: 'Detectar vencimientos',
-                  subStatus: 'included_in_parent',
-                  hint: 'Extracción incluida en el análisis de cada documento.' },
-                { key: 'smartExpenseClassification', label: 'Clasificar gastos',
-                  subStatus: 'coming_soon',
-                  hint: 'Categorías personalizables llegarán en una próxima versión.' },
-                { key: 'smartPaymentAlerts',         label: 'Alertar pagos pendientes',
-                  subStatus: 'included_in_parent',
-                  hint: 'Las alertas se generan automáticamente para recibos con vencimiento.' },
-                { key: 'smartFinancialHistory',      label: 'Historial financiero básico',
-                  subStatus: 'coming_soon',
-                  hint: 'Reportes de gasto agregados llegarán en una próxima versión.' }
-            ]
-        },
-        {
-            id: 'googleCalendarSync',
-            icon: '🗓️',
-            title: 'Google Calendar',
-            description: 'Crea, edita y recibe recordatorios automáticos en tu Google Calendar desde lenguaje natural.',
-            action: 'google-connect',
-            subs: [
-                { key: 'googleCalendarNaturalLanguage', label: 'Crear eventos desde lenguaje natural' },
-                { key: 'googleCalendarAutoReminders',   label: 'Recordatorios automáticos (1 día antes + 30 min antes)' }
-            ]
-        },
-        {
-            id: 'whatsappAssistant',
-            icon: '💬',
-            title: 'WhatsApp Assistant',
-            description: 'Conversa con Gunter desde WhatsApp: crea tareas, agenda citas, recibe resúmenes y recordatorios.',
-            action: 'whatsapp-qr',
-            subs: [
-                { key: 'whatsappCommands',           label: 'Recibir comandos desde WhatsApp',
-                  subStatus: 'included_in_parent',
-                  hint: 'Activo por defecto cuando WhatsApp está conectado.' },
-                { key: 'whatsappNotifications',      label: 'Recibir notificaciones',
-                  subStatus: 'included_in_parent',
-                  hint: 'Activo por defecto.' },
-                { key: 'whatsappMeetingScheduling',  label: 'Agendar reuniones desde WhatsApp',
-                  subStatus: 'included_in_parent',
-                  hint: 'Activo por defecto. Si tienes Google Calendar conectado, va al calendario también.' }
-            ]
-        },
-        {
-            id: 'documentSync',
-            icon: '📚',
-            title: 'Notion / Google Drive',
-            description: 'Conecta documentos, notas y archivos como memoria de trabajo de Gunter.',
-            subs: [
-                { key: 'notionSync',       label: 'Sincronizar Notion',
-                  subStatus: 'coming_soon',
-                  hint: 'Integración con Notion API llegará en una próxima versión.' },
-                { key: 'googleDriveSync',  label: 'Sincronizar Google Drive',
-                  subStatus: 'coming_soon',
-                  hint: 'Integración con Drive API llegará en una próxima versión.' }
-            ]
-        },
-        {
-            id: 'adaptivePersonality',
-            icon: '🎭',
-            title: 'Personalidad adaptativa de Gunter',
-            description: 'Gunter ajusta tono, estilo y comportamiento según el contexto.',
-            custom: renderPersonalityCard
-        },
-        {
-            id: 'voiceEnabled',
-            icon: '🗣️',
-            title: 'Respuestas por voz',
-            description: 'Elige si Gunter responde con voz al escribirle o hablarle. El texto permanece en el chat.',
-            custom: renderVoiceCard
-        },
-        { id: 'dictationEnabled', icon: '🎤', title: 'Reconocimiento y dictado',
-          description: 'Transcribe al pulsar Hablar y muestra el texto para revisarlo. El micrófono requiere permiso.', section: 'core' },
-        {
-            id: 'wakeWordEnabled',
-            icon: '🎙️',
-            title: 'Activación por voz "Hi Gunter"',
-            description: 'Gunter te escucha cuando lo llamas y activa una conversación natural.',
-            custom: renderWakeWordCard
-        },
-
-        // ================ Premium Intelligence (Sprint A) ================
-        {
-            id: 'dailyPlanner',
-            icon: '🌅',
-            title: 'Planificador del día',
-            description: 'Organiza tus tareas, reuniones, pagos y proyectos en un plan diario priorizado con IA.',
-            section: 'intelligence',
-            subs: [
-                { key: 'dailyPlannerMorningBrief',     label: 'Brief matutino',
-                  subStatus: 'included_in_parent',
-                  hint: 'El plan del día siempre incluye un resumen ejecutivo en la parte superior.' },
-                { key: 'dailyPlannerTimeBlocks',       label: 'Sugerir bloques de tiempo',
-                  subStatus: 'included_in_parent',
-                  hint: 'El plan ya propone bloques 9-12, 14-17 y 17-19 con cada prioridad.' },
-                { key: 'dailyPlannerWhatsappSummary',  label: 'Enviar el plan por WhatsApp',
-                  subStatus: 'included_in_parent',
-                  hint: 'El botón "📋 Copiar para WhatsApp" del panel ya genera el brief listo.' }
-            ]
-        },
-        {
-            id: 'weeklyPlanner',
-            icon: '📅',
-            title: 'Organiza mi semana',
-            description: 'Distribuye tareas, reuniones y prioridades en la semana, equilibrando carga y proyectos.',
-            section: 'intelligence',
-            subs: [
-                { key: 'weeklyPlannerAutoDistribution', label: 'Distribuir tareas automáticamente',
-                  subStatus: 'included_in_parent',
-                  hint: 'El plan ya asigna foco por día según prioridad y vencimientos.' },
-                { key: 'weeklyPlannerCalendarBlocks',   label: 'Crear bloques en Calendar',
-                  subStatus: 'coming_soon',
-                  hint: 'Creación masiva de eventos en Google Calendar (con confirmación obligatoria) llegará en una próxima versión.' },
-                { key: 'weeklyPlannerProjectBalance',   label: 'Balancear carga entre proyectos',
-                  subStatus: 'included_in_parent',
-                  hint: 'El plan ya muestra carga por proyecto con barras visuales.' }
-            ]
-        },
-        {
-            id: 'projectAutoFollowUp',
-            icon: '🎯',
-            title: 'Seguimiento automático de proyectos',
-            description: 'Detecta proyectos sin actividad, tareas vencidas, reuniones sin próximos pasos y riesgos de retraso.',
-            section: 'intelligence',
-            subs: [
-                { key: 'projectAutoFollowUpInactiveProjects', label: 'Avisar proyectos inactivos',
-                  subStatus: 'included_in_parent',
-                  hint: 'Activo por defecto. Detecta proyectos >7 días sin actividad.' },
-                { key: 'projectAutoFollowUpOverdueTasks',     label: 'Avisar tareas vencidas por proyecto',
-                  subStatus: 'included_in_parent',
-                  hint: 'Activo por defecto.' },
-                { key: 'projectAutoFollowUpNoNextStep',       label: 'Avisar reuniones sin próximos pasos',
-                  subStatus: 'included_in_parent',
-                  hint: 'Activo por defecto.' }
-            ]
-        },
-        {
-            id: 'projectExecutiveSummary',
-            icon: '📊',
-            title: 'Resumen ejecutivo por proyecto',
-            description: 'Genera un estado claro del proyecto con avances, pendientes, riesgos, decisiones y próximos pasos.',
-            section: 'intelligence',
-            subs: [
-                { key: 'projectExecutiveSummaryRisks',     label: 'Incluir riesgos detectados',
-                  subStatus: 'included_in_parent',
-                  hint: 'Activo por defecto.' },
-                { key: 'projectExecutiveSummaryNextSteps', label: 'Incluir próximos pasos sugeridos',
-                  subStatus: 'included_in_parent',
-                  hint: 'Activo por defecto.' },
-                { key: 'projectExecutiveSummaryExport',    label: 'Exportar resumen como PDF',
-                  subStatus: 'coming_soon',
-                  hint: 'Export PDF dedicado del resumen ejecutivo llegará en una próxima versión. (Las presentaciones sí se exportan a PDF/PPTX desde results.html.)' }
-            ]
-        },
-        {
-            id: 'meetingSmartFollowUp',
-            icon: '✅',
-            title: 'Follow-up inteligente después de reuniones',
-            description: 'Detecta compromisos, tareas, responsables y decisiones al terminar una reunión.',
-            section: 'intelligence',
-            subs: [
-                { key: 'meetingSmartFollowUpTasks',     label: 'Sugerir tareas detectadas' },
-                { key: 'meetingSmartFollowUpDecisions', label: 'Guardar decisiones detectadas' },
-                { key: 'meetingSmartFollowUpWhatsapp',  label: 'Enviar resumen por WhatsApp',
-                  hint: 'Requiere WhatsApp Assistant conectado.' }
-            ]
-        },
-        {
-            id: 'urgencyRanking',
-            icon: '🔥',
-            title: 'Ranking de urgencia',
-            description: 'Ordena tareas y proyectos según vencimiento, impacto, dinero, riesgo y prioridad.',
-            section: 'intelligence',
-            subs: [
-                { key: 'urgencyRankingByDueDate',       label: 'Ponderar por fecha de vencimiento',
-                  subStatus: 'included_in_parent',
-                  hint: 'Peso 30 puntos para vencidas, 18 para vence hoy. Siempre activo.' },
-                { key: 'urgencyRankingByProjectImpact', label: 'Ponderar por impacto del proyecto',
-                  subStatus: 'included_in_parent',
-                  hint: 'Peso 6 puntos por proyecto activo. Siempre activo.' },
-                { key: 'urgencyRankingByMoney',         label: 'Ponderar por dinero involucrado',
-                  subStatus: 'included_in_parent',
-                  hint: 'Peso 15 puntos por monto. Siempre activo en pagos pendientes.' }
-            ]
-        },
-        {
-            id: 'project360',
-            icon: '🛰️',
-            title: 'Cliente / Proyecto 360',
-            description: 'Vista completa de cada proyecto: tareas, reuniones, documentos, decisiones, pagos, riesgos y próximos pasos.',
-            section: 'intelligence',
-            subs: [
-                { key: 'project360Tasks',     label: 'Mostrar tareas' },
-                { key: 'project360Meetings',  label: 'Mostrar reuniones' },
-                { key: 'project360Documents', label: 'Mostrar documentos' },
-                { key: 'project360Decisions', label: 'Mostrar decisiones' },
-                { key: 'project360Calendar',  label: 'Mostrar próximos eventos' }
-            ]
-        },
-        {
-            id: 'decisionCenter',
-            icon: '🧭',
-            title: 'Centro de decisiones',
-            description: 'Guarda, organiza y permite consultar decisiones importantes tomadas en reuniones o conversaciones.',
-            section: 'intelligence',
-            subs: [
-                { key: 'decisionCenterAutoDetect', label: 'Detectar decisiones automáticamente' },
-                { key: 'decisionCenterTimeline',   label: 'Mostrar timeline de decisiones' },
-                { key: 'decisionCenterSearch',     label: 'Buscar decisiones por palabra clave' }
-            ]
-        },
-        {
-            id: 'smartWhatsappAlerts',
-            icon: '🔔',
-            title: 'Alertas inteligentes por WhatsApp',
-            description: 'Envía alertas con contexto sobre pagos, reuniones, tareas vencidas, proyectos quietos y riesgos.',
-            section: 'intelligence',
-            subs: [
-                { key: 'smartWhatsappAlertsMorning',     label: 'Resumen matutino' },
-                { key: 'smartWhatsappAlertsDuePayments', label: 'Pagos próximos a vencer' },
-                { key: 'smartWhatsappAlertsProjectRisk', label: 'Proyectos en riesgo' }
-            ]
-        },
-        {
-            id: 'delegationMode',
-            icon: '🤝',
-            title: 'Modo delegación',
-            description: 'Convierte tareas en mensajes claros para delegar por WhatsApp o copiar y enviar.',
-            section: 'intelligence',
-            subs: [
-                { key: 'delegationModeMessageDrafts',  label: 'Generar borradores de mensaje' },
-                { key: 'delegationModeWhatsappDrafts', label: 'Sugerir envío por WhatsApp' },
-                { key: 'delegationModeFollowUp',       label: 'Crear recordatorio de seguimiento' }
-            ]
-        },
-
-        // ================ v2 — Funciones avanzadas ================
-        { id: 'conversationMemory', icon: '🧬', title: 'Memoria conversacional',
-          description: 'Gunter recuerda lo que hablan en sesiones anteriores y lo trae cuando es relevante.',
-          section: 'advanced' },
-        { id: 'conversationContinuity', icon: '💬', title: 'Continuidad de conversación',
-          description: 'Usa el diálogo reciente para seguir el hilo y entender referencias como «eso».', section: 'core' },
-        { id: 'personalMemoryContext', icon: '🧠', title: 'Recuerdos autorizados',
-          description: 'Consulta recuerdos que guardaste explícitamente, solo en modo local. No guarda conversaciones por sí solo.', section: 'core' },
-        { id: 'contextualRecommendations', icon: '🧭', title: 'Recomendaciones de herramientas',
-          description: 'Sugiere acciones disponibles cuando vienen al caso; ejecutarlas requiere tu autorización.', section: 'core' },
-        { id: 'contextualHumor', icon: '💬', title: 'Humor contextual',
-          description: 'Ingenio breve cuando aporta, con seriedad ante errores y situaciones delicadas.', section: 'core' },
-        { id: 'entryVoiceGreeting', icon: '🔊', title: 'Bienvenida por voz',
-          description: 'Habla al ingresar con tu voz configurada, si el entorno permite audio. El saludo escrito tiene su propio control.', section: 'core' },
-        { id: 'commitmentTracker', icon: '📋', title: 'Rastreador de compromisos',
-          description: 'Detecta promesas en reuniones, WhatsApp y mensajes. Avisa cuando te deben algo o se te olvida algo prometido.',
-          section: 'advanced' },
-        { id: 'proactivePulse', icon: '🫀', title: 'Pulso proactivo',
-          description: 'Gunter actúa por iniciativa propia: detecta riesgos, oportunidades y propone acciones sin esperar tu pregunta. Confirmación obligatoria.',
-          section: 'advanced' },
-        { id: 'meetingClimate', icon: '🌡️', title: 'Clima de reunión',
-          description: 'Analiza tensión, consenso, monólogos e indecisión durante reuniones. El avatar reacciona en vivo.',
-          section: 'advanced' },
-        { id: 'mirrorStyle', icon: '🪞', title: 'Modo espejo',
-          description: 'Aprende tu estilo de escritura por contacto. Las redacciones de delegación suenan a ti.',
-          section: 'advanced' },
-        { id: 'projectForecast', icon: '🔮', title: 'Forecast de proyectos',
-          description: 'Predice cuándo cierra realmente cada proyecto basado en velocidad histórica. Alerta de puntos de no-retorno.',
-          section: 'advanced' },
-        { id: 'tutorMode', icon: '📚', title: 'Modo tutor / sabio',
-          description: 'Gunter enseña sobre la biblioteca curada (33 obras de Grinberg): explica conceptos citando obra y página, sesiones guiadas capítulo por capítulo, repaso espaciado y trivia. Al desactivarlo, el tab Tutor desaparece y las conversaciones vuelven al modo asistente normal.',
-          section: 'advanced' }
-    ];
-
-    // Estilos de voz descriptivos
+    const FEATURE_MAP = S().FEATURE_MAP;
     const VOICE_STYLES = [
         { id: 'professional',       icon: '🎩', name: 'Asistente ejecutivo',     hint: 'Sobrio, estratégico, sin ruido' },
         { id: 'warm',               icon: '☕', name: 'Cálido',                  hint: 'Cercano y relajado' },
@@ -335,17 +25,9 @@
     // ---------- Core render ----------
     let rootEl = null;
     let hybridListenerBound = false;
+    let voiceTestMessage = '', voiceTestRunning = false, voiceTestPlayed = false;
     let activeCategory = 'premium';
-    const FEATURE_CATEGORIES = {
-        voiceEnabled: 'voice', dictationEnabled: 'voice', wakeWordEnabled: 'voice', entryVoiceGreeting: 'voice',
-        conversationMemory: 'conversations', conversationContinuity: 'conversations',
-        personalMemoryContext: 'conversations', contextualRecommendations: 'premium', contextualHumor: 'premium',
-        meetingMemory: 'conversations', googleCalendarSync: 'connections', whatsappAssistant: 'connections',
-        documentSync: 'connections', productivityPanel: 'actions', smartDocuments: 'actions',
-        dailyPlanner: 'actions', weeklyPlanner: 'actions', projectAutoFollowUp: 'actions',
-        meetingSmartFollowUp: 'actions', urgencyRanking: 'actions', smartWhatsappAlerts: 'actions',
-        delegationMode: 'actions', commitmentTracker: 'actions', proactivePulse: 'premium'
-    };
+    const FEATURE_CATEGORIES = S().FEATURE_CATEGORIES;
     function setCategory(category) {
         activeCategory = category || 'premium';
         if (rootEl) render();
@@ -555,7 +237,7 @@
             live_voice: 'Todas las respuestas con voz',
             wake_word_only: 'Sólo tras "Hi Gunter"'
         };
-        const voiceModeLabel = VOICE_MODE_LABELS[voiceCfg.mode] || voiceCfg.mode || '—';
+        const voiceModeLabel = VOICE_MODE_LABELS[voiceCfg.effectiveMode || voiceCfg.mode] || voiceCfg.mode || '—';
 
         const items = [
             { icon: '🗣️',  label: 'Voz',                value: voiceState },
@@ -676,7 +358,7 @@
                 for (const id of ['voiceEnabled', 'wakeWordEnabled', 'dictationEnabled']) {
                     const card = rootEl?.querySelector(`[data-feature="${id}"]`);
                     const current = card?.querySelector('.gps-card__controls > .gps-badge');
-                    if (current) current.outerHTML = badge(S().getFeatureStatus(id));
+                    if (current) current.outerHTML = badge(S().getFeatureStatus(id), id === 'voiceEnabled' ? 'Motor de voz disponible' : '');
                 }
                 const guidance = rootEl?.querySelector('[data-voice-guidance]');
                 if (guidance) guidance.textContent = voiceGuidance();
@@ -686,6 +368,7 @@
             window.addEventListener('gunter-hybrid-state', liveBadge);
             window.addEventListener('gunter-microphone-permission-state', liveBadge);
             window.addEventListener('gunter-voice-state', liveBadge);
+            window.addEventListener('gunter-voice-state', updateVoiceTest);
             rootEl.__statusBoardWired = true;
         }
     }
@@ -724,7 +407,8 @@
     }
 
     function renderCard(feature) {
-        if (feature.custom) return feature.custom(feature);
+        const customRenderer = { personality: renderPersonalityCard, voice: renderVoiceCard, 'wake-word': renderWakeWordCard }[feature.custom];
+        if (customRenderer) return customRenderer(feature);
         const enabled = S().isEnabled(feature.id);
         const status = S().getFeatureStatus(feature.id);
         const subs = (feature.subs || []).map(renderSub).join('');
@@ -951,7 +635,9 @@
         const error = window.GunterVoice?.getPlaybackState?.()?.error;
         if (error?.message) return error.message;
         if (cfg.mode === 'notifications_only') return 'La conversación responde por texto; solo las notificaciones usan voz.';
-        if (cfg.onlyAfterWakeWord || cfg.mode === 'wake_word_only') return 'Habla después de decir «Gunter»; los mensajes escritos responden por texto. La respuesta hablada respeta la elección de abajo.';
+        if (cfg.onlyAfterWakeWord || cfg.mode === 'wake_word_only') return cfg.wakeWordResponseMode === 'text'
+            ? 'Las respuestas de conversación están silenciadas: el chat escrito y las llamadas por nombre responden por texto. Selecciona «Todas las respuestas con voz» para escuchar ambas.'
+            : 'Habla después de decir «Gunter»; los mensajes escritos responden por texto.';
         return 'Responde con voz al escribirle y hablarle, si el motor y el navegador lo permiten.'
             + (cfg.wakeWordResponseMode === 'text' ? ' Las órdenes por nombre están configuradas para responder solo por texto.' : '');
     }
@@ -966,6 +652,9 @@
                 : 'No disponible localmente ahora; en AUTO puede usarse un respaldo, pero LOCAL_ONLY nunca enviará el texto a la nube.';
         const status = S().getFeatureStatus(feature.id);
         const modes = S().ENUMS.voiceMode;
+        const wakeModes = S().ENUMS.wakeWordResponseMode;
+        const effectiveMode = cfg.effectiveMode || (!cfg.enabled ? 'text_only' : cfg.onlyAfterWakeWord ? 'wake_word_only' : cfg.mode);
+        const selectedMode = effectiveMode === 'live_voice' && cfg.wakeWordResponseMode === 'text' ? '' : effectiveMode;
         const speeds = S().ENUMS.voiceSpeed;
         const tones = S().ENUMS.voiceTone;
         return `
@@ -980,13 +669,19 @@
                         data-switch="${feature.id}"></button>
                 </div>
                 <div class="gps-card__controls">
-                    ${badge(status)}
+                    ${badge(status, 'Motor de voz disponible')}
                     <button class="gps-card__toggle-cfg" aria-expanded="false" data-toggle-cfg="${feature.id}">Configurar</button>
                 </div>
                 <div class="gps-pills" data-enum="voiceMode" role="group" aria-label="Cómo responde Gunter">
-                    ${modes.map(m => `<button class="gps-pill ${cfg.mode === m ? 'is-active' : ''}" aria-pressed="${cfg.mode === m}" data-enum-value="${m}">${humanVoiceMode(m)}</button>`).join('')}
+                    ${modes.map(m => `<button class="gps-pill ${selectedMode === m ? 'is-active' : ''}" aria-pressed="${selectedMode === m}" data-enum-value="${m}">${humanVoiceMode(m)}</button>`).join('')}
                 </div>
                 <p class="gps-sub__hint" data-voice-guidance role="status" aria-live="polite">${esc(voiceGuidance())}</p>
+                <div class="gps-sub"><div class="gps-sub__label">Respuesta al decir su nombre</div></div>
+                <div class="gps-pills" data-enum="wakeWordResponseMode" role="group" aria-label="Respuesta al decir su nombre">
+                    ${wakeModes.map(m => `<button class="gps-pill ${cfg.wakeWordResponseMode === m ? 'is-active' : ''}" aria-pressed="${cfg.wakeWordResponseMode === m}" data-enum-value="${m}">${m === 'voice' ? 'Con voz (si el modo lo permite)' : 'Solo texto'}</button>`).join('')}
+                </div>
+                <p class="gps-sub__hint">Esta elección solo restringe la salida de voz; no activa ni desactiva el micrófono.</p>
+                <p class="gps-sub__hint" data-voice-test-feedback role="status" aria-live="polite">${esc(voiceTestMessage)}</p>
                 <div class="gps-card__details" data-details="${feature.id}">
                     ${status === 'unavailable' ? `<div class="gps-warning gps-warning--error">El motor de voz configurado no está disponible en este entorno. Revisa el runtime local.</div>` : ''}
                     <div class="gps-sub__hint">Motor seleccionado: Supertonic 3 · voz masculina M1. ${motorHint}</div>
@@ -1023,16 +718,8 @@
 
                     <div class="gps-sub" style="margin-top:6px;">
                         <div class="gps-sub__label">Voz también en reuniones en vivo</div>
-                        <button class="gps-switch" role="switch" aria-checked="${cfg.inMeetings}" data-switch="voiceInMeetings"></button>
+                        <button class="gps-switch" role="switch" aria-label="Voz también en reuniones en vivo" aria-checked="${cfg.inMeetings}" data-switch="voiceInMeetings"></button>
                     </div>
-                    <div class="gps-sub">
-                        <div>
-                            <div class="gps-sub__label">Voz solo tras "Hi Gunter"</div>
-                            <div class="gps-sub__hint">Restringe la voz a órdenes por nombre; no activa ni desactiva el micrófono.</div>
-                        </div>
-                        <button class="gps-switch" role="switch" aria-checked="${cfg.onlyAfterWakeWord}" data-switch="voiceOnlyAfterWakeWord"></button>
-                    </div>
-
                     <div style="margin-top:12px; display:flex; gap:8px;">
                         <button class="gps-inline-btn gps-inline-btn--primary" data-action="voice-test">🔊 Probar voz</button>
                     </div>
@@ -1047,7 +734,6 @@
         const cfg = S().getWakeWordConfig();
         const status = S().getFeatureStatus(feature.id);
         const lm = S().ENUMS.wakeWordListeningMode;
-        const rm = S().ENUMS.wakeWordResponseMode;
         return `
             <div class="gps-card ${enabled ? 'gps-card--active' : ''}" data-feature="${feature.id}">
                 <div class="gps-card__head">
@@ -1080,16 +766,10 @@
                         <div class="gps-sub__label">Modo de escucha</div>
                     </div>
                     <div class="gps-pills" data-enum="wakeWordListeningMode">
-                        ${lm.map(m => `<button class="gps-pill ${cfg.listeningMode === m ? 'is-active' : ''}" data-enum-value="${m}">${m === 'manual' ? 'Manual (botón)' : 'Continuo'}</button>`).join('')}
+                        ${lm.map(m => `<button class="gps-pill ${cfg.listeningMode === m ? 'is-active' : ''}" aria-pressed="${cfg.listeningMode === m}" data-enum-value="${m}">${m === 'manual' ? 'Manual (botón)' : 'Continuo'}</button>`).join('')}
                     </div>
 
-                    <div class="gps-sub" style="margin-top:10px;">
-                        <div class="gps-sub__label">Respuesta tras decir su nombre</div>
-                    </div>
-                    <div class="gps-pills" data-enum="wakeWordResponseMode">
-                        ${rm.map(m => `<button class="gps-pill ${cfg.responseMode === m ? 'is-active' : ''}" aria-pressed="${cfg.responseMode === m}" data-enum-value="${m}">${m === 'voice' ? 'Con voz (si está habilitada)' : 'Solo texto'}</button>`).join('')}
-                    </div>
-                    <div class="gps-sub__hint">Desactivar las respuestas por voz no apaga la escucha: puedes hablarle y recibir su respuesta escrita.</div>
+                    <div class="gps-sub__hint">La salida hablada o escrita se elige en «Respuestas por voz». Aquí solo configuras cuándo escucha.</div>
 
                     <div class="gps-sub" style="margin-top:10px;">
                         <div>
@@ -1224,14 +904,6 @@
         if (!container) return;
         const key = container.dataset.enum;
         const value = pill.dataset.enumValue;
-        if (key === 'voiceMode' && S().ENUMS.voiceMode.includes(value)) {
-            // An explicit mode selection is one coherent user choice. Loading
-            // the page never upgrades or overwrites a saved text-only policy.
-            S().updateMany({ voiceMode: value, voiceEnabled: value !== 'text_only',
-                voiceOnlyAfterWakeWord: value === 'wake_word_only',
-                ...(value === 'live_voice' ? { wakeWordResponseMode: 'voice' } : {}) });
-            return;
-        }
         S().set(key, value);
     }
 
@@ -1401,43 +1073,53 @@
         overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     }
 
+    function showVoiceTest(message) {
+        voiceTestMessage = message;
+        const feedback = rootEl?.querySelector('[data-voice-test-feedback]');
+        if (feedback) feedback.textContent = message;
+    }
+
+    function updateVoiceTest(event) {
+        const detail = event.detail || {};
+        if (detail.context !== 'voice-preview' || !voiceTestRunning) return;
+        if (detail.state === 'preparing') showVoiceTest('Preparando la prueba de voz…');
+        else if (detail.state === 'speaking') {
+            voiceTestPlayed = true;
+            showVoiceTest('Reproduciendo la voz de Gunter…');
+        } else if (detail.state === 'unavailable') {
+            voiceTestRunning = false;
+            showVoiceTest(detail.message || window.GunterVoice?.getPlaybackState?.()?.error?.message || 'No se pudo reproducir la voz. Revisa el motor y el audio del navegador.');
+        } else if (detail.state === 'idle') {
+            if (detail.reason === 'voice-unavailable') return; // The precise error follows this event.
+            voiceTestRunning = false;
+            showVoiceTest(detail.reason === 'queue-empty' && voiceTestPlayed
+                ? 'Prueba completada: el navegador reprodujo el audio. Si no lo oyes, revisa el volumen, la pestaña silenciada y el dispositivo de salida.'
+                : 'Prueba de voz cancelada.');
+        }
+    }
+
     function testVoice() {
-        // Fase F.F4 — error humano vía toast en lugar de alert
-        if (!('speechSynthesis' in window) && !window.GunterVoice?.speak) {
-            const msg = 'Tu navegador no soporta síntesis de voz.';
-            if (window.GunterNotificationsService?.showToast) {
-                window.GunterNotificationsService.showToast(msg, { variant: 'warn', duration: 4500, silent: true });
-            } else { console.warn(msg); }
+        if (!window.GunterVoice?.speak) {
+            showVoiceTest('El servicio de voz no se cargó. Recarga Gunter antes de probar de nuevo.');
             return;
         }
         const cfg = S().getVoiceConfig();
-        if (!cfg.enabled || !window.GunterVoice?.shouldSpeak?.('chat')) {
-            if (window.GunterNotificationsService?.showToast) {
-                window.GunterNotificationsService.showToast('Selecciona «Todas las respuestas con voz» para probar la voz del chat. Se conservan las restricciones de reuniones.', { variant: 'info', duration: 4000, silent: true });
-            }
+        if (!cfg.enabled || cfg.mode === 'text_only') {
+            showVoiceTest('Las respuestas por voz están desactivadas. Selecciona un modo con voz para realizar la prueba.');
             return;
         }
-        const phrases = {
-            professional:      'La agenda está lista. Tres prioridades críticas para hoy.',
-            warm:              'Hola, me alegra verte hoy. ¿En qué te ayudo primero?',
-            chaotic_scientist: 'Listo, genio. Eso estaba a dos segundos de volverse un incendio.',
-            energetic_cartoon: '¡Eso quedó agendadísimo! ¡Vamos a vencer esa lista como campeones!',
-            minimal_penguin:   'Hecho. Eso vence mañana. Peligro.',
-            executive:         'La reunión quedó programada. Calendario actualizado correctamente.',
-            focus_coach:       'Enfócate en una sola tarea. La prioridad ahora es terminar esto.'
-        };
-        const text = phrases[cfg.style] || phrases.professional;
-        // Usar el voice-service si está disponible (aplica estilo, voz nativa, etc.)
-        if (window.GunterVoice?.speak) {
-            window.GunterVoice.speak(text, { context: 'chat', force: true });
-        } else {
-            const u = new SpeechSynthesisUtterance(text);
-            u.lang = 'es-MX';
-            u.rate = { slow: 0.85, normal: 1, fast: 1.2 }[cfg.speed] || 1;
-            u.pitch = { calm: 0.9, neutral: 1, expressive: 1.15, intense: 1.25 }[cfg.tone] || 1;
-            speechSynthesis.cancel();
-            speechSynthesis.speak(u);
+        if (!window.GunterVoice.shouldSpeak?.('voice-preview')) {
+            showVoiceTest('La voz está silenciada durante esta reunión. Activa la opción de voz en reuniones solo si quieres permitirla.');
+            return;
         }
+        window.GunterVoice.cancel?.('voice-preview');
+        voiceTestRunning = true; voiceTestPlayed = false;
+        showVoiceTest('Preparando la prueba de voz…');
+        Promise.resolve(window.GunterVoice.speak('Esta es una prueba de la voz de Gunter. Si me escuchas, la reproducción está funcionando.',
+            { context: 'voice-preview', full: true })).catch(() => {
+            voiceTestRunning = false;
+            showVoiceTest('No se pudo iniciar la prueba de voz. La conversación de texto sigue disponible.');
+        });
     }
 
     // Fase F.F4 — Test wake word: pide permiso de mic con gesto del usuario
@@ -1474,8 +1156,8 @@
     }
 
     // ---------- Helpers ----------
-    function badge(status) {
-        const label = {
+    function badge(status, activeLabel = '') {
+        const label = status === 'active' && activeLabel ? activeLabel : {
             active: 'Activada y disponible',
             inactive: 'Desactivada por el usuario',
             pending_permission: 'Activada, pendiente de permiso',
@@ -1512,5 +1194,5 @@
         return ({ calm: 'Calmada', neutral: 'Neutral', expressive: 'Expresiva', intense: 'Intensa' })[t] || t;
     }
 
-    window.GunterAdvancedSettings = { mount, setCategory };
+    window.GunterAdvancedSettings = { mount, setCategory, FEATURE_MAP, FEATURE_CATEGORIES };
 })();

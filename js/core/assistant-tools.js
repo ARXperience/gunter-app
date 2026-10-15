@@ -14,7 +14,7 @@
     const PENDING_KEY = 'gunter_pending_tool_v1';
     const PENDING_TTL_MS = 5 * 60 * 1000;
     const REFERENCE_TTL_MS = 10 * 60 * 1000;
-    const VOICE_READ_ONLY_TOOLS = new Set(['app.navigate', 'settings.list', 'agenda.list', 'jobs.list', 'reminder.inspect', 'commitments.list',
+    const VOICE_READ_ONLY_TOOLS = new Set(['app.navigate', 'app.inspect', 'settings.list', 'agenda.list', 'jobs.list', 'reminder.inspect', 'commitments.list',
         'desktop.files.list', 'desktop.files.search', 'desktop.ui.inspect', 'mobile.files.list', 'mobile.files.search']);
 
     function normalize(value) {
@@ -34,7 +34,8 @@
         settings: 'config.html#preferences', preferences: 'config.html#preferences', account: 'config.html#account',
         connections: 'config.html#connections', data: 'config.html#data', assistant: 'config.html#premium',
         'ai assistant': 'config.html#premium', trash: 'config.html#trash',
-        'advanced settings': 'config.html#premium', administration: 'admin.html'
+        'advanced settings': 'config.html#premium', voice: 'config.html#voice',
+        'conversation settings': 'config.html#conversations', permissions: 'config.html#actions', diagnostics: 'config.html#diagnostics', administration: 'admin.html'
     });
     const NAVIGATION_LABELS = Object.freeze(Object.fromEntries(Object.entries(NAVIGATION_TARGETS).map(([label, target]) => [target, label])));
 
@@ -46,7 +47,10 @@
             tasks: ['tareas', 'pendientes'], agenda: ['agenda', 'calendario', 'eventos'], reminders: ['recordatorios'],
             commitments: ['compromisos', 'promesas'],
             activity: ['actividad', 'historial'], settings: ['configuracion', 'ajustes'], preferences: ['preferencias'], account: ['mi cuenta', 'mi perfil', 'nombre preferido'],
-            connections: ['conexiones', 'datos y conexiones', 'redes sociales'], assistant: ['asistente ia', 'funciones del asistente', 'configuracion avanzada', 'opciones avanzadas', 'ajustes avanzados', 'configuracion de voz'],
+            connections: ['conexiones', 'datos y conexiones', 'redes sociales', 'dispositivos'], data: ['datos y privacidad', 'mis datos', 'respaldo', 'restauracion'], assistant: ['asistente ia', 'asistente e ia', 'funciones del asistente', 'configuracion avanzada', 'opciones avanzadas', 'ajustes avanzados'],
+            voice: ['voz y escucha', 'configuracion de voz', 'ajustes de voz', 'escucha', 'microfono'],
+            'conversation settings': ['conversaciones y memoria', 'configuracion de memoria', 'mis recuerdos'],
+            permissions: ['acciones y permisos', 'permisos'], diagnostics: ['diagnostico', 'diagnosticos', 'estado del sistema'],
             trash: ['papelera'], administration: ['administracion', 'panel administrativo']
         };
         const normalized = normalize(text);
@@ -113,24 +117,129 @@
         let rawValue = valueMatch ? String(valueMatch[2] || valueMatch[1] || '').trim().replace(/[.!?]+$/, '') : '';
         const existing = setting.advanced?.[field];
         let value;
-        if (typeof existing === 'boolean' || /^(enabled|localOnly|sessionOnly|bargeIn|vad|media|messaging|location|camera|gpuEnabled|fallback|healthAlerts|syncEnabled|reviewRequired)$/i.test(field)) {
+        const rule = setting.advancedSchema?.[field];
+        if (rule?.type === 'boolean' || typeof existing === 'boolean' || /^(enabled|localOnly|sessionOnly|bargeIn|vad|media|messaging|files|location|camera|gpuEnabled|fallback|healthAlerts|syncEnabled|reviewRequired)$/i.test(field)) {
             if (toggleMatch) value = !/desactiva|desactivar|inhabilita|inhabilitar/.test(toggleMatch[1]);
             else if (/^(si|sí|true|verdadero|on|activado|activada|habilitado|habilitada)$/i.test(rawValue)) value = true;
             else if (/^(no|false|falso|off|desactivado|desactivada|deshabilitado|deshabilitada)$/i.test(rawValue)) value = false;
             else return { rawText: text, setting, field, invalidValue: true };
-        } else if (typeof existing === 'number' || /days|minutes|limit|budget|threshold|ram|storage/i.test(field)) {
+        } else if (rule?.type === 'number' || typeof existing === 'number' || /days|minutes|limit|budget|threshold|ram|storage/i.test(field)) {
             const number = Number(rawValue.replace(/\s*(d[ií]as?|minutos?|mb|gb|%|por ciento)$/i, '').replace(',', '.'));
             if (!Number.isFinite(number) || number < 0) return { rawText: text, setting, field, invalidValue: true };
             value = number;
-        } else if (Array.isArray(existing) || /^(sources|memoryTypes|allowedFolders|allowedTypes|allowedProviders|priorityContacts|allowedApps|channels|priorityContexts|providers)$/i.test(field)) {
+        } else if (rule?.type === 'array' || Array.isArray(existing) || /^(sources|memoryTypes|allowedFolders|allowedTypes|allowedProviders|priorityContacts|allowedApps|channels|priorityContexts|providers)$/i.test(field)) {
             value = rawValue.split(/[,;]/).map(item => item.trim()).filter(Boolean);
         } else if (/^(quietHours|triggers|limits|schedules)$/i.test(field)) {
             try { value = JSON.parse(rawValue); } catch { return { rawText: text, setting, field, invalidValue: true, jsonRequired: true }; }
         } else value = rawValue;
+        if (rule?.type === 'enum' && !rule.values.includes(value)) return { rawText: text, setting, field, invalidValue: true, valueHint: `Valores permitidos: ${rule.values.join(', ')}.` };
+        if (rule?.type === 'number' && (value < rule.min || value > rule.max || (rule.integer && !Number.isInteger(value))))
+            return { rawText: text, setting, field, invalidValue: true, valueHint: `Rango: ${rule.min}–${rule.max} ${rule.unit || ''}${rule.integer ? ', número entero' : ''}.` };
+        if (rule?.type === 'string' && (typeof value !== 'string' || value.length > rule.maxLength)) return { rawText: text, setting, field, invalidValue: true };
+        if (rule?.type === 'array' && (value.length > rule.maxItems || value.some(item => item.length > rule.maxLength))) return { rawText: text, setting, field, invalidValue: true };
+        if (rule?.type === 'object' && (!value || Array.isArray(value) || JSON.stringify(value).length > rule.maxLength || /"(?:__proto__|constructor|prototype)"\s*:/.test(JSON.stringify(value)))) return { rawText: text, setting, field, invalidValue: true };
         return { rawText: text, setting, field, value };
     }
 
-    function displaySettingValue(value) { return value === undefined ? 'sin definir' : typeof value === 'object' ? JSON.stringify(value) : String(value); }
+    // Values/defaults remain owned by PremiumFeaturesService and the server
+    // registry. This is vocabulary for explaining their existing controls, not
+    // another settings store or an alternative mutation path.
+    const SETTING_VOCABULARY = Object.freeze({
+        voiceEnabled: ['Respuestas por voz', 'respuesta hablada', 'voz de gunter', 'salida de voz'],
+        voiceMode: ['Modo de respuesta por voz', 'modo de voz'],
+        voiceOnlyAfterWakeWord: ['Voz solo tras su nombre', 'voz solo tras hi gunter'],
+        voiceStyle: ['Estilo vocal', 'personalidad vocal', 'estilo de voz'], voiceSpeed: ['Velocidad de voz', 'velocidad de la voz'],
+        voiceTone: ['Tono de voz', 'tono vocal'], voiceInMeetings: ['Voz en reuniones', 'hablar en reuniones'],
+        dictationEnabled: ['Reconocimiento y dictado', 'dictado', 'transcripcion por microfono'],
+        wakeWordEnabled: ['Activación por voz', 'palabra de activacion', 'activacion por nombre', 'hi gunter'],
+        wakeWord: ['Palabra de activación personalizada', 'palabra de llamada'],
+        wakeWordListeningMode: ['Modo de escucha', 'escucha continua', 'escucha manual'],
+        wakeWordResponseMode: ['Respuesta tras decir su nombre', 'respuesta tras hi gunter'],
+        wakeWordAutoStopSeconds: ['Auto-stop tras silencio', 'segundos de silencio', 'tiempo de silencio'],
+        conversationContinuity: ['Continuidad de conversaciones', 'continuidad natural'],
+        personalMemoryContext: ['Memoria contextual autorizada', 'recuerdos personales', 'contexto de memoria'],
+        conversationMemory: ['Memoria de conversaciones', 'historial de conversaciones'],
+        contextualRecommendations: ['Recomendaciones contextuales', 'recomendaciones de herramientas'],
+        diagnosticsEnabled: ['Diagnóstico de funcionamiento', 'diagnosticos del asistente'],
+        contextualHumor: ['Humor contextual', 'humor'], humorIntensity: ['Intensidad del humor'],
+        entryVoiceGreeting: ['Bienvenida por voz', 'saludo por voz'], adaptivePersonality: ['Personalidad adaptativa', 'personalidad'],
+        personalityMode: ['Estilo de personalidad', 'estilo del asistente'], personalityIntensity: ['Intensidad de personalidad'],
+        proactivePulse: ['Comportamiento proactivo', 'pulso proactivo'], proactivePulseAggression: ['Intensidad proactiva'],
+        dailyPlanner: ['Planificador diario', 'planificador', 'planificar mi dia', 'organizar mi dia'],
+        weeklyPlanner: ['Planificador semanal', 'planificador', 'planificar mi semana', 'organizar mi semana'],
+        tutorMode: ['Modo sabio', 'modo tutor'], tutorLibrary: ['Biblioteca del modo sabio']
+    });
+    const ENUM_WORDS = Object.freeze({
+        text_only: ['solo texto', 'sin voz'], notifications_only: ['solo notificaciones'], live_voice: ['todas las respuestas con voz', 'todas las respuestas', 'siempre con voz'],
+        wake_word_only: ['tras hi gunter', 'solo tras su nombre', 'solo por nombre'], manual: ['manual', 'boton'], continuous: ['continuo', 'continua'],
+        voice: ['con voz', 'voz'], text: ['solo texto', 'texto'], slow: ['lenta', 'lento'], normal: ['normal'], fast: ['rapida', 'rapido'],
+        calm: ['calmada', 'calmado'], neutral: ['neutral'], expressive: ['expresiva', 'expresivo'], intense: ['intensa', 'intenso'],
+        soft: ['suave'], high: ['alta', 'alto'], professional: ['profesional', 'asistente ejecutivo'], warm: ['calido', 'calida'],
+        chaotic_scientist: ['cientifico caotico'], energetic_cartoon: ['caricatura energetica'], minimal_penguin: ['minimalista'], executive: ['ejecutivo premium'],
+        focus_coach: ['coach de enfoque'], direct: ['directo'], coach: ['coach'], fun: ['divertido'], strategic: ['estrategico']
+    });
+    const SETTINGS_SECTIONS = Object.freeze({
+        account: 'Mi cuenta', premium: 'Asistente e IA', voice: 'Voz y escucha', conversations: 'Conversaciones y memoria',
+        actions: 'Acciones y permisos', connections: 'Conexiones y dispositivos', preferences: 'Apariencia y accesibilidad', data: 'Datos y privacidad', diagnostics: 'Diagnóstico'
+    });
+    const USER_ACTION_SETTINGS = Object.freeze([
+        ['account.name', 'Nombre de registro', ['nombre registrado'], 'account', 'Identidad del perfil autenticado. Editar este nombre no cambia tu usuario único ni credenciales.'],
+        ['account.preferredName', 'Nombre preferido', ['como me llamas', 'como quiero que me llames'], 'account', 'Define cómo quieres que Gunter te llame; no cambia tu identidad de autenticación.'],
+        ['account.security', 'Contraseña y seguridad', ['contrasena', 'credenciales'], 'account', 'La contraseña se gestiona mediante el flujo autenticado de cuenta. Nunca debes dictarla ni escribirla en el chat.'],
+        ['appearance', 'Apariencia y accesibilidad', ['preferencias de apariencia'], 'preferences', 'Configura modo claro/oscuro, idioma, ubicación manual, movimiento reducido y efectos de clic.'],
+        ['visualCore', 'Núcleo generado', ['color del nucleo', 'colores del nucleo', 'densidad del nucleo', 'brillo del nucleo', 'energia del nucleo'], 'preferences', 'Controla los tres colores HEX, densidad real, brillo, velocidad y tamaño del núcleo. No cambia voz ni inteligencia.'],
+        ['microphone.permission', 'Permiso del micrófono', ['autorizar microfono', 'permiso de microfono'], 'voice', 'El navegador o sistema debe pedirte autorización. Un comando de chat no puede conceder ese permiso ni garantizar captura con la aplicación cerrada.'],
+        ['personalMemory.backup', 'Respaldo de memoria personal', ['exportar recuerdos', 'importar recuerdos', 'exportacion de memoria', 'importacion de memoria'], 'data', 'Exporta solo recuerdos de tu cuenta. La importación valida archivo y vista previa antes de confirmar; puede contener información personal.'],
+        ['data.privacy', 'Datos y privacidad', ['borrar datos', 'restaurar datos', 'eliminar datos'], 'data', 'Administra respaldos, almacenamiento y eliminación mediante los controles existentes y sus confirmaciones.'],
+        ['connection.accounts', 'Conexiones y dispositivos', ['conectar cuenta', 'conectar redes', 'vincular dispositivo'], 'connections', 'Conecta cuentas y dispositivos usando su flujo oficial. Activar una preferencia no inicia sesión ni concede acceso a un dispositivo.'],
+        ['runtime.privacy', 'Privacidad y modo de ejecución', ['local only', 'modo local', 'modo cloud', 'modo auto', 'privacidad local'], 'premium', 'Selecciona el modo y privacidad de los motores existentes. LOCAL_ONLY no permite sustituir un fallo local por un servicio cloud.']
+    ]);
+    function wordsForKey(key) { return String(key).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[._]/g, ' '); }
+    function matchSettings(text, items) {
+        const n = normalize(text);
+        let ranked = items.map(item => ({ item, score: Math.max(0, ...[item.key, item.label, ...(item.aliases || [])]
+            .map(normalize).filter(a => a && new RegExp(`\\b${escapeRegExp(a)}\\b`).test(n)).map(a => a.length)) }))
+            .filter(row => row.score).sort((a, b) => b.score - a.score);
+        // A user should not have to remember the full UI label. Conservative
+        // token matching helps locate candidates, never silently breaks ties.
+        if (!ranked.length) {
+            const generic = new Set(['configuracion', 'configuraciones', 'opcion', 'opciones', 'ajuste', 'ajustes', 'modo', 'asistente', 'gunter', 'avanzada', 'avanzadas', 'funcion', 'funciones', 'personal', 'contextual', 'activacion']);
+            ranked = items.map(item => {
+                const tokens = [...new Set(normalize(`${item.label} ${(item.aliases || []).join(' ')}`).split(' '))]
+                    .filter(word => word.length >= 4 && !generic.has(word));
+                const hits = tokens.filter(word => new RegExp(`\\b${escapeRegExp(word)}\\b`).test(n));
+                return { item, score: hits.reduce((sum, word) => sum + word.length, 0) };
+            }).filter(row => row.score).sort((a, b) => b.score - a.score);
+        }
+        if (!ranked.length) return { setting: null, candidates: [] };
+        const candidates = ranked.filter(row => row.score === ranked[0].score).map(row => row.item);
+        return { setting: candidates.length === 1 ? candidates[0] : null, candidates };
+    }
+    function parseCatalogValue(text, setting) {
+        const n = normalize(text), negative = /\b(desactiva|desactivar|inhabilita|apaga|quita|no uses)\b/.test(n);
+        if (setting.type === 'boolean') {
+            if (!/\b(activa|activar|habilita|encender|enciende|desactiva|desactivar|inhabilita|apaga|quita|no uses)\b/.test(n)) return { missingValue: true };
+            return { value: !negative };
+        }
+        const raw = String(text).match(/\b(?:a|en|como)\s+["“']?(.+?)["”']?\s*[.!?]*$/i)?.[1]?.trim();
+        if (setting.type === 'enum') {
+            const input = normalize(raw || text);
+            const matches = setting.values.map(value => ({ value, score: Math.max(0, ...[value, ...(ENUM_WORDS[value] || [])]
+                .map(normalize).filter(a => a && (raw ? a === input : new RegExp(`\\b${escapeRegExp(a)}\\b`).test(input))).map(a => a.length)) }))
+                .filter(row => row.score).sort((a, b) => b.score - a.score);
+            if (!matches.length || (matches[1]?.score === matches[0].score)) return { invalidValue: true };
+            return { value: matches[0].value };
+        }
+        if (!raw) return { missingValue: true };
+        if (setting.type === 'number') {
+            const value = Number(raw.replace(/\s*(segundos?|s)\s*$/i, '').replace(',', '.'));
+            if (!Number.isFinite(value) || value < setting.min || value > setting.max || !Number.isInteger(value)) return { invalidValue: true };
+            return { value };
+        }
+        if (raw.length > 120 || !raw.trim()) return { invalidValue: true };
+        return { value: raw.replace(/["”']$/, '') };
+    }
+    function displaySettingValue(value) { return value === undefined ? 'sin definir' : typeof value === 'object' ? JSON.stringify(value) : typeof value === 'boolean' ? (value ? 'activado' : 'desactivado') : String(value); }
     function escapeRegExp(value) { return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
     function parsePreferenceChange(normalized, rawText) {
         const negated = /\b(desactiva|desactivar|quita|quitar|reduce menos|no uses)\b/.test(normalized);
@@ -211,6 +320,7 @@
         return pending && (pending.toolId?.startsWith('tasks.') || pending.toolId?.startsWith('calendar.') || pending.toolId?.startsWith('commitments.')
             || pending.toolId === 'reminder.update' || pending.toolId === 'reminder.retry' || pending.toolId === 'jobs.cancel'
             || !!pending.args?.eventLink || !!pending.args?.target?.meta?.eventLink
+            || pending.toolId === 'settings.update'
             || (pending.toolId === 'preferences.update' && pending.args?.key === 'calendarPlanning'));
     }
 
@@ -221,6 +331,49 @@
         let pendingReminderReference = null;
         let pendingEventSelection = null;
         const runtime = options.root || root || {};
+        function localSettings() {
+            const service = runtime.PremiumFeaturesService;
+            if (!service?.DEFAULTS || !service.getAll || !service.set) return [];
+            const values = service.getAll(), map = service.FEATURE_MAP || runtime.GunterAdvancedSettings?.FEATURE_MAP || [];
+            const categories = service.FEATURE_CATEGORIES || runtime.GunterAdvancedSettings?.FEATURE_CATEGORIES || {};
+            const meta = new Map();
+            for (const feature of map) {
+                meta.set(feature.id, { label: feature.title, description: feature.description, section: categories[feature.id] || 'premium' });
+                for (const sub of feature.subs || []) meta.set(sub.key, { label: sub.label, description: sub.hint || `Opción de ${feature.title}.`, section: categories[feature.id] || 'premium', parent: feature.id, subStatus: sub.subStatus });
+            }
+            const settings = Object.entries(service.DEFAULTS).map(([key, defaultValue]) => {
+                const field = meta.get(key) || {}, vocabulary = SETTING_VOCABULARY[key] || [];
+                const parent = field.parent || Object.entries(service.CHILDREN || {}).find(([, children]) => children.includes(key))?.[0];
+                const section = field.section || categories[parent || key] || (/^(voice|wakeWord|dictation|entryVoice)/.test(key) ? 'voice'
+                    : /^(conversation|personalMemory|meetingMemory)/.test(key) ? 'conversations' : 'premium');
+                return { key, source: 'preference', label: vocabulary[0] || field.label || wordsForKey(key),
+                    description: service.getFeatureDescription?.(key) || field.description || `Ajuste ${wordsForKey(key)}${parent ? ` del módulo ${meta.get(parent)?.label || wordsForKey(parent)}` : ''}.`,
+                    aliases: [...vocabulary.slice(1), field.label, wordsForKey(key)].filter(Boolean), parent,
+                    section, location: `Configuración → ${SETTINGS_SECTIONS[section]}`, route: `config.html#${section}`,
+                    type: service.ENUMS?.[key] ? 'enum' : typeof defaultValue, values: service.ENUMS?.[key] || null,
+                    ...(key === 'wakeWordAutoStopSeconds' ? { min: 5, max: 60, unit: 'segundos' } : {}),
+                    value: values[key], enabled: typeof defaultValue === 'boolean' ? values[key] : undefined,
+                    status: typeof defaultValue === 'boolean' ? service.getFeatureStatus?.(key) : null,
+                    readOnly: key === 'tutorLibrary' || field.subStatus === 'coming_soon' || field.subStatus === 'included_in_parent',
+                    readOnlyReason: field.subStatus === 'coming_soon' ? 'Todavía no está implementada.' : field.subStatus === 'included_in_parent'
+                        ? 'Su comportamiento está incluido en el módulo principal; no tiene un interruptor independiente efectivo.' : key === 'tutorLibrary' ? 'La biblioteca se gestiona desde el catálogo existente, no como texto libre.' : null };
+            });
+            return settings.concat(USER_ACTION_SETTINGS.map(([key, label, aliases, section, description]) => ({ key, label, aliases, section, description,
+                source: 'guidance', type: 'guidance', readOnly: true,
+                readOnlyReason: 'Este ajuste requiere el control específico en pantalla; puedo explicarlo y llevarte allí, pero no lo cambiaré mediante un valor libre en el chat.',
+                location: `Configuración → ${SETTINGS_SECTIONS[section]}`, route: `config.html#${section}` })));
+        }
+        function describePage() {
+            const file = String(runtime.location?.pathname || '').split('/').pop() || 'day.html';
+            const hash = String(runtime.location?.hash || '').replace(/^#/, '');
+            if (file === 'config.html') return { route: `${file}${hash ? `#${hash}` : ''}`, label: `Configuración → ${SETTINGS_SECTIONS[hash] || 'Asistente e IA'}`,
+                description: 'Aquí puedes consultar y cambiar preferencias. Los permisos del sistema y las acciones sensibles mantienen sus confirmaciones.' };
+            const page = ({ 'day.html': { '': ['Inicio', 'Acceso central al asistente.'], conversations: ['Conversaciones', 'Consulta mensajes de las cuentas conectadas.'], tasks: ['Tareas', 'Consulta y gestiona tus tareas.'], events: ['Agenda', 'Consulta eventos y compromisos con fecha.'], reminders: ['Recordatorios', 'Consulta avisos programados.'], commitments: ['Compromisos', 'Revisa compromisos detectados y crea tareas tras confirmarlos.'], capture: ['Captura rápida', 'Registra una idea o pendiente.'], activity: ['Actividad', 'Consulta la actividad reciente.'] },
+                'dashboard.html': { '': ['Reuniones', 'Consulta proyectos y reuniones.'] }, 'new-project.html': { '': ['Nueva reunión', 'Prepara una reunión o sube una grabación.'] },
+                'meeting.html': { '': ['Reunión en vivo', 'Captura y consulta la reunión actual.'] }, 'results.html': { '': ['Resultados', 'Consulta análisis, transcripciones y decisiones.'] } })[file];
+            const selected = page?.[hash] || page?.[''];
+            return { route: `${file}${hash ? `#${hash}` : ''}`, label: selected?.[0] || 'una pantalla de Gunter', description: selected?.[1] || 'No tengo una descripción verificada de esta pantalla.' };
+        }
         const memoryStorage = new Map();
         const storage = options.storage || safeStorage(runtime.sessionStorage, memoryStorage);
         const now = options.now || (() => new Date());
@@ -535,7 +688,7 @@
         async function controlPlan(tool, match, confirmed) {
             // Las rutas locales deterministas no son tareas persistentes ni deben
             // pasar por un planificador temporal que pueda pedir fecha/hora.
-            if (['app.navigate', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update'].includes(tool.id)) return null;
+            if (['app.navigate', 'app.inspect', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update'].includes(tool.id)) return null;
             // Node adapters already create, authorize and audit their canonical
             // command. A second legacy plan would use a different autonomy level.
             if (tool.id.startsWith('desktop.') || tool.id.startsWith('mobile.')) return null;
@@ -634,6 +787,19 @@
                 return { toolId: 'jobs.list', args: { status: 'failed' } };
             // Describing a browser or asking how playback works is not permission to act.
             const browserExplanation = /^(?:que (?:es|son|significa)|como (?:funciona|puedo|se)|por que|para que|explica(?:me)?|dime que)\b/.test(questionText);
+            if (/\b(donde estoy|en que (?:apartado|seccion|pagina) estoy|para que sirve (?:esta|este) (?:pagina|apartado|seccion)|explicame (?:esta|este) (?:pagina|apartado|seccion))\b/.test(t))
+                return { toolId: 'app.inspect', args: { rawText: text } };
+
+            const localMatch = matchSettings(t, localSettings());
+            const settingsQuestion = /^(?:que|cual|cuales|como|para que|donde|explica(?:me)?|dime|muestra(?:me)?|consulta|lista|ver)\b/.test(questionText);
+            const settingsCommand = /^(?:por favor )?(?:activa|activar|habilita|habilitar|desactiva|desactivar|apaga|enciende|inhabilita|cambia|cambiar|configura|ajusta|pon|establece|usa|no uses)\b/.test(questionText);
+            if (localMatch.candidates.length && settingsQuestion)
+                return { toolId: 'settings.list', args: { rawText: text, preferenceQuery: true } };
+            if (localMatch.candidates.length && settingsCommand)
+                return { toolId: 'settings.update', args: { rawText: text, preferenceQuery: true } };
+            if (/\b(como|donde|para que|explica(?:me)?)\b/.test(questionText)
+                && /\b(configuraciones?|ajustes?|opciones avanzadas|voz continua|memoria semantica|control del pc|integraciones)\b/.test(t))
+                return { toolId: 'settings.list', args: { rawText: text } };
 
             const planningMention = /\b(horario laboral|horario de trabajo|jornada(?: laboral)?|dias laborales|dias de trabajo|preferencias de agenda|planificacion de agenda|(?:margen|pausa|descanso|separacion) (?:entre|de) reuniones|minutos? entre reuniones)\b/.test(t);
             if (planningMention) {
@@ -656,6 +822,8 @@
             if (/\b(ve a|ir a|lleva(me)? a|abre|abrir|muestra(me)?|navega(r)? a|entra a)\b/.test(t)) {
                 const destination = parseNavigationTarget(t);
                 if (destination) return { toolId: 'app.navigate', args: { destination, rawText: text } };
+                if (localMatch.setting?.route) return { toolId: 'app.navigate', args: { settingRoute: localMatch.setting.route,
+                    settingLabel: localMatch.setting.label, rawText: text } };
             }
 
             if (/\b(acceso general|acceso amplio|acceso completo|control total|control completo|todos los archivos|cualquier carpeta|cualquier programa|acceso estandar|acceso estándar|acceso limitado|limita el acceso)\b/.test(t)
@@ -885,11 +1053,27 @@
             }
             if (match.toolId === 'settings.update' || match.toolId === 'settings.list') {
                 const control = runtime.GunterControlPlane;
-                if (!control?.settings) return { ...match, args: { ...match.args, unavailable: true } };
-                const snapshot = await control.settings();
-                const items = snapshot.items || [];
-                if (match.toolId === 'settings.list') return { ...match, args: { ...match.args, items } };
-                return { ...match, args: resolveSettingChange(match.args.rawText, items) };
+                const ownerId = taskOwnerId(), preferences = localSettings();
+                if (match.toolId === 'settings.update' && /\b(?:y|luego|despues|ademas|pero)\s+(?:activa|desactiva|cambia|configura|ajusta|apaga|enciende|habilita|quita|pon)\b/.test(normalize(match.args.rawText)))
+                    return { ...match, args: { ...match.args, compound: true, ownerId } };
+                if (runtime.GunterAuth && !ownerId) return { ...match, args: { ...match.args, accountUnavailable: true } };
+                const local = matchSettings(match.args.rawText, preferences);
+                // Local preferences stay usable offline. Never route a real
+                // voice/UI preference into the similarly named server policy.
+                if (local.candidates.length) {
+                    const args = { ...match.args, ownerId, items: preferences, setting: local.setting,
+                        candidates: local.candidates.length > 1 ? local.candidates : [] };
+                    if (match.toolId === 'settings.update' && local.setting) Object.assign(args, parseCatalogValue(match.args.rawText, local.setting));
+                    return { ...match, args };
+                }
+                let items = [], controlUnavailable = false;
+                try { items = (await control?.settings?.())?.items || []; } catch { controlUnavailable = true; }
+                if (runtime.GunterAuth && taskOwnerId() !== ownerId) return { ...match, args: { ...match.args, accountUnavailable: true } };
+                items = items.map(item => ({ ...item, source: 'control', location: 'Configuración → Asistente e IA → Centro de control', route: 'config.html#premium' }));
+                if (match.toolId === 'settings.list') return { ...match, args: { ...match.args, ownerId,
+                    items: [...preferences, ...items], controlUnavailable, unavailable: !preferences.length && !items.length } };
+                return { ...match, args: { ...resolveSettingChange(match.args.rawText, items), ownerId,
+                    unavailable: !items.length, controlUnavailable } };
             }
             if (match.toolId.startsWith('desktop.')) return match;
             if (match.toolId === 'procedure.execute') {
@@ -1338,18 +1522,24 @@
         });
 
         register({
+            id: 'app.inspect', description: 'Explica la página y la sección actual verificadas.', confirm: 'never', reversible: true,
+            execute() { return describePage(); }, verify(result) { return !!result?.route; },
+            formatResult(result) { return `Estás en ${result.label}. ${result.description} Puedes pedirme «llévame a…» para abrir otro apartado de Gunter.`; }
+        });
+
+        register({
             id: 'app.navigate', description: 'Navega a un apartado permitido de Gunter.', confirm: 'never', reversible: true,
-            validate(args) { return args.destination ? { ok: true } : { ok: false, reply: 'No identifiqué el apartado. Puedes decir Inicio, Conversaciones, Reuniones, Tareas, Agenda, Resultados o Configuración.' }; },
+            validate(args) { return args.destination || (args.settingRoute && Object.values(NAVIGATION_TARGETS).includes(args.settingRoute)) ? { ok: true } : { ok: false, reply: 'No identifiqué el apartado. Puedes decir Inicio, Conversaciones, Reuniones, Tareas, Agenda, Resultados o Configuración.' }; },
             execute(args) {
-                const target = NAVIGATION_TARGETS[args.destination];
+                const target = args.settingRoute && Object.values(NAVIGATION_TARGETS).includes(args.settingRoute) ? args.settingRoute : NAVIGATION_TARGETS[args.destination];
                 if (!target) throw new Error('Ese destino no pertenece a las rutas permitidas de Gunter.');
                 if (runtime.location?.assign) runtime.location.assign(target);
                 else if (runtime.location) runtime.location.href = target;
                 else throw new Error('La navegación solo está disponible desde la app web.');
-                return { target };
+                return { target, label: args.settingLabel || null };
             },
             verify(result) { return !!result?.target; },
-            formatResult(result) { return `Abriendo ${NAVIGATION_LABELS[result.target] || 'el apartado solicitado'}.`; }
+            formatResult(result) { return `Abriendo ${result.label ? `${result.label} en Configuración` : NAVIGATION_LABELS[result.target] || 'el apartado solicitado'}.`; }
         });
 
         register({
@@ -1449,6 +1639,8 @@
         register({
             id: 'settings.list', description: 'Consulta ajustes del asistente, incluidos sus campos avanzados.', confirm: 'never', reversible: true,
             validate(args) {
+                if (args.accountUnavailable) return { ok: false, reply: 'La sesión no está verificada o cambió de cuenta. Vuelve a entrar antes de consultar tus ajustes.' };
+                if (args.candidates?.length) return { ok: false, reply: `Hay varias opciones posibles: ${args.candidates.slice(0, 6).map(item => item.label).join(', ')}${args.candidates.length > 6 ? ' y otras opciones relacionadas' : ''}. ¿Cuál quieres consultar?` };
                 if (args.calendarPlanning && (!args.ownerId || taskOwnerId() !== args.ownerId || args.planningUnavailable))
                     return { ok: false, reply: args.planningUnavailable || 'Inicia sesión para consultar la planificación de tu cuenta.' };
                 return args.unavailable ? { ok: false, reply: 'El panel de configuración no está disponible en esta sesión.' } : { ok: true };
@@ -1460,7 +1652,7 @@
                 }
                 const items = args.items || [];
                 if (!items.length) throw new Error('No pude leer el catálogo de configuración.');
-                const setting = resolveSettingChange(args.rawText, items).setting;
+                const setting = args.setting || resolveSettingChange(args.rawText, items.filter(item => item.source !== 'preference')).setting;
                 if (setting) return { setting };
                 return { items };
             },
@@ -1469,34 +1661,70 @@
             formatResult(result) {
                 if (result.planningPreferences) return calendarPlanningLabel(result.planningPreferences);
                 if (result.setting) {
-                    const fields = (result.setting.advancedFields || []).map(field => `${field}: ${displaySettingValue(result.setting.advanced?.[field])}`).join('; ');
-                    return `${result.setting.label}: ${result.setting.enabled ? 'activado' : 'desactivado'}${fields ? `. Opciones avanzadas: ${fields}` : '. No tiene campos avanzados.'}${result.setting.available ? '' : ` (No disponible: ${result.setting.lockedReason || 'plan o despliegue'})`}`;
+                    const item = result.setting;
+                    const fields = (item.advancedFields || []).map(field => `${wordsForKey(field)} (${field}): ${displaySettingValue(item.advanced?.[field])}${item.advancedSchema?.[field]?.unit ? ` ${item.advancedSchema[field].unit}` : ''}`).join('; ');
+                    const value = item.source === 'guidance' ? 'gestión en pantalla' : item.source === 'preference' ? `${displaySettingValue(item.value)}${item.unit ? ` ${item.unit}` : ''}` : item.enabled ? 'activado' : 'desactivado';
+                    const choices = item.values?.length ? ` Valores permitidos: ${item.values.map(value => ENUM_WORDS[value]?.[0] || value).join(', ')}.` : item.min !== undefined ? ` Rango: ${item.min}–${item.max} ${item.unit || ''}.` : '';
+                    const dependency = item.parent ? ` Depende del módulo ${SETTING_VOCABULARY[item.parent]?.[0] || wordsForKey(item.parent)}.` : '';
+                    return `${item.label}: ${value}. ${item.description || ''} Ubicación: ${item.location || 'Configuración → Asistente e IA'}.${choices}${dependency}${fields ? ` Opciones avanzadas: ${fields}.` : ''}${item.readOnlyReason ? ` ${item.readOnlyReason}` : ''}${item.available === false ? ` No disponible: ${item.lockedReason || 'plan o despliegue'}.` : ''}${item.status && !['active', 'inactive'].includes(item.status) ? ` Estado real: ${item.status}. Activar la preferencia no concede permisos ni conecta servicios.` : ''}`;
                 }
-                return `Puedo consultar y configurar ${result.items.length} áreas: ${result.items.map(item => item.label).join(', ')}. Dime el área y el valor que quieres cambiar.`;
+                const groups = [...new Set(result.items.map(item => item.location || 'Configuración → Asistente e IA'))];
+                return `Puedo consultar ${result.items.length} ajustes registrados en ${groups.join('; ')}. Dime el nombre o descríbeme la función. Si hay varias opciones, te preguntaré antes de cambiar nada. Los cambios sensibles requieren confirmación; una preferencia no concede permisos.${result.controlUnavailable ? ' El catálogo del servidor no está disponible ahora; solo pude consultar las preferencias locales.' : ''}`;
             }
         });
 
         register({
             id: 'settings.update', description: 'Activa, desactiva o modifica un campo avanzado permitido en la configuración.', confirm: 'always', reversible: true,
             validate(args) {
+                if (args.compound) return { ok: false, reply: 'Pídeme un ajuste a la vez para mostrar y confirmar exactamente el cambio. No apliqué ninguna parte de esa orden.' };
+                if (args.accountUnavailable || (runtime.GunterAuth && (!args.ownerId || taskOwnerId() !== args.ownerId))) return { ok: false, reply: 'La cuenta cambió o no está verificada. Vuelve a solicitar el ajuste desde tu sesión.' };
+                if (args.candidates?.length) return { ok: false, reply: `La orden puede referirse a ${args.candidates.slice(0, 6).map(item => item.label).join(', ')}${args.candidates.length > 6 ? ' y otras opciones relacionadas' : ''}. Dime cuál quieres cambiar; no modifiqué ninguna.` };
                 if (args.unavailable || !args.setting) return { ok: false, reply: args.unavailable ? 'El panel de configuración no está disponible en esta sesión.' : 'No identifiqué qué configuración quieres cambiar. Dime su nombre, por ejemplo: “activa voz continua” o “cambia retención de memoria a 30 días”.' };
+                if (args.setting.source === 'guidance') return { ok: false, reply: `${args.setting.description} ${args.setting.readOnlyReason} Está en ${args.setting.location}. Puedes decir «llévame a ${SETTINGS_SECTIONS[args.setting.section]}».` };
+                if (args.setting.source === 'preference') {
+                    const canonical = localSettings().find(item => item.key === args.setting.key && item.source === 'preference');
+                    if (!canonical) return { ok: false, reply: 'Ese ajuste no pertenece al catálogo de preferencias disponible.' };
+                    const valueValid = canonical.type === 'enum' ? canonical.values.includes(args.value)
+                        : canonical.type === 'number' ? Number.isInteger(args.value) && args.value >= canonical.min && args.value <= canonical.max
+                            : canonical.type === 'boolean' ? typeof args.value === 'boolean'
+                                : typeof args.value === 'string' && args.value.trim().length > 0 && args.value.length <= 120;
+                    if (canonical.readOnly) return { ok: false, reply: `${canonical.label}: ${canonical.readOnlyReason} Está en ${canonical.location}.` };
+                    if (args.invalidValue || args.missingValue || args.value === undefined || !valueValid) return { ok: false, reply: `Indica un valor válido para ${args.setting.label}.${canonical.values ? ` Opciones: ${canonical.values.map(value => ENUM_WORDS[value]?.[0] || value).join(', ')}.` : canonical.min !== undefined ? ` Usa un entero de ${canonical.min} a ${canonical.max} ${canonical.unit}.` : ' Dime activar o desactivar.'}` };
+                    return { ok: true };
+                }
                 if (args.field && !(args.setting.advancedFields || []).includes(args.field)) return { ok: false, reply: `“${args.field}” no es un campo configurable de ${args.setting.label}.` };
+                if (args.field && !args.setting.advancedSchema?.[args.field]) return { ok: false, reply: `Puedo consultar ${args.field}, pero el servidor no publica todavía su validación. No cambiaré un campo avanzado sin comprobar su formato. Recarga el servidor actualizado y vuelve a intentarlo.` };
                 if ((args.enabled === true || args.field) && !args.setting.available) return { ok: false, reply: `No puedo cambiar ${args.setting.label}: no está disponible (${args.setting.lockedReason || 'plan o despliegue'}).` };
                 if (args.missingField) return { ok: false, reply: `¿Qué opción de ${args.setting.label} quieres cambiar? Dime el campo avanzado y su valor.` };
                 if (args.missingValue) return { ok: false, reply: `¿Qué valor quieres poner en ${args.field} de ${args.setting.label}?` };
                 if (args.jsonRequired) return { ok: false, reply: `Ese campo requiere un objeto JSON válido. Puedes consultar su formato desde Configuración → Asistente IA.` };
-                if (args.invalidValue) return { ok: false, reply: `Ese valor no es válido para ${args.field}. ${/days|minutes|limit|budget|threshold|ram|storage/i.test(args.field || '') ? 'Indica un número igual o mayor que cero.' : 'Indica sí/no o un valor compatible.'}` };
+                if (args.invalidValue) return { ok: false, reply: `Ese valor no es válido para ${args.field}. ${args.valueHint || (/days|minutes|limit|budget|threshold|ram|storage/i.test(args.field || '') ? 'Indica un número igual o mayor que cero.' : 'Indica sí/no o un valor compatible.')}` };
                 if (args.enabled === undefined && (!args.field || args.value === undefined)) return { ok: false, reply: 'Dime qué campo avanzado y qué valor quieres aplicar.' };
                 return { ok: true };
             },
             confirmation(args) {
+                if (args.setting.source === 'preference') return `¿Confirmas cambiar ${args.setting.label} de ${displaySettingValue(args.setting.value)} a ${displaySettingValue(args.value)}? No concede permisos del micrófono, no conecta servicios ni autoriza acciones externas.`;
                 const change = args.enabled !== undefined
                     ? `${args.enabled ? 'activar' : 'desactivar'} ${args.setting.label}`
                     : `cambiar ${args.setting.label} → ${args.field} a ${displaySettingValue(args.value)}`;
                 return `¿Confirmas que aplique este cambio de configuración: ${change}?`;
             },
             async execute(args) {
+                if (runtime.GunterAuth && taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué la configuración.');
+                if (args.setting.source === 'preference') {
+                    const svc = runtime.PremiumFeaturesService;
+                    const current = localSettings().find(item => item.key === args.setting.key);
+                    if (!current || current.readOnly || current.type !== args.setting.type || JSON.stringify(current.value) !== JSON.stringify(args.setting.value))
+                        throw new Error('El ajuste cambió después de la propuesta. Solicítalo de nuevo; no sobrescribí tu elección.');
+                    const changed = svc.set(current.key, args.value);
+                    if (changed === false) throw new Error('El servicio rechazó el valor; no pude aplicar ese ajuste.');
+                    return { setting: localSettings().find(item => item.key === current.key), queued: false };
+                }
                 const control = runtime.GunterControlPlane;
+                const current = (await control.settings()).items?.find(item => item.key === args.setting.key);
+                if (!current || JSON.stringify(current.advanced || {}) !== JSON.stringify(args.setting.advanced || {}) || current.updatedAt !== args.setting.updatedAt)
+                    throw new Error('La configuración cambió desde la propuesta. Revísala y vuelve a solicitar el cambio.');
+                if (runtime.GunterAuth && taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no modifiqué la configuración.');
                 const update = args.enabled !== undefined
                     ? { key: args.setting.key, enabled: args.enabled, baseUpdatedAt: args.setting.updatedAt || null }
                     : { key: args.setting.key, advanced: { ...(args.setting.advanced || {}), [args.field]: args.value }, baseUpdatedAt: args.setting.updatedAt || null };
@@ -1507,14 +1735,17 @@
                 return { setting, queued: false };
             },
             verify(result, args) {
+                if (runtime.GunterAuth && taskOwnerId() !== args.ownerId) return false;
+                if (args.setting.source === 'preference') return JSON.stringify(runtime.PremiumFeaturesService?.get?.(args.setting.key)) === JSON.stringify(args.value);
                 if (result.queued) return true;
                 if (!result.setting) return false;
                 return args.enabled !== undefined ? result.setting.requestedEnabled === args.enabled || result.setting.enabled === args.enabled
                     : JSON.stringify(result.setting.advanced?.[args.field]) === JSON.stringify(args.value);
             },
             formatResult(result, args) {
+                if (args.setting.source === 'preference') return `${args.setting.label} guardado y verificado: ${displaySettingValue(result.setting.value)}. Lo encuentras en ${args.setting.location}.${result.setting.parent ? ' Su módulo principal también debe estar activado.' : ''}${['wakeWordEnabled', 'dictationEnabled'].includes(args.setting.key) && args.value ? ' La captura solo se inicia con permiso y motor disponible; este cambio no concede el permiso del navegador.' : ''}`;
                 const change = args.enabled !== undefined ? `${args.setting.label} quedó ${args.enabled ? 'activado' : 'desactivado'}` : `${args.field} de ${args.setting.label} quedó en ${displaySettingValue(args.value)}`;
-                return result.queued ? `${change}; el cambio está en cola y se sincronizará cuando vuelva la conexión.` : `${change} y verificado en la configuración.`;
+                return result.queued ? 'El cambio está pendiente en la cola local; todavía no está aplicado ni verificado en el servidor.' : `${change} y verificado en la configuración. Es una política guardada, no concede permisos del dispositivo ni verifica por sí sola que el motor esté funcionando.`;
             }
         });
 
@@ -2487,7 +2718,8 @@
             prepareMatch: prepare,
             validatePrepared,
             executeWorkflowStep,
-            clearPending: () => { savePending(null); referenceContext = pendingReminderReference = pendingEventSelection = null; }, normalize
+            clearPending: () => { savePending(null); referenceContext = pendingReminderReference = pendingEventSelection = null; }, normalize,
+            getSettingsCatalog: localSettings, getCurrentPage: describePage
         };
     }
 

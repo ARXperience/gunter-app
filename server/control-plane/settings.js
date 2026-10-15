@@ -81,8 +81,15 @@ function patch(userId, input = {}, actor = {}) {
     if (input.enabled === true && !flag.enabled) return { ok: false, error: 'feature_not_available', reason: flag.reason };
     const data = load(userId);
     const current = data.values[definition.key] || {};
+    if (input.enabled !== undefined && typeof input.enabled !== 'boolean') return { ok: false, error: 'setting_value_invalid' };
+    if (Object.hasOwn(input, 'baseUpdatedAt') && (input.baseUpdatedAt || null) !== (current.updatedAt || null))
+        return { ok: false, error: 'setting_changed' };
+    if (input.advanced !== undefined) {
+        const invalid = validateAdvanced(definition, input.advanced, current.advanced);
+        if (invalid) return { ok: false, error: 'setting_advanced_invalid', field: invalid };
+    }
     const value = {
-        enabled: input.enabled === undefined ? !!current.enabled : !!input.enabled,
+        enabled: input.enabled === undefined ? current.enabled === undefined ? definition.defaultEnabled : !!current.enabled : input.enabled,
         advanced: input.advanced === undefined ? sanitizeAdvanced(definition, current.advanced) : sanitizeAdvanced(definition, input.advanced),
         updatedAt: new Date().toISOString(), updatedBy: actor.userId || actor.kind || 'user'
     };
@@ -105,7 +112,41 @@ function sanitizeAdvanced(definition, value) {
 }
 
 function setting(key, label, entitlement, defaultEnabled, advancedFields) {
-    return { key, label, entitlement, defaultEnabled, advancedFields, description: descriptionFor(key) };
+    return { key, label, entitlement, defaultEnabled, advancedFields,
+        advancedSchema: Object.fromEntries(advancedFields.map(field => [field, fieldSchema(field)])), description: descriptionFor(key) };
+}
+function fieldSchema(field) {
+    if (/^(syncEnabled|localOnly|reviewRequired|healthAlerts|media|messaging|files|location|camera|sessionOnly|gpuEnabled|fallback|vad|bargeIn)$/.test(field)) return { type: 'boolean' };
+    if (/^(memoryTypes|sources|allowedFolders|allowedTypes|allowedProviders|priorityContacts|allowedApps|channels|priorityContexts|providers)$/.test(field)) return { type: 'array', maxItems: 100, maxLength: 160 };
+    if (/^(quietHours|triggers|limits|schedules)$/.test(field)) return { type: 'object', maxLength: 8192 };
+    if (/^(filesystemScope|programScope)$/.test(field)) return { type: 'enum', values: ['standard', 'all'] };
+    if (field === 'autonomyLevel') return { type: 'enum', values: ['L0', 'L1', 'L2', 'L3', 'L4'] };
+    if (/^(confidenceThreshold|interruptThreshold)$/.test(field)) return { type: 'number', min: 0, max: 1, unit: 'fracción (0–1)' };
+    if (field === 'cpuLimit') return { type: 'number', min: 0, max: 100, unit: '%' };
+    if (/Days$/.test(field)) return { type: 'number', min: 0, max: 36500, integer: true, unit: 'días' };
+    if (/Minutes$/.test(field)) return { type: 'number', min: 0, max: 525600, integer: true, unit: 'minutos' };
+    if (/Mb$/.test(field)) return { type: 'number', min: 0, max: 2147483647, integer: true, unit: 'MB' };
+    if (/Budget|budgetLimit/.test(field)) return { type: 'number', min: 0, max: 1000000000 };
+    if (field === 'offlineQueueLimit') return { type: 'number', min: 0, max: 100000, integer: true };
+    return { type: 'string', maxLength: 500 };
+}
+function validateAdvanced(definition, value, previous = {}) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return 'advanced';
+    for (const [field, input] of Object.entries(value)) {
+        const rule = definition.advancedSchema[field];
+        if (!rule) return field;
+        // Existing snapshots remain readable/editable: an unrelated change
+        // must not silently rewrite or reject a legacy field kept identical.
+        if (Object.hasOwn(previous || {}, field) && JSON.stringify(previous[field]) === JSON.stringify(input)) continue;
+        if (input === null || input === '') continue; // Optional fields may be cleared.
+        if (rule.type === 'boolean' && typeof input !== 'boolean') return field;
+        if (rule.type === 'enum' && !rule.values.includes(input)) return field;
+        if (rule.type === 'number' && (typeof input !== 'number' || !Number.isFinite(input) || input < rule.min || input > rule.max || (rule.integer && !Number.isInteger(input)))) return field;
+        if (rule.type === 'array' && (!Array.isArray(input) || input.length > rule.maxItems || input.some(item => typeof item !== 'string' || item.length > rule.maxLength))) return field;
+        if (rule.type === 'string' && (typeof input !== 'string' || input.length > rule.maxLength)) return field;
+        if (rule.type === 'object' && (typeof input !== 'object' || Array.isArray(input) || JSON.stringify(input).length > rule.maxLength || /"(?:__proto__|constructor|prototype)"\s*:/.test(JSON.stringify(input)))) return field;
+    }
+    return null;
 }
 // Hybrid preferences are stored with the existing per-user settings file. No
 // data is migrated and AUTO is deliberately identical to the legacy route.
@@ -151,4 +192,4 @@ function descriptionFor(key) {
     })[key] || '';
 }
 
-module.exports = { REGISTRY, list, patch, hybridStatus, patchHybrid, HYBRID_MODES, PRIVACY_MODES, _load: load };
+module.exports = { REGISTRY, list, patch, hybridStatus, patchHybrid, HYBRID_MODES, PRIVACY_MODES, validateAdvanced, _load: load };

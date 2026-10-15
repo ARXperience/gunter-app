@@ -14,7 +14,9 @@ const voiceActivity = require(path.join(root, 'js', 'services', 'voice-activity-
 const actionVocabulary = require(path.join(root, 'server', 'actions', 'vocabulary.js'));
 
 let passed = 0;
+const testFilter = process.argv.find(value => value.startsWith('--filter='))?.slice('--filter='.length);
 function test(name, fn) {
+    if (testFilter && !new RegExp(testFilter, 'i').test(name)) return Promise.resolve();
     return Promise.resolve().then(fn).then(() => {
         passed += 1;
         console.log(`  ✓ ${name}`);
@@ -364,14 +366,14 @@ function browserModule(relativePath, windowOverrides = {}) {
     await test('registro expone solo herramientas allowlist', () => {
         const { toolset } = makeAssistantTools();
         assert.deepEqual(toolset.listTools().map(tool => tool.id), [
-            'social.send', 'app.navigate', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update', 'procedure.execute', 'desktop.apps.open', 'desktop.browser.open', 'desktop.browser.search', 'desktop.browser.youtube.play', 'mobile.open_app', 'mobile.files.list', 'mobile.files.search', 'mobile.files.open', 'mobile.media.play_pause', 'mobile.media.next',
+            'social.send', 'app.inspect', 'app.navigate', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update', 'procedure.execute', 'desktop.apps.open', 'desktop.browser.open', 'desktop.browser.search', 'desktop.browser.youtube.play', 'mobile.open_app', 'mobile.files.list', 'mobile.files.search', 'mobile.files.open', 'mobile.media.play_pause', 'mobile.media.next',
             'desktop.files.open', 'desktop.files.list', 'desktop.files.search',
             'desktop.media.play_pause', 'desktop.media.next', 'desktop.media.previous', 'desktop.media.stop',
             'desktop.media.volume_up', 'desktop.media.volume_down', 'desktop.media.mute',
             'desktop.ui.inspect', 'desktop.ui.focus', 'desktop.ui.click', 'desktop.ui.type',
             'desktop.ui.wait', 'desktop.ui.scroll', 'desktop.ui.hotkey', 'desktop.ui.select_file',
             'agenda.list', 'jobs.list', 'reminder.inspect', 'reminder.retry', 'reminder.update', 'reminder.schedule', 'follow_up.schedule',
-            'jobs.cancel', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update', 'calendar.update', 'calendar.cancel', 'calendar.create'
+            'jobs.cancel', 'commitments.list', 'commitments.task', 'tasks.create', 'tasks.complete', 'tasks.reopen', 'tasks.cancel', 'tasks.update', 'calendar.update', 'calendar.cancel', 'calendar.create'
         ]);
     });
 
@@ -440,7 +442,7 @@ function browserModule(relativePath, windowOverrides = {}) {
             { key: 'memory.cortex', label: 'Memoria', available: true, enabled: true, requestedEnabled: true, advancedFields: ['memoryTypes'], advanced: { memoryTypes: ['conversation'] }, updatedAt: 'v2a' },
             { key: 'memory.semantic', label: 'Memoria semántica', available: true, enabled: true, requestedEnabled: true, advancedFields: ['retentionDays', 'confidenceThreshold'], advanced: { retentionDays: 14, confidenceThreshold: 0.6 }, updatedAt: 'v2' },
             { key: 'mobile.control', label: 'Control del móvil', available: true, enabled: true, requestedEnabled: true, advancedFields: ['messaging', 'files'], advanced: { messaging: true, files: true }, updatedAt: 'v3' }
-        ];
+        ].map(item => ({ ...item, advancedSchema: require('../server/control-plane/settings').REGISTRY.find(row => row.key === item.key).advancedSchema }));
         const settings = async () => ({ items: JSON.parse(JSON.stringify(values)) });
         const updateSetting = async update => {
             const current = values.find(item => item.key === update.key);

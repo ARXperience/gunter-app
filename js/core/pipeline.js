@@ -40,6 +40,24 @@
             }
             // Los cambios/consultas de configuración deben funcionar por voz
             // igual que en el chat del companion, sin pasar por el clasificador.
+            // The canonical registry owns these requests and confirmations;
+            // the legacy feature dispatcher must not apply a competing write.
+            const earlyIntent = window.GunterAssistantTools?.detect?.(text);
+            const settingsFollowUp = window.GunterAssistantTools?.getPending?.()?.toolId === 'settings.update'
+                && window.GunterAssistantTools?.isContextualFollowUp?.(text);
+            if (settingsFollowUp || ['app.navigate', 'app.inspect', 'settings.list', 'settings.update'].includes(earlyIntent?.toolId)) {
+                const result = await window.GunterAssistantTools.dispatch(text);
+                if (result?.handled) {
+                    state.intent = { primary: { type: 'settings', confidence: 1 }, alternatives: [], multiIntent: false, method: 'canonical-settings-catalog' };
+                    state.assistantPending = result.requiresConfirmation ? window.GunterAssistantTools.getPending() : null;
+                    state.execution = { executed: result.status === 'complete' ? [{ toolId: result.intent }] : [],
+                        failed: result.status === 'error' ? [{ reason: result.reply }] : [], pending: [], sideEffects: [],
+                        uiResponse: { speech: result.reply, animation: result.status === 'complete' ? 'nod' : 'think', panels: [], awaitingConfirmation: !!result.requiresConfirmation } };
+                    window.GunterContextProvider.pushConversationTurn('assistant', result.reply);
+                    persist(state);
+                    return { state, awaitingConfirmation: !!result.requiresConfirmation, response: state.execution.uiResponse };
+                }
+            }
             if (window.GunterActions?.dispatch) {
                 const action = await window.GunterActions.dispatch(text);
                 if (action?.reply) {

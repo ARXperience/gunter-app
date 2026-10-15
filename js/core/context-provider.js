@@ -89,7 +89,8 @@
             recentEntities: recentEntities(),
             conversationHistory: getConversationHistory(),
             identity: user ? { userId: user.id, preferredName: window.GunterPresence?.nameOf?.(user) || '' } : null,
-            moment: window.GunterPresence?.moment?.() || null
+            moment: window.GunterPresence?.moment?.() || null,
+            currentPage: window.GunterAssistantTools?.getCurrentPage?.() || null
         };
     }
 
@@ -115,7 +116,7 @@
                 locale: navigator.language || 'es-CO',
                 current: {
                     project: local.currentProject?.name || undefined,
-                    route: location.pathname.split('/').pop() || 'index.html'
+                    route: local.currentPage?.route || (location.pathname.split('/').pop() || 'index.html')
                 },
                 sources: [{ type: 'browser_context', id: 'local_context_provider', confidence: 0.9 }]
             });

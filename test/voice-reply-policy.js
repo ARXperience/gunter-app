@@ -9,6 +9,20 @@ const storage = () => {
     return { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)) };
 };
 const timer = (fn, ms) => { const id = setTimeout(fn, ms); id.unref(); return id; };
+function manualTimers() {
+    let now = 0, serial = 0;
+    const pending = new Map();
+    return {
+        setTimeout(fn, ms) { const id = ++serial; pending.set(id, { fn, due: now + ms, ms }); return id; },
+        clearTimeout(id) { pending.delete(id); },
+        delays: () => [...pending.values()].map(row => row.ms),
+        advance(ms) {
+            now += ms;
+            for (const [id, row] of [...pending]) if (row.due <= now) { pending.delete(id); row.fn(); }
+        }
+    };
+}
+const httpError = (status, code) => ({ ok: false, status, clone: () => ({ json: async () => ({ code }) }) });
 
 function harness(overrides = {}, options = {}) {
     const config = { enabled: true, mode: 'live_voice', style: 'warm', speed: 'normal', inMeetings: false,
@@ -56,7 +70,7 @@ function harness(overrides = {}, options = {}) {
         Audio, speechSynthesis, SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } },
         URL: { createObjectURL(blob) { const url = 'blob:' + blobs.size; blobs.set(url, blob); return url; }, revokeObjectURL() {} },
         CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init?.detail; } },
-        AbortController, setTimeout: timer, clearTimeout,
+        AbortController, setTimeout: options.setTimeout || timer, clearTimeout: options.clearTimeout || clearTimeout,
         setInterval(fn, ms) { const id = setInterval(fn, ms); id.unref(); return id; },
         performance, console: { warn() {}, info() {} }
     };
@@ -120,6 +134,50 @@ async function test(name, fn) { await fn(); passed++; console.log('  ✓ ' + nam
             assert.equal(h.requests.length, 0);
             assert.equal(h.utterances.length, 0);
         }
+    });
+    await test('an explicit voice preview works across restricted reply channels and labels its lifecycle', async () => {
+        for (const mode of ['live_voice', 'notifications_only', 'wake_word_only']) {
+            const h = harness({ mode, onlyAfterWakeWord: true, wakeWordResponseMode: 'text' });
+            assert.equal(h.voice.shouldSpeak('voice-preview'), true);
+            assert.equal(h.voice.shouldSpeak('chat'), false);
+            assert.equal(h.voice.shouldSpeak('wake-word-response'), false);
+            await h.voice.speak('La voz de prueba está disponible.', { context: 'voice-preview' });
+            assert.equal(await finishPlayback(h), 'La voz de prueba está disponible.');
+            const states = h.events.filter(event => event.type === 'gunter-voice-state').map(event => event.detail);
+            assert.deepEqual(states.map(detail => detail.state), ['preparing', 'speaking', 'idle']);
+            assert.ok(states.every(detail => detail.context === 'voice-preview'));
+            assert.equal(h.requests.length, 1);
+            assert.equal(h.utterances.length, 0);
+        }
+    });
+    await test('voice previews respect global voice off, text-only mode and meeting silence', async () => {
+        for (const config of [{ enabled: false }, { mode: 'text_only' }, { inMeetings: false }]) {
+            const h = harness(config);
+            if (config.inMeetings === false) h.voice.setMeetingActive(true);
+            assert.equal(h.voice.shouldSpeak('voice-preview'), false);
+            await h.voice.speak('Esta prueba debe quedar en silencio.', { context: 'voice-preview', force: true });
+            await tick();
+            assert.equal(h.requests.length, 0);
+            assert.equal(h.audios.length, 0);
+            assert.equal(h.utterances.length, 0);
+        }
+        const meeting = harness({ inMeetings: true, onlyAfterWakeWord: true });
+        meeting.voice.setMeetingActive(true);
+        assert.equal(meeting.voice.shouldSpeak('voice-preview'), true);
+        assert.equal(meeting.voice.shouldSpeak('chat'), false);
+    });
+    await test('preview failures retain their context and local privacy policy', async () => {
+        const h = harness({ onlyAfterWakeWord: true }, { fetcher: async () => {
+            throw Object.assign(new Error('offline'), { code: 'LOCAL_TTS_UNAVAILABLE' });
+        } });
+        await h.voice.speak('Prueba de voz local.', { context: 'voice-preview' });
+        await tick(); await tick();
+        const states = h.events.filter(event => event.type === 'gunter-voice-state').map(event => event.detail);
+        assert.equal(states.at(-1).state, 'unavailable');
+        assert.equal(states.at(-1).code, 'LOCAL_TTS_UNAVAILABLE');
+        assert.ok(states.every(detail => detail.context === 'voice-preview'));
+        assert.equal(h.requests.length, 1);
+        assert.equal(h.utterances.length, 0);
     });
     await test('long complete chat and wake replies are spoken through their final sentence', async () => {
         const text = Array.from({ length: 12 }, (_, i) => `La explicación número ${i + 1} contiene el detalle solicitado y conserva toda la respuesta.`).join(' ');
@@ -232,6 +290,110 @@ async function test(name, fn) { await fn(); passed++; console.log('  ✓ ' + nam
         await h.voice.speak('Esta conversación se detiene al iniciar una reunión.'); await tick();
         h.voice.setMeetingActive(true);
         assert.equal(h.voice.isSpeaking(), false); assert.equal(h.audios.at(-1).paused, true);
+    });
+    await test('local error codes survive HTTP 400/429/503 without generic retries or a browser voice switch', async () => {
+        for (const [status, code] of [[400, 'LOCAL_TTS_INVALID_TEXT'], [429, 'LOCAL_TTS_BUSY'], [503, 'LOCAL_TTS_UNAVAILABLE']]) {
+            const h = harness({}, { runtime: { mode: 'AUTO', privacy: 'STANDARD', localTTSAvailable: true },
+                fetcher: async () => httpError(status, code) });
+            await h.voice.speak('Respuesta con motor local seleccionado.'); await tick(); await tick();
+            assert.equal(h.voice.getPlaybackState().error.code, code);
+            assert.equal(h.requests.length, 1, 'BUSY without an own cancellation is not retried');
+            assert.equal(h.utterances.length, 0, 'AUTO must keep the selected local voice on failure');
+        }
+        const h = harness({}, { runtime: { mode: 'AUTO', privacy: 'STANDARD' }, fetcher: async () => httpError(429, 'LOCAL_TTS_BUSY') });
+        await h.voice.speak('El servidor identifica que el motor local está ocupado.'); await tick(); await tick();
+        assert.equal(h.voice.getPlaybackState().error.code, 'LOCAL_TTS_BUSY', 'local server codes remain local even with stale runtime data');
+        assert.equal(h.utterances.length, 0);
+        const unknown = harness({}, { runtime: { mode: 'AUTO', privacy: 'STANDARD', localTTSAvailable: true }, fetcher: async () => httpError(429, 'SECRET_UNTRUSTED_CODE') });
+        await unknown.voice.speak('No reintentes un límite de uso genérico.'); await tick(); await tick();
+        assert.equal(unknown.requests.length, 1);
+        assert.equal(unknown.voice.getPlaybackState().error.code, 'LOCAL_TTS_UNAVAILABLE');
+        assert.equal(unknown.utterances.length, 0);
+    });
+    await test('the local client deadline covers server warm-up and synthesis, then reports a bounded timeout', async () => {
+        const timers = manualTimers();
+        const runtime = { mode: 'AUTO', privacy: 'STANDARD', localTTSAvailable: true };
+        const h = harness({}, { ...timers, runtime, fetcher: (url, init) => new Promise((resolve, reject) => {
+            init.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })), { once: true });
+        }) });
+        await h.voice.speak('Una generación local todavía válida.');
+        assert.deepEqual(timers.delays(), [20000]);
+        timers.advance(5000); await tick();
+        assert.equal(h.requests[0].signal.aborted, false, 'do not kill local synthesis at the old five-second cutoff');
+        runtime.localTTSAvailable = false;
+        timers.advance(15000); await tick(); await tick();
+        assert.equal(h.requests[0].signal.aborted, true);
+        assert.equal(h.voice.getPlaybackState().error.code, 'LOCAL_TTS_TIMEOUT');
+        assert.equal(h.utterances.length, 0, 'a stale snapshot cannot change the requested local voice');
+        assert.equal(h.requests.length, 1);
+    });
+    await test('prefetch uses the same local deadline and cannot play late after cancellation', async () => {
+        const timers = manualTimers(); let resolvePrefetch;
+        const h = harness({}, { ...timers, fetcher: async (url, init) => {
+            const text = JSON.parse(init.body).text;
+            if (!resolvePrefetch && text.startsWith('Primera')) return { ok: true, blob: async () => ({ text }) };
+            return new Promise(resolve => { resolvePrefetch = resolve; });
+        } });
+        await h.voice.speak('Primera oración que está reproduciéndose ahora. Segunda oración que se prepara antes de terminar.');
+        await tick(); await tick();
+        assert.equal(h.requests.length, 2);
+        assert.ok(timers.delays().includes(20000));
+        timers.advance(5000); await tick();
+        assert.equal(h.requests[1].signal.aborted, false);
+        h.voice.cancel();
+        resolvePrefetch({ ok: true, blob: async () => ({ text: 'No reproducir' }) });
+        await tick(); await tick();
+        assert.equal(h.requests[1].signal.aborted, true);
+        assert.equal(h.audios.length, 1);
+        assert.equal(h.utterances.length, 0);
+        assert.equal(h.voice.isSpeaking(), false);
+    });
+    await test('only an own cancellation race permits one abortable LOCAL_TTS_BUSY retry', async () => {
+        for (const retryWorks of [true, false]) {
+            const timers = manualTimers(); let calls = 0;
+            const h = harness({}, { ...timers, fetcher: async (url, init) => {
+                calls++;
+                if (calls === 1) return new Promise((resolve, reject) => init.signal.addEventListener('abort', () => reject(Object.assign(new Error('cancelled'), { name: 'AbortError' })), { once: true }));
+                if (calls === 2 || !retryWorks) return httpError(429, 'LOCAL_TTS_BUSY');
+                return { ok: true, blob: async () => ({ text: JSON.parse(init.body).text }) };
+            } });
+            await h.voice.speak('Una respuesta interrumpida por el usuario.');
+            h.voice.cancel();
+            await h.voice.speak('La nueva respuesta debe conservar su voz.');
+            await tick(); await tick();
+            assert.equal(h.requests.length, 2);
+            assert.ok(timers.delays().includes(350));
+            timers.advance(350); await tick(); await tick();
+            assert.equal(h.requests.length, 3, 'exactly one retry');
+            if (retryWorks) assert.equal(await finishPlayback(h), 'La nueva respuesta debe conservar su voz.');
+            else assert.equal(h.voice.getPlaybackState().error.code, 'LOCAL_TTS_BUSY');
+            assert.equal(h.utterances.length, 0);
+        }
+    });
+    await test('muting during a BUSY cancellation-race wait prevents retry and any late audio or fallback', async () => {
+        const timers = manualTimers(); let calls = 0;
+        const h = harness({}, { ...timers, fetcher: async (url, init) => {
+            if (++calls === 1) return new Promise((resolve, reject) => init.signal.addEventListener('abort', () => reject(new Error('cancelled')), { once: true }));
+            return httpError(429, 'LOCAL_TTS_BUSY');
+        } });
+        await h.voice.speak('Respuesta que se cancela.'); h.voice.cancel();
+        await h.voice.speak('Respuesta que queda esperando al motor.'); await tick(); await tick();
+        assert.ok(timers.delays().includes(350));
+        h.change('voiceEnabled', false);
+        timers.advance(1000); await tick(); await tick();
+        assert.equal(h.requests.length, 2);
+        assert.equal(h.audios.length, 0); assert.equal(h.utterances.length, 0);
+        assert.equal(h.voice.isSpeaking(), false);
+    });
+    await test('an interruption from the preparing event cannot start a stale synthesis request', async () => {
+        const h = harness();
+        h.root.addEventListener('gunter-voice-state', event => {
+            if (event.detail.state === 'preparing') h.voice.cancel();
+        });
+        await h.voice.speak('Esta respuesta se interrumpe antes de sintetizarse.'); await tick();
+        assert.equal(h.requests.length, 0);
+        assert.equal(h.audios.length, 0); assert.equal(h.utterances.length, 0);
+        assert.equal(h.voice.isSpeaking(), false);
     });
     console.log(`VOICE REPLY POLICY: ${passed} passed`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

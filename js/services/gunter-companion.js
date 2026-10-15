@@ -647,12 +647,12 @@
             // primero al registro allowlist antes de los interceptores históricos.
             const earlyIntent = window.GunterAssistantTools?.detect?.(text);
             const contextualFollowUp = window.GunterAssistantTools?.isContextualFollowUp?.(text) === true;
-            if (!voiceInput && /\b(personalidad|estilo de voz|modo de personalidad|intensidad|ponte|comportamiento)\b/i.test(text) && window.GunterActions?.dispatch) {
+            if (!earlyIntent && !voiceInput && /\b(personalidad|estilo de voz|modo de personalidad|intensidad|ponte|comportamiento)\b/i.test(text) && window.GunterActions?.dispatch) {
                 const styleResult = await window.GunterActions.dispatch(text);
                 if (turnId !== STATE.turnId) return;
                 if (styleResult?.reply) { clearTimeout(safetyTimer); finishTyping(); reply(styleResult.reply); return; }
             }
-            if (contextualFollowUp || (earlyIntent && ['app.navigate', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update'].includes(earlyIntent.toolId))) {
+            if (contextualFollowUp || (earlyIntent && ['app.navigate', 'app.inspect', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update'].includes(earlyIntent.toolId))) {
                 const earlyResult = await withTimeout(window.GunterAssistantTools.dispatch(text, { inputSource: voiceInput ? 'voice' : 'text' }), 8000, 'assistant-settings-timeout');
                 if (turnId !== STATE.turnId) return;
                 if (earlyResult?.handled) {

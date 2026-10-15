@@ -33,3 +33,45 @@ a 1.100 y 390 px; no se alteraron cuentas ni se generó voz nueva.
 Pendiente: prueba con micrófono y voz humana del usuario en su navegador. Los
 contratos y pruebas aisladas no sustituyen esa comprobación de hardware/STT.
 Reversión: revertir el commit completo, incluidas sus versiones de caché.
+
+## Corrección de preferencias cruzadas
+
+Se reprodujo en la pestaña real una selección «Todas las respuestas con voz»
+junto con la restricción antigua «solo tras el nombre» y respuesta por nombre
+en texto. El motor estaba disponible, pero la política bloqueaba ambos canales.
+Se elimina el interruptor duplicado: el modo efectivo aparece seleccionado y
+la excepción por nombre vive en la misma tarjeta de salida. Las mutaciones de
+preferencias se reconcilian atómicamente; cargar/importar no anula elecciones
+guardadas. Las otras pestañas reciben los cambios sin sobrescribirlos.
+
+La sincronización existente con el servidor local debe conservar el conjunto
+coherente de preferencias de voz, no devolver solo el booleano maestro y luego
+reponer restricciones antiguas. No se agrega sincronización cloud.
+
+«Probar voz» es una solicitud explícita con contexto `voice-preview`: conserva
+apagado global, modo texto y silencio en reuniones, pero no exige pronunciar
+el nombre. Muestra preparación, reproducción, finalización o error a partir
+de eventos reales. Finalizar la reproducción no demuestra que el volumen del
+sistema o el dispositivo de salida sean audibles para el usuario.
+
+Se corrige también la visibilidad del panel existente de motores: CSS y JS
+deben mostrarlo en Asistente e IA. La disponibilidad del micrófono local incluye
+el interruptor `stt.local`, no solo la presencia del modelo. En este PC se
+reutilizaron los pesos Moonshine aprobados mediante configuración local privada
+y se habilitó su interruptor desde el panel administrador; no se descargaron
+pesos ni se alteró el proveedor de chat o la privacidad elegida.
+
+Verificación real (15 de octubre): se inició el servidor local, Supertonic M1
+quedó listo y la prueba explícita terminó mediante eventos reales de reproducción
+del navegador. «Todas las respuestas con voz» se mantuvo después del siguiente
+sondeo y de recargar. Se seleccionó escucha continua; el navegador indicó permiso
+pendiente, no captura activa. La audibilidad física y una orden con la voz humana
+del usuario requieren su comprobación y autorización del micrófono. No se aceptó
+ningún permiso automáticamente.
+
+Los errores HTTP conservan los códigos locales, incluido `LOCAL_TTS_BUSY`.
+Una síntesis que eligió Supertonic no cambia a otra voz ante fallo. El cliente
+permite el plazo ya existente del servidor (6 s de preparación + 12 s de
+síntesis, con 2 s de margen); no es una garantía de latencia ni un benchmark.
+Solo una cancelación local reciente permite un reintento ocupado, abortable,
+tras 350 ms. Silenciar/interrumpir cancela también esa espera y la precarga.

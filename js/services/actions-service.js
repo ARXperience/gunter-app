@@ -17,9 +17,19 @@
     if (window.GunterActions) return;
     const defaultOnFlags = new Set(['voiceEnabled', 'wakeWordEnabled', 'dictationEnabled',
         'conversationContinuity', 'personalMemoryContext', 'contextualRecommendations', 'diagnosticsEnabled', 'contextualHumor', 'entryVoiceGreeting']);
+    const voiceFlags = new Set(['voiceEnabled', 'voiceMode', 'voiceOnlyAfterWakeWord', 'wakeWordResponseMode',
+        'voiceInMeetings', 'voiceStyle', 'voiceSpeed', 'voiceTone', 'dictationEnabled', 'entryVoiceGreeting',
+        'wakeWordEnabled', 'wakeWord', 'wakeWordListeningMode', 'wakeWordAutoStopSeconds']);
     const pendingFlags = new Map();
     let applyingServer = false;
     let writeChain = Promise.resolve();
+    let writeRevision = 0;
+    let lastVoice = voiceBundle();
+
+    function voiceBundle() {
+        const local = window.PremiumFeaturesService?.getAll?.() || {};
+        return Object.fromEntries([...voiceFlags].filter(key => Object.hasOwn(local, key)).map(key => [key, local[key]]));
+    }
 
     function enqueueWrite(work) {
         const next = writeChain.then(work);
@@ -28,11 +38,35 @@
     }
 
     function queueFlagWrite(flag, value, source = 'browser') {
-        pendingFlags.set(flag, value);
-        return enqueueWrite(() => call('set', { flag, value, meta: { source } })).then(result => {
-            if (result && pendingFlags.get(flag) === value) pendingFlags.delete(flag);
+        return queueSettingsWrite({ [flag]: value }, 'set', { flag, value, meta: { source } });
+    }
+
+    function queuePatchWrite(flags) {
+        return queueSettingsWrite(flags, 'sync_from_browser', { flags });
+    }
+
+    function queueSettingsWrite(flags, op, params) {
+        const revision = ++writeRevision;
+        const pending = Object.entries(flags).map(([flag, value]) => [flag, { value, revision }]);
+        for (const [flag, entry] of pending) pendingFlags.set(flag, entry);
+        return enqueueWrite(() => call(op, params)).then(result => {
+            for (const [flag, entry] of pending) {
+                if (result && pendingFlags.get(flag) === entry) pendingFlags.delete(flag);
+            }
             return result;
         });
+    }
+
+    function mirrorVoice(flag, value, source) {
+        const flags = voiceBundle();
+        lastVoice = flags;
+        // Keep the existing boolean route for older/minimal service clients.
+        return Object.keys(flags).length > 1 ? queuePatchWrite(flags) : queueFlagWrite(flag, value, source);
+    }
+
+    async function flushWrites() {
+        let pending;
+        do { pending = writeChain; await pending; } while (pending !== writeChain);
     }
 
     function url() {
@@ -89,6 +123,7 @@
                     result.reply = (result.reply || '') + '\n\n⚠️ Estado en configuración: ' + state + ' (esperado: ' + result.value + ').';
                     result.__localOk = false;
                 }
+                if (result.__localOk && voiceFlags.has(result.feature)) mirrorVoice(result.feature, result.value, 'browser');
             }
         }
         return result;
@@ -100,7 +135,7 @@
         try { _applyLocal(flag, value); }
         finally { applyingServer = false; }
         // Persistir en server
-        return queueFlagWrite(flag, value, source);
+        return voiceFlags.has(flag) ? mirrorVoice(flag, value, source) : queueFlagWrite(flag, value, source);
     }
 
     async function getState() {
@@ -116,7 +151,7 @@
         try {
             const svc = window.PremiumFeaturesService;
             if (!svc?.getAll) return null;
-            return enqueueWrite(() => call('sync_from_browser', { flags: svc.getAll() }));
+            return queuePatchWrite(svc.getAll());
         } catch { return null; }
     }
 
@@ -152,28 +187,34 @@
      * la app está en primer plano). Reemplazable por WebSocket luego.
      */
     let pollTimer = null;
-    let lastState = null;
-
     async function pollServerState() {
         if (document.hidden) return;
         try {
-            await writeChain;
-            for (const [flag, value] of [...pendingFlags]) await queueFlagWrite(flag, value);
+            await flushWrites();
+            if (pendingFlags.size) {
+                await queuePatchWrite(Object.fromEntries([...pendingFlags].map(([flag, entry]) => [flag, entry.value])));
+            }
+            await flushWrites();
+            const revision = writeRevision;
             const remote = await getState();
-            if (!remote) return;
+            if (!remote || revision !== writeRevision) return;
             const svc = window.PremiumFeaturesService;
             if (!svc?.getAll) return;
             const local = svc.getAll();
-            let changed = false;
+            const patch = {};
             for (const [k, v] of Object.entries(remote)) {
-                if (k === '__meta' || pendingFlags.has(k)) continue;
-                if (local[k] !== v) {
-                    applyingServer = true;
-                    try { svc.set(k, v); } finally { applyingServer = false; }
-                    changed = true;
-                }
+                if (k === '__meta' || pendingFlags.has(k) || !Object.hasOwn(local, k)) continue;
+                if (local[k] !== v) patch[k] = v;
             }
-            if (changed) {
+            if (Object.keys(patch).length) {
+                applyingServer = true;
+                try {
+                    // A replica is saved state, not a fresh mode selection.
+                    if (svc.import) svc.import({ ...local, ...patch });
+                    else if (svc.updateMany) svc.updateMany(patch);
+                    else for (const [key, value] of Object.entries(patch)) svc.set(key, value);
+                    lastVoice = voiceBundle();
+                } finally { applyingServer = false; }
                 console.log('[actions] state synced from server');
                 window.dispatchEvent(new CustomEvent('gunter-actions-synced'));
             }
@@ -197,7 +238,12 @@
     if (typeof window !== 'undefined') {
         window.addEventListener('gunterPremiumFeaturesChange', event => {
             const { key, value } = event.detail || {};
-            if (!applyingServer && defaultOnFlags.has(key) && typeof value === 'boolean') queueFlagWrite(key, value);
+            const flags = voiceBundle();
+            const voiceChanged = Object.keys(flags).some(flag => flags[flag] !== lastVoice[flag]);
+            lastVoice = flags;
+            if (applyingServer) return;
+            if (voiceChanged) mirrorVoice(key, value, 'browser');
+            else if (defaultOnFlags.has(key) && typeof value === 'boolean') queueFlagWrite(key, value);
         });
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', startSync);

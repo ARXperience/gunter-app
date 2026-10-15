@@ -45,6 +45,7 @@
     function record(level, args) {
         const entry = {
             id: ++counter,
+            ownerId: currentOwner(),
             level,
             at: new Date().toISOString(),
             page: (location.pathname || '').split('/').pop() || 'unknown',
@@ -104,6 +105,43 @@
     function clear() {
         ring.length = 0;
         counter = 0;
+    }
+
+    function currentOwner() {
+        const auth = window.GunterAuth;
+        if ((auth?.canAccessLocalData && !auth.canAccessLocalData()) || (auth?.isVerified && !auth.isVerified())) return null;
+        const id = auth?.getUser?.()?.id;
+        if (!id || id === 'local-user') return null;
+        try {
+            const deviceOwner = window.localStorage?.getItem('gunter_device_user');
+            if (deviceOwner && deviceOwner !== String(id)) return null;
+        } catch { return null; }
+        return String(id);
+    }
+
+    // Conversation diagnostics may only inspect the current account's entries.
+    // Return allowlisted codes, never log messages, URLs, stacks or credentials.
+    function getDiagnosticSummary({ codes = [] } = {}) {
+        const owner = currentOwner();
+        const entries = owner ? ring.filter(entry => entry.ownerId === owner) : [];
+        const allowed = codes.filter(code => /^[A-Z][A-Z0-9_]{2,60}$/.test(code));
+        const evidence = [];
+        for (const entry of entries) {
+            if (entry.level !== 'warn' && entry.level !== 'error') continue;
+            const found = allowed.filter(code => new RegExp('\\b' + code + '\\b').test(entry.msg));
+            // Older voice runtimes logged browser errors without structured codes.
+            // Classify only their known service prefix; never return the message.
+            if (/^\[voice\]/.test(entry.msg) && /Failed to fetch|NetworkError/i.test(entry.msg) && allowed.includes('NETWORK_UNAVAILABLE')) found.push('NETWORK_UNAVAILABLE');
+            if (/^\[voice\]/.test(entry.msg) && /NotAllowedError/.test(entry.msg) && allowed.includes('VOICE_PLAYBACK_BLOCKED')) found.push('VOICE_PLAYBACK_BLOCKED');
+            if (/^\[wake-word\]/.test(entry.msg) && /not-allowed|Permiso denegado|Permiso de micrófono rechazado/i.test(entry.msg) && allowed.includes('MICROPHONE_PERMISSION_DENIED')) found.push('MICROPHONE_PERMISSION_DENIED');
+            if (found.length) evidence.push({ at: entry.at, level: entry.level, codes: found });
+        }
+        return {
+            available: !!owner,
+            byLevel: { error: entries.filter(entry => entry.level === 'error').length,
+                warn: entries.filter(entry => entry.level === 'warn').length },
+            evidence: evidence.slice(-5)
+        };
     }
 
     // ─────────────────────────────────────────────
@@ -166,7 +204,7 @@
     }
 
     window.GunterLogBuffer = {
-        getEntries, getSummary, clear, getServiceStatus, formatForChat,
+        getEntries, getSummary, getDiagnosticSummary, clear, getServiceStatus, formatForChat,
         MAX
     };
 

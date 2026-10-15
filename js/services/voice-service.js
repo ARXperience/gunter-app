@@ -31,6 +31,12 @@
     // Cache de audio blobs por texto+voz para evitar re-generar lo mismo
     const audioCache = new Map();
     const MAX_CACHE = 30;
+    // The existing local server allows 6s warm-up + 12s synthesis. A 5s
+    // browser abort killed valid local work before that bounded server reply.
+    const LOCAL_TTS_DEADLINE_MS = 20000;
+    const LEGACY_TTS_DEADLINE_MS = 5000;
+    const LOCAL_TTS_CODES = new Set(['LOCAL_TTS_NOT_INSTALLED', 'LOCAL_TTS_UNAVAILABLE', 'LOCAL_TTS_BUSY',
+        'LOCAL_TTS_INVALID_TEXT', 'LOCAL_TTS_INVALID_SPEED', 'LOCAL_TTS_TIMEOUT']);
 
     // Queue de reproducción
     let queue = [];
@@ -51,6 +57,7 @@
     let audioBuffering = false;
     let playbackContext = 'chat';
     let playbackError = null;
+    let lastLocalSynthesisCancellationAt = 0;
     let audioSignal = { source: 'assistant', level: 0, active: false, available: false, at: Date.now() };
 
     // Optional visual metering. It never decodes a second audio file or opens a
@@ -235,7 +242,7 @@
     function notifyVoiceState(state, detail = {}) {
         try {
             window.dispatchEvent(new CustomEvent('gunter-voice-state', {
-                detail: { state, speaking, text: lastSpokenText, startedAt: speechStartedAt, ...detail }
+                detail: { state, speaking, context: playbackContext, text: lastSpokenText, startedAt: speechStartedAt, ...detail }
             }));
         } catch { /* entorno sin CustomEvent */ }
     }
@@ -280,6 +287,9 @@
         // siempre debe poder sonar (recordatorios urgentes).
         const effectiveContext = (_meetingActive && context !== 'notification') ? 'meeting' : context;
         if (effectiveContext === 'meeting' && !cfg.inMeetings) return false;
+        // The settings preview is an explicit listening request, independent
+        // of which conversation channels may reply aloud.
+        if (context === 'voice-preview') return cfg.mode !== 'text_only';
         if (cfg.onlyAfterWakeWord && !fromWakeWord && effectiveContext !== 'notification') return false;
 
         switch (cfg.mode) {
@@ -322,12 +332,12 @@
             body: JSON.stringify({ text, voice, speed, localSpeed, model: 'tts-1-hd' })
         });
         if (!resp.ok) {
-            if (resp.status === 503) {
-                const data = await resp.clone().json().catch(() => ({}));
-                if (data.code)
-                    throw Object.assign(new Error(data.code), { code: data.code });
-            }
-            throw new Error(`TTS HTTP ${resp.status}`);
+            let code;
+            try {
+                const data = await (resp.clone ? resp.clone() : resp).json();
+                if (LOCAL_TTS_CODES.has(data?.code)) code = data.code;
+            } catch { /* Generic HTTP failures never expose raw response text. */ }
+            throw Object.assign(new Error(code || `TTS HTTP ${resp.status}`), { ...(code ? { code } : {}), status: resp.status });
         }
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
@@ -414,21 +424,52 @@
         return parts;
     }
 
+    function configuredLocalTts() {
+        const state = window.GunterRuntimeState?.getState?.() || {};
+        return state.privacy === 'LOCAL_ONLY' || state.mode === 'LOCAL' || state.localTTSAvailable === true || state.flags?.['tts.local'] === true;
+    }
+
+    function waitForLocalCancellation(signal) {
+        return new Promise((resolve, reject) => {
+            const abort = () => { clearTimeout(timer); reject(Object.assign(new Error('TTS cancelled'), { name: 'AbortError' })); };
+            const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, 350);
+            signal.addEventListener('abort', abort, { once: true });
+            if (signal.aborted) abort();
+        });
+    }
+
+    // One request lifecycle for playback and prefetch. A BUSY response may be
+    // retried once only when this page just cancelled its own local synthesis.
+    function prepareTts(item, claimed = false) {
+        const controller = new AbortController(), token = generation;
+        const entry = { item, controller, claimed, localRequested: configuredLocalTts(), settled: false, timedOut: false, promise: null };
+        controller.signal.addEventListener('abort', () => {
+            if (entry.localRequested && !entry.settled && !entry.timedOut) lastLocalSynthesisCancellationAt = Date.now();
+        }, { once: true });
+        const deadline = setTimeout(() => { entry.timedOut = true; controller.abort(); }, entry.localRequested ? LOCAL_TTS_DEADLINE_MS : LEGACY_TTS_DEADLINE_MS);
+        entry.promise = (async () => {
+            try { return await synthesizeTts(item.text, item.sv, controller.signal); }
+            catch (error) {
+                const cancellationRace = lastLocalSynthesisCancellationAt > 0 && Date.now() - lastLocalSynthesisCancellationAt <= 5000;
+                if (error.code !== 'LOCAL_TTS_BUSY' || !cancellationRace || controller.signal.aborted || token !== generation || !shouldSpeak(item.opts.context || 'chat')) throw error;
+                await waitForLocalCancellation(controller.signal);
+                if (token !== generation || !shouldSpeak(item.opts.context || 'chat') || controller.signal.aborted) throw error;
+                return synthesizeTts(item.text, item.sv, controller.signal);
+            }
+        })().then(url => {
+            if (token !== generation || (!entry.claimed && prefetched !== entry)) releaseAudioUrl(url);
+            return { url };
+        }).catch(error => ({ error: entry.timedOut
+            ? Object.assign(new Error(entry.localRequested ? 'LOCAL_TTS_TIMEOUT' : 'TTS_TIMEOUT'), { code: entry.localRequested ? 'LOCAL_TTS_TIMEOUT' : 'TTS_TIMEOUT' })
+            : error })).finally(() => { entry.settled = true; clearTimeout(deadline); });
+        return entry;
+    }
+
     function prefetchNext() {
         if (!queue.length || prefetched) return;
         const item = queue[0];
         if (!shouldSpeak(item.opts.context || 'chat')) return;
-        const controller = new AbortController();
-        const deadline = setTimeout(() => controller.abort(), 5000);
-        const entry = { item, controller, promise: null, claimed: false };
-        entry.promise = synthesizeTts(item.text, item.sv, controller.signal)
-            .then(url => {
-                if (prefetched !== entry && !entry.claimed) releaseAudioUrl(url);
-                return { url };
-            })
-            .catch(error => ({ error }))
-            .finally(() => clearTimeout(deadline));
-        prefetched = entry;
+        prefetched = prepareTts(item);
     }
 
     // ---------- Speak ----------
@@ -602,19 +643,23 @@
         speechStartedAt = Date.now();
         notifyVoiceState('preparing', { context: next.opts.context || 'chat' });
 
+        // A state listener can synchronously mute or interrupt the answer.
+        // Do not start a new fetch after that cancellation.
+        if (token !== generation) return;
+        if (!shouldSpeak(next.opts.context || 'chat')) { speaking = false; return processQueue(); }
+
         const ready = prefetched?.item === next ? prefetched : null;
         if (ready) { ready.claimed = true; prefetched = null; }
-        const controller = ready?.controller || new AbortController();
+        const request = ready || prepareTts(next, true);
+        const controller = request.controller;
         synthesisController = controller;
-        const synthesisDeadline = ready ? null : setTimeout(() => controller.abort(), 5000);
 
         try {
             if (token !== generation) return;
             voiceMetric('ttsStart', { chars: next.text.length });
-            const prepared = ready ? await ready.promise : { url: await synthesizeTts(next.text, next.sv, controller.signal) };
+            const prepared = await request.promise;
             if (prepared.error) throw prepared.error;
             const url = prepared.url;
-            clearTimeout(synthesisDeadline);
             if (token !== generation) { releaseAudioUrl(url); return; }
             if (!shouldSpeak(next.opts.context || 'chat')) {
                 releaseAudioUrl(url);
@@ -662,7 +707,7 @@
             audio.onerror = () => {
                 if (token !== generation) return;
                 const hybrid = window.GunterRuntimeState?.getState?.();
-                failPlayback(hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL'
+                failPlayback(request.localRequested || hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL'
                     ? 'LOCAL_TTS_PLAYBACK_FAILED' : 'VOICE_PLAYBACK_FAILED',
                 'No pude reproducir el audio de la respuesta. El texto sigue disponible en pantalla.');
             };
@@ -680,7 +725,7 @@
                     failPlayback('VOICE_PLAYBACK_BLOCKED', 'El navegador bloqueó el audio. Pulsa Probar voz para volver a intentarlo.');
                     return;
                 }
-                if (hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL') {
+                if (request.localRequested || hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL') {
                     failPlayback('LOCAL_TTS_PLAYBACK_FAILED', 'No pude reproducir la voz local. La respuesta sigue escrita en pantalla.');
                     window.GunterNotificationsService?.showToast?.('No pude reproducir la voz local; la respuesta sigue escrita en pantalla.', { variant: 'warn', silent: true });
                 } else speakFallback(next.text, next.sv, token);
@@ -692,8 +737,12 @@
         } catch (err) {
             if (token !== generation) return;
             const hybrid = window.GunterRuntimeState?.getState?.();
-            if (hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL') {
-                failPlayback(err.code || 'LOCAL_TTS_UNAVAILABLE', 'La voz local no está disponible. La respuesta sigue escrita en pantalla.');
+            if (request.localRequested || LOCAL_TTS_CODES.has(err.code) || hybrid?.privacy === 'LOCAL_ONLY' || hybrid?.mode === 'LOCAL') {
+                const code = LOCAL_TTS_CODES.has(err.code) ? err.code : 'LOCAL_TTS_UNAVAILABLE';
+                const message = code === 'LOCAL_TTS_BUSY' ? 'El motor de voz local está ocupado con otra respuesta. La respuesta sigue escrita en pantalla.'
+                    : code === 'LOCAL_TTS_TIMEOUT' ? 'La generación de voz local excedió el tiempo permitido. La respuesta sigue escrita en pantalla.'
+                        : 'La voz local no está disponible. La respuesta sigue escrita en pantalla.';
+                failPlayback(code, message);
                 window.GunterErrors?.toast?.(err, { context: 'audio', silent: true });
                 return;
             }
@@ -706,7 +755,6 @@
             speakFallback(next.text, next.sv, token);
             if (token === generation) notifyVoiceState('fallback', { context: next.opts.context || 'chat', code: err.code || 'TTS_UNAVAILABLE' });
         } finally {
-            clearTimeout(synthesisDeadline);
             if (synthesisController === controller) synthesisController = null;
         }
     }

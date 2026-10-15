@@ -128,6 +128,7 @@
         el.textContent = window.PremiumFeaturesService?.isEnabled?.('dictationEnabled') === false ? 'Dictado desactivado por el usuario.'
             : !capture ? 'Este navegador no permite capturar audio. Usa el chat de texto.'
             : runtime.loaded !== true ? 'Comprobando el estado de Moonshine y del servidor…'
+                : runtime.flags?.['stt.local'] === false ? 'El motor Moonshine está desactivado. Activa STT local en Configuración → Asistente e IA → Centro de control.'
                 : runtime.localSTTAvailable ? 'Moonshine local listo. La grabación queda en este dispositivo hasta el envío al servidor local.'
                     : 'Moonshine no está listo. En LOCAL_ONLY la transcripción no usará cloud; revisa el modelo y runtime local.';
     }
@@ -167,7 +168,7 @@
         });
         window.addEventListener('gunter-push-to-talk-state', event => {
             const state = event.detail || {};
-            const names = { off: 'Desactivado', permission_pending: 'Permiso pendiente', recording: 'Grabando', transcribing: 'Transcribiendo', review: 'Texto reconocido: revisa el chat', error: 'Error' };
+            const names = { off: 'Sin captura activa', permission_pending: 'Permiso pendiente', recording: 'Grabando', transcribing: 'Transcribiendo', review: 'Texto reconocido: revisa el chat', error: 'Error' };
             label.textContent = `${names[state.phase] || state.phase}${state.phase === 'recording' ? ` · ${state.elapsedSeconds || 0} s` : ''}`;
             button.textContent = state.active ? 'Finalizar prueba' : 'Iniciar prueba';
         });
