@@ -490,13 +490,6 @@ html body.gunter-workspace #core-visual-settings .core-color-control input[type=
 html body.gunter-workspace #core-visual-settings .core-studio__adaptive { margin-top: 22px; }
 html body.gunter-workspace #core-visual-settings .core-studio__adaptive strong { display: block; font-size: 12px; font-weight: 500; color: var(--gw-ink); }
 html body.gunter-workspace #core-visual-settings .core-studio__adaptive small { display: block; margin-top: 3px; font-size: 11px; line-height: 1.6; color: var(--gw-muted); }
-html body.gunter-workspace #core-visual-settings .core-shapes { padding: 8px 0 4px; border-bottom: 1px solid var(--gw-border); }
-html body.gunter-workspace #core-visual-settings .core-shapes__options { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 12px; }
-html body.gunter-workspace #core-visual-settings .core-shapes button { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 5px; min-height: 70px; padding: 8px 2px 4px; background: transparent; border: 1px solid transparent; border-radius: 10px; color: var(--gw-muted); cursor: pointer; font-size: 9px; line-height: 1.5; transition: color 180ms, background 180ms, border-color 180ms; }
-html body.gunter-workspace #core-visual-settings .core-shapes button:hover { color: var(--gw-ink); background: color-mix(in srgb, var(--gw-ink) 4%, transparent); }
-html body.gunter-workspace #core-visual-settings .core-shapes button[aria-pressed="true"] { color: var(--gw-cyan); border-color: color-mix(in srgb, var(--gw-cyan) 35%, var(--gw-border)); background: color-mix(in srgb, var(--gw-cyan) 7%, transparent); }
-html body.gunter-workspace #core-visual-settings .core-shapes svg { width: 26px; height: 26px; stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
-html body.gunter-workspace #core-visual-settings .core-shapes__detail { color: var(--gw-muted); font-size: 8px; margin-top: -5px; }
 html body.gunter-workspace #core-visual-settings :is(button, input, .core-spectrum):focus-visible { outline: 2px solid var(--gw-cyan); outline-offset: 4px; }
 @media (max-width: 860px) {
   html body.gunter-workspace #core-visual-settings .core-studio { grid-template-columns: minmax(0, 1fr); gap: 18px; }
@@ -512,9 +505,7 @@ html body.gunter-workspace #core-visual-settings :is(button, input, .core-spectr
   html body.gunter-workspace #core-visual-settings .core-layer--particles, html body.gunter-workspace #core-visual-settings .core-layer--shadow { top: 0; }
   html body.gunter-workspace #core-visual-settings .core-layer--energy, html body.gunter-workspace #core-visual-settings .core-layer--glow { bottom: 0; }
   html body.gunter-workspace #core-visual-settings .core-visual-settings__preview { width: 230px; max-width: 100%; }
-  html body.gunter-workspace #core-visual-settings .core-shapes__options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  html body.gunter-workspace #core-visual-settings .core-shapes button { min-height: 66px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  html body.gunter-workspace #core-visual-settings :is(.core-layer, .core-shapes button) { transition: none; transform: none; }
+  html body.gunter-workspace #core-visual-settings .core-layer { transition: none; transform: none; }
 }

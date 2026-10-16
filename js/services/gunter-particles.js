@@ -5,7 +5,8 @@
 
     const DEFAULTS = Object.freeze({ particleColor: '#3458c7', shadowColor: '#142642', energyColor: '#19bcd3', color: '#19bcd3',
         glowColor: '#8ebdff', brightness: 1, density: 1, speed: 1, size: 1, themeAdaptive: true, shape: 'organic' });
-    const SHAPES = new Set(['organic', 'pentagram', 'eye', 'hand', 'sword', 'octagram']);
+    const MOMENTARY_SHAPES = ['pentagram', 'eye', 'hand', 'sword', 'octagram'];
+    const SHAPE_HOLD_MS = 5200;
     const STATIC_TIME = 8, FRAME_INTERVAL = 1000 / 30;
     const records = new Map(), disposers = [];
     const motionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
@@ -14,6 +15,7 @@
     let pointerOwner = null;
     let voiceMeter = null, meterEnabled = false, bindingMeter = false, audioLive = false;
     let audioLevel = 0, audioFrame = 0, activeTheme, palette, shapeSnapshotsPending = false;
+    let momentaryShape = '', lastMomentaryShape = '', shapeTimer = 0;
 
     const object = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     const clamp = (value, low, high, fallback) => typeof value === 'number' && Number.isFinite(value)
@@ -33,7 +35,9 @@
             speed: clamp(value.speed, 0, 2, DEFAULTS.speed),
             size: clamp(value.size, .7, 1.3, DEFAULTS.size),
             themeAdaptive: value.themeAdaptive !== false,
-            shape: SHAPES.has(value.shape) ? value.shape : DEFAULTS.shape
+            // A silhouette is now a brief interaction, never an appearance preference.
+            // Legacy stored shapes remain inert and are not reassigned on startup.
+            shape: DEFAULTS.shape
         };
     }
     function readPreferences() {
@@ -188,7 +192,7 @@
         try {
             // The shared phase already includes speed; changing speed must not reposition the core.
             const rendered = compositor.renderTo(record.canvas, record.pixelWidth, record.pixelHeight, time,
-                { ...config, ...getPalette(), speed: 1, static: reduced() || config.speed <= 0,
+                { ...config, ...getPalette(), shape: momentaryShape || 'organic', speed: 1, static: reduced() || config.speed <= 0,
                     ...(record.transport ? { transport: record.transport } : {}) });
             if (rendered === false || !compositor.available) {
                 drawBlocked = true;
@@ -200,6 +204,7 @@
             }
             record.el.dataset.particlesReady = 'true';
             record.el.dataset.particlesStatus = record.animated ? 'animated' : 'static';
+            record.el.dataset.coreForm = momentaryShape || 'organic';
             delete record.el.dataset.particlesError;
         } catch (error) {
             engineError = error?.message || 'No se pudo dibujar el núcleo visual';
@@ -289,8 +294,9 @@
         if (options.persist === true) {
             // Preserve unrelated preferences and legacy fields within coreVisual.
             const prefs = readPreferences();
+            const { shape: unusedShape, ...preferences } = next;
             window.localStorage?.setItem('gunter_prefs', JSON.stringify({ ...prefs,
-                coreVisual: { ...object(prefs.coreVisual), ...next } }));
+                coreVisual: { ...object(prefs.coreVisual), ...preferences } }));
         }
         shapeSnapshotsPending = !reduced() && next.speed > 0 &&
             (shapeSnapshotsPending || config.shape !== next.shape);
@@ -298,6 +304,28 @@
         records.forEach(applyConfig); reconcile();
         window.dispatchEvent(new CustomEvent('gunter-core-config-changed', { detail: { ...config } }));
         return { ...config };
+    }
+    function endShape() {
+        if (shapeTimer) window.clearTimeout(shapeTimer);
+        shapeTimer = 0;
+        if (!momentaryShape) return;
+        momentaryShape = '';
+        shapeSnapshotsPending = !reduced() && config.speed > 0;
+        if (!disposed) invalidate();
+    }
+    function playShape(el) {
+        const record = records.get(el);
+        if (!record || record.variant !== 'hero' || !record.visible || !el.isConnected || record.transport
+            || disposed || suspended || document.hidden || drawBlocked || !engine?.available || momentaryShape) return false;
+        const choices = MOMENTARY_SHAPES.filter(shape => shape !== lastMomentaryShape);
+        momentaryShape = choices[Math.floor(Math.random() * choices.length)];
+        lastMomentaryShape = momentaryShape;
+        shapeSnapshotsPending = !reduced() && config.speed > 0;
+        // A single finite expiry also works for a still/reduced-motion core.
+        // No new animation loop and absolutely no preference writes.
+        shapeTimer = window.setTimeout(endShape, SHAPE_HOLD_MS);
+        invalidate();
+        return true;
     }
     function setTransport(el, value = null) {
         const record = records.get(el);
@@ -311,7 +339,8 @@
         // a flight in preferences or apply it to previews/chat avatars.
         record.transport = { progress: Math.max(0, Math.min(1, value.progress)),
             from: [...value.from], to: [...value.to], fromScale: value.fromScale, toScale: value.toScale,
-            bend: Number.isFinite(value.bend) ? value.bend : .18 };
+            bend: Number.isFinite(value.bend) ? value.bend : .18,
+            startStrength: clamp(value.startStrength, 0, 1, 0) };
         record.dirty = true; schedule(); return true;
     }
     const observer = 'IntersectionObserver' in window ? new window.IntersectionObserver(entries => {
@@ -376,6 +405,7 @@
         record.disposers.forEach(remove => remove()); record.canvas.remove(); record.status.remove();
         records.delete(record.el);
         if (!records.size) {
+            endShape();
             syncAudioMeter(false);
             stopFrames(); engine?.dispose(); engine = null; engineError = ''; drawBlocked = false;
         }
@@ -420,11 +450,12 @@
         });
         listen(window, 'gunter-idle-core-availability', invalidate);
         listen(document, 'visibilitychange', () => {
-            if (document.hidden) stopFrames();
+            if (document.hidden) { stopFrames(); endShape(); }
             invalidate();
         });
         listen(window, 'pagehide', event => {
             suspended = true; stopFrames(); clearPointer(true); syncAudioMeter(false);
+            endShape();
             records.forEach(record => {
                 if (record.el.dataset.particlesReady === 'true') record.el.dataset.particlesStatus = 'paused';
             });
@@ -437,7 +468,7 @@
         listen(window, 'pageshow', () => { suspended = false; invalidate(); });
     }
     refreshPreferences(); activeTheme = themeMode();
-    window.GunterParticles = { mount, configure, setTransport, getPalette,
+    window.GunterParticles = { mount, configure, setTransport, getPalette, playShape, endShape,
         getConfig: () => ({ ...config }), getDefaults: () => ({ ...DEFAULTS }) };
     if (document.readyState === 'loading') listen(document, 'DOMContentLoaded', init, { once: true });
     else init();

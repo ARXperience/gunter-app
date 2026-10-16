@@ -449,7 +449,7 @@ check('Invalid, absent or muted samples cannot leave invented audio amplitude ac
     e.lost();e.restored();e.render(8);assert.equal(e.core.stats().audio.level,0);assert.equal(e.core.stats().audio.available,false);
     e.core.setAudioLevel(.7);e.core.dispose();assert.equal(e.core.stats().audio.level,0);released(e);
 });
-check('river strain and local curl are integrated in GPU material, not a reversible projected bitmap deformation',()=>{
+check('compact smoke rolls and local curl are integrated in GPU material, not a projected rubber stretch',()=>{
     const e=environment();e.render(8,defaults,640,400);
     const histories=e.core.histories.slice(),field=e.core.field,steps=e.core.steps,builds=e.core.fieldBuilds;
     const created=e.created.Texture.length,programs=e.created.Program.length;
@@ -470,18 +470,68 @@ check('river strain and local curl are integrated in GPU material, not a reversi
     assert.match(volume,/untransported\(v_uv\*2\.0-1\.0,aspect\)/);
     const mapping=vertex.slice(vertex.indexOf('vec2 riverCurve'),vertex.indexOf('uniform sampler2D u_history'));
     assert.ok(volume.includes(mapping),'volume and matter share only reference-frame placement');
+    assert.equal((mapping.match(/float progress=smoothstep\(0\.0,1\.0,u_transport\.y\)/g)||[]).length,2,
+        'placement and inverse both ease to zero velocity at the journey endpoints');
     assert.doesNotMatch(mapping,/determinant|potential\(|stretch|for\(/,'no Newton inverse or screen-space deformation remains');
     const simulation=e.core.programs.simulation.program.shaders.find(s=>s.source.includes('uniform float u_dt')).source;
-    assert.match(simulation,/vec3 rest=flowUnwind\(p,u_previousFlow\)/,'GPU history integrates the previous strain state');
+    assert.match(simulation,/vec3 rest=flowUnwind\(p,u_previousFlow\)/,'GPU history retains its previous roll coordinates');
     assert.match(simulation,/p=flowWind\(rest,u_flow\)/,'the new deformed coordinates are stored in the existing history texture');
     assert.match(simulation,/potential\(rest\*3\.7/,'the current locally advects through multi-scale curl');
-    assert.match(simulation,/rest\+=\(curl\*\.31\+fine\*\.13\)\*u_flow\.z\*u_dt/);
-    assert.match(volume,/p\/=flowExtent\(\)/,'the volume atlas samples the actual strained material bounds');
+    assert.match(simulation,/vec3 eddies=\(curl\*\(\.16\+pocket\*\.12\)\+fine\*\.105\+slip\)\*u_flow\.z/);
+    assert.match(simulation,/rest\+=\(velocity\(rest\+v\*u_dt\*\.5,u_time\+u_dt\*\.5,row,1\.0\)\+eddies\)\*u_dt/,
+        'small counter-currents are integrated, not rendered as duplicate trails');
+    assert.match(volume,/p\/=flowExtent\(\)/,'the volume atlas samples the same compact rolled matter bounds');
     assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);
     assert.equal(e.core.field,field);assert.equal(e.core.steps,steps);assert.ok(e.core.fieldBuilds>builds,'new material bounds invalidate the same atlas');
     assert.equal(e.created.Texture.length,created);assert.equal(e.created.Program.length,programs);
     e.render(8.1,{...defaults,transport},640,400);
     assert.ok(e.core.steps>steps,'the same fixed-step curl advection continues during transport');
+    e.core.dispose();released(e);
+});
+check('smoke roll maps have a bounded lag and exact reverse order for volume/fibre correspondence',()=>{
+    const e=environment(),shader=e.core.programs.simulation.program.shaders.find(s=>s.source.includes('uniform float u_dt')).source;
+    const field=shader.slice(shader.indexOf('vec2 flowRotate'),shader.indexOf('vec2 closestSegment'));
+    assert.doesNotMatch(field,/3\.2|3\.3|dot\(q\.xy,d\)\s*\*\s*\(1\.0\+/,'no uniform longitudinal scale remains');
+    assert.match(field,/return vec3\(1\.0\+u_flow\.z\*\.20\)/,'atlas extent grows by at most 20%, not 330%');
+    assert.match(field,/q\.yz=flowRotate\(q\.yz,rollAngle\(q,flow\.z\)\)/);
+    assert.match(field,/q\.xy=flowRotate\(q\.xy,foldAngle\(q\.z,flow\.z\)\)/);
+    assert.match(field,/q\.x\+=puffLag\(q\.yz,flow\.z\)/);
+    assert.match(field,/q\.x-=puffLag\(q\.yz,flow\.z\);\s*q\.xy=flowRotate\(q\.xy,-foldAngle\(q\.z,flow\.z\)\);\s*q\.yz=flowRotate\(q\.yz,-rollAngle\(q,flow\.z\)\)/);
+    // Numerical fixture of those material-local rotations: radial rolls keep
+    // their radius, and the final shear can add at most 0.16 core units.
+    const rotate=([x,y],a)=>[Math.cos(a)*x-Math.sin(a)*y,Math.sin(a)*x+Math.cos(a)*y];
+    const roll=(q,s)=>s*(1.70+.55*Math.sin(q[0]*5.2))*Math.exp(-(q[1]**2+q[2]**2)*1.4);
+    const fold=(z,s)=>s*.38*Math.sin(z*4.1+.8);
+    const lag=(q,s)=>s*.16*Math.sin(q[1]*5.7+q[2]*4.3)*Math.exp(-(q[1]**2+q[2]**2)*.8);
+    for(const strength of [0,.15,.5,1])for(let i=0;i<120;i++) {
+        const p=[Math.sin(i*1.7)*.7,Math.cos(i*2.1)*.7,Math.sin(i*.83)*.7],q=p.slice();
+        [q[1],q[2]]=rotate([q[1],q[2]],roll(q,strength));
+        [q[0],q[1]]=rotate([q[0],q[1]],fold(q[2],strength));q[0]+=lag(q,strength);
+        assert.ok(Math.abs(Math.hypot(...q)-Math.hypot(...p))<=.16*strength+1e-12,'compact, not axis-stretched');
+        q[0]-=lag(q,strength);[q[0],q[1]]=rotate([q[0],q[1]],-fold(q[2],strength));
+        [q[1],q[2]]=rotate([q[1],q[2]],-roll(q,strength));
+        q.forEach((value,axis)=>near(value,p[axis],'inverse material coordinate',1e-12));
+    }
+    e.core.dispose();released(e);
+});
+check('transport pulse settles at exact endpoints, reverses without axis flips and carries interrupted roll strength',()=>{
+    const e=environment(),route={from:[.4,.5],to:[-.85,-.7],fromScale:1,toScale:.2,bend:.18};
+    e.render(8,{...defaults,transport:{...route,progress:0}},640,400);
+    assert.equal(e.core.stats().flow[2],0);assert.equal(e.core.stats().transportFlow,'bounded-smoke-rolls');
+    e.render(8,{...defaults,transport:{...route,progress:1e-4}},640,400);
+    assert.ok(e.core.stats().flow[2]/1e-4<.001,'zero initial deformation velocity');
+    e.render(8,{...defaults,transport:{...route,progress:.4}},640,400);
+    const flow=Array.from(e.core.stats().flow),steps=e.core.steps,builds=e.core.fieldBuilds;
+    e.render(8);e.render(4);assert.deepEqual(Array.from(e.core.stats().flow),flow,'same/older avatar does not clear shared rolls');
+    assert.equal(e.core.steps,steps);assert.equal(e.core.fieldBuilds,builds);
+    e.render(8,{...defaults,transport:{...route,from:route.to,to:route.from,progress:0,startStrength:flow[2]}},640,400);
+    assert.deepEqual(Array.from(e.core.stats().flow),flow,'interrupted return starts with the same internal roll');
+    for(const startStrength of [-8,NaN,Infinity,'1',8]) {
+        e.render(8,{...defaults,transport:{...route,progress:0,startStrength}},640,400);
+        assert.equal(e.core.stats().flow[2],startStrength===8?1:0,'optional starting strength is finite and clamped');
+    }
+    e.render(8,{...defaults,transport:{...route,progress:1,startStrength:1}},640,400);
+    assert.equal(e.core.stats().flow[2],0,'the arrival always settles into idle coordinates');
     e.core.dispose();released(e);
 });
 check('the fourth color independently tints unlit matter and front coats without rebuilding the colorless atlas',()=>{

@@ -34,12 +34,14 @@ function environment(saved = {}, unavailable = false) {
         setPointerCapture() {} });
     const layers = colorKeys.map(key => Object.assign(element(), { dataset: { coreLayer: key },
         querySelector() { return this.label; }, label: element() }));
-    const shapes = ['organic', 'pentagram', 'eye', 'hand', 'sword', 'octagram'].map(shape => Object.assign(element(), { dataset: { coreShape: shape } }));
     const elements = Object.fromEntries(['core-visual-settings', 'core-visual-status', 'core-visual-reset',
         'core-theme-adaptive', 'core-color-plane', 'core-color-hue', 'core-color-saturation', 'core-color-light', 'core-color-layer-title', 'core-theme-state',
         ...Object.values(fields), ...Object.values(fields).slice(4).map(id => id + '-value'),
         ...colorKeys.flatMap(key => [fields[key] + '-hex', fields[key] + '-error', fields[key] + '-panel'])].map(id => [id, element()]));
-    elements['core-visual-settings'].querySelectorAll = selector => selector === '[data-core-layer]' ? layers : shapes;
+    elements['core-visual-settings'].querySelectorAll = selector => {
+        assert.equal(selector, '[data-core-layer]', 'settings must not query a permanent shape selector');
+        return layers;
+    };
     const state = { config: { ...defaults, ...saved }, calls: [], fail: false, palette: { theme: 'dark' } };
     const window = emitter();
     if (!unavailable) window.GunterParticles = {
@@ -55,7 +57,7 @@ function environment(saved = {}, unavailable = false) {
         }
     };
     vm.runInNewContext(source, { window, document: { getElementById: id => elements[id] || null } });
-    return { elements, state, window, layers, shapes, input(key, value, hex = false) {
+    return { elements, state, window, layers, input(key, value, hex = false) {
         const element = elements[fields[key] + (hex ? '-hex' : '')];
         element.value = value;
         element.fire('input', { target: element });
@@ -63,7 +65,7 @@ function environment(saved = {}, unavailable = false) {
 }
 let passed = 0;
 function check(name, fn) { fn(); passed++; console.log(`ok ${passed} - ${name}`); }
-check('the studio exposes four orbital color layers, six silhouettes and the existing public ranges', () => {
+check('the studio preserves four color layers and ranges, with only guidance for temporary shapes in Home', () => {
     const card = html.match(/<section[^>]+id="core-visual-settings"[\s\S]*?<\/section>/)?.[0];
     assert.ok(card);
     assert.match(card, /Núcleo y materia/);
@@ -89,7 +91,9 @@ check('the studio exposes four orbital color layers, six silhouettes and the exi
     assert.match(card, /Color de emisión/);
     assert.match(card, /Color de la materia oscura/);
     assert.deepEqual([...card.matchAll(/data-core-layer="([^"]+)"/g)].map(match => match[1]), colorKeys);
-    assert.deepEqual([...card.matchAll(/data-core-shape="([^"]+)"/g)].map(match => match[1]), ['organic', 'pentagram', 'eye', 'hand', 'sword', 'octagram']);
+    assert.doesNotMatch(card, /data-core-shape|core-shapes|Forma de las partículas/);
+    assert.match(card, /En Inicio, haz tres clics o toques sobre Gunter/);
+    assert.match(card, /forma aleatoria por unos instantes y volverán al núcleo orgánico/);
     assert.match(card, /id="core-theme-adaptive"[^>]+checked/);
 });
 check('initialization reads saved values through the API without overwriting them', () => {
@@ -166,11 +170,13 @@ check('range endpoints preserve 25–200 percent density and zero speed feedback
     assert.equal(env.state.config.speed, 0);
     assert.equal(env.elements['core-speed-value'].textContent, '0,00 ×');
 });
-check('reset persists the public defaults and refreshes colors, shape, theme and HEX validation', () => {
-    const env = environment({ brightness: 2, speed: 0, glowColor: '#ffffff' });
+check('reset refreshes appearance and theme defaults without modifying a legacy shape preference', () => {
+    const env = environment({ brightness: 2, speed: 0, glowColor: '#ffffff', shape: 'sword' });
     env.input('particleColor', '#oops', true);
     env.elements['core-visual-reset'].fire('click');
-    assert.deepEqual(env.state.calls, [{ patch: defaults, options: { persist: true } }]);
+    const appearanceDefaults = Object.fromEntries([...Object.keys(fields), 'themeAdaptive'].map(key => [key, defaults[key]]));
+    assert.deepEqual(env.state.calls, [{ patch: appearanceDefaults, options: { persist: true } }]);
+    assert.equal(env.state.config.shape, 'sword');
     assert.equal(env.elements['core-glow-color'].value, defaults.glowColor);
     assert.equal(env.elements['core-color-hex'].value, defaults.particleColor);
     assert.equal(env.elements['core-energy-color-hex'].value, defaults.energyColor);
@@ -224,15 +230,14 @@ check('orbit selection edits only the selected layer without saving on selection
     assert.deepEqual(Object.keys(env.state.calls.at(-1).patch), ['shadowColor']);
     assert.equal(env.state.config.particleColor, defaults.particleColor);
 });
-check('shape and adaptive theme choices persist without changing saved colors', () => {
+check('adaptive theme remains configurable without selecting or overwriting a legacy shape', () => {
     const env = environment({ themeAdaptive: false, shape: 'sword' });
     assert.equal(env.elements['core-theme-adaptive'].checked, false);
-    assert.equal(env.shapes[4].attributes['aria-pressed'], 'true');
-    env.shapes[1].fire('click');
-    assert.deepEqual(env.state.calls.at(-1).patch, { shape: 'pentagram' });
+    assert.equal(env.state.calls.length, 0);
     env.elements['core-theme-adaptive'].checked = true;
     env.elements['core-theme-adaptive'].fire('change');
     assert.deepEqual(env.state.calls.at(-1).patch, { themeAdaptive: true });
+    assert.equal(env.state.config.shape, 'sword');
     colorKeys.forEach(key => assert.equal(env.state.config[key], defaults[key]));
 });
 check('theme events refresh effective swatches without overwriting exact HEX preferences', () => {

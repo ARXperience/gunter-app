@@ -70,7 +70,7 @@ function harness({ withHome = true, reduced = false, preference = false, speed =
     }
     document.getElementById = id => id === 'gunter-orbit-home' ? home : id === 'gunter-companion' ? companion : null;
     document.querySelector = selector => selector === '#gunter-companion .gn-comp__bubble' ? bubble : document.body.querySelector(selector);
-    const window = new Events(), motion = new Events(), mutations = [], resizes = [], frames = new Map(), mounted = [], transports = [], assigned = [];
+    const window = new Events(), motion = new Events(), mutations = [], resizes = [], frames = new Map(), mounted = [], transports = [], assigned = [], shapeCalls = [];
     const sessions = new Map(handoff ? [['gunter_core_visual_entry', JSON.stringify(handoff)]] : []);
     let frameId = 0, now = 1000, prefs = { reduceMotion: preference }, rendererAvailable = available && !pending;
     const config = { speed, glowColor: '#fa5638' };
@@ -84,6 +84,7 @@ function harness({ withHome = true, reduced = false, preference = false, speed =
         requestAnimationFrame: fn => { frames.set(++frameId, fn); return frameId; },
         cancelAnimationFrame: id => frames.delete(id),
         GunterParticles: { mount: node => { mounted.push(node); node.dataset.particlesReady = pending ? 'pending' : available ? 'true' : 'fallback'; }, getConfig: () => config,
+            playShape: node => { shapeCalls.push({ type: 'play', node }); return true; }, endShape: () => shapeCalls.push({ type: 'end' }),
             setTransport: (host, params) => { transports.push({ host, params: params ? JSON.parse(JSON.stringify(params)) : null }); return rendererAvailable; } },
         MutationObserver: class { constructor(fn) { this.fn = fn; mutations.push(this); } observe() {} disconnect() { this.disconnected = true; } },
         ResizeObserver: class { constructor(fn) { this.fn = fn; resizes.push(this); } observe() {} unobserve() {} disconnect() { this.disconnected = true; } }
@@ -96,7 +97,7 @@ function harness({ withHome = true, reduced = false, preference = false, speed =
     const finish = () => { let count = 0; while (frames.size && count++ < 1000) flush(); assert.ok(count < 1000, 'finite animation'); };
     const link = (href, extra = {}) => { const el = document.createElement('a'); el.setAttribute('href', href); for (const [key, value] of Object.entries(extra)) el.setAttribute(key, value); return el; };
     return { api, window, document, portal, home, hero, canvas, anchor, bubble, companion, motion, mounted, mutations, resizes, frames,
-        config, transports, assigned, sessions, flush, pump, finish, link,
+        config, transports, assigned, sessions, shapeCalls, flush, pump, finish, link,
         ready: value => { rendererAvailable = value; mounted[0].dataset.particlesReady = value ? 'true' : 'fallback';
             mutations[0].fn([{ target: mounted[0], attributeName: 'data-particles-ready' }]); },
         setPreferences: value => { prefs = value; },
@@ -113,6 +114,34 @@ async function check(label, fn) { await fn(); passed++; console.log('PASS ' + la
         assert.equal(h.api.getState().mode, 'home'); assert.equal(h.portal.style.pointerEvents, 'none');
         h.leaveHome(); h.finish(); h.enterHome(); h.finish();
         assert.equal(h.portal.children[0], h.hero); assert.equal(h.mounted.length, 1);
+    });
+    await check('only three primary clicks or keyboard activations on the home core trigger a temporary shape', () => {
+        const h = harness(), trigger = h.anchor.children[0];
+        assert.equal(trigger.tagName, 'button'); assert.equal(trigger.getAttribute('type'), 'button');
+        assert.match(trigger.getAttribute('aria-label'), /tres clics o toques/);
+        assert.equal(h.anchor.getAttribute('aria-hidden'), null);
+        trigger.fire('click', { button: 0 }); trigger.fire('click', { button: 0 });
+        assert.equal(h.shapeCalls.length, 0);
+        trigger.fire('click', { button: 0 }); assert.equal(h.shapeCalls.length, 1);
+        assert.equal(h.shapeCalls[0].node, h.hero);
+        trigger.fire('click', { detail: 0 }); trigger.fire('click', { detail: 0 }); trigger.fire('click', { detail: 0 });
+        assert.equal(h.shapeCalls.filter(call => call.type === 'play').length, 2);
+    });
+    await check('separate clicks, secondary buttons, modifiers, dock and transport never activate a shape', () => {
+        const h = harness(), trigger = h.anchor.children[0];
+        trigger.fire('click'); trigger.fire('click'); h.pump(1201); trigger.fire('click');
+        assert.equal(h.shapeCalls.length, 0);
+        for (const invalid of [{ button: 2 }, { ctrlKey: true }, { defaultPrevented: true }]) {
+            trigger.fire('click', invalid); trigger.fire('click'); trigger.fire('click');
+            assert.equal(h.shapeCalls.length, 0);
+        }
+        h.leaveHome();
+        for (let i = 0; i < 3; i++) trigger.fire('click');
+        assert.equal(h.shapeCalls.some(call => call.type === 'play'), false);
+        assert.ok(h.shapeCalls.some(call => call.type === 'end'), 'leaving home ends a momentary silhouette');
+        h.finish(); for (let i = 0; i < 3; i++) trigger.fire('click');
+        assert.equal(h.shapeCalls.some(call => call.type === 'play'), false);
+        assert.equal(harness({ withHome: false }).anchor, undefined);
     });
     await check('a stationary expanded canvas carries a finite GPU river, never a translated block', () => {
         const h = harness(); h.leaveHome();
@@ -135,10 +164,13 @@ async function check(label, fn) { await fn(); passed++; console.log('PASS ' + la
         const first = h.transports.at(-1).params, a = first.from, b = first.to;
         const px = (a[0] + 1) * box.width / 2 + box.left, py = (1 - a[1]) * box.height / 2 + box.top;
         const dx = (b[0] - a[0]) * box.width / 2, dy = -(b[1] - a[1]) * box.height / 2;
-        const bow = 4 * first.bend * progress * (1 - progress);
-        const expected = [px + dx * progress + dy * bow, py + dy * progress - dx * bow];
+        const eased = progress * progress * (3 - 2 * progress);
+        const bow = 4 * first.bend * eased * (1 - eased);
+        const expected = [px + dx * eased + dy * bow, py + dy * eased - dx * bow];
         h.enterHome();
         const current = h.transports.at(-1).params, nextBox = h.portal.getBoundingClientRect();
+        assert.ok(Math.abs(current.startStrength - Math.sin(Math.PI * progress) ** 2) < .00001,
+            'an interrupted current carries its swirl strength, rather than snapping to neutral');
         const actual = [(current.from[0] + 1) * nextBox.width / 2 + nextBox.left,
             (1 - current.from[1]) * nextBox.height / 2 + nextBox.top];
         assert.ok(Math.abs(actual[0] - expected[0]) < .001); assert.ok(Math.abs(actual[1] - expected[1]) < .001);

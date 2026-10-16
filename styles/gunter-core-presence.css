@@ -16,6 +16,15 @@
   transform: none !important;
 }
 /* Sacred silhouettes now belong to the advected GPU matter, not an overlaid mask. */
+#gunter-orbit-home .gn-core-presence-anchor > .gn-core-shape-trigger {
+  position: absolute; inset: 14%; z-index: 1; pointer-events: auto;
+  border: 0 !important; border-radius: 50% !important; padding: 0; background: transparent !important;
+  box-shadow: none !important; filter: none !important; cursor: pointer; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+#gunter-orbit-home .gn-core-presence-anchor > .gn-core-shape-trigger:focus-visible {
+  outline: 1px solid var(--orbit-cyan, #6edafa); outline-offset: 6px;
+}
 html body.gunter-core-presence-active #gunter-companion.gn-comp {
   display: block !important;
   left: var(--core-dock-left) !important; right: auto !important;

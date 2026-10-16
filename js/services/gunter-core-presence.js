@@ -5,12 +5,14 @@
     if (window.GunterCorePresence) return;
     const DOCK_SIZE = 112, FLOW_DURATION = 2400, BEND = .18;
     const HANDOFF_KEY = 'gunter_core_visual_entry', HANDOFF_TTL = 5000;
+    const TRIPLE_CLICK_MS = 1200;
     const PAGES = new Set(['day.html', 'dashboard.html', 'config.html', 'results.html', 'new-project.html', 'meeting.html', 'index.html']);
     const removers = [];
     const motionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
     let portal, art, anchor, bubble, home, mode = '', target, flight;
     let mutationObserver, resizeObserver, frame = 0, flowFrame = 0, started = false, disposed = false, suspended = false;
     let originalClass = '', borrowed = false, navigating = 0, entryPending;
+    let shapeClicks = 0, shapeClickStart = 0;
 
     function listen(node, event, callback, options) {
         node?.addEventListener?.(event, callback, options);
@@ -39,6 +41,17 @@
         Object.assign(portal.style, { left: box.left + 'px', top: box.top + 'px', width: box.width + 'px', height: box.height + 'px' });
     }
     function transport(value) { return window.GunterParticles?.setTransport?.(art, value); }
+    function shapeInteraction(event) {
+        if (disposed || suspended || navigating || flight || mode !== 'home' || home?.hidden
+            || event.defaultPrevented || (event.button != null && event.button !== 0)
+            || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) { shapeClicks = 0; return; }
+        const now = window.performance?.now?.() ?? Date.now();
+        if (!shapeClicks || now - shapeClickStart > TRIPLE_CLICK_MS) { shapeClicks = 0; shapeClickStart = now; }
+        if (++shapeClicks === 3) {
+            shapeClicks = 0;
+            window.GunterParticles?.playShape?.(art);
+        }
+    }
     function viewport() {
         return { width: window.innerWidth || document.documentElement.clientWidth || 1280,
             height: window.innerHeight || document.documentElement.clientHeight || 800 };
@@ -69,12 +82,18 @@
     function currentBox() {
         if (!flight) return target || rect(portal);
         // Same isotropic quadratic curve as the GPU, converted to screen coordinates.
-        const { from, to, progress: p, params } = flight;
+        const { from, to, progress, params } = flight;
+        const p = progress * progress * (3 - 2 * progress);
         const dx = to.left + to.width / 2 - from.left - from.width / 2;
         const dy = to.top + to.height / 2 - from.top - from.height / 2;
         const bow = 4 * params.bend * p * (1 - p), side = from.width + (to.width - from.width) * p;
         return { left: from.left + from.width / 2 + dx * p + dy * bow - side / 2,
             top: from.top + from.height / 2 + dy * p - dx * bow - side / 2, width: side, height: side };
+    }
+    function currentStrength() {
+        if (!flight) return 0;
+        const p = flight.progress;
+        return Math.min(1, Math.sin(Math.PI * p) ** 2 + (flight.params.startStrength || 0) * (1 - p) ** 2);
     }
     function cancelFlow() {
         if (flowFrame) window.cancelAnimationFrame(flowFrame);
@@ -103,12 +122,14 @@
     }
     function move(next, nextMode, initial) {
         portal.hidden = false;
+        if (nextMode !== 'home') { shapeClicks = 0; window.GunterParticles?.endShape?.(); }
         if (!initial && same(target, next) && mode === nextMode) {
             if (flight && (reduced() || speed() === 0)) settle();
             if (!flight) layout(next);
             return flight ? flight.promise : Promise.resolve(true);
         }
         const from = initial || (mode ? currentBox() : null);
+        const startStrength = currentStrength();
         cancelFlow();
         mode = nextMode; target = next; portal.dataset.mode = nextMode;
         if (!from || same(from, next) || reduced() || speed() === 0 || !window.GunterParticles?.setTransport) {
@@ -119,7 +140,7 @@
         // than sending the expanded current underneath the viewport edge.
         const bend = from.left + from.width / 2 > next.left + next.width / 2 ? -BEND : BEND;
         const params = { from: point(from, bounds), to: point(next, bounds),
-            fromScale: from.width / min, toScale: next.width / min, bend };
+            fromScale: from.width / min, toScale: next.width / min, bend, startStrength };
         let resolve;
         const promise = new Promise(done => { resolve = done; });
         flight = { from, to: next, params, progress: 0, last: window.performance?.now?.() || 0, resolve, promise };
@@ -152,7 +173,13 @@
                 originalClass = hero.className;
                 anchor = document.createElement('div');
                 anchor.className = 'gn-orbit-core gn-core-presence-anchor';
-                anchor.setAttribute('aria-hidden', 'true');
+                const trigger = document.createElement('button');
+                trigger.className = 'gn-core-shape-trigger';
+                trigger.setAttribute('type', 'button');
+                trigger.setAttribute('aria-label', 'Transformar Gunter: tres clics o toques');
+                trigger.setAttribute('title', 'Tres clics o toques: una forma por unos instantes');
+                anchor.append(trigger);
+                listen(trigger, 'click', shapeInteraction);
                 hero.replaceWith(anchor);
                 art = hero; borrowed = true;
                 art.classList.remove('gn-orbit-core');
@@ -196,6 +223,8 @@
             entryPending = null;
             move(destination, 'home', initial); return;
         }
+        shapeClicks = 0;
+        window.GunterParticles?.endShape?.();
         const companion = document.getElementById('gunter-companion');
         if (companion?.hidden || companion?.classList.contains('is-hidden')) {
             portal.hidden = true; cancelFlow(); target = null; return;
@@ -270,6 +299,7 @@
         disposed = true;
         if (frame) window.cancelAnimationFrame(frame);
         frame = 0; cancelFlow();
+        shapeClicks = 0; window.GunterParticles?.endShape?.();
         mutationObserver?.disconnect(); resizeObserver?.disconnect();
         removers.splice(0).forEach(remove => remove());
         if (borrowed && anchor?.isConnected) { art.className = originalClass; anchor.replaceWith(art); }
@@ -296,6 +326,7 @@
         listen(document, 'click', linkNavigation);
         listen(window, 'pagehide', event => {
             suspended = true;
+            shapeClicks = 0;
             if (frame) window.cancelAnimationFrame(frame);
             frame = 0; cancelFlow();
             if (!event.persisted) dispose();

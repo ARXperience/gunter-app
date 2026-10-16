@@ -404,7 +404,6 @@
         const colorKeys = ['particleColor', 'shadowColor', 'energyColor', 'glowColor'];
         const labels = { particleColor: 'Partículas', shadowColor: 'Materia', energyColor: 'Energía', glowColor: 'Emisión' };
         const layerButtons = [...section.querySelectorAll('[data-core-layer]')];
-        const shapeButtons = [...section.querySelectorAll('[data-core-shape]')];
         const adaptive = document.getElementById('core-theme-adaptive');
         const plane = document.getElementById('core-color-plane');
         const hue = document.getElementById('core-color-hue');
@@ -474,7 +473,6 @@
                 }
             }
             adaptive.checked = config.themeAdaptive !== false;
-            shapeButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.coreShape === (config.shape || 'organic'))));
             syncColorEditor(config);
         }
         function save(patch) {
@@ -495,7 +493,6 @@
         layerButtons.forEach(button => button.addEventListener('click', () => {
             selected = button.dataset.coreLayer; sync();
         }));
-        shapeButtons.forEach(button => button.addEventListener('click', () => save({ shape: button.dataset.coreShape })));
         adaptive.addEventListener('change', () => save({ themeAdaptive: adaptive.checked }));
         for (const [input, index, divisor] of [[hue, 0, 1], [saturation, 1, 100], [light, 2, 100]]) {
             input.addEventListener('input', () => { hsv[index] = Number(input.value) / divisor; save({ [selected]: toHex(hsv) }); });
@@ -523,7 +520,10 @@
             else return;
             event.preventDefault(); save({ [selected]: toHex(hsv) });
         });
-        document.getElementById('core-visual-reset').addEventListener('click', () => save(core.getDefaults()));
+        document.getElementById('core-visual-reset').addEventListener('click', () => {
+            const defaults = core.getDefaults();
+            save(Object.fromEntries([...Object.keys(fields), 'themeAdaptive'].map(key => [key, defaults[key]])));
+        });
         window.addEventListener('gunter-core-config-changed', sync);
         window.addEventListener('gunter-theme-changed', sync);
         window.addEventListener('storage', event => { if (event.key === PREF_KEY || event.key === null) sync(); });

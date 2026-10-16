@@ -34,7 +34,7 @@ function classes() {
         remove: (...names) => names.forEach(name => values.delete(name)) };
 }
 function environment(options = {}) {
-    const nodes = [], frames = new Map(), observers = [], engines = [], renders = [], writes = [], inputs = [];
+    const nodes = [], frames = new Map(), timers = new Map(), observers = [], engines = [], renders = [], writes = [], inputs = [];
     const storage = new Map([['gunter_prefs', JSON.stringify(options.prefs || {})]]), metering = [];
     let voiceSignal = { source: 'assistant', level: 0, active: false, available: false, enabled: false, at: 0 };
     let sequence = 0, now = 0, renderFailure = options.renderFailure === true;
@@ -68,6 +68,8 @@ function environment(options = {}) {
     const window = emitter({ document, devicePixelRatio: options.dpr ?? 1, matchMedia: () => motion,
         requestAnimationFrame(callback) { frames.set(++sequence, callback); return sequence; },
         cancelAnimationFrame(id) { frames.delete(id); },
+        setTimeout(callback, delay) { timers.set(++sequence, { callback, at: now + delay }); return sequence; },
+        clearTimeout(id) { timers.delete(id); },
         localStorage: {
             getItem: key => storage.get(key) || null,
             setItem(key, value) { if (options.storageBlocked) throw new Error('storage blocked'); storage.set(key, value); writes.push({ key, value }); }
@@ -127,14 +129,16 @@ function environment(options = {}) {
     const visibility = (visible, target = art) => observers.find(observer => observer instanceof window.IntersectionObserver)
         .callback([{ target, isIntersecting: visible }]);
     if (!options.loading && options.autoVisible !== false) visibility(true);
-    return { art, body, window, document, nodes, frames, observers, motion, engines, renders, writes, inputs, metering,
+    return { art, body, window, document, nodes, frames, timers, observers, motion, engines, renders, writes, inputs, metering,
         signal(patch = {}) {
             voiceSignal = { source:'assistant',enabled:true,active:true,available:true,level:0,at:now,...patch };
             window.fire('gunter-audio-level',{detail:{...voiceSignal}});
         },
         api: window.GunterParticles, visibility, canvas: target => (target || art).children[0],
         step(milliseconds = 34) {
-            now += milliseconds; const scheduled = [...frames.values()]; frames.clear(); scheduled.forEach(callback => callback(now));
+            now += milliseconds;
+            for (const [id, timer] of [...timers]) if (timer.at <= now) { timers.delete(id); timer.callback(); }
+            const scheduled = [...frames.values()]; frames.clear(); scheduled.forEach(callback => callback(now));
         },
         prefs: () => JSON.parse(storage.get('gunter_prefs')),
         setPrefs(value) { storage.set('gunter_prefs', JSON.stringify(value)); },
@@ -277,22 +281,63 @@ check('Adaptive colors change every material layer with the theme without changi
     e.document.documentElement.dataset.colorMode = 'light'; e.window.fire('gunter-theme-changed');
     assert.deepEqual(plain(e.api.getPalette()), plain(light));
 });
-check('Manual palette and configurable shadow matter remain exact; shape and mode preferences persist safely', () => {
-    const e = environment();
+check('Manual palette stays exact while a legacy fixed shape is ignored and preserved without migration', () => {
+    const e = environment({ prefs: { coreVisual: { shape: 'sword' } } });
+    assert.equal(e.api.getConfig().shape, 'organic');
+    assert.equal(e.writes.length, 0);
     e.api.configure({ themeAdaptive: false, shadowColor: '#ab32ef', shape: 'eye' }, { persist: true });
     e.document.documentElement.dataset.colorMode = 'dark'; e.window.fire('gunter-theme-changed');
     assert.equal(e.api.getPalette().shadowColor, '#ab32ef');
     assert.equal(e.renders.at(-1).config.shadowColor, '#ab32ef');
-    assert.equal(e.renders.at(-1).config.shape, 'eye');
+    assert.equal(e.renders.at(-1).config.shape, 'organic');
+    assert.equal(e.prefs().coreVisual.shape, 'sword');
     assert.equal(e.prefs().coreVisual.themeAdaptive, false);
-    for (const shape of ['organic', 'pentagram', 'eye', 'hand', 'sword', 'octagram']) assert.equal(e.api.configure({ shape }).shape, shape);
+    for (const shape of ['organic', 'pentagram', 'eye', 'hand', 'sword', 'octagram']) assert.equal(e.api.configure({ shape }).shape, 'organic');
     assert.equal(e.api.configure({ shape: 'external-url-or-unknown', shadowColor: 'red' }).shape, 'organic');
     assert.equal(e.api.getConfig().shadowColor, e.api.getDefaults().shadowColor);
     e.api.configure({ speed: 0 }); assert.equal(e.renders.at(-1).config.static, true);
 });
+check('A playful shape is random, temporary, non-repeating and never stored as a preference', () => {
+    const e = environment(), prefs = e.prefs(), choices = new Set(['pentagram', 'eye', 'hand', 'sword', 'octagram']);
+    const engine = e.engines[0];
+    assert.equal(e.api.playShape(e.art), true);
+    const first = e.art.dataset.coreForm;
+    assert.ok(choices.has(first)); assert.equal(e.timers.size, 1);
+    assert.equal(e.renders.at(-1).config.shape, first);
+    assert.equal(e.api.playShape(e.art), false, 'active morph cannot be interrupted by repeated triples');
+    assert.equal(e.timers.size, 1); assert.equal(e.api.getConfig().shape, 'organic');
+    e.api.configure({ brightness: 1.2 }); assert.equal(e.art.dataset.coreForm, first);
+    e.step(5199); assert.equal(e.art.dataset.coreForm, first);
+    e.step(1); assert.equal(e.art.dataset.coreForm, 'organic'); assert.equal(e.timers.size, 0);
+    assert.equal(e.engines[0], engine); assert.deepEqual(e.prefs(), prefs); assert.equal(e.writes.length, 0);
+    assert.equal(e.api.playShape(e.art), true); assert.notEqual(e.art.dataset.coreForm, first);
+    e.api.endShape(); assert.equal(e.timers.size, 0); assert.equal(e.art.dataset.coreForm, 'organic');
+});
+check('Reduced motion still permits a temporary still silhouette without starting animation or saving changes', () => {
+    for (const options of [{ reducedOS: true }, { prefs: { reduceMotion: true } }, {}]) {
+        const e = environment(options); if (!options.reducedOS && !options.prefs) e.api.configure({ speed: 0 });
+        assert.equal(e.api.playShape(e.art), true); assert.equal(e.renders.at(-1).config.static, true);
+        assert.equal(e.frames.size, 0); assert.equal(e.timers.size, 1);
+        e.step(5200); assert.equal(e.art.dataset.coreForm, 'organic'); assert.equal(e.frames.size, 0);
+        assert.equal(e.timers.size, 0); assert.equal(e.writes.length, 0);
+    }
+});
+check('Hidden pages, unsupported hosts and active transport cannot retain or start a playful shape', () => {
+    for (const options of [{ variant: 'thumb', width: 44 }, { webgl: false }, { autoVisible: false }]) {
+        const e = environment(options); assert.equal(e.api.playShape(e.art), false); assert.equal(e.timers.size, 0);
+    }
+    const e = environment(); e.api.playShape(e.art);
+    e.document.hidden = true; e.document.fire('visibilitychange'); assert.equal(e.timers.size, 0);
+    e.document.hidden = false; e.document.fire('visibilitychange'); assert.equal(e.art.dataset.coreForm, 'organic');
+    e.api.setTransport(e.art, { progress: .3, from: [0, 0], to: [-1, -1], fromScale: 1, toScale: .2 });
+    assert.equal(e.api.playShape(e.art), false);
+    e.api.setTransport(e.art, null); e.api.playShape(e.art);
+    e.window.fire('pagehide', { persisted: true }); assert.equal(e.timers.size, 0);
+    e.window.fire('pageshow', { persisted: true }); assert.equal(e.art.dataset.coreForm, 'organic');
+});
 check('Static identity thumbnails refresh exactly once after the animated silhouette settles, using the existing loop', () => {
     const e = environment(), thumb = e.append('thumb', 44), canvas = e.canvas(thumb);
-    e.engines[0].morph = 0; e.api.configure({ shape: 'eye' });
+    e.engines[0].morph = 0; e.api.playShape(e.art);
     const count = () => e.renders.filter(render => render.canvas === canvas).length;
     const initial = count(); e.step(); e.step(); assert.equal(count(), initial);
     e.api.configure({ shadowColor: '#324567' });
@@ -644,7 +689,7 @@ check('Deferred DOM initialization mounts once after the document is ready', () 
 });
 check('Transport is transient per host, uses the same compositor and never changes saved preferences', () => {
     const e = environment(), next = e.append('hero', 250), before = plain(e.prefs());
-    const flow = { progress: .4, from: [.5, -.5], to: [-.8, -.8], fromScale: .6, toScale: .2, bend: .18 };
+    const flow = { progress: .4, from: [.5, -.5], to: [-.8, -.8], fromScale: .6, toScale: .2, bend: .18, startStrength: .62 };
     assert.equal(e.api.setTransport(e.art, flow), true);
     flow.from[0] = 99;
     e.step();
@@ -652,6 +697,7 @@ check('Transport is transient per host, uses the same compositor and never chang
     const other = e.renders.findLast(render => render.canvas === e.canvas(next));
     assert.equal(hero.config.transport.from[0], .5, 'defensive copy');
     assert.equal(hero.config.transport.progress, .4);
+    assert.equal(hero.config.transport.startStrength, .62, 'the current retains its interrupted swirl intensity');
     assert.equal(other.config.transport, undefined, 'a thumbnail or other host never inherits the river');
     assert.equal(e.engines.length, 1); assert.deepEqual(e.prefs(), before); assert.equal(e.writes.length, 0);
     assert.equal(e.api.setTransport(e.art, null), true); e.step();

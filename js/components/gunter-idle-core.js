@@ -1,6 +1,6 @@
 /* GunterIdleCore — GPU-advected material filaments and a shared energy volume.
  * renderTo(canvas, width, height, seconds, config); setPointer(x,y,active);
- * config.transport: {progress,from:[ndcX,ndcY],to:[ndcX,ndcY],fromScale,toScale,bend?}.
+ * config.transport: {progress,from:[ndcX,ndcY],to:[ndcX,ndcY],fromScale,toScale,bend?,startStrength?}.
  * Transport scales are native core-box sides / the output's smaller side; NDC y points up.
  * config.shape: organic, pentagram (point down), eye, hand, sword or octagram.
  * config.shadowColor controls unlit matter; config.static presents a still target.
@@ -19,25 +19,42 @@
         uniform float u_static;
         vec3 worldPoint(vec3 p);
         vec3 viewPoint(vec3 p);
-        // The travelling current is integrated in the material history, not
-        // warped after projection. These are the strain coordinates of that
-        // velocity field; curl/advection continue between every update.
+        // Compact smoke-roll coordinates. Two local rotations preserve volume;
+        // the final bounded shear lets neighbouring puffs lag by different
+        // amounts, instead of elongating every particle along the travel axis.
+        // Its exact inverse is shared by the volume and material integration.
+        vec2 flowRotate(vec2 p,float a) {
+            float c=cos(a),s=sin(a);return vec2(c*p.x-s*p.y,s*p.x+c*p.y);
+        }
+        float rollAngle(vec3 q,float strength) {
+            return strength*(1.70+.55*sin(q.x*5.2))*exp(-dot(q.yz,q.yz)*1.4);
+        }
+        float foldAngle(float z,float strength) {return strength*.38*sin(z*4.1+.8);}
+        float puffLag(vec2 yz,float strength) {
+            return strength*.16*sin(yz.x*5.7+yz.y*4.3)*exp(-dot(yz,yz)*.8);
+        }
         vec3 flowWind(vec3 p,vec3 flow) {
             vec3 q=viewPoint(p);vec2 d=flow.xy,n=vec2(-d.y,d.x);
             if(flow.z<.00001)return p;
-            q.xy=d*dot(q.xy,d)*(1.0+flow.z*3.2)+n*dot(q.xy,n)/(1.0+flow.z*.42);
-            return worldPoint(q);
+            q=vec3(dot(q.xy,d),dot(q.xy,n),q.z);
+            q.yz=flowRotate(q.yz,rollAngle(q,flow.z));
+            q.xy=flowRotate(q.xy,foldAngle(q.z,flow.z));
+            q.x+=puffLag(q.yz,flow.z);
+            return worldPoint(vec3(d*q.x+n*q.y,q.z));
         }
         vec3 flowUnwind(vec3 p,vec3 flow) {
             vec3 q=viewPoint(p);vec2 d=flow.xy,n=vec2(-d.y,d.x);
             if(flow.z<.00001)return p;
-            q.xy=d*dot(q.xy,d)/(1.0+flow.z*3.2)+n*dot(q.xy,n)*(1.0+flow.z*.42);
-            return worldPoint(q);
+            q=vec3(dot(q.xy,d),dot(q.xy,n),q.z);
+            q.x-=puffLag(q.yz,flow.z);
+            q.xy=flowRotate(q.xy,-foldAngle(q.z,flow.z));
+            q.yz=flowRotate(q.yz,-rollAngle(q,flow.z));
+            return worldPoint(vec3(d*q.x+n*q.y,q.z));
         }
         vec3 flowExtent() {
-            // Axis-aligned bounds of the strained material atlas. Same 48^3
-            // samples/resources; only its world-space metric changes.
-            return vec3(1.0)+abs(worldPoint(vec3(u_flow.xy,0)))*u_flow.z*3.3;
+            // The rotations cannot inflate the body. A 20% margin contains
+            // the bounded 0.16-unit lag, without a low-resolution long atlas.
+            return vec3(1.0+u_flow.z*.20);
         }
         vec2 closestSegment(vec2 p,vec2 a,vec2 b) {
             vec2 d=b-a;return a+d*clamp(dot(p-a,d)/max(.00001,dot(d,d)),0.0,1.0);
@@ -294,7 +311,7 @@
         }
         vec2 transported(vec2 q,vec2 aspect) {
             if(u_transport.x<.5)return q*aspect;
-            float progress=u_transport.y;
+            float progress=smoothstep(0.0,1.0,u_transport.y);
             float scale=mix(u_transportFrom.z,u_transportTo.z,progress);
             vec2 from=u_transportFrom.xy/aspect,delta=(u_transportTo.xy-u_transportFrom.xy)/aspect;
             float distance=length(delta);
@@ -305,7 +322,7 @@
         }
         vec2 untransported(vec2 screen,vec2 aspect) {
             if(u_transport.x<.5)return screen/aspect;
-            float progress=u_transport.y;
+            float progress=smoothstep(0.0,1.0,u_transport.y);
             float scale=mix(u_transportFrom.z,u_transportTo.z,progress);
             vec2 from=u_transportFrom.xy/aspect,delta=(u_transportTo.xy-u_transportFrom.xy)/aspect;
             float distance=length(delta);
@@ -346,7 +363,7 @@
             vec2 cell=floor(gl_FragCoord.xy),tile=floor(cell/48.0);
             vec3 grid=vec3(mod(cell,48.0),tile.x+tile.y*8.0);
             vec3 p=(grid/47.0*2.0-1.0)*.96*flowExtent();
-            // Eulerian support is strained with the same material flow. The
+            // Eulerian support rolls through the same compact material map. The
             // cached volume approximates its density; filaments retain their
             // actual, non-reversible curl trajectory in the history textures.
             p=flowUnwind(p,u_flow);
@@ -400,18 +417,19 @@
                 p=flowWind(p,u_flow);
             } else {
                 p=texelFetch(u_history,cell,0).xyz;
-                // Apply the integrated strain increment to material points,
-                // then advect through a multi-scale curl field. Longitudinal
-                // slip varies by filament; it is never a cloned ghost trail.
+                // Carry existing material through compact rolls, then advect
+                // small curls and counter-currents with their own filament
+                // phase. This sheds local wisps, not a uniform rubber stretch.
                 vec3 rest=flowUnwind(p,u_previousFlow);
                 vec3 v=velocity(rest,u_time,row,1.0);
                 vec3 curl,fine;
                 potential(rest*3.7+vec3(u_time*.27,-u_time*.21,row*.013),curl);
                 potential(rest*10.1+vec3(-u_time*.31,row*.017,u_time*.23),fine);
-                v+=(curl*.31+fine*.13)*u_flow.z;
-                v+=worldPoint(vec3(u_flow.xy,0))*sin(row*.57+rest.y*7.0+u_time*.63)*u_flow.z*.13;
-                rest+=velocity(rest+v*u_dt*.5,u_time+u_dt*.5,row,1.0)*u_dt;
-                rest+=(curl*.31+fine*.13)*u_flow.z*u_dt;
+                float pocket=.45+.55*sin(row*.57+rest.y*7.0+u_time*.63);
+                vec3 slip=worldPoint(vec3(u_flow.xy,0))*sin(row*.37+rest.z*6.0-u_time*.41)*.095;
+                vec3 eddies=(curl*(.16+pocket*.12)+fine*.105+slip)*u_flow.z;
+                v+=eddies;
+                rest+=(velocity(rest+v*u_dt*.5,u_time+u_dt*.5,row,1.0)+eddies)*u_dt;
                 p=flowWind(rest,u_flow);
                 // Neighbour constraints keep material strands continuous as
                 // the velocity field stretches and folds them. No history shift.
@@ -419,7 +437,7 @@
                 vec3 a=texelFetch(u_history,ivec2(max(0,cell.x-1),cell.y),0).xyz-p;
                 vec3 b=texelFetch(u_history,ivec2(min(end,cell.x+1),cell.y),0).xyz-p;
                 float la=length(a),lb=length(b);
-                float spacing=.024*(1.0+u_flow.z*2.8);
+                float spacing=.024*(1.0+u_flow.z*.28);
                 p+=a/max(.0001,la)*max(0.0,la-spacing)*.11;
                 p+=b/max(.0001,lb)*max(0.0,lb-spacing)*.11;
             }
@@ -526,14 +544,15 @@
         void main() {
             vec2 aspect=min(u_resolution.x,u_resolution.y)/u_resolution;
             vec2 xy=untransported(v_uv*2.0-1.0,aspect)/(u_size*.80);
-            vec2 bounds=vec2(1.02)+abs(u_flow.xy)*u_flow.z*3.3;
+            vec2 bounds=vec2(1.02+u_flow.z*.20);
             if(any(greaterThan(abs(xy),bounds))){result=vec4(0);return;}
             vec3 color=vec3(0);float opacity=0.0;
             // Fixed per-ray stratification breaks the sampling lattice without
             // frame-random grain or a moving screen-space noise overlay.
             float jitter=hash3(vec3(floor(gl_FragCoord.xy),7.3)).x*.45;
             for(int i=0;i<40;i++) {
-                float z=.96-(float(i)+.5+jitter)*(1.92/40.0);
+                float marchDepth=1.92*flowExtent().z;
+                float z=(.5-(float(i)+.5+jitter)/40.0)*marchDepth;
                 vec3 p=worldPoint(vec3(xy,z));
                 vec4 material=mediumAt(p);
                 vec3 detail=flowUnwind(p,u_flow)-idleCenter(u_time)*.25;
@@ -543,7 +562,7 @@
                 float mass=max(0.0,material.r-.12);
                 // Beer-Lambert extinction separates porous matter from the
                 // emitting gas; front coats partially obscure deeper folds.
-                float density=1.0-exp(-mass*mass*grain*18.0*(1.92/40.0)*u_density);
+                float density=1.0-exp(-mass*mass*grain*18.0*(marchDepth/40.0)*u_density);
                 float heat=material.g,incident=material.b;
                 float face=material.a*material.a;
                 vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,heat+incident*.45));
@@ -554,7 +573,7 @@
                 // A syllable lifts local radiance while pauses restore idle.
                 vec3 emitted=u_energy*(2.4+u_pointer.z*heat*.28+u_audio*1.70)
                     +u_glow*heat*(.25+u_pointer.z*.28+u_audio*1.45);
-                float emission=1.0-exp(-heat*3.0*(1.92/40.0));
+                float emission=1.0-exp(-heat*3.0*(marchDepth/40.0));
                 // Emission is accumulated at its buried 3D sample. Only the
                 // actual matter extinguishes it; the gas has no front surface.
                 color+=(1.0-opacity)*(scattered*density+emitted*emission);
@@ -614,7 +633,8 @@
             ||value.from.length!==2||value.to.length!==2||![...value.from,...value.to].every(Number.isFinite))return null;
         return {progress:number(value.progress,0,1,0),from:value.from.map(v=>number(v,-2,2,0)),
             to:value.to.map(v=>number(v,-2,2,0)),fromScale:number(value.fromScale,.01,8,1),
-            toScale:number(value.toScale,.01,8,1),bend:number(value.bend,-.35,.35,.16)};
+            toScale:number(value.toScale,.01,8,1),bend:number(value.bend,-.35,.35,.16),
+            startStrength:number(value.startStrength,0,1,0)};
     };
     class GunterIdleCore {
         constructor() {
@@ -623,7 +643,7 @@
             this.pointerRevision=0;this.resetPointer();
             this.audioRevision=0;this.setAudioLevel(0,false);
             this.shapeState={from:0,to:0,start:0};this.shapeName='organic';
-            this.currentFlow=[1,0,0];this.historyFlow=[1,0,0];this.staticPresentation=false;
+            this.currentFlow=[1,0,0];this.historyFlow=[1,0,0];this.flowTime=-1;this.staticPresentation=false;
             this.canvas.addEventListener('webglcontextlost',event=>{
                 event.preventDefault();this.available=false;this.error='Se perdió el contexto WebGL2.';
                 this.announce();
@@ -632,6 +652,7 @@
                 if(this.disposed)return;
                 this.resources=[];this.targets=null;this.histories=null;this.field=null;this.fieldTime=null;this.fieldDensity=null;
                 this.simulationTime=null;this.displayTime=null;
+                this.flowTime=-1;
                 this.historyFlow=[...this.currentFlow];this.fieldShapeKey=null;this.fieldFlowKey=null;
                 this.resetPointer();
                 this.setAudioLevel(0,false);
@@ -746,11 +767,21 @@
             this.vector(program,'u_previousFlow',this.historyFlow);
             this.scalar(program,'u_static',this.staticPresentation?1:0);
         }
-        selectFlow(transport,width,height) {
+        selectFlow(transport,width,height,time) {
+            // Same-phase/older avatars present the same material: they must
+            // not clear its active roll simply because they have no journey.
+            if(time<this.flowTime||!transport&&time===this.flowTime)return;
+            this.flowTime=time;
             if(!transport){this.currentFlow=[1,0,0];return;}
             const min=Math.min(width,height),dx=(transport.to[0]-transport.from[0])*width/min,
                 dy=(transport.to[1]-transport.from[1])*height/min,distance=Math.hypot(dx,dy);
-            this.currentFlow=distance>.0001?[dx/distance,dy/distance,Math.sin(transport.progress*Math.PI)]:[1,0,0];
+            // A canonical axis avoids reversing the vortex instantly on the
+            // return trip. sin² starts and ends with zero deformation speed.
+            const sign=dx<0||dx===0&&dy<0?-1:1;
+            const progress=transport.progress;
+            const pulse=progress===1?0:Math.min(1,Math.sin(progress*Math.PI)**2
+                +transport.startStrength*(1-progress)**2);
+            this.currentFlow=distance>.0001?[dx/distance*sign,dy/distance*sign,pulse]:[1,0,0];
         }
         transportUniforms(program,transport) {
             this.vector(program,'u_transport',transport?[1,transport.progress,transport.bend]:[0,0,0]);
@@ -886,7 +917,7 @@
             width=Math.round(number(width,1,720,512));height=Math.round(number(height,1,720,512));
             const phase=number(seconds,0,1e8,0)*config.speed;
             this.selectShape(config.shape,Math.max(this.displayTime||0,phase),config.static);
-            this.selectFlow(config.transport,width,height);
+            this.selectFlow(config.transport,width,height,phase);
             this.resize(width,height);this.advance(phase);this.draw(config);
             if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;
             const output=canvas.getContext('2d');if(!output)throw new Error('No se pudo presentar el núcleo.');
@@ -897,7 +928,8 @@
                 steps:this.steps,filaments:this.activeFilaments||0,segmentsPerFilament:HISTORY-1,
                 time:this.simulationTime,width:this.width,height:this.height,error:this.error,
                 volumeGrid:48,volumeSamples:40,fieldBuilds:this.fieldBuilds,interaction:{...this.pointer},audio:{...this.audio},
-                shape:this.shapeName,morph:this.shapeCoefficients(this.displayTime||0)[2],flow:[...this.currentFlow]};
+                shape:this.shapeName,morph:this.shapeCoefficients(this.displayTime||0)[2],flow:[...this.currentFlow],
+                transportFlow:'bounded-smoke-rolls'};
         }
         release() {
             if(!this.gl)return;

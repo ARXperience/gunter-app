@@ -14,10 +14,12 @@ es una máscara CSS superpuesta: es una silueta de la propia materia GPU.
 El chat, su historial, controles y Permission Gate no se reemplazan.
 
 El canvas se amplía una vez al corredor entre destinos y permanece fijo durante
-el viaje. La deformación 3D, el rezago y el campo curl se integran en el historial
-material GPU; se eliminó la deformación reversible después de proyectar a
-pantalla. El volumen aproxima la densidad en una métrica 3D equivalente; no es
-un solver CFD completo. La fase del recorrido respeta la velocidad configurada
+el viaje. Dos enrollamientos locales 3D, un rezago acotado y contracorrientes
+curl sustituyen el estiramiento longitudinal uniforme. Materia y filamentos
+comparten el mapa volumétrico; se conserva la historia advectada, la resolución
+y las pasadas GPU. Una inversión conserva la intensidad del remolino anterior.
+Es una aproximación visual de humo, no un solver CFD completo ni una réplica de
+TouchDesigner. El recorrido acelera y frena suavemente; su fase respeta la velocidad configurada
 (2400 ms / velocidad, sin contar pausas), sin acelerar el reloj de advección.
 
 Los enlaces internos entre documentos esperan el recorrido de salida. El
@@ -36,11 +38,20 @@ de vida. No hay nuevos modelos, bibliotecas, micrófonos ni permisos.
 
 ## Formas y personalización
 
-`coreVisual.shape` acepta `organic`, `pentagram` (una punta abajo), `eye`,
-`hand`, `sword` y `octagram`. Son soportes y atractores procedurales que guían
-las fibras existentes, no imágenes ni líneas estáticas superpuestas. El morph
-retiene el historial; con movimiento reducido o velocidad cero se presenta el
-destino estático. No se promete transformar texto libre en cualquier figura.
+No hay selector permanente de formas. Tres clics/toques sobre el centro de
+Gunter en Inicio, dentro de 1,2 segundos, eligen una silueta aleatoria entre
+estrella invertida, ojo, mano, espada y ocho puntas, sin repetir la anterior.
+El mismo botón transparente acepta tres activaciones de teclado. Los clics
+aislados y la navegación no activan formas. La interacción no accede a voz,
+permisos ni almacenamiento y no se interrumpe con nuevos triples clics.
+
+`GunterParticles.playShape(host)` guía las fibras existentes hacia esa forma,
+sin reiniciar su historia. A los 5,2 segundos inicia el retorno orgánico;
+salir de Inicio, ocultar la página o abandonarla cancela el efecto. Con movimiento
+reducido o velocidad cero se muestra una silueta temporal estática, sin nueva
+RAF. Los valores legacy de `coreVisual.shape` no se borran ni se usan como forma
+fija; editar colores tampoco los sobrescribe. No hay generación de figuras por
+texto libre ni imágenes superpuestas.
 
 El estudio orbital reutiliza `GunterParticles.configure` y `gunter_prefs`:
 partículas, materia/sombras (`shadowColor`), energía y emisión son independientes.
@@ -58,11 +69,12 @@ Pruebas focalizadas: `core-presence-transition`, `core-renderer`,
 `idle-core-gpu`, `core-visual-settings`, `theme-first-paint` y contratos de UI. No se
 repiten benchmarks de voz ni se cambian sus modelos o permisos.
 
-Comprobación visual en Chrome: expansión y recomposición del río en Inicio ↔
-Tareas, seis siluetas, colores de materia, Configuración y viewport móvil de
-390 × 844 sin desbordamiento horizontal. Se revisó navegación entre documentos
-en modo claro y retorno a oscuro; los shaders WebGL compilaron sin errores.
+Comprobación visual de esta iteración en Chrome: triple clic en Inicio, formas
+temporales (mano en escritorio, ojo en viewport 390 × 844), vuelta automática
+al orgánico y varios momentos de ida y vuelta Inicio ↔ Tareas. La zona de clic
+es transparente incluso con hover; el mapa y el chat conservan sus controles.
+No hay desbordamiento horizontal ni errores de compilación WebGL observados.
 Las pruebas GPU usan dobles de WebGL para contratos y recursos, no certifican
 fidelidad visual ni rendimiento. Las formas son siluetas básicas, no réplicas
-de las ilustraciones. La versión anterior queda recuperable en Git (`c9f460f`),
+de las ilustraciones. La versión anterior queda recuperable en Git (`07375d9`),
 sin copias paralelas.

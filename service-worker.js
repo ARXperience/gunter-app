@@ -11,7 +11,7 @@
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = "v168-core-forms-20261016";
+const SW_VERSION = "v170-smoke-play-20261016";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;
@@ -43,16 +43,16 @@ const PRECACHE_URLS = [
     '/assets/gunter/gunter-core-192.png?v166-bio-river',
     '/assets/gunter/gunter-core-512.png?v166-bio-river',
     '/styles/gunter-idle-core.css?v142b-idle-core',
-    '/styles/gunter-core-presence.css?v168-core-forms',
-    '/js/services/gunter-core-presence.js?v168-core-forms',
-    '/js/components/gunter-idle-core.js?v168-core-forms',
+    '/styles/gunter-core-presence.css?v170-smoke-play',
+    '/js/services/gunter-core-presence.js?v170-smoke-play',
+    '/js/components/gunter-idle-core.js?v170-smoke-play',
     '/js/services/voice-service.js?v163-core-motion',
     '/js/services/voice-activity-service.js?v141-video-core',
-    '/js/config-settings.js?v168-core-forms',
+    '/js/config-settings.js?v170-smoke-play',
     '/styles/gunter-orbit-home.css?v166-bio-river',
     '/styles/gunter-hologram.css?v135-orbit-home',
     '/js/services/gunter-orbit-home.js?v166-bio-river',
-    '/js/services/gunter-particles.js?v168-core-forms',
+    '/js/services/gunter-particles.js?v170-smoke-play',
     '/styles/gunter-workspace.css?v139-orbital-workspaces',
     '/styles/gunter-interior.css?v155-unified-interior',
     '/styles/gunter-workspace-layout.css?v158-structured-workspaces',
@@ -64,7 +64,7 @@ const PRECACHE_URLS = [
     '/js/services/diagnostics-service.js?v156-structured-workspaces',
     '/styles/pages/orbital-day.css?v139-orbital-workspaces',
     '/styles/pages/orbital-meetings.css?v139-orbital-workspaces',
-    '/styles/pages/orbital-settings.css?v168-core-forms',
+    '/styles/pages/orbital-settings.css?v170-smoke-play',
     '/js/services/gunter-command-center.js?v166-bio-river',
     '/js/controllers/day-tabs.js?v139-orbital-workspaces',
     '/js/theme-backgrounds.js?v139-orbital-workspaces',
