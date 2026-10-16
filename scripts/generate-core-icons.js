@@ -11,8 +11,8 @@ async function generate() {
         const context = canvas.getContext('2d');
         context.fillStyle = '#0d0b14';
         context.fillRect(0, 0, size, size);
-        // The important orbital geometry stays inside the central 80% safe
-        // circle, including when the launcher applies a maskable crop.
+        // The octagram stays inside the central 80% safe area, including
+        // launchers that apply a maskable crop to the native app icon.
         const inset = Math.round(size * .1);
         context.drawImage(source, inset, inset, size - inset * 2, size - inset * 2);
         const target = path.join(assetDir, `gunter-core-${size}.png`);

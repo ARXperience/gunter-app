@@ -1634,9 +1634,11 @@
         register({
             id: 'app.navigate', description: 'Navega a un apartado permitido de Gunter.', confirm: 'never', reversible: true,
             validate(args) { return args.destination || (args.settingRoute && Object.values(NAVIGATION_TARGETS).includes(args.settingRoute)) ? { ok: true } : { ok: false, reply: 'No identifiqué el apartado. Puedes decir Inicio, Conversaciones, Reuniones, Tareas, Agenda, Resultados o Configuración.' }; },
-            execute(args) {
+            async execute(args) {
                 const target = args.settingRoute && Object.values(NAVIGATION_TARGETS).includes(args.settingRoute) ? args.settingRoute : NAVIGATION_TARGETS[args.destination];
                 if (!target) throw new Error('Ese destino no pertenece a las rutas permitidas de Gunter.');
+                const visualNavigation = await runtime.GunterCorePresence?.navigate?.(target);
+                if (visualNavigation === true) return { target, label: args.settingLabel || null };
                 if (runtime.location?.assign) runtime.location.assign(target);
                 else if (runtime.location) runtime.location.href = target;
                 else throw new Error('La navegación solo está disponible desde la app web.');

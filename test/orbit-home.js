@@ -190,6 +190,14 @@ check('route map reuses existing destinations and exposes no new services', asyn
     }
     assert.doesNotMatch(source, /fetch\(|getUserMedia\(|new (?:AudioContext|SpeechRecognition|WebSocket)|localStorage\.setItem|\.dispatch\(/);
 });
+check('home nodes and account controls reuse the semantic octagram icon family, not independent circle icons', () => {
+    const e = environment(), markup = e.home().innerHTML;
+    for (const name of ['calendar', 'users', 'task', 'reminder', 'capture', 'message', 'brain', 'chart', 'link', 'activity', 'sun', 'user']) {
+        assert.match(markup, new RegExp(`data-gunter-icon="${name}"`));
+    }
+    assert.match(source, /GunterIconSystem\?\.markup\?\./);
+    assert.doesNotMatch(markup, /gn-orbit-node__point" aria-hidden="true"><\/span>/);
+});
 check('theme uses the existing preference control instead of storing a parallel preference', async () => {
     const e = environment(); e.controls['[data-orbit-theme]'].fire('click'); assert.equal(e.calls.theme, 'light');
     e.body.classList.add('at-light'); e.controls['[data-orbit-theme]'].fire('click'); assert.equal(e.calls.theme, 'dark');

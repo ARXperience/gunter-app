@@ -145,7 +145,8 @@
         }
         try {
             // The shared phase already includes speed; changing speed must not reposition the core.
-            const rendered = compositor.renderTo(record.canvas, record.pixelWidth, record.pixelHeight, time, { ...config, speed: 1 });
+            const rendered = compositor.renderTo(record.canvas, record.pixelWidth, record.pixelHeight, time,
+                { ...config, speed: 1, ...(record.transport ? { transport: record.transport } : {}) });
             if (rendered === false || !compositor.available) {
                 drawBlocked = true;
                 fallback(record, compositor.error); record.dirty = false; return;
@@ -243,6 +244,21 @@
         window.dispatchEvent(new CustomEvent('gunter-core-config-changed', { detail: { ...config } }));
         return { ...config };
     }
+    function setTransport(el, value = null) {
+        const record = records.get(el);
+        if (!record || disposed) return false;
+        if (value === null) { record.transport = null; record.dirty = true; schedule(); return true; }
+        const pair = values => Array.isArray(values) && values.length === 2 && values.every(Number.isFinite);
+        if (reduced() || suspended || config.speed <= 0 || drawBlocked || !engine?.available
+            || !pair(value.from) || !pair(value.to) || !Number.isFinite(value.progress)
+            || !Number.isFinite(value.fromScale) || !Number.isFinite(value.toScale)) return false;
+        // Transient presentation state belongs to this host only. Never store
+        // a flight in preferences or apply it to previews/chat avatars.
+        record.transport = { progress: Math.max(0, Math.min(1, value.progress)),
+            from: [...value.from], to: [...value.to], fromScale: value.fromScale, toScale: value.toScale,
+            bend: Number.isFinite(value.bend) ? value.bend : .18 };
+        record.dirty = true; schedule(); return true;
+    }
     const observer = 'IntersectionObserver' in window ? new window.IntersectionObserver(entries => {
         for (const entry of entries) {
             const record = records.get(entry.target);
@@ -263,7 +279,7 @@
         canvas.textContent = 'Núcleo visual de Gunter';
         status.className = 'gunter-idle-core-status'; status.setAttribute('role', 'status');
         status.hidden = true;
-        const record = { el, variant, canvas, status, visible: !observer, animated: false, dirty: true,
+        const record = { el, variant, canvas, status, visible: !observer, animated: false, dirty: true, transport: null,
             width: 0, height: 0, pixelWidth: 0, pixelHeight: 0, disposers: [],
             originalAriaHidden: el.getAttribute('aria-hidden'), revealedStatus: false };
         records.set(el, record);
@@ -275,9 +291,9 @@
         delete el.dataset.videoPlayback; delete el.dataset.audioSignal; delete el.dataset.audioLevel;
         const resize = () => {
             const box = el.getBoundingClientRect();
-            // Layout dimensions stay stable during the presence controller's
-            // FLIP scale. Measuring its animated bounds left the final hero
-            // permanently rendered at the dock's low resolution.
+            // Use the portal's actual layout, not a CSS-transformed rectangle.
+            // GPU transport expands this surface without scaling its container;
+            // its final hero resolution must never inherit the dock snapshot.
             const width = Math.max(0, typeof el.clientWidth === 'number' ? el.clientWidth : box.width);
             const height = Math.max(0, typeof el.clientHeight === 'number' ? el.clientHeight : box.height);
             const ratio = Math.min(1.5, window.devicePixelRatio || 1, 720 / Math.max(1, width, height));
@@ -364,7 +380,7 @@
         listen(window, 'pageshow', () => { suspended = false; invalidate(); });
     }
     refreshPreferences();
-    window.GunterParticles = { mount, configure, getConfig: () => ({ ...config }), getDefaults: () => ({ ...DEFAULTS }) };
+    window.GunterParticles = { mount, configure, setTransport, getConfig: () => ({ ...config }), getDefaults: () => ({ ...DEFAULTS }) };
     if (document.readyState === 'loading') listen(document, 'DOMContentLoaded', init, { once: true });
     else init();
 })();

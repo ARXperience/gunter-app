@@ -7,6 +7,7 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 let checks = 0;
 function check(fn) { fn(); checks++; }
 const image = 'assets/gunter/gunter-core.svg';
+const assetPath = source => source.split('?')[0];
 const pages = ['config.html', 'dashboard.html', 'index.html', 'meeting.html', 'new-project.html', 'results.html', 'login.html'];
 for (const page of pages) {
     check(() => assert.doesNotMatch(read(page), /(?:src|href)=["']assets\/gunter\/(?:gunter-prism|gunter_transparent|gunter_default)/, `${page} has no old character image source`));
@@ -16,18 +17,18 @@ const manifest = JSON.parse(read('manifest.json'));
 check(() => assert.equal(manifest.start_url, '/day.html', 'installed app opens the new entrance'));
 check(() => assert.equal(manifest.id, '/dashboard.html', 'installed app identity is preserved'));
 const allowedIcons = [image, 'assets/gunter/gunter-core-192.png', 'assets/gunter/gunter-core-512.png'];
-check(() => assert.ok(manifest.icons.every(icon => allowedIcons.includes(icon.src))));
-check(() => assert.ok(manifest.icons.some(icon => icon.src === image && icon.type === 'image/svg+xml' && icon.sizes === 'any')));
-check(() => assert.ok(manifest.shortcuts.every(shortcut => shortcut.icons.every(icon => allowedIcons.includes(icon.src)))));
+check(() => assert.ok(manifest.icons.every(icon => allowedIcons.includes(assetPath(icon.src)))));
+check(() => assert.ok(manifest.icons.some(icon => assetPath(icon.src) === image && icon.type === 'image/svg+xml' && icon.sizes === 'any')));
+check(() => assert.ok(manifest.shortcuts.every(shortcut => shortcut.icons.every(icon => allowedIcons.includes(assetPath(icon.src))))));
 for (const size of [192, 512]) {
     const source = `assets/gunter/gunter-core-${size}.png`;
     const png = fs.readFileSync(path.join(__dirname, '..', source));
     check(() => assert.deepEqual(png.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])));
     check(() => assert.equal(png.readUInt32BE(16), size));
     check(() => assert.equal(png.readUInt32BE(20), size));
-    check(() => assert.ok(manifest.icons.some(icon => icon.src === source && icon.sizes === `${size}x${size}` && icon.type === 'image/png' && icon.purpose.includes('maskable'))));
+    check(() => assert.ok(manifest.icons.some(icon => assetPath(icon.src) === source && icon.sizes === `${size}x${size}` && icon.type === 'image/png' && icon.purpose.includes('maskable'))));
 }
-check(() => assert.match(read('day.html'), /rel="apple-touch-icon" href="assets\/gunter\/gunter-core-192\.png"/));
+check(() => assert.match(read('day.html'), /rel="apple-touch-icon" href="assets\/gunter\/gunter-core-192\.png(?:\?[^\"]+)?"/));
 
 const listeners = new Map(), calls = [];
 const ring = { style: {}, attrs: {}, setAttribute(key, value) { this.attrs[key] = value; } };

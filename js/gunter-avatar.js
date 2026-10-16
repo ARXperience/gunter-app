@@ -43,7 +43,7 @@ class GunterAvatar {
         const size = Number(this.options.size) || 120;
         this.container.innerHTML = `
             <span class="gunter-svg gunter-core-avatar" data-gunter-particles="avatar" data-state="default" role="img" aria-label="Núcleo de Gunter" style="display:block;position:relative;width:${size}px;height:${size}px">
-                <img src="assets/gunter/gunter-core.svg" alt="" width="${size}" height="${size}" style="width:100%;height:100%;object-fit:contain">
+                <img src="assets/gunter/gunter-core.svg?v166-bio-river" alt="" width="${size}" height="${size}" style="width:100%;height:100%;object-fit:contain">
                 <svg viewBox="0 0 100 100" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
                     <circle cx="50" cy="50" r="45" fill="none" stroke="var(--accent-primary,#9b86f8)" stroke-width="1" opacity="0" class="gunter-state-ring"/>
                 </svg>

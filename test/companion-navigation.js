@@ -12,7 +12,7 @@ const end = source.indexOf('\n    // ──────────────�
 assert.ok(start >= 0 && end > start, 'locate the real companion message handler');
 const handler = source.slice(start, end);
 
-function fixture({ unavailable = false, failNavigation = false } = {}) {
+function fixture({ unavailable = false, failNavigation = false, presence } = {}) {
     const assigned = [], messages = [], dispatched = [], questions = [];
     const pending = new Map();
     const root = {
@@ -25,6 +25,7 @@ function fixture({ unavailable = false, failNavigation = false } = {}) {
         GunterWorkflowOrchestrator: { dispatch() { assert.fail('explanations cannot start workflows'); } },
         GunterNlpLlm: { async complete(prompt) { questions.push(prompt); return 'Puedes abrir Configuración desde el menú o pedirme que lo haga.'; } }
     };
+    if (presence) root.GunterCorePresence = presence;
     if (!unavailable) {
         root.GunterAssistantTools = create({ root, storage: {
             getItem: key => pending.get(key) || null,
@@ -112,6 +113,20 @@ const naturalRequests = [
     assert.doesNotMatch(failed.messages.at(-1).text, /Abriendo/);
     assert.match(failed.messages.at(-1).text, /Navegación no disponible/);
     console.log('PASS a failed navigation cannot claim success');
+
+    const visual = [];
+    const mediated = fixture({ presence: { async navigate(route) { visual.push(route); return true; } } });
+    await mediated.handle('abre configuración de voz');
+    assert.deepEqual(visual, ['config.html#voice']); assert.deepEqual(mediated.assigned, []);
+    assert.match(mediated.messages.at(-1).text, /Abriendo/);
+    const fallback = fixture({ presence: { async navigate() { return false; } } });
+    await fallback.handle('abre configuración de voz');
+    assert.deepEqual(fallback.assigned, ['config.html#voice']);
+    const cancelled = fixture({ presence: { async navigate() { throw Object.assign(new Error('La navegación anterior se canceló.'), { name: 'AbortError' }); } } });
+    await cancelled.handle('abre configuración de voz');
+    assert.deepEqual(cancelled.assigned, [], 'a cancelled animation cannot force an obsolete destination through the fallback');
+    assert.doesNotMatch(cancelled.messages.at(-1).text, /Abriendo/);
+    console.log('PASS chat and voice share visual navigation without double navigation; unsupported paths retain normal routing');
 
     const unavailable = fixture({ unavailable: true });
     await unavailable.handle('abre configuración de voz');

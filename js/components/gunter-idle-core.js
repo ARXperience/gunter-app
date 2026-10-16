@@ -1,5 +1,7 @@
 /* GunterIdleCore — GPU-advected material filaments and a shared energy volume.
  * renderTo(canvas, width, height, seconds, config); setPointer(x,y,active);
+ * config.transport: {progress,from:[ndcX,ndcY],to:[ndcX,ndcY],fromScale,toScale,bend?}.
+ * Transport scales are native core-box sides / the output's smaller side; NDC y points up.
  * resetPointer(); setAudioLevel(rms,available); stats(); dispose().
  * No DOM input, media or device capture; audio amplitude is supplied by the owner.
  */
@@ -164,6 +166,66 @@
             return p;
         }
     `;
+    // One reversible material mapping bends both the GPU-advected fibres and
+    // their illuminated volume into a river. Nothing is copied into a trail:
+    // longitudinal material coordinates lag behind/lead the travelling centre,
+    // while the original curl simulation continues at its configured speed.
+    const TRANSPORT=`
+        uniform vec3 u_transport,u_transportFrom,u_transportTo;
+        vec2 riverCurve(float t,vec2 from,vec2 delta,vec2 normal,float bend) {
+            return from+delta*t+normal*(4.0*length(delta)*bend*t*(1.0-t));
+        }
+        vec2 transported(vec2 q,vec2 aspect) {
+            if(u_transport.x<.5)return q*aspect;
+            float progress=u_transport.y,envelope=sin(progress*3.14159265);
+            float scale=mix(u_transportFrom.z,u_transportTo.z,progress);
+            vec2 from=u_transportFrom.xy/aspect,delta=(u_transportTo.xy-u_transportFrom.xy)/aspect;
+            float distance=length(delta);
+            if(distance<.0001)return (from+q*scale)*aspect;
+            vec2 direction=delta/distance,normal=vec2(-direction.y,direction.x);
+            vec2 center=riverCurve(progress,from,delta,normal,u_transport.z);
+            vec2 affine=center+q*scale;
+            float along=dot(q,direction),crosswise=dot(q,normal);
+            // Expansion is spatial, not a faster clock: different sections of
+            // the same living material travel at different positions on the arc.
+            float stretch=scale+distance*envelope*.50;
+            float phase=progress+along*stretch/distance;
+            vec2 tangent=delta+normal*(4.0*distance*u_transport.z*(1.0-2.0*phase));
+            vec2 side=normalize(vec2(-tangent.y,tangent.x));
+            vec2 river=riverCurve(phase,from,delta,normal,u_transport.z)
+                +side*crosswise*scale*(1.0+envelope*.58);
+            vec3 curl;
+            potential(vec3(q*2.7,u_time*.12),curl);
+            river+=curl.xy*(scale*.018*envelope);
+            return mix(affine,river,envelope)*aspect;
+        }
+        vec2 untransported(vec2 screen,vec2 aspect) {
+            if(u_transport.x<.5)return screen/aspect;
+            float progress=u_transport.y,envelope=sin(progress*3.14159265);
+            float scale=mix(u_transportFrom.z,u_transportTo.z,progress);
+            vec2 from=u_transportFrom.xy/aspect,delta=(u_transportTo.xy-u_transportFrom.xy)/aspect;
+            float distance=length(delta);
+            if(distance<.0001)return (screen/aspect-from)/scale;
+            vec2 direction=delta/distance,normal=vec2(-direction.y,direction.x);
+            vec2 center=riverCurve(progress,from,delta,normal,u_transport.z);
+            vec2 relative=screen/aspect-center;
+            vec2 q=direction*dot(relative,direction)/(scale+distance*envelope*envelope*.50)
+                +normal*dot(relative,normal)/(scale*(1.0+envelope*envelope*.58));
+            // Invert the same deformation for ray marching, keeping energy
+            // inside its actual material rather than leaving a rigid bright orb.
+            for(int i=0;i<5;i++) {
+                vec2 p=transported(q,aspect)/aspect;
+                vec2 dx=(transported(q+vec2(.003,0),aspect)/aspect-p)/.003;
+                vec2 dy=(transported(q+vec2(0,.003),aspect)/aspect-p)/.003;
+                float determinant=dx.x*dy.y-dy.x*dx.y;
+                if(abs(determinant)<.000001)break;
+                vec2 error=p-screen/aspect;
+                vec2 step=vec2(error.x*dy.y-error.y*dy.x,dx.x*error.y-dx.y*error.x)/determinant;
+                q-=clamp(step,vec2(-.8),vec2(.8));
+            }
+            return q;
+        }
+    `;
     const QUAD=HEADER+`
         out vec2 v_uv;
         void main() {
@@ -257,7 +319,7 @@
             result=vec4(p,1);
         }
     `;
-    const STRAND_VERTEX=HEADER+FIELD+`
+    const STRAND_VERTEX=HEADER+FIELD+TRANSPORT+`
         uniform sampler2D u_history;
         uniform vec2 u_resolution;
         uniform float u_size;
@@ -266,7 +328,7 @@
         flat out float v_seed;
         vec2 projected(vec3 p) {
             vec2 aspect=min(u_resolution.x,u_resolution.y)/u_resolution;
-            return viewPoint(p).xy*aspect*u_size*.80;
+            return transported(viewPoint(p).xy*u_size*.80,aspect);
         }
         void main() {
             int historyLength=textureSize(u_history,0).x;
@@ -340,7 +402,7 @@
             result=vec4(color*u_brightness,alpha);
         }
     `;
-    const VOLUME=HEADER+FIELD+MEDIUM+`
+    const VOLUME=HEADER+FIELD+MEDIUM+TRANSPORT+`
         uniform vec2 u_resolution;
         uniform vec3 u_particle,u_energy,u_glow;
         uniform float u_size,u_brightness,u_density;
@@ -348,7 +410,8 @@
         out vec4 result;
         void main() {
             vec2 aspect=min(u_resolution.x,u_resolution.y)/u_resolution;
-            vec2 xy=(v_uv*2.0-1.0)/(aspect*u_size*.80);
+            vec2 xy=untransported(v_uv*2.0-1.0,aspect)/(u_size*.80);
+            if(any(greaterThan(abs(xy),vec2(1.02)))){result=vec4(0);return;}
             vec3 color=vec3(0);float opacity=0.0;
             // Fixed per-ray stratification breaks the sampling lattice without
             // frame-random grain or a moving screen-space noise overlay.
@@ -428,6 +491,13 @@
     const number=(v,lo,hi,fallback)=>Number.isFinite(v)?Math.max(lo,Math.min(hi,v)):fallback;
     const color=(v,fallback)=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v)?v:fallback;
     const rgb=v=>v.match(/[0-9a-f]{2}/gi).map(c=>parseInt(c,16)/255);
+    const transportConfig=value=>{
+        if(!value||!Number.isFinite(value.progress)||!Array.isArray(value.from)||!Array.isArray(value.to)
+            ||value.from.length!==2||value.to.length!==2||![...value.from,...value.to].every(Number.isFinite))return null;
+        return {progress:number(value.progress,0,1,0),from:value.from.map(v=>number(v,-2,2,0)),
+            to:value.to.map(v=>number(v,-2,2,0)),fromScale:number(value.fromScale,.01,8,1),
+            toScale:number(value.toScale,.01,8,1),bend:number(value.bend,-.35,.35,.16)};
+    };
     class GunterIdleCore {
         constructor() {
             this.canvas=document.createElement('canvas');
@@ -533,6 +603,11 @@
             this.vector(program,'u_pointerFlow',[p.vx*.24,p.vy*.24,0]);
             this.scalar(program,'u_audio',this.audio.available?1-Math.exp(-this.audio.level*5):0);
         }
+        transportUniforms(program,transport) {
+            this.vector(program,'u_transport',transport?[1,transport.progress,transport.bend]:[0,0,0]);
+            this.vector(program,'u_transportFrom',transport?[...transport.from,transport.fromScale]:[0,0,1]);
+            this.vector(program,'u_transportTo',transport?[...transport.to,transport.toScale]:[0,0,1]);
+        }
         texture(program,name,texture,unit=0) {
             const gl=this.gl;gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);
             gl.uniform1i(this.uniform(program,name),unit);
@@ -605,6 +680,7 @@
             }
             gl.disable(gl.BLEND);this.use(volume);
             this.interactionUniforms(volume);
+            this.transportUniforms(volume,config.transport);
             this.texture(volume,'u_field',this.field.texture);
             gl.uniform2f(this.uniform(volume,'u_resolution'),this.width,this.height);
             this.scalar(volume,'u_time',t);this.scalar(volume,'u_size',size);this.scalar(volume,'u_brightness',config.brightness);
@@ -615,6 +691,7 @@
             this.quad(this.targets.scene);
             const strands=this.programs.strands;this.use(strands);
             this.interactionUniforms(strands);
+            this.transportUniforms(strands,config.transport);
             this.texture(strands,'u_history',this.histories[this.historyIndex].texture);
             this.texture(strands,'u_volume',this.targets.energy.texture,1);
             this.texture(strands,'u_field',this.field.texture,2);
@@ -641,7 +718,8 @@
                 energyColor:color(config?.energyColor,color(config?.color,'#ff452b')),
                 glowColor:color(config?.glowColor,'#ff6d35'),
                 brightness:number(config?.brightness,.2,2.5,1),density:number(config?.density,.25,2,1),
-                speed:number(config?.speed,0,2,1),size:number(config?.size,.7,1.3,1)
+                speed:number(config?.speed,0,2,1),size:number(config?.size,.7,1.3,1),
+                transport:transportConfig(config?.transport)
             };
             width=Math.round(number(width,1,720,512));height=Math.round(number(height,1,720,512));
             this.resize(width,height);this.advance(number(seconds,0,1e8,0)*config.speed);this.draw(config);

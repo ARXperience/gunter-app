@@ -448,6 +448,61 @@ check('Invalid, absent or muted samples cannot leave invented audio amplitude ac
     e.lost();e.restored();e.render(8);assert.equal(e.core.stats().audio.level,0);assert.equal(e.core.stats().audio.available,false);
     e.core.setAudioLevel(.7);e.core.dispose();assert.equal(e.core.stats().audio.level,0);released(e);
 });
+check('river transport deforms the same GPU filaments and buried volume without another simulation or trail',()=>{
+    const e=environment();e.render(8,defaults,640,400);
+    const histories=e.core.histories.slice(),field=e.core.field,steps=e.core.steps,builds=e.core.fieldBuilds;
+    const created=e.created.Texture.length,programs=e.created.Program.length;
+    const transport={progress:0,from:[.4,.5],to:[-.85,-.7],fromScale:1,toScale:.20,bend:.18};
+    for(const progress of [0,.15,.5,.85,1]) {
+        e.render(8,{...defaults,transport:{...transport,progress}},640,400);
+        for(const name of ['volume','strands']) {
+            const p=e.core.programs[name].program;
+            assert.deepEqual(Array.from(p.u_transport),[1,progress,.18]);
+            assert.deepEqual(Array.from(p.u_transportFrom),[.4,.5,1]);
+            assert.deepEqual(Array.from(p.u_transportTo),[-.85,-.7,.20]);
+        }
+        assert.equal(e.core.stats().filaments,2560,'transport reuses actual density, not extra ghost copies');
+    }
+    const vertex=e.core.programs.strands.program.shaders.find(s=>s.source.includes('int filament=')).source;
+    const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('vec3 emitted=')).source;
+    assert.match(vertex,/return transported\(viewPoint\(p\)\.xy\*u_size\*\.80,aspect\)/);
+    assert.match(volume,/untransported\(v_uv\*2\.0-1\.0,aspect\)/);
+    const mapping=vertex.slice(vertex.indexOf('vec2 riverCurve'),vertex.indexOf('uniform sampler2D u_history'));
+    assert.ok(volume.includes(mapping),'ray marching inverts exactly the same curved material mapping');
+    assert.match(mapping,/along\*stretch\/distance/,'different material coordinates lag along the curved flow');
+    assert.match(mapping,/potential\(vec3\(q\*2\.7,u_time\*\.12\),curl\)/,'flow keeps the existing curl-noise field');
+    assert.match(mapping,/return mix\(affine,river,envelope\)\*aspect/,'endpoints recombine without a permanent stretched nucleus');
+    assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);
+    assert.equal(e.core.field,field);assert.equal(e.core.steps,steps);assert.equal(e.core.fieldBuilds,builds);
+    assert.equal(e.created.Texture.length,created);assert.equal(e.created.Program.length,programs);
+    e.render(8.1,{...defaults,transport},640,400);
+    assert.ok(e.core.steps>steps,'the same fixed-step curl advection continues during transport');
+    e.core.dispose();released(e);
+});
+check('river state is per presentation, resets for other avatars and rejects nonfinite geometry',()=>{
+    const e=environment(),valid={progress:.5,from:[.2,.4],to:[-.8,-.7],fromScale:1.1,toScale:.2};
+    e.render(8,{...defaults,transport:valid});
+    assert.deepEqual(Array.from(e.core.programs.volume.program.u_transport),[1,.5,.16]);
+    for(const transport of [undefined,null,{...valid,progress:NaN},{...valid,from:[NaN,0]},
+        {...valid,to:[0,Infinity]},{...valid,from:[0]},{...valid,to:['0',0]}]) {
+        e.render(8,{...defaults,transport});
+        for(const name of ['volume','strands']) {
+            const p=e.core.programs[name].program;
+            assert.deepEqual(Array.from(p.u_transport),[0,0,0]);
+            assert.deepEqual(Array.from(p.u_transportFrom),[0,0,1]);
+            assert.deepEqual(Array.from(p.u_transportTo),[0,0,1]);
+        }
+    }
+    e.render(8,{...defaults,transport:{...valid,progress:50,from:[-99,99],to:[99,-99],fromScale:-10,toScale:100,bend:100}});
+    const p=e.core.programs.volume.program;
+    assert.deepEqual(Array.from(p.u_transport),[1,1,.35]);
+    assert.deepEqual(Array.from(p.u_transportFrom),[-2,2,.01]);
+    assert.deepEqual(Array.from(p.u_transportTo),[2,-2,8]);
+    e.render(8,{...defaults,transport:{...valid,bend:-.18}});
+    assert.deepEqual(Array.from(p.u_transport),[1,.5,-.18],'the river can bend into available space above the lower dock');
+    e.render(8);assert.deepEqual(Array.from(p.u_transport),[0,0,0],'a normal avatar never inherits the river');
+    e.core.dispose();released(e);
+});
 check('the core does not subscribe to input/media or fetch original footage',()=>{
     assert.doesNotMatch(source,/getUserMedia|AudioContext|pointermove|mousemove|gunter-audio-level|\bfetch\s*\(|gl\.POINTS|createElement\(['"]video/);
     const e=environment();assert.deepEqual([...e.listeners.keys()],['webglcontextlost','webglcontextrestored']);e.core.dispose();released(e);

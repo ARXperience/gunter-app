@@ -14,11 +14,11 @@ class GunterThemeManager {
         this.themeStylesheet = null;
         this.transitionDuration = 300; // ms
         this.avatarImages = {
-            default: 'assets/gunter/gunter-core.svg',
-            listening: 'assets/gunter/gunter-core.svg',
-            analyzing: 'assets/gunter/gunter-core.svg',
-            alert: 'assets/gunter/gunter-core.svg',
-            celebration: 'assets/gunter/gunter-core.svg'
+            default: 'assets/gunter/gunter-core.svg?v166-bio-river',
+            listening: 'assets/gunter/gunter-core.svg?v166-bio-river',
+            analyzing: 'assets/gunter/gunter-core.svg?v166-bio-river',
+            alert: 'assets/gunter/gunter-core.svg?v166-bio-river',
+            celebration: 'assets/gunter/gunter-core.svg?v166-bio-river'
         };
     }
 

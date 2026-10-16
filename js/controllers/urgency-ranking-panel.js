@@ -102,7 +102,7 @@
 
         $body().innerHTML = `
             <div class="gpi-summary">
-                <div class="gpi-summary__icon"><img src="assets/gunter/gunter-core.svg" alt="" width="32" height="32"></div>
+                <div class="gpi-summary__icon"><img src="assets/gunter/gunter-core.svg?v166-bio-river" alt="" width="32" height="32"></div>
                 <div><p class="gpi-summary__text">${esc(r.naturalResponse || r.summary)}</p></div>
             </div>
 

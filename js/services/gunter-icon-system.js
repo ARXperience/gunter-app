@@ -1,66 +1,76 @@
-/* Gunter UI icons: one outline language for navigation, controls and settings. */
+/* Gunter UI: one faceted, fine-line family and an eight-point energy signature. */
 (function () {
     'use strict';
     if (window.GunterIconSystem) return;
 
+    const REVISION = 'octa-1';
+    const OCTAGRAM = '<path d="M12 2.5 21.5 12 12 21.5 2.5 12Z"/><path d="M5.3 5.3h13.4v13.4H5.3Z" opacity=".58"/><path d="M7.5 12c2.2-5.1 6.8-5.1 9 0-2.2 5.1-6.8 5.1-9 0Z"/><path d="M12 9v6m-3-3h6" opacity=".72"/>';
     const PATHS = {
-        home: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
-        message: '<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/>',
-        calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
-        organize: '<path d="M4 5h16M7 12h10m-7 7h4"/><circle cx="6" cy="5" r="1"/><circle cx="18" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>',
-        capture: '<path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="9"/>',
-        task: '<rect x="4" y="4" width="16" height="17" rx="2"/><path d="m8 11 2 2 5-5M8 17h8M9 2v4m6-4v4"/>',
-        reminder: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M5 3 3 5m16-2 2 2"/>',
-        activity: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
-        chart: '<path d="M4 19V5m0 14h17M8 15l4-4 3 2 6-7"/>',
-        link: '<path d="M10 13a5 5 0 0 0 7.1 0l2-2A5 5 0 0 0 12 3.9l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1"/>',
-        settings: '<circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.7 1l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.7-1l-1.7.6-1.4-2.4 1.4-1.1a7 7 0 0 1 0-2l-1.4-1.1 1.4-2.4 1.7.6a8 8 0 0 1 1.7-1l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.7 1l1.7-.6 1.4 2.4-1.4 1.1a7 7 0 0 1-.1 1.9z" transform="translate(-1 -1)"/>',
-        menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
-        plus: '<path d="M12 5v14M5 12h14"/>',
-        assistant: '<path d="M12 3a7 7 0 0 0-7 7v3a7 7 0 0 0 14 0v-3a7 7 0 0 0-7-7Z"/><path d="M8.5 11h.01M15.5 11h.01M9 15c1.8 1.4 4.2 1.4 6 0M5 13H3m18 0h-2"/>',
-        file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/>',
-        brain: '<path d="M12 18V5a3 3 0 0 0-5.8-1A4 4 0 0 0 4 11a4 4 0 0 0 2 7h6ZM12 18V5a3 3 0 0 1 5.8-1A4 4 0 0 1 20 11a4 4 0 0 1-2 7h-6Z"/><path d="M8 8a2 2 0 0 0 0 4m8-5a2 2 0 0 1 0 4"/>',
-        bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
-        trash: '<path d="M3 6h18m-2 0-.9 14H5.9L5 6m4 0V4h6v2m-5 4v6m4-6v6"/>',
-        building: '<path d="M3 21h18M5 21V5l7-3 7 3v16M9 9h1m4 0h1M9 13h1m4 0h1m-6 8v-4h4v4"/>',
-        palette: '<path d="M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 1.7-3.1 1 1 0 0 1 .8-1.5H18a3 3 0 0 0 3-3A10 10 0 0 0 12 3Z"/><path d="M7.5 10h.01M10 7.5h.01m5 0h.01m2.5 3h.01"/>',
-        microphone: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5m-4 0h8"/>',
-        music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
-        warning: '<path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0ZM12 9v4m0 4h.01"/>',
-        check: '<path d="m5 12 4 4L19 6"/>',
-        search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
-        cloud: '<path d="M20 16.2A4.5 4.5 0 0 0 18 7.5a6 6 0 0 0-11.5 1.7A4 4 0 0 0 7 17h12"/>',
-        phone: '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
-        shield: '<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/>',
-        folder: '<path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
-        sparkle: '<path d="m12 3 1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3ZM19 14l1.2 2.8L23 18l-2.8 1.2L19 22l-1.2-2.8L15 18l2.8-1.2L19 14Z"/>',
-        globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18m0-18a15 15 0 0 0 0 18"/>',
-        arrows: '<path d="M7 7h14l-4-4m4 4-4 4M17 17H3l4 4m-4-4 4-4"/>',
-        lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3m-4 5v2"/>',
-        help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.2 1.8c-1.1 1-1.7 1.4-1.7 3.2m0 3h.01"/>',
-        core: '<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-32 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(32 12 12)"/>'
-        ,penguin: '<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-32 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(32 12 12)"/>'
-        ,clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
-        ,pause: '<path d="M8 5v14m8-14v14"/>'
-        ,play: '<path d="m8 5 12 7-12 7z"/>'
-        ,edit: '<path d="m15 5 4 4M4 20l4-.8L19.2 8a2.1 2.1 0 0 0-3-3L5 16.2 4 20Z"/>'
-        ,close: '<path d="m6 6 12 12M18 6 6 18"/>'
-        ,upload: '<path d="M12 16V4m-5 5 5-5 5 5M4 20h16"/>'
-        ,download: '<path d="M12 4v12m-5-5 5 5 5-5M4 20h16"/>'
-        ,save: '<path d="M5 3h12l4 4v14H3V3h2Zm1 0v6h10V3M7 21v-8h10v8"/>'
-        ,headphones: '<path d="M3 14v-3a9 9 0 0 1 18 0v3m-18 0v4h4v-7H3m18 3v4h-4v-7h4"/>'
-        ,users: '<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2m6-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm6-7a4 4 0 0 1 0 8m2 4a4 4 0 0 1 2 3v2"/>'
-        ,user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'
-        ,pin: '<path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>'
-        ,book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22V5.5Zm0 0V22"/>'
-        ,credit: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18m-14 5h4"/>'
-        ,video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/>'
-        ,camera: '<path d="M4 7h3l2-3h6l2 3h3a2 2 0 0 1 2 2v10H2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/>'
-        ,volume: '<path d="M4 10v4h4l5 4V6l-5 4H4Zm12-2a6 6 0 0 1 0 8m2-11a10 10 0 0 1 0 14"/>'
-        ,box: '<path d="m12 3 9 5-9 5-9-5 9-5Zm-9 5v9l9 5 9-5V8m-9 5v9"/>'
-        ,briefcase: '<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3M3 12h18m-11 0v2h4v-2"/>'
-        ,cup: '<path d="M4 8h13v7a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Zm13 2h2a2 2 0 0 1 0 4h-2M8 3v2m5-2v2"/>'
-        ,flag: '<path d="M5 21V5m0 0c5-4 9 4 14 0v10c-5 4-9-4-14 0"/>'
+        core: OCTAGRAM, assistant: OCTAGRAM, penguin: OCTAGRAM,
+        home: '<path d="m3.5 10 8.5-7 8.5 7v10.5h-6v-6h-5v6h-6Z"/><path d="M9.5 7.8 12 5.7l2.5 2.1" opacity=".45"/>',
+        message: '<path d="M5 3.5h14l2 2v11l-2 2h-8l-6 3v-3H3V5.5Z"/><path d="M7 8.5h10m-10 4h6"/>',
+        calendar: '<path d="M5 5h14l2 2v12l-2 2H5l-2-2V7Z"/><path d="M7.5 2.5v5m9-5v5M3 10h18m-14 4h3m4 0h3m-10 3h3"/>',
+        organize: '<path d="M3 6h18M3 12h18M3 18h18" opacity=".45"/><path d="M7 3v6m10 0v6M10 15v6"/>',
+        capture: '<path d="M8 3H5L3 5v3m13-5h3l2 2v3M3 16v3l2 2h3m13-5v3l-2 2h-3M12 7v10m-5-5h10"/>',
+        task: '<path d="M8 4H5L3.5 5.5v14L5 21h14l1.5-1.5v-14L19 4h-3M8 2.5h8v4H8Z"/><path d="m7 12 2 2 4-4m-6 7h10"/>',
+        reminder: '<path d="M7 3 3.5 6.5M17 3l3.5 3.5M7 21l1-2m9 2-1-2"/><path d="M12 4.5 18 7l2.5 6-2.5 6H6l-2.5-6L6 7Z"/><path d="M12 8v5l3 1.5"/>',
+        activity: '<path d="M2.5 12H7l3-7 4 14 3-7h4.5"/><path d="M3 5v2m18 10v2" opacity=".45"/>',
+        chart: '<path d="M3.5 3v17.5H21M7 15l4-4 4 2 6-8"/><path d="M17 5h4v4"/>',
+        link: '<path d="m9 15 6-6m-7 3-2 2a4 4 0 0 0 5.7 5.7l3-3m1.3-4.7 2-2a4 4 0 0 0-5.7-5.7l-3 3"/>',
+        settings: '<path d="m9 2.5-1 3-3 1-2.5 5.5L5 17.5l3 1 1 3h6l1-3 3-1 2.5-5.5L19 6.5l-3-1-1-3Z"/><path d="m12 8-4 4 4 4 4-4Z"/>',
+        menu: '<path d="M4 6.5h16M4 12h16M4 17.5h16"/><path d="M4 6.5h3m10 11h3" stroke-width="2.4"/>',
+        plus: '<path d="M12 4v16M4 12h16"/>',
+        file: '<path d="M6 2.5h8l6 6v12l-1 1H5l-1-1v-16Z"/><path d="M14 2.5v6h6M8 13h8m-8 4h6"/>',
+        brain: '<path d="M12 5 8 2.5 4 5v5l-2 3 3 6 4 2.5 3-3 3 3 4-2.5 3-6-2-3V5l-4-2.5Z"/><path d="M12 5v13.5M7 7l2 2-2 3 2 3m8-8-2 2 2 3-2 3"/>',
+        bell: '<path d="M4 17.5 6 14V8l2-3h8l2 3v6l2 3.5H4ZM10 21h4m-2-19v3"/>',
+        trash: '<path d="M3 6h18M5 6l1 14.5h12L19 6M8 6V3.5h8V6m-6 4v6m4-6v6"/>',
+        building: '<path d="M3 21h18M5 21V5l7-3 7 3v16M9 8h1m4 0h1m-6 4h1m4 0h1m-6 4h1m4 0h1m-5 5v-3h4v3"/>',
+        palette: '<path d="M12 2.5 6 4 2.5 10 4 17l5 4.5h4l1.5-2-1-3H18l3.5-3.5L20 7l-4-3.5Z"/><path d="M7 10h.01M10 6.5h.01m5 0h.01m2.5 4h.01" stroke-width="2.5"/>',
+        microphone: '<path d="M9 3h6l1 2v6l-1 2H9l-1-2V5Z"/><path d="M5 10v2l2 4 5 2 5-2 2-4v-2M12 18v3m-4 0h8"/>',
+        music: '<path d="M9 18V5l12-2v13M9 8l12-2"/><path d="m6 15 3 1v4l-3 1-3-1v-4Zm12-2 3 1v4l-3 1-3-1v-4Z"/>',
+        warning: '<path d="m12 3 10 17H2Z"/><path d="M12 9v5m0 3h.01"/>',
+        check: '<path d="m4.5 12 5 5 10-11"/>',
+        search: '<path d="m10.5 3 5.3 2.2L18 10.5l-2.2 5.3-5.3 2.2-5.3-2.2L3 10.5l2.2-5.3Z"/><path d="m16 16 5 5"/>',
+        cloud: '<path d="M7 18H4l-2-3 1-4 4-1 2-6 6-1 5 4v4l2 2v3l-2 2h-3"/><path d="M12 12v9m-3-3 3 3 3-3"/>',
+        phone: '<path d="M7 2.5h10L19 5v14l-2 2.5H7L5 19V5Z"/><path d="M10 5h4m-3 13.5h2"/>',
+        shield: '<path d="M12 2.5 21 6v7l-3 5-6 4-6-4-3-5V6Z"/><path d="m8 12 3 3 5-6"/>',
+        folder: '<path d="M3 4.5h7l2.5 3H20l1 1v11l-1 1H4l-1-1Z"/><path d="M3 10h18" opacity=".45"/>',
+        sparkle: '<path d="m12 2.5 2.4 6.1 6.1 3.4-6.1 2.4-2.4 7.1-3.4-7.1L2.5 12l6.1-3.4Z"/><path d="M5 5l3 3m8 8 3 3M19 5l-3 3M5 19l3-3" opacity=".45"/>',
+        globe: '<path d="m12 2.5 6.7 2.8 2.8 6.7-2.8 6.7-6.7 2.8-6.7-2.8L2.5 12l2.8-6.7Z"/><path d="M2.5 12h19M12 2.5l-4 6v7l4 6 4-6v-7Z"/>',
+        arrows: '<path d="M3 7h18l-4-4m4 4-4 4M21 17H3l4-4m-4 4 4 4"/>',
+        lock: '<path d="M6 10h12l2 2v7l-2 2H6l-2-2v-7ZM8 10V6l2-3h4l2 3v4m-4 4v3"/>',
+        help: '<path d="m12 2.5 6.7 2.8 2.8 6.7-2.8 6.7-6.7 2.8-6.7-2.8L2.5 12l2.8-6.7Z"/><path d="M9 8.5 10 7h4l1 1.5v2l-3 2V14m0 3h.01"/>',
+        clock: '<path d="m12 2.5 6.7 2.8 2.8 6.7-2.8 6.7-6.7 2.8-6.7-2.8L2.5 12l2.8-6.7Z"/><path d="M12 7v5l4 2"/>',
+        pause: '<path d="M7 4h3v16H7Zm7 0h3v16h-3Z"/>',
+        play: '<path d="M7 3.5 21 12 7 20.5Z"/>',
+        edit: '<path d="m14 5 5 5M3.5 20.5 5 15 17 3l4 4L9 19Z"/>',
+        close: '<path d="m5 5 14 14M19 5 5 19"/>',
+        upload: '<path d="M12 16V3m-5 5 5-5 5 5M3 16v4.5h18V16"/>',
+        download: '<path d="M12 3v13m-5-5 5 5 5-5M3 16v4.5h18V16"/>',
+        save: '<path d="M3.5 3.5H17l3.5 3.5v13.5h-17ZM7 3.5v6h9v-6M7 20.5V14h10v6.5"/>',
+        headphones: '<path d="M3 14V9l3-5 6-2 6 2 3 5v9l-1 2h-4V11h5M3 11h5v9H4l-1-2"/>',
+        users: '<path d="m9 3 4 2v5l-4 2-4-2V5ZM2.5 21v-4l3-2h7l3 2v4m1-18 4 2v5l-4 2m2 3 3.5 2v4"/>',
+        user: '<path d="m12 2.5 4 2v5l-4 2-4-2v-5ZM4 21v-4l4-3h8l4 3v4"/>',
+        pin: '<path d="M12 22 4 12V6l4-4h8l4 4v6Z"/><path d="m12 6 3 3-3 3-3-3Z"/>',
+        book: '<path d="M4 4h7l1 2 1-2h7v16h-7l-1 2-1-2H4ZM12 6v16M7 8h2m6 0h2"/>',
+        credit: '<path d="M5 4.5h14l2 2v11l-2 2H5l-2-2v-11ZM3 9h18M7 15h4m5 0h1"/>',
+        video: '<path d="M4 5.5h10l2 2v9l-2 2H4l-2-2v-9ZM16 10l6-4v12l-6-4"/>',
+        camera: '<path d="M3 7h4l2-3h6l2 3h4v13H3Z"/><path d="m12 9-4 4 4 4 4-4Z"/>',
+        volume: '<path d="M3 9h4l6-5v16l-6-5H3ZM16 8l2 4-2 4m3-11 3 7-3 7"/>',
+        box: '<path d="m12 2.5 9 5-9 5-9-5ZM3 7.5V17l9 5 9-5V7.5M12 12.5V22m-4.5-17 9 5"/>',
+        briefcase: '<path d="M5 7h14l2 2v10l-2 2H5l-2-2V9ZM8 7V3.5h8V7M3 12h18m-11 0v3h4v-3"/>',
+        cup: '<path d="M4 7.5h13V16l-3 4H7l-3-4ZM17 9h4v6h-4M8 2.5v2m5-2v2"/>',
+        flag: '<path d="M5 22V3h6l2 2h7v10h-7l-2-2H5"/>',
+        send: '<path d="m3 3 19 9L3 21l4-9Zm4 9h15"/>',
+        refresh: '<path d="M20 9a8.5 8.5 0 0 0-14-4L3 8m0-5v5h5M4 15a8.5 8.5 0 0 0 14 4l3-3m0 5v-5h-5"/>',
+        chevron: '<path d="m8 4 8 8-8 8"/>',
+        arrow: '<path d="M3 12h18m-7-7 7 7-7 7"/>',
+        back: '<path d="M21 12H3m7-7-7 7 7 7"/>',
+        eye: '<path d="M2 12 7 6h10l5 6-5 6H7Z"/><path d="m12 8 4 4-4 4-4-4Z"/>',
+        logout: '<path d="M10 3H4v18h6m4-14 5 5-5 5m-7-5h12"/>',
+        filter: '<path d="M3 4h18l-7 8v7l-4 2v-9Z"/>',
+        sun: '<path d="m12 7 5 5-5 5-5-5ZM12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>',
+        moon: '<path d="M20.5 14A9.5 9.5 0 0 1 10 3 9.5 9.5 0 1 0 20.5 14Z"/>'
     };
     const GLYPHS = new Map([
         ['📋', 'task'], ['📅', 'calendar'], ['⏰', 'reminder'], ['💬', 'message'], ['📝', 'file'],
@@ -87,34 +97,92 @@
         ['🔄', 'arrows'], ['🔗', 'link'], ['🔊', 'volume'], ['📡', 'globe'], ['📢', 'volume']
     ]);
     const SAFE_TARGETS = 'button, a, summary, label, [role="tab"], h1, h2, h3, h4, h5, legend, .gday__chip > span:first-child, [class~="icon"], [class*="__icon"], [class*="-icon"], [class*="warning"], [class*="status"], [class*="badge"], [class*="tag"], [data-icon]';
+    const CONTROL = 'button, a, summary, label, [role="tab"], [role="button"]';
+    const PRESERVE = '[data-preserve-icon], .emoji-preserve, [data-chart], [data-diagram], .mermaid, .diagram, .chart, .plot, .gunter-idle-core, script, style, textarea, code, pre, [contenteditable="true"]';
+    let initialized = false;
+
+    function iconName(name) {
+        return Object.hasOwn(PATHS, name) ? name : 'sparkle';
+    }
 
     function markup(name) {
-        return `<svg class="gunter-icon" data-gunter-icon="${name}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${PATHS[name] || PATHS.sparkle}</svg>`;
+        const selected = iconName(name);
+        return `<svg class="gunter-icon" data-gunter-icon="${selected}" data-gunter-icon-revision="${REVISION}:${selected}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${PATHS[selected]}</svg>`;
+    }
+
+    // Unknown art and service logos stay intact; only verified control semantics are inferred.
+    function semanticIcon(target) {
+        const explicit = target?.getAttribute('data-icon') || target?.getAttribute('data-gunter-icon');
+        if (explicit && Object.hasOwn(PATHS, explicit)) return explicit;
+        const label = `${target?.getAttribute('aria-label') || ''} ${target?.getAttribute('title') || ''} ${target?.textContent || ''}`
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        if (label.length > 140) return null;
+        const rules = [
+            [/^(?:cerrar sesion|salir|logout)\b/, 'logout'],
+            [/^(?:eliminar|borrar|vaciar|papelera|delete|remove|trash)\b/, 'trash'],
+            [/^(?:cerrar|descartar|close|dismiss)\b/, 'close'],
+            [/^(?:editar|renombrar|edit|rename)\b/, 'edit'],
+            [/^(?:enviar|send)\b/, 'send'],
+            [/^(?:guardar|save)\b/, 'save'],
+            [/^(?:descargar|exportar|download|export)\b/, 'download'],
+            [/^(?:subir|importar|upload|import)\b/, 'upload'],
+            [/^(?:buscar|search)\b/, 'search'],
+            [/^(?:reintentar|actualizar|recargar|retry|refresh|sincronizar)\b/, 'refresh'],
+            [/^(?:pausar|pause)\b/, 'pause'],
+            [/^(?:reproducir|play)\b/, 'play'],
+            [/^(?:hablar|microfono|dictar|grabar|voz y escucha|voice input|microphone)\b/, 'microphone'],
+            [/^(?:silenciar|volumen|audio|respuestas por voz|volume)\b/, 'volume'],
+            [/^(?:crear|anadir|agregar|nuevo|nueva|add|new)\b/, 'plus'],
+            [/^(?:abrir menu|menu|mas opciones|more options)\b/, 'menu'],
+            [/^(?:mi cuenta|perfil|profile|account)\b/, 'user'],
+            [/^(?:inicio|home)\b/, 'home'],
+            [/^(?:conversaciones|mensajes|chat|conversations)\b/, 'message'],
+            [/^(?:agenda|reuniones|calendario|calendar|meetings)\b/, 'calendar'],
+            [/^(?:tareas|compromisos|tasks)\b/, 'task'],
+            [/^(?:recordatorios|alarmas|reminders)\b/, 'reminder'],
+            [/^(?:asistente|gunter|consultar a gunter)\b/, 'core'],
+            [/^(?:resultados|informes|results|reports)\b/, 'chart'],
+            [/^(?:actividad|diagnostico|activity|diagnostics)\b/, 'activity'],
+            [/^(?:conexiones|dispositivos|connections|devices)\b/, 'link'],
+            [/^(?:acciones y permisos|seguridad|security|permissions)\b/, 'shield'],
+            [/^(?:datos y privacidad|privacidad|privacy)\b/, 'lock'],
+            [/^(?:apariencia|appearance)\b/, 'palette'],
+            [/^(?:configur|ajuste|preferencia|settings)/, 'settings'],
+            [/^(?:ayuda|informacion|help|information)\b/, 'help'],
+            [/^(?:volver|regresar|back)\b/, 'back'],
+            [/^(?:tema oscuro|modo oscuro|dark mode)\b/, 'moon'],
+            [/^(?:tema claro|modo claro|light mode)\b/, 'sun']
+        ];
+        return rules.find(([pattern]) => pattern.test(label))?.[1] || null;
     }
 
     function inferredIcon(target, glyph) {
-        const mapped = GLYPHS.get(glyph.replace(/[\uFE0E\uFE0F\u200D]/g, '')) || GLYPHS.get(Array.from(glyph)[0]);
-        if (mapped) return mapped;
-        const label = `${target.getAttribute('aria-label') || ''} ${target.getAttribute('title') || ''} ${target.textContent || ''}`.toLocaleLowerCase('es');
-        if (/ajuste|config|preferen/.test(label)) return 'settings';
-        if (/mensaj|convers|chat/.test(label)) return 'message';
-        if (/reun|agenda|calend/.test(label)) return 'calendar';
-        if (/tarea|prior/.test(label)) return 'task';
-        if (/record|alarma/.test(label)) return 'reminder';
-        if (/archivo|document|transcrip/.test(label)) return 'file';
-        if (/conex|vincul|cuenta/.test(label)) return 'link';
-        if (/papelera|elimin/.test(label)) return 'trash';
-        if (/alert|riesgo|error/.test(label)) return 'warning';
-        return 'sparkle';
+        return GLYPHS.get(glyph.replace(/[\uFE0E\uFE0F\u200D]/g, '')) || GLYPHS.get(Array.from(glyph)[0]) || semanticIcon(target) || 'sparkle';
+    }
+
+    function applyIcon(svg, name) {
+        if (svg.closest(PRESERVE)) return;
+        const selected = iconName(name);
+        // Guard every write; mutation callbacks must converge rather than retrigger forever.
+        const stamp = `${REVISION}:${selected}`;
+        if (svg.getAttribute('data-gunter-icon-revision') === stamp && svg.getAttribute('data-gunter-icon') === selected) return;
+        svg.innerHTML = PATHS[selected];
+        const attrs = {
+            'data-gunter-icon': selected, 'data-gunter-icon-revision': stamp,
+            viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.55',
+            'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', focusable: 'false'
+        };
+        Object.entries(attrs).forEach(([key, value]) => { if (svg.getAttribute(key) !== value) svg.setAttribute(key, value); });
+        svg.classList.add('gunter-icon', 'gunter-icon-inline');
     }
 
     function normalizeTextIcons(target) {
-        if (!target.matches(SAFE_TARGETS) || target.closest('[data-gunter-icon], .emoji-preserve')) return;
+        if (!target.matches(SAFE_TARGETS) || target.closest(PRESERVE) || target.closest('[data-gunter-icon]')) return;
         const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
         const textNodes = [];
         while (walker.nextNode()) textNodes.push(walker.currentNode);
         for (const node of textNodes) {
-            if (!/\p{Extended_Pictographic}/u.test(node.nodeValue || '')) continue;
+            if (node.parentElement?.closest(`${PRESERVE}, svg`) || !/\p{Extended_Pictographic}/u.test(node.nodeValue || '')) continue;
             const source = node.nodeValue;
             const fragment = document.createDocumentFragment();
             const pictographs = /\p{Extended_Pictographic}[\uFE0E\uFE0F]?(?:\u200D\p{Extended_Pictographic}[\uFE0E\uFE0F]?)*/gu;
@@ -134,12 +202,25 @@
     }
 
     function normalizeSvgIcons(root = document) {
-        if (root.matches?.('svg') && !root.matches('[data-preserve-icon]')) root.classList.add('gunter-icon-inline');
-        root.querySelectorAll?.('button svg, a svg, summary svg, [role="tab"] svg, [class*="__icon"] svg, [class*="-icon"] svg')
-            .forEach(svg => { if (!svg.hasAttribute('data-preserve-icon')) svg.classList.add('gunter-icon-inline'); });
+        const candidates = [];
+        if (root.matches?.('svg')) candidates.push(root);
+        root.querySelectorAll?.('svg').forEach(svg => candidates.push(svg));
+        candidates.forEach(svg => {
+            if (svg.closest(PRESERVE)) return;
+            const named = svg.getAttribute('data-gunter-icon');
+            if (named) return applyIcon(svg, named);
+            const control = svg.closest(CONTROL);
+            const viewBox = (svg.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+            // UI-sized symbols only: don't rewrite charts, large illustrations or custom graphs.
+            if (!control || viewBox.length !== 4 || viewBox[0] !== 0 || viewBox[1] !== 0 || viewBox[2] > 36 || viewBox[3] > 36 || !viewBox[2] || !viewBox[3]) return;
+            const name = semanticIcon(svg) || semanticIcon(control);
+            if (name) applyIcon(svg, name);
+            else svg.classList.add('gunter-icon-inline');
+        });
     }
 
     function scan(root = document) {
+        if (root.closest?.(PRESERVE)) return;
         const targets = [];
         if (root.matches?.(SAFE_TARGETS)) targets.push(root);
         root.querySelectorAll?.(SAFE_TARGETS).forEach(target => targets.push(target));
@@ -148,16 +229,24 @@
     }
 
     function init() {
+        if (initialized) return;
+        initialized = true;
         scan();
         const observer = new MutationObserver(records => {
-            records.forEach(record => record.addedNodes.forEach(node => {
-                if (node.nodeType === Node.ELEMENT_NODE) scan(node);
-            }));
+            const roots = new Set();
+            records.forEach(record => {
+                if (record.type === 'attributes') roots.add(record.target);
+                else record.addedNodes.forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE && (node.matches?.('svg') || !node.closest?.('svg'))) roots.add(node);
+                    else if (node.nodeType === Node.TEXT_NODE && node.parentElement && /\p{Extended_Pictographic}/u.test(node.nodeValue || '')) roots.add(node.parentElement);
+                });
+            });
+            roots.forEach(scan);
         });
-        observer.observe(document.body, { childList: true, subtree: true });
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-gunter-icon'] });
     }
 
-    window.GunterIconSystem = { init, markup, paths: Object.keys(PATHS) };
+    window.GunterIconSystem = { init, markup, refresh: scan, semanticIcon, paths: Object.keys(PATHS), revision: REVISION };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();
 })();

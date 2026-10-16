@@ -44,7 +44,8 @@ body .gn-orbit-home :is(a, button, span, time, h1) { font-family: 'IBM Plex Sans
 .gn-orbit-node { --node-color: var(--orbit-cyan); position: absolute; left: var(--node-x); top: var(--node-y); transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 12px; color: var(--orbit-ink); border-radius: 8px; text-decoration: none; font-size: clamp(13px, 1.15vw, 17px); font-weight: 500; white-space: nowrap; pointer-events: auto; transition: background 180ms ease-out, color 180ms ease-out; }
 .gn-orbit-node--amber { --node-color: var(--orbit-amber); }
 .gn-orbit-node--violet { --node-color: var(--orbit-violet); }
-.gn-orbit-node__point { width: 18px; height: 18px; flex: 0 0 18px; border: 2px solid var(--node-color); border-radius: 50%; background: color-mix(in srgb, var(--node-color) 16%, var(--orbit-bg)); box-shadow: 0 0 12px color-mix(in srgb, var(--node-color) 40%, transparent); }
+.gn-orbit-node__point { width: 22px; height: 22px; flex: 0 0 22px; display: grid; place-items: center; color: var(--node-color); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--node-color) 35%, transparent)); }
+.gn-orbit-node__point .gunter-icon { display: block; width: 22px; height: 22px; }
 .gn-orbit-node__label { text-shadow: 0 2px 10px var(--orbit-bg); }
 .gn-orbit-home :is(a, button):focus-visible { outline: 2px solid var(--orbit-amber); outline-offset: 4px; }
 .gn-orbit-home :is(a, button):active { translate: 0 1px; }

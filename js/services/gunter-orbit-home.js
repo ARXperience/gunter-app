@@ -3,16 +3,16 @@
     'use strict';
     if (window.GunterOrbitHome) return;
     const routes = [
-        ['Agenda', 'day.html#events', 31, 17, 'cyan'],
-        ['Reuniones', 'dashboard.html', 18, 31, 'cyan'],
-        ['Tareas', 'day.html#tasks', 19, 51, 'cyan'],
-        ['Recordatorios', 'day.html#reminders', 27, 73, 'amber'],
-        ['Captura rápida', 'day.html#capture', 41, 85, 'amber'],
-        ['Conversaciones', 'day.html#conversations', 70, 20, 'cyan'],
-        ['Memoria', 'config.html#data', 80, 39, 'cyan'],
-        ['Resultados', 'results.html', 79, 62, 'amber'],
-        ['Conexiones', 'config.html#connections', 66, 79, 'amber'],
-        ['Actividad', 'day.html#activity', 56, 89, 'violet']
+        ['Agenda', 'day.html#events', 31, 17, 'cyan', 'calendar'],
+        ['Reuniones', 'dashboard.html', 18, 31, 'cyan', 'users'],
+        ['Tareas', 'day.html#tasks', 19, 51, 'cyan', 'task'],
+        ['Recordatorios', 'day.html#reminders', 27, 73, 'amber', 'reminder'],
+        ['Captura rápida', 'day.html#capture', 41, 85, 'amber', 'capture'],
+        ['Conversaciones', 'day.html#conversations', 70, 20, 'cyan', 'message'],
+        ['Memoria', 'config.html#data', 80, 39, 'cyan', 'brain'],
+        ['Resultados', 'results.html', 79, 62, 'amber', 'chart'],
+        ['Conexiones', 'config.html#connections', 66, 79, 'amber', 'link'],
+        ['Actividad', 'day.html#activity', 56, 89, 'violet', 'activity']
     ];
     const homeHashes = new Set(['', '#home', '#today', '#main-content']);
     let home, syncPending = false, disposed = false, clockTimer, mutationObserver, resizeObserver;
@@ -32,6 +32,10 @@
         });
     }
     function escape(value) { return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
+    function icon(name) {
+        return window.GunterIconSystem?.markup?.(name)
+            || `<svg data-gunter-icon="${escape(name)}" viewBox="0 0 24 24" aria-hidden="true"></svg>`;
+    }
     function currentTab() { return document.querySelector('.gday__tab[aria-selected="true"]')?.dataset.tab || 'today'; }
     function syncRoute(reset = false) {
         if (!home || disposed) return;
@@ -101,16 +105,16 @@
         if (home) return;
         home = document.createElement('section'); home.id = 'gunter-orbit-home'; home.className = 'gn-orbit-home';
         home.setAttribute('aria-label', 'Inicio de Gunter');
-        const links = routes.map(([label, href, x, y, color], index) => `<a class="gn-orbit-node gn-orbit-node--${color}"
+        const links = routes.map(([label, href, x, y, color, symbol], index) => `<a class="gn-orbit-node gn-orbit-node--${color}"
             href="${href}" style="--node-x:${x}%;--node-y:${y}%;--node-i:${index}" data-orbit-route="${href}">
-            <span class="gn-orbit-node__point" aria-hidden="true"></span><span class="gn-orbit-node__label">${escape(label)}</span></a>`).join('');
+            <span class="gn-orbit-node__point" aria-hidden="true">${icon(symbol)}</span><span class="gn-orbit-node__label">${escape(label)}</span></a>`).join('');
         const wires = routes.map(([, , x, y, color]) => `<path class="gn-orbit-wire gn-orbit-wire--${color}" d="M500 490 Q${500 + (x - 50) * 3} ${490 + (y - 49) * 8} ${x * 10} ${y * 10}"/>`).join('');
         home.innerHTML = `<header class="gn-orbit-header"><a href="day.html" class="gn-orbit-brand" aria-label="Inicio Gunter">
-            <img src="assets/gunter/gunter-core.svg" width="30" height="30" alt=""><h1>GUNTER</h1></a>
+            <img src="assets/gunter/gunter-core.svg?v166-bio-river" width="30" height="30" alt=""><h1>GUNTER</h1></a>
             <span class="gn-orbit-header__subtitle">Tu asistente personal</span>
             <div class="gn-orbit-header__actions"><time aria-label="Hora local"></time>
-            <button type="button" data-orbit-theme aria-label="Cambiar tema claro u oscuro" title="Cambiar tema">◐</button>
-            <a href="config.html#account" aria-label="Abrir mi cuenta" title="Mi cuenta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-3a7 7 0 0 1 14 0v3"/></svg></a>
+            <button type="button" data-orbit-theme aria-label="Cambiar tema claro u oscuro" title="Cambiar tema">${icon('sun')}</button>
+            <a href="config.html#account" aria-label="Abrir mi cuenta" title="Mi cuenta">${icon('user')}</a>
             <a href="config.html#preferences" class="gn-orbit-settings">Configuración</a></div></header>
             <div class="gn-orbit-scene">
                 <svg class="gn-orbit-circuits" viewBox="0 0 1000 1000" preserveAspectRatio="none" fill="none" aria-hidden="true">

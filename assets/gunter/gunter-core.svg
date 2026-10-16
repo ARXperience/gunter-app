@@ -1,24 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" fill="none" role="img" aria-label="Núcleo de Gunter">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" fill="none" role="img" aria-label="Gunter: núcleo de energía y geometría de ocho puntas">
   <defs>
-    <radialGradient id="mist"><stop stop-color="#ba81ff" stop-opacity=".5"/><stop offset=".5" stop-color="#7d36d9" stop-opacity=".2"/><stop offset="1" stop-color="#7d36d9" stop-opacity="0"/></radialGradient>
-    <radialGradient id="nucleus"><stop stop-color="#fff"/><stop offset=".23" stop-color="#fff0ff"/><stop offset=".5" stop-color="#c791ff" stop-opacity=".65"/><stop offset="1" stop-color="#a358ea" stop-opacity="0"/></radialGradient>
-    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <radialGradient id="mist"><stop stop-color="#a876ee" stop-opacity=".23"/><stop offset=".5" stop-color="#7d36d9" stop-opacity=".07"/><stop offset="1" stop-color="#7d36d9" stop-opacity="0"/></radialGradient>
+    <radialGradient id="energy"><stop stop-color="#ebcfff"/><stop offset=".2" stop-color="#c38dfb" stop-opacity=".95"/><stop offset=".55" stop-color="#9761dd" stop-opacity=".28"/><stop offset="1" stop-color="#9761dd" stop-opacity="0"/></radialGradient>
+    <linearGradient id="filament" x1="61" y1="48" x2="263" y2="268" gradientUnits="userSpaceOnUse"><stop stop-color="#78dbe0"/><stop offset=".46" stop-color="#cfaff5"/><stop offset="1" stop-color="#a56bd9"/></linearGradient>
+    <filter id="emission" x="-45%" y="-45%" width="190%" height="190%"><feGaussianBlur stdDeviation="1.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
-  <circle cx="160" cy="160" r="150" fill="url(#mist)"/>
-  <g filter="url(#glow)" stroke-width="1.5">
-    <ellipse cx="160" cy="160" rx="98" ry="64" stroke="#c697ff" transform="rotate(14 160 160)"/>
-    <ellipse cx="160" cy="160" rx="99" ry="64" stroke="#f7e6ff" transform="rotate(46 160 160)"/>
-    <ellipse cx="160" cy="160" rx="97" ry="58" stroke="#b580ee" transform="rotate(83 160 160)"/>
-    <ellipse cx="160" cy="160" rx="97" ry="62" stroke="#ead4ff" transform="rotate(117 160 160)"/>
-    <ellipse cx="160" cy="160" rx="98" ry="62" stroke="#b380ed" transform="rotate(151 160 160)"/>
-    <circle cx="160" cy="160" r="59" stroke="#ffb562" stroke-width="2.8"/>
+  <path d="M160 14 306 160 160 306 14 160Z" fill="url(#mist)"/>
+  <!-- Interwoven squares form the eight-point signature, not a circular badge. -->
+  <g stroke="url(#filament)" stroke-width="1.7" stroke-linejoin="round">
+    <path d="M160 36 284 160 160 284 36 160Z" opacity=".82"/>
+    <path d="M72.3 72.3h175.4v175.4H72.3Z" opacity=".58"/>
+    <path d="M160 57 263 160 160 263 57 160Z" opacity=".18" stroke-width=".8"/>
   </g>
-  <g fill="#c394f5" opacity=".65">
-    <circle cx="140" cy="122" r="1"/><circle cx="171" cy="110" r=".7"/><circle cx="191" cy="132" r="1.1"/>
-    <circle cx="120" cy="151" r="1.2"/><circle cx="197" cy="157" r=".8"/><circle cx="132" cy="180" r="1"/>
-    <circle cx="149" cy="198" r=".9"/><circle cx="173" cy="187" r="1.2"/><circle cx="198" cy="177" r=".8"/>
-    <circle cx="169" cy="135" r=".8"/><circle cx="144" cy="153" r="1"/><circle cx="159" cy="179" r="1"/>
-    <circle cx="130" cy="134" r=".7"/><circle cx="182" cy="195" r=".8"/><circle cx="177" cy="154" r="1"/>
+  <g stroke="url(#filament)" stroke-linecap="round" filter="url(#emission)">
+    <path d="M98 149c6-34 32-47 54-32s22 41 46 35 21-37 5-43m-83 94c25 10 39-11 35-37s14-38 35-27 25 29 12 44" opacity=".8" stroke-width="1.2"/>
+    <path d="M110 169c-7-24 16-48 42-45s24 21 14 42-1 40 20 32m-50-90c26-8 50 6 52 27s-18 24-22 42 1 28 13 35" opacity=".7" stroke-width=".8"/>
+    <path d="M99 189c22 13 32-1 43-25s30-32 47-20m-54 63c19-10 11-28 5-47s10-45 30-39" opacity=".55" stroke-width=".7"/>
   </g>
-  <circle cx="160" cy="160" r="41" fill="url(#nucleus)"/>
+  <path d="M131 142c12-22 37-19 50-2s8 34-11 43-42-2-42-18Z" fill="url(#energy)"/>
+  <g fill="#b18adc" opacity=".75">
+    <circle cx="131" cy="122" r="1.1"/><circle cx="174" cy="113" r=".7"/><circle cx="196" cy="135" r=".8"/>
+    <circle cx="111" cy="160" r=".8"/><circle cx="205" cy="165" r="1.1"/><circle cx="126" cy="189" r=".8"/>
+    <circle cx="151" cy="203" r="1"/><circle cx="178" cy="188" r="1"/><circle cx="191" cy="183" r=".6"/>
+    <circle cx="163" cy="133" r=".7"/><circle cx="144" cy="153" r="1.1"/><circle cx="159" cy="179" r=".8"/>
+  </g>
+  <g stroke="#9bdce3" stroke-width="1.4" opacity=".74"><path d="M160 36v8m124 116h-8M160 284v-8M36 160h8"/></g>
 </svg>

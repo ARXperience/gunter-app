@@ -4,7 +4,8 @@
 .gn-core-presence {
   position: fixed; left: 0; top: 0; z-index: 11001; pointer-events: none;
   transform-origin: 0 0; isolation: isolate; overflow: visible;
-  view-transition-name: gunter-core-identity;
+  /* Transport is a deformed GPU medium, never a moving page snapshot. */
+  view-transition-name: none;
 }
 .gn-core-presence[hidden] { display: none !important; }
 .gn-core-presence[data-mode="home"] { z-index: 211; }
@@ -12,10 +13,18 @@
   position: absolute !important; inset: 0 !important;
   width: 100% !important; height: 100% !important; aspect-ratio: 1;
   pointer-events: none !important; overflow: visible;
-  transform: translateY(var(--core-peek-y, 0px)) scale(var(--core-peek-scale, 1)) !important;
-  transition: transform 320ms cubic-bezier(.2, .8, .2, 1);
+  transform: none !important;
 }
-.gn-core-presence[data-mode="dock"].is-peeking { --core-peek-y: -18px; --core-peek-scale: 1.12; }
+.gn-core-presence::before {
+  content: ''; position: absolute; inset: 9%; pointer-events: none;
+  background: var(--core-geometry-color, var(--gw-violet, #caa4ff));
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 320'%3E%3Cg fill='none' stroke='black' stroke-width='1.1'%3E%3Cpath d='M160 16 304 160 160 304 16 160Z'/%3E%3Cpath d='M58.18 58.18H261.82V261.82H58.18Z'/%3E%3Cpath d='M160 16 192.5 81.5 261.82 58.18 238.5 127.5 304 160 238.5 192.5 261.82 261.82 192.5 238.5 160 304 127.5 238.5 58.18 261.82 81.5 192.5 16 160 81.5 127.5 58.18 58.18 127.5 81.5Z' stroke-width='.55'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  opacity: .16; filter: drop-shadow(0 0 3px var(--core-geometry-color, #caa4ff));
+  transition: opacity 180ms ease;
+}
+.gn-core-presence[data-mode="dock"]::before { opacity: .34; inset: 18%; }
+.gn-core-presence.is-peeking::before { opacity: .55; }
+.gn-core-presence[data-flow="active"]::before { opacity: 0; }
 html body.gunter-core-presence-active #gunter-companion.gn-comp {
   display: block !important;
   left: var(--core-dock-left) !important; right: auto !important;
@@ -35,19 +44,18 @@ html body.gunter-core-presence-active #gunter-companion.gn-comp .gn-comp__bubble
   min-width: var(--core-dock-size) !important; min-height: var(--core-dock-size) !important;
   display: flex !important; opacity: 1 !important; pointer-events: auto !important;
   overflow: visible !important; transform: none !important;
-  background: color-mix(in srgb, var(--orbit-chat-bg, #101a2e) 88%, transparent) !important;
-  border-color: color-mix(in srgb, var(--gw-violet, #caa4ff) 45%, transparent) !important;
-  transition: border-color 180ms ease, box-shadow 180ms ease !important;
+  padding: 0 !important; background: transparent !important;
+  border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+  transition: opacity 180ms ease !important;
 }
 html body.gunter-core-presence-active #gunter-companion.gn-comp .gn-comp__bubble:is(:hover, :focus-visible) {
-  border-color: var(--gw-violet, #caa4ff) !important;
-  box-shadow: 0 0 24px color-mix(in srgb, var(--gw-violet, #caa4ff) 20%, transparent) !important;
+  background: transparent !important; box-shadow: none !important;
 }
+html body.gunter-core-presence-active #gunter-companion.gn-comp .gn-comp__bubble:focus-visible { outline: 2px solid var(--gw-cyan, #8aebff); outline-offset: 4px; }
 html body.gunter-core-presence-active #gunter-companion .gn-comp__bubble .gn-mascot { display: none !important; }
 html body.gunter-core-presence-active #gunter-companion .gn-comp__bubble::after {
   content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: 22px; height: 22px; background: var(--orbit-chat-ink, #f1f4ff);
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 18l-3 3V6a3 3 0 013-3h12a3 3 0 013 3v9a3 3 0 01-3 3H6z' fill='none' stroke='black' stroke-width='1.6'/%3E%3Cpath d='M7 8h10M7 12h7' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  width: 44px; height: 44px; background: url('../assets/gunter/gunter-core.svg?v166-bio-river') center / contain no-repeat;
   opacity: 0; transition: opacity 180ms ease;
 }
 html body.gunter-core-presence-active.gunter-orbit-home-active #gunter-companion .gn-comp__bubble::after { opacity: .9; }
@@ -58,11 +66,7 @@ body.gunter-core-presence-active:not(.gunter-orbit-home-active) :is(.gday__tab-p
   animation: gunter-workspace-enter 220ms cubic-bezier(.2, .8, .2, 1);
 }
 
-/* The browser can carry the same identity across full-document navigation.
-   Hash navigation uses the controller's interruptible FLIP instead. */
-@view-transition { navigation: auto; }
-::view-transition-old(gunter-core-identity), ::view-transition-new(gunter-core-identity) { mix-blend-mode: normal; height: 100%; }
-::view-transition-group(gunter-core-identity) { animation-duration: 550ms; animation-timing-function: cubic-bezier(.22, .75, .18, 1); }
+/* Full document links hand off only the entry direction, not a frozen bitmap. */
 @media (max-width: 700px) {
   :root { --core-dock-left: max(32px, env(safe-area-inset-left)); --core-dock-bottom: calc(88px + env(safe-area-inset-bottom)); --core-dock-size: 48px; }
   body.gunter-orbit-home-active { --core-dock-bottom: max(12px, env(safe-area-inset-bottom)); }

@@ -19,19 +19,19 @@
   },
   "icons": [
     {
-      "src": "assets/gunter/gunter-core.svg",
+      "src": "assets/gunter/gunter-core.svg?v166-bio-river",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "assets/gunter/gunter-core-192.png",
+      "src": "assets/gunter/gunter-core-192.png?v166-bio-river",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "assets/gunter/gunter-core-512.png",
+      "src": "assets/gunter/gunter-core-512.png?v166-bio-river",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -44,21 +44,21 @@
       "short_name": "Día",
       "description": "Asistente diario: tareas, eventos, recordatorios",
       "url": "/day.html",
-      "icons": [{ "src": "assets/gunter/gunter-core.svg", "sizes": "any", "type": "image/svg+xml" }, { "src": "assets/gunter/gunter-core-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [{ "src": "assets/gunter/gunter-core.svg?v166-bio-river", "sizes": "any", "type": "image/svg+xml" }, { "src": "assets/gunter/gunter-core-192.png?v166-bio-river", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Nueva reunión",
       "short_name": "Reunión",
       "description": "Iniciar grabación y transcripción",
       "url": "/meeting.html",
-      "icons": [{ "src": "assets/gunter/gunter-core.svg", "sizes": "any", "type": "image/svg+xml" }, { "src": "assets/gunter/gunter-core-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [{ "src": "assets/gunter/gunter-core.svg?v166-bio-river", "sizes": "any", "type": "image/svg+xml" }, { "src": "assets/gunter/gunter-core-192.png?v166-bio-river", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Configuración",
       "short_name": "Config",
       "description": "Ajustes de cuenta y premium",
       "url": "/config.html",
-      "icons": [{ "src": "assets/gunter/gunter-core.svg", "sizes": "any", "type": "image/svg+xml" }, { "src": "assets/gunter/gunter-core-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [{ "src": "assets/gunter/gunter-core.svg?v166-bio-river", "sizes": "any", "type": "image/svg+xml" }, { "src": "assets/gunter/gunter-core-192.png?v166-bio-river", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

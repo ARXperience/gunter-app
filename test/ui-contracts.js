@@ -98,7 +98,7 @@ assert.match(read('js/services/gunter-particles.js'), /GunterIdleCore/, 'the sha
 assert.doesNotMatch(read('js/services/gunter-particles.js'), /createElement\('video'\)/, 'the generated core remains shader-based rather than a video overlay');
 assert.match(read('styles/gunter-command-center.css'), /body\.gunter-page-day \.gunter-command-nav__brand,[\s\S]*body\.gunter-page-day \.gunter-command-nav__links \{ display: none !important; \}/, 'the duplicated top brand bar is hidden on the mobile home screen');
 assert.match(read('js/services/gunter-companion.js'), /data-gunter-particles="chat"/, 'the floating Gunter companion uses the particle mascot');
-assert.match(read('js/services/gunter-cinematic-shell.js'), /MASCOT_SOURCE = 'assets\/gunter\/gunter-core\.svg'/, 'meeting shell reuses the abstract core instead of a legacy raster character');
+assert.match(read('js/services/gunter-cinematic-shell.js'), /MASCOT_SOURCE = 'assets\/gunter\/gunter-core\.svg(?:\?[^']+)?'/, 'meeting shell reuses the abstract core instead of a legacy raster character');
 assert.match(day, /id="gday-quickbar-input"[^>]*aria-label=/, 'quick command input has an accessible name');
 assert.match(day, /id="gday-date"/, 'the dynamic local date remains connected to the day controller');
 assert.match(day, /id="gday-doc-btn"[^>]*aria-label=/, 'attachment icon button has an accessible name');

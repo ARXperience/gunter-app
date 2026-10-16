@@ -600,4 +600,34 @@ check('Deferred DOM initialization mounts once after the document is ready', () 
     env.document.fire('DOMContentLoaded'); env.visibility(true); assert.equal(env.art.children.length, 2);
     assert.equal(env.document.listenerCount('DOMContentLoaded'), 0); assert.equal(env.engines.length, 1);
 });
+check('Transport is transient per host, uses the same compositor and never changes saved preferences', () => {
+    const e = environment(), next = e.append('hero', 250), before = plain(e.prefs());
+    const flow = { progress: .4, from: [.5, -.5], to: [-.8, -.8], fromScale: .6, toScale: .2, bend: .18 };
+    assert.equal(e.api.setTransport(e.art, flow), true);
+    flow.from[0] = 99;
+    e.step();
+    const hero = e.renders.findLast(render => render.canvas === e.canvas());
+    const other = e.renders.findLast(render => render.canvas === e.canvas(next));
+    assert.equal(hero.config.transport.from[0], .5, 'defensive copy');
+    assert.equal(hero.config.transport.progress, .4);
+    assert.equal(other.config.transport, undefined, 'a thumbnail or other host never inherits the river');
+    assert.equal(e.engines.length, 1); assert.deepEqual(e.prefs(), before); assert.equal(e.writes.length, 0);
+    assert.equal(e.api.setTransport(e.art, null), true); e.step();
+    assert.equal(e.renders.findLast(render => render.canvas === e.canvas()).config.transport, undefined);
+});
+check('Unavailable, static and invalid transports cannot retain navigation or create animation loops', () => {
+    const valid = { progress: .5, from: [0, 0], to: [-1, -1], fromScale: 1, toScale: .2 };
+    for (const options of [{ webgl: false }, { reducedOS: true }, { prefs: { coreIdleSpeed: 0 } }]) {
+        const e = environment(options);
+        if (options.prefs) e.api.configure({ speed: 0 });
+        assert.equal(e.api.setTransport(e.art, valid), false);
+    }
+    const e = environment();
+    for (const value of [{ ...valid, from: [NaN, 0] }, { ...valid, progress: Infinity }, { ...valid, to: null }]) {
+        assert.equal(e.api.setTransport(e.art, value), false);
+    }
+    assert.equal(e.api.setTransport({}, valid), false);
+    e.window.fire('pagehide', { persisted: true });
+    assert.equal(e.api.setTransport(e.art, valid), false); assert.equal(e.frames.size, 0);
+});
 console.log(`${checks} core renderer checks passed.`);
