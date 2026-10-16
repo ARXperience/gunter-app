@@ -450,3 +450,71 @@ html body.gunter-workspace .orbital-reset-mark { color: var(--gw-cyan); }
 @media (prefers-reduced-motion: reduce) {
   html body.gunter-workspace :is(.config-orbit-index, .config-tab-panel, .glogin) { animation: none !important; }
 }
+
+/* One live material studio; the four selectors orbit the existing GPU preview. */
+html body.gunter-workspace #core-visual-settings .core-studio__heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 12px; }
+html body.gunter-workspace #core-visual-settings .core-studio__heading h3 { margin: 6px 0 0; }
+html body.gunter-workspace #core-visual-settings .core-studio__eyebrow { display: block; font: 500 10px/1.5 "Geist", sans-serif; letter-spacing: .13em; text-transform: uppercase; color: var(--gw-muted); }
+html body.gunter-workspace #core-visual-settings .core-studio__live { display: flex; align-items: center; gap: 7px; flex-shrink: 0; color: var(--gw-cyan); font-size: 11px; }
+html body.gunter-workspace #core-visual-settings .core-studio__live::before { content: ""; width: 5px; height: 5px; background: currentColor; border-radius: 50%; }
+html body.gunter-workspace #core-visual-settings .core-studio { display: grid; grid-template-columns: minmax(300px, 1.25fr) minmax(230px, .8fr); align-items: center; gap: 32px; margin: 28px 0 16px; }
+html body.gunter-workspace #core-visual-settings .core-studio__orbit { position: relative; min-height: 330px; isolation: isolate; display: grid; place-items: center; }
+html body.gunter-workspace #core-visual-settings .core-visual-settings__preview { width: min(300px, 75%); max-width: 100%; aspect-ratio: 1; margin: 0; pointer-events: auto; }
+html body.gunter-workspace #core-visual-settings .core-layer { position: absolute; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 10px 12px; border: 1px solid transparent; border-radius: 12px; background: color-mix(in srgb, var(--gw-bg) 80%, transparent); color: var(--gw-ink); text-align: left; font: 500 12px/1.5 "Geist", sans-serif; cursor: pointer; transition: border-color 180ms, background 180ms, transform 180ms; }
+html body.gunter-workspace #core-visual-settings .core-layer:hover { transform: translateY(-2px); border-color: var(--gw-border); }
+html body.gunter-workspace #core-visual-settings .core-layer[aria-pressed="true"] { border-color: color-mix(in srgb, var(--gw-cyan) 50%, var(--gw-border)); background: color-mix(in srgb, var(--gw-cyan) 8%, var(--gw-bg)); }
+html body.gunter-workspace #core-visual-settings .core-layer--particles { top: 8%; left: 0; }
+html body.gunter-workspace #core-visual-settings .core-layer--shadow { top: 8%; right: 0; }
+html body.gunter-workspace #core-visual-settings .core-layer--energy { bottom: 8%; left: 0; }
+html body.gunter-workspace #core-visual-settings .core-layer--glow { bottom: 8%; right: 0; }
+html body.gunter-workspace #core-visual-settings .core-layer__swatch { flex: 0 0 18px; width: 18px; height: 18px; background: var(--layer-color, var(--gw-cyan)); border-radius: 6px; border: 1px solid color-mix(in srgb, var(--gw-ink) 22%, transparent); box-shadow: 0 0 16px color-mix(in srgb, var(--layer-color, var(--gw-cyan)) 18%, transparent); }
+html body.gunter-workspace #core-visual-settings .core-layer small { display: block; color: var(--gw-muted); font-size: 9px; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+html body.gunter-workspace #core-visual-settings .core-studio__editor { min-width: 0; padding-left: 26px; border-left: 1px solid var(--gw-border); }
+html body.gunter-workspace #core-visual-settings .core-studio__editor-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px; }
+html body.gunter-workspace #core-visual-settings .core-studio__editor-heading h4 { margin: 0; font-size: 13px; font-weight: 500; color: var(--gw-ink); }
+html body.gunter-workspace #core-visual-settings .core-spectrum { --core-hue: 227; --core-saturation: 74%; --core-value: 22%; position: relative; width: 100%; height: 142px; border-radius: 10px; background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent), hsl(var(--core-hue) 100% 50%); touch-action: none; cursor: crosshair; border: 1px solid var(--gw-border); }
+html body.gunter-workspace #core-visual-settings .core-spectrum__cursor { position: absolute; left: var(--core-saturation); top: var(--core-value); width: 12px; height: 12px; transform: translate(-50%, -50%); border: 2px solid white; border-radius: 50%; box-shadow: 0 0 0 1px #152136, 0 1px 4px #0007; pointer-events: none; }
+html body.gunter-workspace #core-visual-settings .core-spectrum-control { display: grid; gap: 2px; margin-top: 10px; font-size: 10px; color: var(--gw-muted); min-width: 0; }
+html body.gunter-workspace #core-visual-settings .core-spectrum-control input[type="range"] { width: 100%; min-width: 0; max-width: none; height: 24px; min-height: 24px; padding: 0; accent-color: var(--gw-cyan); cursor: pointer; }
+html body.gunter-workspace #core-visual-settings .core-spectrum-hue { appearance: none; -webkit-appearance: none; height: 9px !important; min-height: 9px !important; margin-block: 9px; border: 0; border-radius: 999px; background: linear-gradient(to right, #f44, #ff4, #4f4, #4ff, #44f, #f4f, #f44) !important; }
+html body.gunter-workspace #core-visual-settings .core-spectrum-hue::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 14px; height: 18px; border: 2px solid #fff; border-radius: 4px; background: transparent; box-shadow: 0 0 0 1px #14213b; }
+html body.gunter-workspace #core-visual-settings .core-spectrum-hue::-moz-range-thumb { width: 10px; height: 14px; border: 2px solid #fff; border-radius: 4px; background: transparent; }
+html body.gunter-workspace #core-visual-settings .core-spectrum-fine { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+html body.gunter-workspace #core-visual-settings .core-color-control { display: grid; grid-template-columns: 28px minmax(0, 1fr); width: 100%; gap: 7px 10px; margin-top: 12px; align-items: center; }
+html body.gunter-workspace #core-visual-settings .core-color-control[hidden] { display: none !important; }
+html body.gunter-workspace #core-visual-settings .core-color-control > label { grid-column: 1 / -1; font-size: 10px; color: var(--gw-muted); }
+html body.gunter-workspace #core-visual-settings .core-color-control input[type="color"] { width: 28px; min-width: 28px; height: 32px; min-height: 32px; padding: 0 !important; border: 0 !important; background: transparent !important; cursor: pointer; }
+html body.gunter-workspace #core-visual-settings .core-color-control input[type="color"]::-webkit-color-swatch-wrapper { padding: 3px 0; }
+html body.gunter-workspace #core-visual-settings .core-color-control input[type="color"]::-webkit-color-swatch { border: 1px solid var(--gw-border); border-radius: 6px; }
+html body.gunter-workspace #core-visual-settings .core-color-control input[type="text"] { min-height: 34px; height: 34px; letter-spacing: .08em; font-size: 12px; }
+html body.gunter-workspace #core-visual-settings .core-studio__adaptive { margin-top: 22px; }
+html body.gunter-workspace #core-visual-settings .core-studio__adaptive strong { display: block; font-size: 12px; font-weight: 500; color: var(--gw-ink); }
+html body.gunter-workspace #core-visual-settings .core-studio__adaptive small { display: block; margin-top: 3px; font-size: 11px; line-height: 1.6; color: var(--gw-muted); }
+html body.gunter-workspace #core-visual-settings .core-shapes { padding: 8px 0 4px; border-bottom: 1px solid var(--gw-border); }
+html body.gunter-workspace #core-visual-settings .core-shapes__options { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 12px; }
+html body.gunter-workspace #core-visual-settings .core-shapes button { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 5px; min-height: 70px; padding: 8px 2px 4px; background: transparent; border: 1px solid transparent; border-radius: 10px; color: var(--gw-muted); cursor: pointer; font-size: 9px; line-height: 1.5; transition: color 180ms, background 180ms, border-color 180ms; }
+html body.gunter-workspace #core-visual-settings .core-shapes button:hover { color: var(--gw-ink); background: color-mix(in srgb, var(--gw-ink) 4%, transparent); }
+html body.gunter-workspace #core-visual-settings .core-shapes button[aria-pressed="true"] { color: var(--gw-cyan); border-color: color-mix(in srgb, var(--gw-cyan) 35%, var(--gw-border)); background: color-mix(in srgb, var(--gw-cyan) 7%, transparent); }
+html body.gunter-workspace #core-visual-settings .core-shapes svg { width: 26px; height: 26px; stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
+html body.gunter-workspace #core-visual-settings .core-shapes__detail { color: var(--gw-muted); font-size: 8px; margin-top: -5px; }
+html body.gunter-workspace #core-visual-settings :is(button, input, .core-spectrum):focus-visible { outline: 2px solid var(--gw-cyan); outline-offset: 4px; }
+@media (max-width: 860px) {
+  html body.gunter-workspace #core-visual-settings .core-studio { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  html body.gunter-workspace #core-visual-settings .core-studio__orbit { width: min(100%, 460px); min-height: 320px; margin: auto; }
+  html body.gunter-workspace #core-visual-settings .core-studio__editor { padding: 20px 0 0; border-left: 0; border-top: 1px solid var(--gw-border); }
+  html body.gunter-workspace #core-visual-settings .core-spectrum { height: 150px; }
+}
+@media (max-width: 520px) {
+  html body.gunter-workspace #core-visual-settings .core-studio__heading { gap: 10px; }
+  html body.gunter-workspace #core-visual-settings .core-studio__live { font-size: 9px; }
+  html body.gunter-workspace #core-visual-settings .core-studio__orbit { min-height: 300px; }
+  html body.gunter-workspace #core-visual-settings .core-layer { min-height: 48px; padding: 6px 8px; gap: 7px; font-size: 11px; }
+  html body.gunter-workspace #core-visual-settings .core-layer--particles, html body.gunter-workspace #core-visual-settings .core-layer--shadow { top: 0; }
+  html body.gunter-workspace #core-visual-settings .core-layer--energy, html body.gunter-workspace #core-visual-settings .core-layer--glow { bottom: 0; }
+  html body.gunter-workspace #core-visual-settings .core-visual-settings__preview { width: 230px; max-width: 100%; }
+  html body.gunter-workspace #core-visual-settings .core-shapes__options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  html body.gunter-workspace #core-visual-settings .core-shapes button { min-height: 66px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html body.gunter-workspace #core-visual-settings :is(.core-layer, .core-shapes button) { transition: none; transform: none; }
+}

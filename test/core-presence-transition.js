@@ -123,7 +123,7 @@ async function check(label, fn) { await fn(); passed++; console.log('PASS ' + la
         assert.ok(initial.fromScale > initial.toScale); assert.ok(initial.from[1] > initial.to[1], 'NDC y points upward');
         h.pump(500);
         assert.equal(JSON.stringify(h.portal.getBoundingClientRect()), box);
-        assert.ok(h.api.getState().progress > .25 && h.api.getState().progress < .3);
+        assert.ok(h.api.getState().progress > .2 && h.api.getState().progress < .23);
         h.finish();
         assert.equal(h.api.getState().animating, false); assert.equal(h.frames.size, 0);
         assert.equal(h.portal.dataset.flow, 'idle'); assert.equal(h.transports.at(-1).params, null);
@@ -182,7 +182,7 @@ async function check(label, fn) { await fn(); passed++; console.log('PASS ' + la
         assert.ok(box.left >= 0 && box.top >= 0 && box.left + box.width <= 390 && box.top + box.height <= 844);
         h.finish(); box = h.portal.getBoundingClientRect();
         assert.ok(box.left >= 0 && box.left + box.width <= 390);
-        assert.equal(h.portal.style['--core-geometry-color'], '#fa5638');
+        assert.equal(h.portal.style['--core-geometry-color'], undefined, 'geometry is GPU material, not a colored CSS mask');
     });
     await check('hidden companion hides only the dock and a restored dock renders again', () => {
         const h = harness(); h.companion.classList.add('is-hidden'); h.api.sync(); assert.equal(h.portal.hidden, false);

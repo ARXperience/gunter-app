@@ -2,6 +2,8 @@
  * renderTo(canvas, width, height, seconds, config); setPointer(x,y,active);
  * config.transport: {progress,from:[ndcX,ndcY],to:[ndcX,ndcY],fromScale,toScale,bend?}.
  * Transport scales are native core-box sides / the output's smaller side; NDC y points up.
+ * config.shape: organic, pentagram (point down), eye, hand, sword or octagram.
+ * config.shadowColor controls unlit matter; config.static presents a still target.
  * resetPointer(); setAudioLevel(rms,available); stats(); dispose().
  * No DOM input, media or device capture; audio amplitude is supplied by the owner.
  */
@@ -13,8 +15,110 @@
     const FIELD=`
         uniform float u_time;
         uniform float u_audio;
-        uniform vec3 u_pointer,u_pointerFlow;
+        uniform vec3 u_pointer,u_pointerFlow,u_shape,u_flow,u_previousFlow;
+        uniform float u_static;
         vec3 worldPoint(vec3 p);
+        vec3 viewPoint(vec3 p);
+        // The travelling current is integrated in the material history, not
+        // warped after projection. These are the strain coordinates of that
+        // velocity field; curl/advection continue between every update.
+        vec3 flowWind(vec3 p,vec3 flow) {
+            vec3 q=viewPoint(p);vec2 d=flow.xy,n=vec2(-d.y,d.x);
+            if(flow.z<.00001)return p;
+            q.xy=d*dot(q.xy,d)*(1.0+flow.z*3.2)+n*dot(q.xy,n)/(1.0+flow.z*.42);
+            return worldPoint(q);
+        }
+        vec3 flowUnwind(vec3 p,vec3 flow) {
+            vec3 q=viewPoint(p);vec2 d=flow.xy,n=vec2(-d.y,d.x);
+            if(flow.z<.00001)return p;
+            q.xy=d*dot(q.xy,d)/(1.0+flow.z*3.2)+n*dot(q.xy,n)*(1.0+flow.z*.42);
+            return worldPoint(q);
+        }
+        vec3 flowExtent() {
+            // Axis-aligned bounds of the strained material atlas. Same 48^3
+            // samples/resources; only its world-space metric changes.
+            return vec3(1.0)+abs(worldPoint(vec3(u_flow.xy,0)))*u_flow.z*3.3;
+        }
+        vec2 closestSegment(vec2 p,vec2 a,vec2 b) {
+            vec2 d=b-a;return a+d*clamp(dot(p-a,d)/max(.00001,dot(d,d)),0.0,1.0);
+        }
+        vec4 stroke(vec2 p,vec2 a,vec2 b,float width) {
+            vec2 q=closestSegment(p,a,b);return vec4(q,length(p-q),width);
+        }
+        vec4 nearerStroke(vec4 a,vec4 b) {return a.z/a.w<b.z/b.w?a:b;}
+        vec2 starPoint(float index,float points,float radius,float rotation) {
+            float angle=index*6.2831853/points+rotation;
+            return vec2(cos(angle),sin(angle))*radius;
+        }
+        // Small, explicit silhouette catalog. The guides are attractors and
+        // volumetric supports for living material, never visible line meshes.
+        vec4 shapeGuide(float shape,vec2 p) {
+            vec4 guide=vec4(0,0,100,.055);
+            if(shape<1.5) {
+                // A pentagram with exactly one extreme vertex pointing DOWN.
+                for(int i=0;i<5;i++) {
+                    float k=float(i);
+                    guide=nearerStroke(guide,stroke(p,starPoint(k*2.0,5.0,.77,-1.5707963),
+                        starPoint((k+1.0)*2.0,5.0,.77,-1.5707963),.052));
+                }
+            } else if(shape<2.5) {
+                float x=clamp(p.x,-.76,.76),y=.34*(1.0-pow(x/.76,2.0));
+                guide=vec4(x,p.y<0.0?-y:y,abs(abs(p.y)-y),.066);
+                float radius=max(.0001,length(p));
+                guide=nearerStroke(guide,vec4(p/radius*.225,abs(radius-.225),.058));
+            } else if(shape<3.5) {
+                guide=stroke(p,vec2(-.01,-.40),vec2(.015,.03),.255);
+                guide=nearerStroke(guide,stroke(p,vec2(-.20,-.04),vec2(-.48,.21),.095));
+                guide=nearerStroke(guide,stroke(p,vec2(-.19,.10),vec2(-.25,.63),.073));
+                guide=nearerStroke(guide,stroke(p,vec2(-.035,.15),vec2(-.035,.80),.073));
+                guide=nearerStroke(guide,stroke(p,vec2(.12,.12),vec2(.16,.70),.070));
+                guide=nearerStroke(guide,stroke(p,vec2(.25,.045),vec2(.34,.49),.065));
+            } else if(shape<4.5) {
+                guide=stroke(p,vec2(0,-.67),vec2(0,.30),.055);
+                guide=nearerStroke(guide,stroke(p,vec2(-.32,.29),vec2(.32,.29),.052));
+                guide=nearerStroke(guide,stroke(p,vec2(0,.32),vec2(0,.70),.052));
+                guide=nearerStroke(guide,vec4(0,.75,length(p-vec2(0,.75)),.075));
+                // Taper the blade into a point, instead of a rounded stick.
+                if(p.y<-.48)guide.w=max(.008,.055*clamp((p.y+.83)/.35,0.0,1.0));
+            } else {
+                for(int i=0;i<8;i++) {
+                    float k=float(i),square=step(3.5,k),corner=mod(k,4.0);
+                    float angle=.78539816+square*.78539816;
+                    guide=nearerStroke(guide,stroke(p,starPoint(corner,4.0,.78,angle),
+                        starPoint(corner+1.0,4.0,.78,angle),.052));
+                }
+            }
+            return guide;
+        }
+        float shapedWeight(float shape) {return step(.5,shape);}
+        vec3 guidedPoint(vec3 p,float row,float shape,float t) {
+            vec3 q=viewPoint(p);vec4 guide=shapeGuide(shape,q.xy);
+            vec2 normal=normalize(q.xy-guide.xy+vec2(.0001,.0002));
+            float grain=fract(row*.6180339)*2.0-1.0;
+            q.xy=guide.xy+normal*guide.w*grain;
+            q.z=clamp(q.z,-.19,.19)*.64;
+            q+=vec3(sin(q.y*23.0+t*.41+row),cos(q.x*19.0-t*.37+row),sin(row+t*.2))*.014;
+            return worldPoint(q);
+        }
+        vec3 morphGuide(vec3 p,float row,float t) {
+            vec3 a=u_shape.x<.5?p:guidedPoint(p,row,u_shape.x,t);
+            vec3 b=u_shape.y<.5?p:guidedPoint(p,row,u_shape.y,t);
+            return mix(a,b,u_shape.z);
+        }
+        float morphWeight() {return mix(shapedWeight(u_shape.x),shapedWeight(u_shape.y),u_shape.z);}
+        float shapedDensity(vec3 p,float shape,float t) {
+            vec3 q=viewPoint(p);q.xy+=vec2(sin(q.y*23.0+t*.27),cos(q.x*21.0-t*.31))*.012;
+            vec4 guide=shapeGuide(shape,q.xy);
+            float channel=1.0-smoothstep(guide.w*.55,guide.w*2.15,guide.z);
+            float depth=1.0-smoothstep(.075,.28,abs(q.z));
+            float fold=.48+.52*sin(q.x*31.0+q.y*27.0+q.z*22.0+t*.28);
+            return channel*depth*(.35+fold*1.20);
+        }
+        float shapedHeat(vec3 p,float shape,float t) {
+            vec3 q=viewPoint(p);vec4 guide=shapeGuide(shape,q.xy);
+            float channel=exp(-pow(guide.z/max(.018,guide.w*.54),2.0));
+            return channel*exp(-q.z*q.z/.006)*(.56+.24*sin(q.y*6.0+q.x*4.0-t*.75));
+        }
         vec3 hash3(vec3 p) {
             p=fract(p*vec3(.1031,.1030,.0973)); p+=dot(p,p.yxz+33.33);
             return fract((p.xxy+p.yzz)*p.zyx)*2.0-1.0;
@@ -63,7 +167,11 @@
                 .10*sin(along*4.5+t*.23)*(1.0+u_audio*.12));
         }
         vec3 energySource(vec3 p,float t) {
-            return energyWorld(energyCurve(clamp(energyFrame(p,t).x,-.27,.27),t),t);
+            vec3 original=energyWorld(energyCurve(clamp(energyFrame(p,t).x,-.27,.27),t),t);
+            vec2 q=viewPoint(p).xy;
+            vec3 a=u_shape.x<.5?original:worldPoint(vec3(shapeGuide(u_shape.x,q).xy,0));
+            vec3 b=u_shape.y<.5?original:worldPoint(vec3(shapeGuide(u_shape.y,q).xy,0));
+            return mix(a,b,u_shape.z);
         }
         // A single thick, bent support carries a travelling pulse. Its floor
         // never switches off into isolated spots; the same current drives matter.
@@ -79,7 +187,10 @@
             // current, including at the limits of inertial pointer/audio input.
             float support=exp(-pow(radial,2.2))*(1.0-smoothstep(.9,1.45,radial));
             float pulse=.67+.33*sin(along*5.4-t*.82);
-            return support*pulse*(1.0+u_audio*.12);
+            float original=support*pulse*(1.0+u_audio*.12);
+            float a=u_shape.x<.5?original:shapedHeat(p,u_shape.x,t);
+            float b=u_shape.y<.5?original:shapedHeat(p,u_shape.y,t);
+            return mix(a,b,u_shape.z);
         }
         vec3 energyTransport(vec3 p,float t) {
             float along=clamp(energyFrame(p,t).x,-.27,.27);
@@ -112,7 +223,10 @@
             hole.x+=.06*sin(q.z*6.0+t*.11);
             float cavity=1.0-.66*exp(-dot(hole/vec2(.13,.19),hole/vec2(.13,.19)));
             float fine=potential(q*7.8+vec3(-3.1+t*.08,4.2-t*.055,t*.065),unused).x*.5+.5;
-            return envelope*packing*cavity*(.15+fine*fine*1.50);
+            float original=envelope*packing*cavity*(.15+fine*fine*1.50);
+            float a=u_shape.x<.5?original:shapedDensity(p,u_shape.x,t);
+            float b=u_shape.y<.5?original:shapedDensity(p,u_shape.y,t);
+            return mix(a,b,u_shape.z);
         }
         vec3 velocity(vec3 p,float t,float row,float boundary) {
             vec3 q=p-idleCenter(t)*.55,curl,fine,micro;
@@ -137,6 +251,11 @@
             v+=(fine*.18+micro*.07)*u_audio*exp(-dot(local,local)/.18);
             float outside=max(0.0,length(p*vec3(.94,1.02,1.13))-.87);
             v-=p*outside*3.2*boundary;
+            float morph=morphWeight();
+            // An attraction field bends existing material trajectories into
+            // each silhouette. Tangential/curl flow remains alive inside it.
+            v*=1.0-morph*.74;
+            v+=(morphGuide(p,row,t)-p)*3.4*morph;
             float core=step(.19,fract(row*.56984));
             v+=q/max(.07,length(q))*max(0.0,.19-length(q))*.9*core;
             return v;
@@ -166,10 +285,8 @@
             return p;
         }
     `;
-    // One reversible material mapping bends both the GPU-advected fibres and
-    // their illuminated volume into a river. Nothing is copied into a trail:
-    // longitudinal material coordinates lag behind/lead the travelling centre,
-    // while the original curl simulation continues at its configured speed.
+    // Presentation places the moving reference frame only. Deformation lives
+    // in the GPU material state (SIM), not a post-projection screen warp.
     const TRANSPORT=`
         uniform vec3 u_transport,u_transportFrom,u_transportTo;
         vec2 riverCurve(float t,vec2 from,vec2 delta,vec2 normal,float bend) {
@@ -177,53 +294,25 @@
         }
         vec2 transported(vec2 q,vec2 aspect) {
             if(u_transport.x<.5)return q*aspect;
-            float progress=u_transport.y,envelope=sin(progress*3.14159265);
+            float progress=u_transport.y;
             float scale=mix(u_transportFrom.z,u_transportTo.z,progress);
             vec2 from=u_transportFrom.xy/aspect,delta=(u_transportTo.xy-u_transportFrom.xy)/aspect;
             float distance=length(delta);
             if(distance<.0001)return (from+q*scale)*aspect;
-            vec2 direction=delta/distance,normal=vec2(-direction.y,direction.x);
+            vec2 normal=vec2(-delta.y,delta.x)/distance;
             vec2 center=riverCurve(progress,from,delta,normal,u_transport.z);
-            vec2 affine=center+q*scale;
-            float along=dot(q,direction),crosswise=dot(q,normal);
-            // Expansion is spatial, not a faster clock: different sections of
-            // the same living material travel at different positions on the arc.
-            float stretch=scale+distance*envelope*.50;
-            float phase=progress+along*stretch/distance;
-            vec2 tangent=delta+normal*(4.0*distance*u_transport.z*(1.0-2.0*phase));
-            vec2 side=normalize(vec2(-tangent.y,tangent.x));
-            vec2 river=riverCurve(phase,from,delta,normal,u_transport.z)
-                +side*crosswise*scale*(1.0+envelope*.58);
-            vec3 curl;
-            potential(vec3(q*2.7,u_time*.12),curl);
-            river+=curl.xy*(scale*.018*envelope);
-            return mix(affine,river,envelope)*aspect;
+            return (center+q*scale)*aspect;
         }
         vec2 untransported(vec2 screen,vec2 aspect) {
             if(u_transport.x<.5)return screen/aspect;
-            float progress=u_transport.y,envelope=sin(progress*3.14159265);
+            float progress=u_transport.y;
             float scale=mix(u_transportFrom.z,u_transportTo.z,progress);
             vec2 from=u_transportFrom.xy/aspect,delta=(u_transportTo.xy-u_transportFrom.xy)/aspect;
             float distance=length(delta);
             if(distance<.0001)return (screen/aspect-from)/scale;
-            vec2 direction=delta/distance,normal=vec2(-direction.y,direction.x);
+            vec2 normal=vec2(-delta.y,delta.x)/distance;
             vec2 center=riverCurve(progress,from,delta,normal,u_transport.z);
-            vec2 relative=screen/aspect-center;
-            vec2 q=direction*dot(relative,direction)/(scale+distance*envelope*envelope*.50)
-                +normal*dot(relative,normal)/(scale*(1.0+envelope*envelope*.58));
-            // Invert the same deformation for ray marching, keeping energy
-            // inside its actual material rather than leaving a rigid bright orb.
-            for(int i=0;i<5;i++) {
-                vec2 p=transported(q,aspect)/aspect;
-                vec2 dx=(transported(q+vec2(.003,0),aspect)/aspect-p)/.003;
-                vec2 dy=(transported(q+vec2(0,.003),aspect)/aspect-p)/.003;
-                float determinant=dx.x*dy.y-dy.x*dx.y;
-                if(abs(determinant)<.000001)break;
-                vec2 error=p-screen/aspect;
-                vec2 step=vec2(error.x*dy.y-error.y*dy.x,dx.x*error.y-dx.y*error.x)/determinant;
-                q-=clamp(step,vec2(-.8),vec2(.8));
-            }
-            return q;
+            return (screen/aspect-center)/scale;
         }
     `;
     const QUAD=HEADER+`
@@ -242,6 +331,7 @@
             return (tile*48.0+xy+.5)/vec2(384,288);
         }
         vec4 mediumAt(vec3 p) {
+            p/=flowExtent();
             if(any(greaterThan(abs(p),vec3(.96))))return vec4(0);
             vec3 grid=clamp((p/.96*.5+.5)*47.0,vec3(0),vec3(47));
             float slice=floor(grid.z);
@@ -255,7 +345,11 @@
         void main() {
             vec2 cell=floor(gl_FragCoord.xy),tile=floor(cell/48.0);
             vec3 grid=vec3(mod(cell,48.0),tile.x+tile.y*8.0);
-            vec3 p=(grid/47.0*2.0-1.0)*.96;
+            vec3 p=(grid/47.0*2.0-1.0)*.96*flowExtent();
+            // Eulerian support is strained with the same material flow. The
+            // cached volume approximates its density; filaments retain their
+            // actual, non-reversible curl trajectory in the history textures.
+            p=flowUnwind(p,u_flow);
             float density=matterDensity(p,u_time),heat=energyHeat(p,u_time);
             // The gas occupies cavities inside the folded matter. Test a
             // short depth neighbourhood only inside its finite support, so
@@ -303,18 +397,31 @@
                     vec3 v=velocity(p,t,row,0.0);
                     p+=velocity(p+v*h*.5,t+h*.5,row,0.0)*h;
                 }
+                p=flowWind(p,u_flow);
             } else {
                 p=texelFetch(u_history,cell,0).xyz;
-                vec3 v=velocity(p,u_time,row,1.0);
-                p+=velocity(p+v*u_dt*.5,u_time+u_dt*.5,row,1.0)*u_dt;
+                // Apply the integrated strain increment to material points,
+                // then advect through a multi-scale curl field. Longitudinal
+                // slip varies by filament; it is never a cloned ghost trail.
+                vec3 rest=flowUnwind(p,u_previousFlow);
+                vec3 v=velocity(rest,u_time,row,1.0);
+                vec3 curl,fine;
+                potential(rest*3.7+vec3(u_time*.27,-u_time*.21,row*.013),curl);
+                potential(rest*10.1+vec3(-u_time*.31,row*.017,u_time*.23),fine);
+                v+=(curl*.31+fine*.13)*u_flow.z;
+                v+=worldPoint(vec3(u_flow.xy,0))*sin(row*.57+rest.y*7.0+u_time*.63)*u_flow.z*.13;
+                rest+=velocity(rest+v*u_dt*.5,u_time+u_dt*.5,row,1.0)*u_dt;
+                rest+=(curl*.31+fine*.13)*u_flow.z*u_dt;
+                p=flowWind(rest,u_flow);
                 // Neighbour constraints keep material strands continuous as
                 // the velocity field stretches and folds them. No history shift.
                 int end=textureSize(u_history,0).x-1;
                 vec3 a=texelFetch(u_history,ivec2(max(0,cell.x-1),cell.y),0).xyz-p;
                 vec3 b=texelFetch(u_history,ivec2(min(end,cell.x+1),cell.y),0).xyz-p;
                 float la=length(a),lb=length(b);
-                p+=a/max(.0001,la)*max(0.0,la-.024)*.11;
-                p+=b/max(.0001,lb)*max(0.0,lb-.024)*.11;
+                float spacing=.024*(1.0+u_flow.z*2.8);
+                p+=a/max(.0001,la)*max(0.0,la-spacing)*.11;
+                p+=b/max(.0001,lb)*max(0.0,lb-spacing)*.11;
             }
             result=vec4(p,1);
         }
@@ -330,6 +437,11 @@
             vec2 aspect=min(u_resolution.x,u_resolution.y)/u_resolution;
             return transported(viewPoint(p).xy*u_size*.80,aspect);
         }
+        vec3 presentationPoint(vec3 p,float row) {
+            p=flowUnwind(p,u_previousFlow);
+            if(u_static>.5&&morphWeight()>.001)p=morphGuide(p,row,u_time);
+            return flowWind(p,u_flow);
+        }
         void main() {
             int historyLength=textureSize(u_history,0).x;
             int filament=gl_InstanceID/(historyLength-1),segment=gl_InstanceID%(historyLength-1);
@@ -341,6 +453,7 @@
             vec3 p=texelFetch(u_history,ivec2(x,row),0).xyz;
             vec3 before=texelFetch(u_history,ivec2(max(0,x-1),row),0).xyz;
             vec3 after=texelFetch(u_history,ivec2(min(historyLength-1,x+1),row),0).xyz;
+            p=presentationPoint(p,float(row));before=presentationPoint(before,float(row));after=presentationPoint(after,float(row));
             // Microstructure follows material coordinates: it travels with the
             // curve, rather than flickering as unrelated screen-space noise.
             float seed=float(row)+float(filament%4)*37.71;
@@ -359,7 +472,7 @@
         }
     `;
     const STRAND_FRAGMENT=HEADER+FIELD+MEDIUM+`
-        uniform vec3 u_particle,u_energy,u_glow;
+        uniform vec3 u_particle,u_energy,u_glow,u_shadow;
         uniform float u_brightness;
         uniform sampler2D u_volume;
         uniform vec2 u_resolution;
@@ -373,7 +486,8 @@
             vec4 material=mediumAt(v_world);
             float emission=material.g;
             float incident=clamp(emission*1.7+material.b*.65,0.0,1.0);
-            float frontCover=smoothstep(.06,.23,viewPoint(v_world-energySource(v_world,u_time)).z)
+            vec3 source=flowWind(energySource(flowUnwind(v_world,u_flow),u_time),u_flow);
+            float frontCover=smoothstep(.06,.23,viewPoint(v_world-source).z)
                 *(1.0-smoothstep(.015,.20,emission));
             // Reuse the ray-marched column extinction, instead of tracing
             // procedural density again for every subpixel fibre fragment.
@@ -383,12 +497,13 @@
             transmission=mix(transmission,1.0,frontCover*.85);
             float matter=material.r;
             vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,emission+material.b*.45));
-            vec3 color=u_particle*tint*material.b*(.55+material.a*2.0)*(1.0-emission*.65)
+            vec3 color=u_shadow*(.20+v_depth*.28)*(1.0-incident)
+                +u_particle*tint*material.b*(.55+material.a*2.0)*(1.0-emission*.65)
                 +u_energy*incident*(1.1+u_audio*.70)
                 +u_glow*emission*emission*(.35+u_pointer.z*.32+u_audio*1.45);
             // Front microfibres cover the buried emitter. Keep their shaded
             // material response instead of painting emission over their face.
-            vec3 coat=u_particle*tint*material.b*(.35+material.a*.90);
+            vec3 coat=u_shadow*(.32+v_depth*.20)+u_particle*tint*material.b*(.35+material.a*.90);
             color=mix(color,coat,frontCover*.88);
             // Broad erosion creates differently sized wisps; fine coverage
             // turns each wisp into porous, irregular microfibres, not a cable.
@@ -404,14 +519,15 @@
     `;
     const VOLUME=HEADER+FIELD+MEDIUM+TRANSPORT+`
         uniform vec2 u_resolution;
-        uniform vec3 u_particle,u_energy,u_glow;
+        uniform vec3 u_particle,u_energy,u_glow,u_shadow;
         uniform float u_size,u_brightness,u_density;
         in vec2 v_uv;
         out vec4 result;
         void main() {
             vec2 aspect=min(u_resolution.x,u_resolution.y)/u_resolution;
             vec2 xy=untransported(v_uv*2.0-1.0,aspect)/(u_size*.80);
-            if(any(greaterThan(abs(xy),vec2(1.02)))){result=vec4(0);return;}
+            vec2 bounds=vec2(1.02)+abs(u_flow.xy)*u_flow.z*3.3;
+            if(any(greaterThan(abs(xy),bounds))){result=vec4(0);return;}
             vec3 color=vec3(0);float opacity=0.0;
             // Fixed per-ray stratification breaks the sampling lattice without
             // frame-random grain or a moving screen-space noise overlay.
@@ -420,7 +536,7 @@
                 float z=.96-(float(i)+.5+jitter)*(1.92/40.0);
                 vec3 p=worldPoint(vec3(xy,z));
                 vec4 material=mediumAt(p);
-                vec3 detail=p-idleCenter(u_time)*.25;
+                vec3 detail=flowUnwind(p,u_flow)-idleCenter(u_time)*.25;
                 vec3 unused;
                 float grains=potential(detail*83.0+vec3(u_time*.14,-u_time*.10,0),unused).x*.5+.5;
                 float grain=.08+1.85*smoothstep(.35,.65,grains);
@@ -431,7 +547,8 @@
                 float heat=material.g,incident=material.b;
                 float face=material.a*material.a;
                 vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,heat+incident*.45));
-                vec3 scattered=u_particle*tint*incident*(.10+face*3.8)*(1.0-heat*.65)
+                vec3 scattered=u_shadow*(.34+face*.12)*(1.0-clamp(incident,0.0,1.0))
+                    +u_particle*tint*incident*(.10+face*3.8)*(1.0-heat*.65)
                     +u_energy*incident*.10;
                 // Voice changes the buried emitter, not a global screen flash.
                 // A syllable lifts local radiance while pauses restore idle.
@@ -491,6 +608,7 @@
     const number=(v,lo,hi,fallback)=>Number.isFinite(v)?Math.max(lo,Math.min(hi,v)):fallback;
     const color=(v,fallback)=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v)?v:fallback;
     const rgb=v=>v.match(/[0-9a-f]{2}/gi).map(c=>parseInt(c,16)/255);
+    const SHAPES=Object.freeze({organic:0,pentagram:1,eye:2,hand:3,sword:4,octagram:5});
     const transportConfig=value=>{
         if(!value||!Number.isFinite(value.progress)||!Array.isArray(value.from)||!Array.isArray(value.to)
             ||value.from.length!==2||value.to.length!==2||![...value.from,...value.to].every(Number.isFinite))return null;
@@ -504,6 +622,8 @@
             this.available=false;this.error='';this.frames=0;this.steps=0;this.fieldBuilds=0;this.resources=[];
             this.pointerRevision=0;this.resetPointer();
             this.audioRevision=0;this.setAudioLevel(0,false);
+            this.shapeState={from:0,to:0,start:0};this.shapeName='organic';
+            this.currentFlow=[1,0,0];this.historyFlow=[1,0,0];this.staticPresentation=false;
             this.canvas.addEventListener('webglcontextlost',event=>{
                 event.preventDefault();this.available=false;this.error='Se perdió el contexto WebGL2.';
                 this.announce();
@@ -512,6 +632,7 @@
                 if(this.disposed)return;
                 this.resources=[];this.targets=null;this.histories=null;this.field=null;this.fieldTime=null;this.fieldDensity=null;
                 this.simulationTime=null;this.displayTime=null;
+                this.historyFlow=[...this.currentFlow];this.fieldShapeKey=null;this.fieldFlowKey=null;
                 this.resetPointer();
                 this.setAudioLevel(0,false);
                 this.width=this.height=0;this.initialize();this.announce();
@@ -536,6 +657,7 @@
                 this.histories.push(this.target(HISTORY,SIM_HEADS,true));
                 this.field=this.target(384,288);this.fieldTime=null;this.fieldDensity=null;
                 this.historyIndex=0;this.simulationTime=null;this.displayTime=null;
+                this.historyFlow=[...this.currentFlow];this.fieldShapeKey=null;this.fieldFlowKey=null;
                 this.available=true;this.error='';
             } catch(error) {this.error=error.message;this.available=false;this.release();}
         }
@@ -603,6 +725,33 @@
             this.vector(program,'u_pointerFlow',[p.vx*.24,p.vy*.24,0]);
             this.scalar(program,'u_audio',this.audio.available?1-Math.exp(-this.audio.level*5):0);
         }
+        selectShape(name,time,still) {
+            const target=SHAPES[name],state=this.shapeState;
+            if(target!==state.to) {
+                // Material positions/velocities are retained on every change.
+                // Even a rapid second selection never re-seeds the history.
+                const progress=number((time-state.start)/1.65,0,1,1);
+                this.shapeState={from:progress<.5?state.from:state.to,to:target,start:time};
+            }
+            if(still)this.shapeState={from:target,to:target,start:time};
+            this.shapeName=name;this.staticPresentation=still;
+        }
+        shapeCoefficients(time) {
+            const state=this.shapeState,p=state.from===state.to?1:number((time-state.start)/1.65,0,1,1);
+            return [state.from,state.to,p*p*(3-2*p)];
+        }
+        materialUniforms(program,time) {
+            this.vector(program,'u_shape',this.shapeCoefficients(time));
+            this.vector(program,'u_flow',this.currentFlow);
+            this.vector(program,'u_previousFlow',this.historyFlow);
+            this.scalar(program,'u_static',this.staticPresentation?1:0);
+        }
+        selectFlow(transport,width,height) {
+            if(!transport){this.currentFlow=[1,0,0];return;}
+            const min=Math.min(width,height),dx=(transport.to[0]-transport.from[0])*width/min,
+                dy=(transport.to[1]-transport.from[1])*height/min,distance=Math.hypot(dx,dy);
+            this.currentFlow=distance>.0001?[dx/distance,dy/distance,Math.sin(transport.progress*Math.PI)]:[1,0,0];
+        }
         transportUniforms(program,transport) {
             this.vector(program,'u_transport',transport?[1,transport.progress,transport.bend]:[0,0,0]);
             this.vector(program,'u_transportFrom',transport?[...transport.from,transport.fromScale]:[0,0,1]);
@@ -652,10 +801,12 @@
             if(!initialize)this.advancePointer();
             this.use(p);this.scalar(p,'u_time',time);this.scalar(p,'u_dt',STEP);
             this.interactionUniforms(p);
+            this.materialUniforms(p,time);
             gl.uniform1i(this.uniform(p,'u_initialize'),initialize?1:0);
             this.texture(p,'u_history',this.histories[this.historyIndex].texture);
             gl.disable(gl.BLEND);this.quad(this.histories[next]);
             this.historyIndex=next;this.steps++;
+            this.historyFlow=[...this.currentFlow];
         }
         advance(time) {
             if(this.simulationTime===null||time-this.simulationTime>4){
@@ -671,26 +822,33 @@
             const gl=this.gl,t=this.displayTime,volume=this.programs.volume;
             const density=Math.sqrt(config.density),audio=this.audio.available?1-Math.exp(-this.audio.level*5):0;
             const size=config.size*(1+audio*.04);
-            if(this.fieldTime!==t||this.fieldDensity!==density||this.fieldPointerRevision!==this.pointerRevision||this.fieldAudioRevision!==this.audioRevision) {
+            const shapeKey=this.shapeCoefficients(t).join(','),flowKey=this.currentFlow.join(',');
+            if(this.fieldTime!==t||this.fieldDensity!==density||this.fieldPointerRevision!==this.pointerRevision||this.fieldAudioRevision!==this.audioRevision
+                ||this.fieldShapeKey!==shapeKey||this.fieldFlowKey!==flowKey) {
                 const field=this.programs.field;gl.disable(gl.BLEND);this.use(field);
                 this.interactionUniforms(field);
+                this.materialUniforms(field,t);
                 this.scalar(field,'u_time',t);this.scalar(field,'u_density',density);this.quad(this.field);
                 this.fieldTime=t;this.fieldDensity=density;this.fieldPointerRevision=this.pointerRevision;
                 this.fieldAudioRevision=this.audioRevision;this.fieldBuilds++;
+                this.fieldShapeKey=shapeKey;this.fieldFlowKey=flowKey;
             }
             gl.disable(gl.BLEND);this.use(volume);
             this.interactionUniforms(volume);
+            this.materialUniforms(volume,t);
             this.transportUniforms(volume,config.transport);
             this.texture(volume,'u_field',this.field.texture);
             gl.uniform2f(this.uniform(volume,'u_resolution'),this.width,this.height);
             this.scalar(volume,'u_time',t);this.scalar(volume,'u_size',size);this.scalar(volume,'u_brightness',config.brightness);
             this.scalar(volume,'u_density',density);this.vector(volume,'u_particle',rgb(config.particleColor));
             this.vector(volume,'u_energy',rgb(config.energyColor));this.vector(volume,'u_glow',rgb(config.glowColor));
+            this.vector(volume,'u_shadow',rgb(config.shadowColor));
             this.quad(this.targets.energy);
             const copy=this.programs.copy;this.use(copy);this.texture(copy,'u_image',this.targets.energy.texture);
             this.quad(this.targets.scene);
             const strands=this.programs.strands;this.use(strands);
             this.interactionUniforms(strands);
+            this.materialUniforms(strands,t);
             this.transportUniforms(strands,config.transport);
             this.texture(strands,'u_history',this.histories[this.historyIndex].texture);
             this.texture(strands,'u_volume',this.targets.energy.texture,1);
@@ -699,6 +857,7 @@
             this.scalar(strands,'u_time',t);this.scalar(strands,'u_size',size);this.scalar(strands,'u_brightness',config.brightness);
             this.vector(strands,'u_particle',rgb(config.particleColor));this.vector(strands,'u_energy',rgb(config.energyColor));
             this.vector(strands,'u_glow',rgb(config.glowColor));
+            this.vector(strands,'u_shadow',rgb(config.shadowColor));
             this.activeFilaments=Math.round(BASE_FILAMENTS*config.density);
             gl.enable(gl.BLEND);gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
             this.destination(this.targets.scene);
@@ -717,12 +876,18 @@
                 particleColor:color(config?.particleColor,'#b8bec9'),
                 energyColor:color(config?.energyColor,color(config?.color,'#ff452b')),
                 glowColor:color(config?.glowColor,'#ff6d35'),
+                shadowColor:color(config?.shadowColor,'#071423'),
+                shape:Object.hasOwn(SHAPES,config?.shape)?config.shape:'organic',
+                static:config?.static===true||config?.speed===0,
                 brightness:number(config?.brightness,.2,2.5,1),density:number(config?.density,.25,2,1),
                 speed:number(config?.speed,0,2,1),size:number(config?.size,.7,1.3,1),
                 transport:transportConfig(config?.transport)
             };
             width=Math.round(number(width,1,720,512));height=Math.round(number(height,1,720,512));
-            this.resize(width,height);this.advance(number(seconds,0,1e8,0)*config.speed);this.draw(config);
+            const phase=number(seconds,0,1e8,0)*config.speed;
+            this.selectShape(config.shape,Math.max(this.displayTime||0,phase),config.static);
+            this.selectFlow(config.transport,width,height);
+            this.resize(width,height);this.advance(phase);this.draw(config);
             if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;
             const output=canvas.getContext('2d');if(!output)throw new Error('No se pudo presentar el núcleo.');
             output.clearRect(0,0,width,height);output.drawImage(this.canvas,0,0,width,height);
@@ -731,7 +896,8 @@
             return {renderer:'webgl-filaments',simulation:'gpu-advected-material-filaments',available:this.available,frames:this.frames,
                 steps:this.steps,filaments:this.activeFilaments||0,segmentsPerFilament:HISTORY-1,
                 time:this.simulationTime,width:this.width,height:this.height,error:this.error,
-                volumeGrid:48,volumeSamples:40,fieldBuilds:this.fieldBuilds,interaction:{...this.pointer},audio:{...this.audio}};
+                volumeGrid:48,volumeSamples:40,fieldBuilds:this.fieldBuilds,interaction:{...this.pointer},audio:{...this.audio},
+                shape:this.shapeName,morph:this.shapeCoefficients(this.displayTime||0)[2],flow:[...this.currentFlow]};
         }
         release() {
             if(!this.gl)return;

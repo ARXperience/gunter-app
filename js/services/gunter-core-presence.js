@@ -3,7 +3,7 @@
 (function () {
     'use strict';
     if (window.GunterCorePresence) return;
-    const DOCK_SIZE = 112, FLOW_DURATION = 1800, BEND = .18;
+    const DOCK_SIZE = 112, FLOW_DURATION = 2400, BEND = .18;
     const HANDOFF_KEY = 'gunter_core_visual_entry', HANDOFF_TTL = 5000;
     const PAGES = new Set(['day.html', 'dashboard.html', 'config.html', 'results.html', 'new-project.html', 'meeting.html', 'index.html']);
     const removers = [];
@@ -180,7 +180,6 @@
     }
     function sync() {
         if (disposed || suspended || navigating || !document.body || !findTargets()) return;
-        portal.style.setProperty?.('--core-geometry-color', window.GunterParticles?.getConfig?.()?.glowColor || '#ff7048');
         const isHome = !!home && !home.hidden && document.body.classList.contains('gunter-orbit-home-active');
         const destination = isHome ? rect(anchor) : null;
         if (destination) {

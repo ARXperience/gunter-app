@@ -399,10 +399,53 @@
         const section = document.getElementById('core-visual-settings');
         const core = window.GunterParticles;
         if (!section || !core?.configure) return;
-        const fields = { particleColor: 'core-color', energyColor: 'core-energy-color', glowColor: 'core-glow-color', brightness: 'core-brightness',
+        const fields = { particleColor: 'core-color', shadowColor: 'core-shadow-color', energyColor: 'core-energy-color', glowColor: 'core-glow-color', brightness: 'core-brightness',
             density: 'core-density', speed: 'core-speed', size: 'core-size' };
-        const colorKeys = ['particleColor', 'energyColor', 'glowColor'];
+        const colorKeys = ['particleColor', 'shadowColor', 'energyColor', 'glowColor'];
+        const labels = { particleColor: 'Partículas', shadowColor: 'Materia', energyColor: 'Energía', glowColor: 'Emisión' };
+        const layerButtons = [...section.querySelectorAll('[data-core-layer]')];
+        const shapeButtons = [...section.querySelectorAll('[data-core-shape]')];
+        const adaptive = document.getElementById('core-theme-adaptive');
+        const plane = document.getElementById('core-color-plane');
+        const hue = document.getElementById('core-color-hue');
+        const saturation = document.getElementById('core-color-saturation');
+        const light = document.getElementById('core-color-light');
         const status = document.getElementById('core-visual-status');
+        let selected = 'particleColor';
+        let hsv = [0, 0, 1];
+        function toHsv(hex) {
+            const [r, g, b] = [1, 3, 5].map(offset => parseInt(hex.slice(offset, offset + 2), 16) / 255);
+            const max = Math.max(r, g, b), min = Math.min(r, g, b), delta = max - min;
+            const h = !delta ? 0 : max === r ? ((g - b) / delta + 6) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+            return [h * 60, max ? delta / max : 0, max];
+        }
+        function toHex([h, s, v]) {
+            const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c;
+            const rgb = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+            return '#' + rgb.map(channel => Math.round((channel + m) * 255).toString(16).padStart(2, '0')).join('');
+        }
+        function syncColorEditor(config) {
+            const next = toHsv(config[selected]);
+            hsv = [next[1] ? next[0] : hsv[0], next[2] ? next[1] : hsv[1], next[2]];
+            hue.value = String(Math.round(hsv[0])); saturation.value = String(Math.round(hsv[1] * 100)); light.value = String(Math.round(hsv[2] * 100));
+            plane.style.setProperty('--core-hue', hsv[0]);
+            plane.style.setProperty('--core-saturation', hsv[1] * 100 + '%');
+            plane.style.setProperty('--core-value', (1 - hsv[2]) * 100 + '%');
+            plane.setAttribute('aria-label', `Color de ${labels[selected].toLowerCase()}. Usa las flechas para ajustar saturación y luminosidad.`);
+            document.getElementById('core-color-layer-title').textContent = labels[selected];
+            const palette = core.getPalette?.() || config;
+            for (const button of layerButtons) {
+                const key = button.dataset.coreLayer, active = key === selected;
+                button.setAttribute('aria-pressed', String(active));
+                button.style.setProperty('--layer-color', palette[key] || config[key]);
+                document.getElementById(fields[key] + '-panel').hidden = !active;
+                const value = button.querySelector('[data-core-layer-value]');
+                if (value) value.textContent = config[key].toUpperCase();
+            }
+            document.getElementById('core-theme-state').textContent = config.themeAdaptive
+                ? `Paleta adaptada al tema ${palette.theme === 'light' ? 'claro' : 'oscuro'}. Los HEX originales se conservan.`
+                : 'Colores exactos. Se usan los mismos HEX en ambos temas.';
+        }
         function validateColor(id, valid) {
             const hex = document.getElementById(id + '-hex');
             const error = document.getElementById(id + '-error');
@@ -430,6 +473,9 @@
                     input.setAttribute('aria-valuetext', valueText);
                 }
             }
+            adaptive.checked = config.themeAdaptive !== false;
+            shapeButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.coreShape === (config.shape || 'organic'))));
+            syncColorEditor(config);
         }
         function save(patch) {
             try { core.configure(patch, { persist: true }); sync(); status.textContent = 'Apariencia del núcleo guardada en este dispositivo.'; }
@@ -446,8 +492,40 @@
                 if (valid) save({ [key]: value });
             });
         }
+        layerButtons.forEach(button => button.addEventListener('click', () => {
+            selected = button.dataset.coreLayer; sync();
+        }));
+        shapeButtons.forEach(button => button.addEventListener('click', () => save({ shape: button.dataset.coreShape })));
+        adaptive.addEventListener('change', () => save({ themeAdaptive: adaptive.checked }));
+        for (const [input, index, divisor] of [[hue, 0, 1], [saturation, 1, 100], [light, 2, 100]]) {
+            input.addEventListener('input', () => { hsv[index] = Number(input.value) / divisor; save({ [selected]: toHex(hsv) }); });
+        }
+        function setPlane(event) {
+            const box = plane.getBoundingClientRect();
+            if (!box.width || !box.height) return;
+            hsv[1] = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width));
+            hsv[2] = 1 - Math.max(0, Math.min(1, (event.clientY - box.top) / box.height));
+            save({ [selected]: toHex(hsv) });
+        }
+        let pointerId = null;
+        plane.addEventListener('pointerdown', event => {
+            if (event.button !== 0 && event.pointerType !== 'touch') return;
+            pointerId = event.pointerId; plane.setPointerCapture?.(pointerId); setPlane(event);
+        });
+        plane.addEventListener('pointermove', event => { if (pointerId === event.pointerId) setPlane(event); });
+        for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) plane.addEventListener(type, () => { pointerId = null; });
+        plane.addEventListener('keydown', event => {
+            const step = event.shiftKey ? .1 : .01;
+            if (event.key === 'ArrowRight') hsv[1] = Math.min(1, hsv[1] + step);
+            else if (event.key === 'ArrowLeft') hsv[1] = Math.max(0, hsv[1] - step);
+            else if (event.key === 'ArrowUp') hsv[2] = Math.min(1, hsv[2] + step);
+            else if (event.key === 'ArrowDown') hsv[2] = Math.max(0, hsv[2] - step);
+            else return;
+            event.preventDefault(); save({ [selected]: toHex(hsv) });
+        });
         document.getElementById('core-visual-reset').addEventListener('click', () => save(core.getDefaults()));
         window.addEventListener('gunter-core-config-changed', sync);
+        window.addEventListener('gunter-theme-changed', sync);
         window.addEventListener('storage', event => { if (event.key === PREF_KEY || event.key === null) sync(); });
         sync();
     }

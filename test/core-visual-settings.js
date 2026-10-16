@@ -10,11 +10,11 @@ const start = controller.indexOf('    function initCoreVisualSettings()');
 const end = controller.indexOf('    function loadPreferences()', start);
 assert.ok(start >= 0 && end > start, 'the core settings initializer must exist');
 const source = `const PREF_KEY = 'gunter_prefs';\n${controller.slice(start, end)}\ninitCoreVisualSettings();`;
-const fields = { particleColor: 'core-color', energyColor: 'core-energy-color', glowColor: 'core-glow-color', brightness: 'core-brightness',
+const fields = { particleColor: 'core-color', shadowColor: 'core-shadow-color', energyColor: 'core-energy-color', glowColor: 'core-glow-color', brightness: 'core-brightness',
     density: 'core-density', speed: 'core-speed', size: 'core-size' };
-const colorKeys = ['particleColor', 'energyColor', 'glowColor'];
-const defaults = { particleColor: '#b8bec9', energyColor: '#ff452b', glowColor: '#ff6d35',
-    brightness: 1, density: 1, speed: 1, size: 1, color: '#ff452b' };
+const colorKeys = ['particleColor', 'shadowColor', 'energyColor', 'glowColor'];
+const defaults = { particleColor: '#3458c7', shadowColor: '#142642', energyColor: '#19bcd3', glowColor: '#8ebdff',
+    brightness: 1, density: 1, speed: 1, size: 1, color: '#19bcd3', shape: 'organic', themeAdaptive: true };
 function emitter(object = {}) {
     const listeners = new Map();
     return Object.assign(object, {
@@ -26,17 +26,26 @@ function emitter(object = {}) {
     });
 }
 function environment(saved = {}, unavailable = false) {
+    const element = () => emitter({ value: '', textContent: '', attributes: {}, hidden: true, validationMessage: '', checked: false,
+        style: { properties: {}, setProperty(name, value) { this.properties[name] = value; } },
+        setAttribute(name, value) { this.attributes[name] = value; },
+        setCustomValidity(message) { this.validationMessage = message; },
+        getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; },
+        setPointerCapture() {} });
+    const layers = colorKeys.map(key => Object.assign(element(), { dataset: { coreLayer: key },
+        querySelector() { return this.label; }, label: element() }));
+    const shapes = ['organic', 'pentagram', 'eye', 'hand', 'sword', 'octagram'].map(shape => Object.assign(element(), { dataset: { coreShape: shape } }));
     const elements = Object.fromEntries(['core-visual-settings', 'core-visual-status', 'core-visual-reset',
-        ...Object.values(fields), ...Object.values(fields).slice(3).map(id => id + '-value'),
-        ...colorKeys.flatMap(key => [fields[key] + '-hex', fields[key] + '-error'])].map(id => [id,
-        emitter({ value: '', textContent: '', attributes: {}, hidden: true, validationMessage: '',
-            setAttribute(name, value) { this.attributes[name] = value; },
-            setCustomValidity(message) { this.validationMessage = message; } })]));
-    const state = { config: { ...defaults, ...saved }, calls: [], fail: false };
+        'core-theme-adaptive', 'core-color-plane', 'core-color-hue', 'core-color-saturation', 'core-color-light', 'core-color-layer-title', 'core-theme-state',
+        ...Object.values(fields), ...Object.values(fields).slice(4).map(id => id + '-value'),
+        ...colorKeys.flatMap(key => [fields[key] + '-hex', fields[key] + '-error', fields[key] + '-panel'])].map(id => [id, element()]));
+    elements['core-visual-settings'].querySelectorAll = selector => selector === '[data-core-layer]' ? layers : shapes;
+    const state = { config: { ...defaults, ...saved }, calls: [], fail: false, palette: { theme: 'dark' } };
     const window = emitter();
     if (!unavailable) window.GunterParticles = {
         getConfig: () => ({ ...state.config }),
         getDefaults: () => ({ ...defaults }),
+        getPalette: () => ({ ...state.config, ...state.palette }),
         configure(patch, options) {
             state.calls.push({ patch: { ...patch }, options: { ...options } });
             if (state.fail) throw new Error('storage unavailable');
@@ -46,7 +55,7 @@ function environment(saved = {}, unavailable = false) {
         }
     };
     vm.runInNewContext(source, { window, document: { getElementById: id => elements[id] || null } });
-    return { elements, state, window, input(key, value, hex = false) {
+    return { elements, state, window, layers, shapes, input(key, value, hex = false) {
         const element = elements[fields[key] + (hex ? '-hex' : '')];
         element.value = value;
         element.fire('input', { target: element });
@@ -54,17 +63,18 @@ function environment(saved = {}, unavailable = false) {
 }
 let passed = 0;
 function check(name, fn) { fn(); passed++; console.log(`ok ${passed} - ${name}`); }
-check('the card exposes seven idle settings with three paired HEX controls and the public ranges', () => {
+check('the studio exposes four orbital color layers, six silhouettes and the existing public ranges', () => {
     const card = html.match(/<section[^>]+id="core-visual-settings"[\s\S]*?<\/section>/)?.[0];
     assert.ok(card);
-    assert.match(card, /Núcleo generado/);
+    assert.match(card, /Núcleo y materia/);
     assert.match(card, /energía permanece entre las partículas/);
     assert.match(card, /reacciona al puntero y al audio real/);
     const inputs = [...card.matchAll(/<input\b[^>]*>/g)].map(match =>
         Object.fromEntries([...match[0].matchAll(/([\w-]+)="([^"]*)"/g)].map(attribute => [attribute[1], attribute[2]])));
-    assert.deepEqual(inputs.map(input => input.id), Object.entries(fields).flatMap(([key, id]) => colorKeys.includes(key) ? [id, id + '-hex'] : [id]));
+    const fieldIds = Object.entries(fields).flatMap(([key, id]) => colorKeys.includes(key) ? [id, id + '-hex'] : [id]);
+    assert.deepEqual(inputs.filter(input => fieldIds.includes(input.id)).map(input => input.id), fieldIds);
     assert.deepEqual(inputs.filter(input => input.type === 'color').map(input => input.value), colorKeys.map(key => defaults[key]));
-    assert.deepEqual(inputs.filter(input => input.type === 'range').map(input => [input.min, input.max, input.step, input.value]),
+    assert.deepEqual(inputs.filter(input => input.type === 'range' && Object.values(fields).includes(input.id)).map(input => [input.min, input.max, input.step, input.value]),
         [['0.2', '2.5', '0.05', '1'], ['0.25', '2', '0.05', '1'], ['0', '2', '0.05', '1'], ['0.7', '1.3', '0.05', '1']]);
     for (const key of colorKeys) {
         const hex = inputs.find(input => input.id === fields[key] + '-hex');
@@ -77,6 +87,10 @@ check('the card exposes seven idle settings with three paired HEX controls and t
     assert.match(card, /Color de partículas/);
     assert.match(card, /Color de energía/);
     assert.match(card, /Color de emisión/);
+    assert.match(card, /Color de la materia oscura/);
+    assert.deepEqual([...card.matchAll(/data-core-layer="([^"]+)"/g)].map(match => match[1]), colorKeys);
+    assert.deepEqual([...card.matchAll(/data-core-shape="([^"]+)"/g)].map(match => match[1]), ['organic', 'pentagram', 'eye', 'hand', 'sword', 'octagram']);
+    assert.match(card, /id="core-theme-adaptive"[^>]+checked/);
 });
 check('initialization reads saved values through the API without overwriting them', () => {
     const env = environment({ particleColor: '#abcdef', energyColor: '#654321', glowColor: '#123456', brightness: 1.6, density: .65, speed: .45, size: 1.2 });
@@ -95,7 +109,7 @@ check('initialization reads saved values through the API without overwriting the
 });
 check('all controls persist their matching API field with the correct value type', () => {
     const env = environment();
-    for (const [key, value] of Object.entries({ particleColor: '#112233', energyColor: '#445566', glowColor: '#778899', brightness: '2.5', density: '.25', speed: '0', size: '1.3' })) {
+    for (const [key, value] of Object.entries({ particleColor: '#112233', shadowColor: '#222233', energyColor: '#445566', glowColor: '#778899', brightness: '2.5', density: '.25', speed: '0', size: '1.3' })) {
         env.input(key, value);
         const call = env.state.calls.at(-1);
         assert.deepEqual(call.patch, { [key]: colorKeys.includes(key) ? value : Number(value) });
@@ -152,7 +166,7 @@ check('range endpoints preserve 25–200 percent density and zero speed feedback
     assert.equal(env.state.config.speed, 0);
     assert.equal(env.elements['core-speed-value'].textContent, '0,00 ×');
 });
-check('reset persists the public defaults and refreshes all seven controls and HEX validation', () => {
+check('reset persists the public defaults and refreshes colors, shape, theme and HEX validation', () => {
     const env = environment({ brightness: 2, speed: 0, glowColor: '#ffffff' });
     env.input('particleColor', '#oops', true);
     env.elements['core-visual-reset'].fire('click');
@@ -196,5 +210,56 @@ check('a rejected save restores the saved value and reports the storage problem'
     assert.equal(env.elements['core-energy-color-hex'].value, defaults.energyColor);
     assert.match(env.elements['core-visual-status'].textContent, /No pude guardar/);
     assert.doesNotThrow(() => environment({}, true));
+});
+check('orbit selection edits only the selected layer without saving on selection', () => {
+    const env = environment();
+    env.layers[1].fire('click');
+    assert.equal(env.state.calls.length, 0);
+    assert.equal(env.layers[1].attributes['aria-pressed'], 'true');
+    assert.equal(env.elements['core-shadow-color-panel'].hidden, false);
+    assert.equal(env.elements['core-color-panel'].hidden, true);
+    assert.equal(env.elements['core-color-layer-title'].textContent, 'Materia');
+    env.elements['core-color-saturation'].value = '0';
+    env.elements['core-color-saturation'].fire('input');
+    assert.deepEqual(Object.keys(env.state.calls.at(-1).patch), ['shadowColor']);
+    assert.equal(env.state.config.particleColor, defaults.particleColor);
+});
+check('shape and adaptive theme choices persist without changing saved colors', () => {
+    const env = environment({ themeAdaptive: false, shape: 'sword' });
+    assert.equal(env.elements['core-theme-adaptive'].checked, false);
+    assert.equal(env.shapes[4].attributes['aria-pressed'], 'true');
+    env.shapes[1].fire('click');
+    assert.deepEqual(env.state.calls.at(-1).patch, { shape: 'pentagram' });
+    env.elements['core-theme-adaptive'].checked = true;
+    env.elements['core-theme-adaptive'].fire('change');
+    assert.deepEqual(env.state.calls.at(-1).patch, { themeAdaptive: true });
+    colorKeys.forEach(key => assert.equal(env.state.config[key], defaults[key]));
+});
+check('theme events refresh effective swatches without overwriting exact HEX preferences', () => {
+    const env = environment();
+    env.state.palette = { theme: 'light', shadowColor: '#314466' };
+    env.window.fire('gunter-theme-changed');
+    assert.equal(env.layers[1].style.properties['--layer-color'], '#314466');
+    assert.match(env.elements['core-theme-state'].textContent, /tema claro/);
+    assert.equal(env.elements['core-shadow-color-hex'].value, defaults.shadowColor);
+    assert.equal(env.state.calls.length, 0);
+});
+check('the custom spectrum supports keyboard and captured pointer edits, never hover writes', () => {
+    const env = environment({ particleColor: '#ff0000' });
+    const plane = env.elements['core-color-plane'];
+    plane.fire('pointermove', { pointerId: 3, clientX: 50, clientY: 50 });
+    assert.equal(env.state.calls.length, 0);
+    plane.fire('pointerdown', { button: 0, pointerId: 3, clientX: 50, clientY: 50 });
+    assert.equal(env.state.config.particleColor, '#804040');
+    plane.fire('pointerup');
+    const count = env.state.calls.length;
+    plane.fire('pointermove', { pointerId: 3, clientX: 10, clientY: 10 });
+    assert.equal(env.state.calls.length, count);
+    let prevented = false;
+    plane.fire('keydown', { key: 'ArrowUp', preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(env.state.calls.length, count + 1);
+    plane.fire('keydown', { key: 'Tab' });
+    assert.equal(env.state.calls.length, count + 1);
 });
 console.log(`${passed} core visual settings checks passed.`);

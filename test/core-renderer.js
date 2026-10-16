@@ -105,6 +105,7 @@ function environment(options = {}) {
             assert.ok(Number.isFinite(level));this.audio = { level, available };
             inputs.push({engine:this,kind:'audio',level,available});
         }
+        stats() { return { morph: this.morph ?? 1 }; }
         renderTo(canvas, width, height, time, config) {
             assert.equal(canvas.tagName, 'CANVAS');
             if (renderFailure) throw new Error('draw failed');
@@ -190,8 +191,8 @@ check('Presence transitions use layout resolution, not the temporarily scaled FL
 });
 check('The visual defaults and energy color alias are exact and getters cannot mutate shared state', () => {
     const env = environment();
-    const defaults = { particleColor: '#b8bec9', energyColor: '#ff452b', color: '#ff452b', glowColor: '#ff6d35',
-        brightness: 1, density: 1, speed: 1, size: 1 };
+    const defaults = { particleColor: '#3458c7', shadowColor: '#142642', energyColor: '#19bcd3', color: '#19bcd3', glowColor: '#8ebdff',
+        brightness: 1, density: 1, speed: 1, size: 1, themeAdaptive: true, shape: 'organic' };
     assert.deepEqual(plain(env.api.getDefaults()), defaults); assert.deepEqual(plain(env.api.getConfig()), defaults);
     env.api.getDefaults().particleColor = '#000000'; env.api.getConfig().energyColor = '#000000'; env.api.getConfig().speed = 0;
     assert.deepEqual(plain(env.api.getDefaults()), defaults); assert.equal(env.api.getConfig().speed, 1);
@@ -200,8 +201,8 @@ check('Configuration clamps all supported ranges and rejects malformed input', (
     const env = environment();
     assert.deepEqual(plain(env.api.configure({ particleColor: '#AABBCD', color: '#29D1FF', glowColor: '#FFAA00',
         brightness: 9, density: -2, speed: 3, size: 7 })),
-        { particleColor: '#aabbcd', energyColor: '#29d1ff', color: '#29d1ff', glowColor: '#ffaa00',
-            brightness: 2.5, density: .25, speed: 2, size: 1.3 });
+        { particleColor: '#aabbcd', shadowColor: '#142642', energyColor: '#29d1ff', color: '#29d1ff', glowColor: '#ffaa00',
+            brightness: 2.5, density: .25, speed: 2, size: 1.3, themeAdaptive: true, shape: 'organic' });
     assert.deepEqual(plain(env.api.configure({ particleColor: '#fff', color: 'red;background:url(remote)', glowColor: null,
         brightness: NaN, density: Infinity, speed: '2', size: null })), plain(env.api.getDefaults()));
     const low = env.api.configure({ brightness: -1, density: 9, speed: -1, size: -1 });
@@ -227,7 +228,7 @@ check('Preference persistence preserves legacy core fields and all other user pr
         coreVisual: { color: '#22ddaa', size: .9, geometry: 'metatron', mouseSensitivity: .7, nestedLegacy: { keep: true } } };
     const env = environment({ prefs });
     assert.equal(env.api.getConfig().color, '#22ddaa'); assert.equal(env.api.getConfig().size, .9);
-    assert.equal(env.api.getConfig().energyColor, '#22ddaa'); assert.equal(env.api.getConfig().particleColor, '#b8bec9');
+    assert.equal(env.api.getConfig().energyColor, '#22ddaa'); assert.equal(env.api.getConfig().particleColor, '#3458c7');
     assert.equal(env.writes.length, 0); assert.deepEqual(env.prefs(), prefs);
     env.api.configure({ size: 1.1 }); assert.equal(env.writes.length, 0);
     env.api.configure({ density: .8 }, { persist: true });
@@ -259,6 +260,47 @@ check('Malformed preferences use defaults and failed persistence reports the err
     assert.throws(() => env.api.configure({ brightness: 1.4 }, { persist: true }), /storage blocked/);
     assert.equal(env.api.getConfig().brightness, 1); assert.equal(env.art.dataset.particlesReady, 'true');
     assert.deepEqual(env.prefs(), {}); assert.equal(env.writes.length, 0);
+});
+check('Adaptive colors change every material layer with the theme without changing saved choices or phase', () => {
+    const e = environment({ prefs: { coreVisual: { particleColor: '#123456', shadowColor: '#172038',
+        energyColor: '#0099bb', glowColor: '#5d8cff' }, voice: { enabled: false } } });
+    const before = e.prefs(), selected = plain(e.api.getConfig()), light = e.api.getPalette(), engine = e.engines[0];
+    e.document.documentElement.dataset.colorMode = 'dark';
+    e.window.fire('gunter-theme-changed', { detail: { mode: 'dark' } });
+    const dark = e.api.getPalette(); assert.equal(dark.theme, 'dark');
+    for (const key of ['particleColor', 'shadowColor', 'energyColor', 'glowColor']) {
+        assert.notEqual(light[key], dark[key], key); assert.equal(e.renders.at(-1).config[key], dark[key]);
+    }
+    assert.deepEqual(plain(e.api.getConfig()), selected); assert.deepEqual(e.prefs(), before);
+    assert.equal(e.writes.length, 0); assert.equal(e.engines[0], engine); assert.equal(e.renders.at(-1).time, 8);
+    dark.shadowColor = '#ffffff'; assert.notEqual(e.api.getPalette().shadowColor, '#ffffff');
+    e.document.documentElement.dataset.colorMode = 'light'; e.window.fire('gunter-theme-changed');
+    assert.deepEqual(plain(e.api.getPalette()), plain(light));
+});
+check('Manual palette and configurable shadow matter remain exact; shape and mode preferences persist safely', () => {
+    const e = environment();
+    e.api.configure({ themeAdaptive: false, shadowColor: '#ab32ef', shape: 'eye' }, { persist: true });
+    e.document.documentElement.dataset.colorMode = 'dark'; e.window.fire('gunter-theme-changed');
+    assert.equal(e.api.getPalette().shadowColor, '#ab32ef');
+    assert.equal(e.renders.at(-1).config.shadowColor, '#ab32ef');
+    assert.equal(e.renders.at(-1).config.shape, 'eye');
+    assert.equal(e.prefs().coreVisual.themeAdaptive, false);
+    for (const shape of ['organic', 'pentagram', 'eye', 'hand', 'sword', 'octagram']) assert.equal(e.api.configure({ shape }).shape, shape);
+    assert.equal(e.api.configure({ shape: 'external-url-or-unknown', shadowColor: 'red' }).shape, 'organic');
+    assert.equal(e.api.getConfig().shadowColor, e.api.getDefaults().shadowColor);
+    e.api.configure({ speed: 0 }); assert.equal(e.renders.at(-1).config.static, true);
+});
+check('Static identity thumbnails refresh exactly once after the animated silhouette settles, using the existing loop', () => {
+    const e = environment(), thumb = e.append('thumb', 44), canvas = e.canvas(thumb);
+    e.engines[0].morph = 0; e.api.configure({ shape: 'eye' });
+    const count = () => e.renders.filter(render => render.canvas === canvas).length;
+    const initial = count(); e.step(); e.step(); assert.equal(count(), initial);
+    e.api.configure({ shadowColor: '#324567' });
+    const recolored = count(); e.step(); assert.equal(count(), recolored);
+    e.engines[0].morph = 1; e.step(); assert.equal(count(), recolored + 1);
+    e.step(); assert.equal(count(), recolored + 1); assert.equal(e.engines.length, 1);
+    e.api.configure({ speed: 0, shape: 'hand' }); const frozen = count();
+    e.step(); assert.equal(e.frames.size, 0); assert.equal(count(), frozen);
 });
 check('The compositor is lazy and repeated mounting reuses the same canvas and engine', () => {
     const env = environment({ autoVisible: false });

@@ -3,8 +3,9 @@
     'use strict';
     if (window.GunterParticles) return;
 
-    const DEFAULTS = Object.freeze({ particleColor: '#b8bec9', energyColor: '#ff452b', color: '#ff452b', glowColor: '#ff6d35', brightness: 1,
-        density: 1, speed: 1, size: 1 });
+    const DEFAULTS = Object.freeze({ particleColor: '#3458c7', shadowColor: '#142642', energyColor: '#19bcd3', color: '#19bcd3',
+        glowColor: '#8ebdff', brightness: 1, density: 1, speed: 1, size: 1, themeAdaptive: true, shape: 'organic' });
+    const SHAPES = new Set(['organic', 'pentagram', 'eye', 'hand', 'sword', 'octagram']);
     const STATIC_TIME = 8, FRAME_INTERVAL = 1000 / 30;
     const records = new Map(), disposers = [];
     const motionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
@@ -12,7 +13,7 @@
     let animationTime = STATIC_TIME, disposed = false, suspended = false, mutations = null, drawBlocked = false;
     let pointerOwner = null;
     let voiceMeter = null, meterEnabled = false, bindingMeter = false, audioLive = false;
-    let audioLevel = 0, audioFrame = 0;
+    let audioLevel = 0, audioFrame = 0, activeTheme, palette, shapeSnapshotsPending = false;
 
     const object = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     const clamp = (value, low, high, fallback) => typeof value === 'number' && Number.isFinite(value)
@@ -24,12 +25,15 @@
         const energyColor = color(Object.prototype.hasOwnProperty.call(value, 'energyColor')
             ? value.energyColor : value.color, DEFAULTS.energyColor);
         return {
-            particleColor: color(value.particleColor, DEFAULTS.particleColor), energyColor, color: energyColor,
+            particleColor: color(value.particleColor, DEFAULTS.particleColor),
+            shadowColor: color(value.shadowColor, DEFAULTS.shadowColor), energyColor, color: energyColor,
             glowColor: color(value.glowColor, DEFAULTS.glowColor),
             brightness: clamp(value.brightness, .2, 2.5, DEFAULTS.brightness),
             density: clamp(value.density, .25, 2, DEFAULTS.density),
             speed: clamp(value.speed, 0, 2, DEFAULTS.speed),
-            size: clamp(value.size, .7, 1.3, DEFAULTS.size)
+            size: clamp(value.size, .7, 1.3, DEFAULTS.size),
+            themeAdaptive: value.themeAdaptive !== false,
+            shape: SHAPES.has(value.shape) ? value.shape : DEFAULTS.shape
         };
     }
     function readPreferences() {
@@ -39,7 +43,45 @@
     function refreshPreferences() {
         const prefs = readPreferences();
         savedReduced = prefs.reduceMotion === true;
-        config = normalize(prefs.coreVisual);
+        const next = normalize(prefs.coreVisual);
+        shapeSnapshotsPending = !savedReduced && next.speed > 0 &&
+            (shapeSnapshotsPending || (!!config && config.shape !== next.shape));
+        config = next; palette = null;
+    }
+    function themeMode() {
+        try {
+            const preferred = window.GunterThemeBootstrap?.getPreferred?.();
+            if (preferred === 'light' || preferred === 'dark') return preferred;
+            const dom = document.documentElement.dataset?.colorMode;
+            if (dom === 'light' || dom === 'dark') return dom;
+            const saved = window.localStorage?.getItem('gunter_color_mode');
+            if (saved === 'light' || saved === 'dark') return saved;
+        } catch {}
+        if (document.body?.classList.contains('at-light')) return 'light';
+        if (document.body?.classList.contains('at-dark')) return 'dark';
+        return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
+    }
+    function tint(base, toward, amount) {
+        const channels = value => value.match(/[a-f0-9]{2}/gi).map(part => parseInt(part, 16));
+        const a = channels(base), b = channels(toward);
+        return '#' + a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, '0')).join('');
+    }
+    function getPalette() {
+        if (!palette) {
+            const dark = config.themeAdaptive && activeTheme === 'dark';
+            palette = { theme: activeTheme,
+                particleColor: dark ? tint(config.particleColor, '#d8eaff', .32) : config.particleColor,
+                shadowColor: dark ? tint(config.shadowColor, '#5976ba', .42) : config.shadowColor,
+                energyColor: dark ? tint(config.energyColor, '#86edff', .12) : config.energyColor,
+                glowColor: dark ? tint(config.glowColor, '#c6e5ff', .12) : config.glowColor };
+        }
+        return { ...palette };
+    }
+    function refreshTheme() {
+        const next = themeMode();
+        if (activeTheme === next) return;
+        activeTheme = next; palette = null;
+        records.forEach(applyConfig); invalidate();
     }
     function reduced() {
         return !!motionQuery?.matches || savedReduced || document.documentElement.classList.contains('reduce-motion');
@@ -146,7 +188,8 @@
         try {
             // The shared phase already includes speed; changing speed must not reposition the core.
             const rendered = compositor.renderTo(record.canvas, record.pixelWidth, record.pixelHeight, time,
-                { ...config, speed: 1, ...(record.transport ? { transport: record.transport } : {}) });
+                { ...config, ...getPalette(), speed: 1, static: reduced() || config.speed <= 0,
+                    ...(record.transport ? { transport: record.transport } : {}) });
             if (rendered === false || !compositor.available) {
                 drawBlocked = true;
                 fallback(record, compositor.error); record.dirty = false; return;
@@ -216,6 +259,15 @@
         for (const record of records.values()) {
             if (record.animated && record.visible && record.el.isConnected) render(record, animationTime);
         }
+        // Small identity thumbnails stay still, but must not retain the old
+        // silhouette after the living core has finished morphing. Reuse this
+        // existing loop and refresh them once; never start an avatar timer.
+        if (shapeSnapshotsPending && engine?.stats?.()?.morph >= 1) {
+            shapeSnapshotsPending = false;
+            for (const record of records.values()) {
+                if (!record.animated && record.visible && record.el.isConnected) render(record, animationTime);
+            }
+        }
         schedule();
     }
     function invalidate() {
@@ -223,8 +275,9 @@
         records.forEach(record => { record.dirty = true; }); reconcile();
     }
     function applyConfig(record) {
-        record.el.style.setProperty('--core-color', config.color);
-        record.el.style.setProperty('--core-glow-color', config.glowColor);
+        const colors = getPalette();
+        record.el.style.setProperty('--core-color', colors.energyColor);
+        record.el.style.setProperty('--core-glow-color', colors.glowColor);
         record.dirty = true;
     }
     function configure(patch = {}, options = {}) {
@@ -239,7 +292,9 @@
             window.localStorage?.setItem('gunter_prefs', JSON.stringify({ ...prefs,
                 coreVisual: { ...object(prefs.coreVisual), ...next } }));
         }
-        config = next; drawBlocked = false; engineError = '';
+        shapeSnapshotsPending = !reduced() && next.speed > 0 &&
+            (shapeSnapshotsPending || config.shape !== next.shape);
+        config = next; palette = null; drawBlocked = false; engineError = '';
         records.forEach(applyConfig); reconcile();
         window.dispatchEvent(new CustomEvent('gunter-core-config-changed', { detail: { ...config } }));
         return { ...config };
@@ -333,7 +388,7 @@
                 for (const entry of entries) {
                     if (entry.type === 'attributes') {
                         if (entry.target === document.body || entry.target === document.documentElement) {
-                            savedReduced = readPreferences().reduceMotion === true; invalidate();
+                            savedReduced = readPreferences().reduceMotion === true; refreshTheme(); invalidate();
                         }
                     } else for (const node of entry.addedNodes) if (node.nodeType === 1) mount(node);
                 }
@@ -341,13 +396,15 @@
                 reconcile();
             });
             mutations.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-            mutations.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+            mutations.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-color-mode'] });
         }
         listen(window, 'storage', event => {
             if (event.key === 'gunter_prefs' || event.key === null) {
                 refreshPreferences(); records.forEach(applyConfig); reconcile();
             }
+            if (!event.key || ['gunter_color_mode', 'gunter_dark_mode', 'gunter_theme'].includes(event.key)) refreshTheme();
         });
+        listen(window, 'gunter-theme-changed', refreshTheme);
         if (motionQuery?.addEventListener) listen(motionQuery, 'change', invalidate);
         listen(window, 'pointermove', movePointer, { passive: true });
         listen(window, 'pointerout', event => { if (!event.relatedTarget) clearPointer(); }, { passive: true });
@@ -379,8 +436,9 @@
         });
         listen(window, 'pageshow', () => { suspended = false; invalidate(); });
     }
-    refreshPreferences();
-    window.GunterParticles = { mount, configure, setTransport, getConfig: () => ({ ...config }), getDefaults: () => ({ ...DEFAULTS }) };
+    refreshPreferences(); activeTheme = themeMode();
+    window.GunterParticles = { mount, configure, setTransport, getPalette,
+        getConfig: () => ({ ...config }), getDefaults: () => ({ ...DEFAULTS }) };
     if (document.readyState === 'loading') listen(document, 'DOMContentLoaded', init, { once: true });
     else init();
 })();

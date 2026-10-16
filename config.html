@@ -2,6 +2,7 @@
 <html lang="es">
 
 <head>
+    <script src="js/services/theme-bootstrap.js?v168-core-forms"></script>
     <script src="js/services/log-buffer.js?v154-unified-settings"></script>
     <script src="js/services/auth-service.js?v122-identity-context"></script>
     <script src="js/services/data-repository.js?v3-backup" defer></script>
@@ -57,16 +58,16 @@
     <link rel="stylesheet" href="styles/pages/control-plane.css?v95-device-access">
     <link rel="stylesheet" href="styles/pages/social-settings.css?v103-device-runtime">
     <link rel="stylesheet" href="styles/pages/procedure-recorder.css?v90-social-hub">
-    <script src="js/components/gunter-idle-core.js?v166-bio-river" defer></script>
-    <script src="js/services/gunter-particles.js?v166-bio-river" defer></script>
+    <script src="js/components/gunter-idle-core.js?v168-core-forms" defer></script>
+    <script src="js/services/gunter-particles.js?v168-core-forms" defer></script>
     <script src="js/services/gunter-command-center.js?v166-bio-river" defer></script>
     <script src="js/services/gunter-icon-system.js?v166-bio-river" defer></script>
 <link rel="stylesheet" href="styles/gunter-orbit-home.css?v166-bio-river">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="styles/gunter-workspace.css?v139-orbital-workspaces">
-    <link rel="stylesheet" href="styles/pages/orbital-settings.css?v144b-material-core">
+    <link rel="stylesheet" href="styles/pages/orbital-settings.css?v168-core-forms">
     <link rel="stylesheet" href="styles/gunter-idle-core.css?v142b-idle-core">
-    <link rel="stylesheet" href="styles/gunter-core-presence.css?v166-bio-river">
+    <link rel="stylesheet" href="styles/gunter-core-presence.css?v168-core-forms">
     <link rel="stylesheet" href="styles/gunter-interior.css?v155-unified-interior">
     <link rel="stylesheet" href="styles/gunter-workspace-layout.css?v158-structured-workspaces">
     <link rel="stylesheet" href="styles/pages/config-layout.css?v157-section-navigation">
@@ -218,33 +219,39 @@
             </div>
 
             <section class="settings-card core-visual-settings" id="core-visual-settings" aria-labelledby="core-visual-title">
-                <h3 id="core-visual-title">Núcleo generado</h3>
-                <p class="settings-card__hint">Personaliza sus colores, luz y movimiento. La energía permanece entre las partículas y reacciona al puntero y al audio real de Gunter.</p>
-                <div class="core-visual-settings__preview" data-gunter-particles="hero" role="img" aria-label="Vista previa del núcleo generado de Gunter"></div>
-                <div class="settings-row">
-                    <label for="core-color">Color de partículas</label>
-                    <div class="core-color-control">
-                        <input id="core-color" type="color" value="#b8bec9">
-                        <input id="core-color-hex" type="text" value="#b8bec9" maxlength="7" pattern="#[0-9a-fA-F]{6}" autocomplete="off" spellcheck="false" aria-label="Color de partículas en HEX" aria-describedby="core-color-error">
-                        <small id="core-color-error" class="core-color-control__error" hidden></small>
+                <div class="core-studio__heading"><div><span class="core-studio__eyebrow">Apariencia de Gunter</span><h3 id="core-visual-title">Núcleo y materia</h3></div><span class="core-studio__live">Vista en vivo</span></div>
+                <p class="settings-card__hint">Selecciona una capa alrededor del núcleo. La energía permanece entre las partículas y reacciona al puntero y al audio real de Gunter.</p>
+                <div class="core-shapes" role="group" aria-label="Forma de las partículas"><span class="core-studio__eyebrow">Silueta</span><div class="core-shapes__options">
+                    <button type="button" data-core-shape="organic" aria-pressed="true"><svg data-preserve-icon viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 4c7 0 4 5 10 8s-1 5-2 11-7 3-12 5S5 22 5 17 9 4 16 4Z"/><path d="M12 12c7-6 13 7 3 9-7 1-5-5-3-9Z"/></svg>Orgánica</button>
+                    <button type="button" data-core-shape="pentagram" aria-pressed="false"><svg data-preserve-icon viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="m16 28-8-24 21 15H3L24 4Z"/></svg>Cinco puntas<span class="core-shapes__detail">Punta hacia abajo</span></button>
+                    <button type="button" data-core-shape="eye" aria-pressed="false"><svg data-preserve-icon viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M3 16c8-12 18-12 26 0-8 12-18 12-26 0Z"/><circle cx="16" cy="16" r="5"/></svg>Ojo</button>
+                    <button type="button" data-core-shape="hand" aria-pressed="false"><svg data-preserve-icon viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M9 28 4 17c-1-3 2-4 4-1l2 3V7c0-3 4-3 4 0v8-11c0-3 4-3 4 0v11-9c0-3 4-3 4 0v11-7c0-3 4-3 4 0v9c0 6-4 9-7 9Z"/></svg>Mano</button>
+                    <button type="button" data-core-shape="sword" aria-pressed="false"><svg data-preserve-icon viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="m16 2 4 7-2 13h-4L12 9Z M8 22h16M16 22v7m-3 0h6"/></svg>Espada</button>
+                    <button type="button" data-core-shape="octagram" aria-pressed="false"><svg data-preserve-icon viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 2 21 11 30 16 21 21 16 30 11 21 2 16 11 11Z M6 6h20v20H6Z"/></svg>Ocho puntas</button>
+                </div></div>
+                <div class="core-studio">
+                    <div class="core-studio__orbit" role="group" aria-label="Capas de color del núcleo">
+                        <div class="core-visual-settings__preview" data-gunter-particles="hero" role="img" aria-label="Vista previa del núcleo generado de Gunter"></div>
+                        <button type="button" class="core-layer core-layer--particles" data-core-layer="particleColor" aria-pressed="true" aria-controls="core-color-panel"><span class="core-layer__swatch" aria-hidden="true"></span><span>Partículas<small data-core-layer-value>#3458C7</small></span></button>
+                        <button type="button" class="core-layer core-layer--shadow" data-core-layer="shadowColor" aria-pressed="false" aria-controls="core-shadow-color-panel"><span class="core-layer__swatch" aria-hidden="true"></span><span>Materia<small data-core-layer-value>#142642</small></span></button>
+                        <button type="button" class="core-layer core-layer--energy" data-core-layer="energyColor" aria-pressed="false" aria-controls="core-energy-color-panel"><span class="core-layer__swatch" aria-hidden="true"></span><span>Energía<small data-core-layer-value>#19BCD3</small></span></button>
+                        <button type="button" class="core-layer core-layer--glow" data-core-layer="glowColor" aria-pressed="false" aria-controls="core-glow-color-panel"><span class="core-layer__swatch" aria-hidden="true"></span><span>Emisión<small data-core-layer-value>#8EBDFF</small></span></button>
+                    </div>
+                    <div class="core-studio__editor">
+                        <div class="core-studio__editor-heading"><span class="core-studio__eyebrow">Editar capa</span><h4 id="core-color-layer-title">Partículas</h4></div>
+                        <div id="core-color-plane" class="core-spectrum" tabindex="0" role="group" aria-roledescription="selector de color" aria-label="Color de partículas. Usa las flechas para ajustar saturación y luminosidad."><span class="core-spectrum__cursor" aria-hidden="true"></span></div>
+                        <label class="core-spectrum-control" for="core-color-hue"><span>Matiz</span><input id="core-color-hue" class="core-spectrum-hue" type="range" min="0" max="359" step="1" value="227"></label>
+                        <div class="core-spectrum-fine">
+                            <label class="core-spectrum-control" for="core-color-saturation"><span>Saturación</span><input id="core-color-saturation" type="range" min="0" max="100" step="1" value="74"></label>
+                            <label class="core-spectrum-control" for="core-color-light"><span>Luminosidad</span><input id="core-color-light" type="range" min="0" max="100" step="1" value="78"></label>
+                        </div>
+                        <div class="core-color-control" id="core-color-panel"><label for="core-color-hex">Color de partículas</label><input id="core-color" type="color" value="#3458c7" aria-label="Abrir selector de partículas"><input id="core-color-hex" type="text" value="#3458c7" maxlength="7" pattern="#[0-9a-fA-F]{6}" autocomplete="off" spellcheck="false" aria-label="Color de partículas en HEX" aria-describedby="core-color-error"><small id="core-color-error" class="core-color-control__error" hidden></small></div>
+                        <div class="core-color-control" id="core-shadow-color-panel" hidden><label for="core-shadow-color-hex">Color de la materia oscura</label><input id="core-shadow-color" type="color" value="#142642" aria-label="Abrir selector de materia"><input id="core-shadow-color-hex" type="text" value="#142642" maxlength="7" pattern="#[0-9a-fA-F]{6}" autocomplete="off" spellcheck="false" aria-label="Color de la materia oscura en HEX" aria-describedby="core-shadow-color-error"><small id="core-shadow-color-error" class="core-color-control__error" hidden></small></div>
+                        <div class="core-color-control" id="core-energy-color-panel" hidden><label for="core-energy-color-hex">Color de energía</label><input id="core-energy-color" type="color" value="#19bcd3" aria-label="Abrir selector de energía"><input id="core-energy-color-hex" type="text" value="#19bcd3" maxlength="7" pattern="#[0-9a-fA-F]{6}" autocomplete="off" spellcheck="false" aria-label="Color de energía en HEX" aria-describedby="core-energy-color-error"><small id="core-energy-color-error" class="core-color-control__error" hidden></small></div>
+                        <div class="core-color-control" id="core-glow-color-panel" hidden><label for="core-glow-color-hex">Color de emisión</label><input id="core-glow-color" type="color" value="#8ebdff" aria-label="Abrir selector de emisión"><input id="core-glow-color-hex" type="text" value="#8ebdff" maxlength="7" pattern="#[0-9a-fA-F]{6}" autocomplete="off" spellcheck="false" aria-label="Color de emisión en HEX" aria-describedby="core-glow-color-error"><small id="core-glow-color-error" class="core-color-control__error" hidden></small></div>
                     </div>
                 </div>
-                <div class="settings-row">
-                    <label for="core-energy-color">Color de energía</label>
-                    <div class="core-color-control">
-                        <input id="core-energy-color" type="color" value="#ff452b">
-                        <input id="core-energy-color-hex" type="text" value="#ff452b" maxlength="7" pattern="#[0-9a-fA-F]{6}" autocomplete="off" spellcheck="false" aria-label="Color de energía en HEX" aria-describedby="core-energy-color-error">
-                        <small id="core-energy-color-error" class="core-color-control__error" hidden></small>
-                    </div>
-                </div>
-                <div class="settings-row">
-                    <label for="core-glow-color">Color de emisión</label>
-                    <div class="core-color-control">
-                        <input id="core-glow-color" type="color" value="#ff6d35">
-                        <input id="core-glow-color-hex" type="text" value="#ff6d35" maxlength="7" pattern="#[0-9a-fA-F]{6}" autocomplete="off" spellcheck="false" aria-label="Color de emisión en HEX" aria-describedby="core-glow-color-error">
-                        <small id="core-glow-color-error" class="core-color-control__error" hidden></small>
-                    </div>
-                </div>
+                <div class="settings-row settings-row--toggle core-studio__adaptive"><label for="core-theme-adaptive"><strong>Adaptar paleta al tema</strong><small id="core-theme-state">Los HEX originales se conservan al cambiar de tema.</small></label><input type="checkbox" id="core-theme-adaptive" class="form-toggle" checked></div>
                 <div class="settings-row"><label for="core-brightness">Brillo <output id="core-brightness-value" for="core-brightness">100 %</output></label><input id="core-brightness" type="range" min="0.2" max="2.5" step="0.05" value="1"></div>
                 <div class="settings-row"><label for="core-density">Densidad <output id="core-density-value" for="core-density">100 %</output></label><input id="core-density" type="range" min="0.25" max="2" step="0.05" value="1"></div>
                 <div class="settings-row"><label for="core-speed">Velocidad <output id="core-speed-value" for="core-speed">1,00 ×</output></label><input id="core-speed" type="range" min="0" max="2" step="0.05" value="1"></div>
@@ -530,7 +537,7 @@
     <script src="js/controllers/conversation-memory-panel.js" defer></script>
     <script src="js/controllers/personal-memory-panel.js?v2-backup" defer></script>
 
-    <script src="js/config-settings.js?v159-section-navigation" defer></script>
+    <script src="js/config-settings.js?v168-core-forms" defer></script>
     <script src="js/controllers/presence-settings.js?v115-presence" defer></script>
     <!-- (ai-analysis, cache-service, audio-chunker, audio-trimmer eliminados:
          pertenecían al flujo Nuevo Proyecto que ahora vive en dashboard.html) -->
@@ -794,7 +801,7 @@
 
     <!-- Medieval Futuristic Theme -->
     <script src="js/services/sw-updater.js?v115-stable-entry" defer></script>
-    <script src="js/services/theme-toggle.js?v80-polar" defer></script>    <script src="js/services/actions-service.js?v154-unified-settings" defer></script>    <script src="js/services/nlp-llm-service.js?v160-voice-continuity-guidance" defer></script>    <script src="js/services/commitments-service.js?v131-commitment-followup" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
+    <script src="js/services/theme-toggle.js?v168-core-forms" defer></script>    <script src="js/services/actions-service.js?v154-unified-settings" defer></script>    <script src="js/services/nlp-llm-service.js?v160-voice-continuity-guidance" defer></script>    <script src="js/services/commitments-service.js?v131-commitment-followup" defer></script>    <script src="js/services/proactive-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/style-mirror-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/forecast-service.js?v66b-gunter-pixar-1783590000000" defer></script>    <script src="js/services/tutor-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-rules-service.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-mood-service.js?v122-identity-context" defer></script>
 
@@ -808,7 +815,7 @@
     <script src="js/services/gunter-companion.js?v162-conversation-routing" defer></script>
     <script src="js/services/smooth-scroll.js?v66b-gunter-pixar-1783590000000" defer></script>
     <script src="js/services/gunter-onboarding.js?v135-orbit-home" defer></script>
-    <script src="js/services/gunter-core-presence.js?v166-bio-river" defer></script>
+    <script src="js/services/gunter-core-presence.js?v168-core-forms" defer></script>
 </body>
 
 </html>

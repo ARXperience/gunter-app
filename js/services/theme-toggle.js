@@ -10,24 +10,28 @@
     // El perfil (gunter_theme/gunter_env) describe el contexto de reunión;
     // nunca debe ser reutilizado como preferencia claro/oscuro.
     const KEY = 'gunter_color_mode';
+    const bootstrap = window.GunterThemeBootstrap;
 
     function hasExplicitPreference() {
+        if (bootstrap) return bootstrap.hasExplicitPreference();
         try {
             const saved = localStorage.getItem(KEY);
             if (saved === 'dark' || saved === 'light') return true;
             const legacyMode = localStorage.getItem('gunter_theme');
             return legacyMode === 'dark' || legacyMode === 'light'
-                || localStorage.getItem('gunter_dark_mode') === 'true';
+                || ['true', 'false'].includes(localStorage.getItem('gunter_dark_mode'));
         } catch { return false; }
     }
 
     function getPreferred() {
+        if (bootstrap) return bootstrap.getPreferred();
         try {
             const saved = localStorage.getItem(KEY);
             if (saved === 'dark' || saved === 'light') return saved;
             const legacyMode = localStorage.getItem('gunter_theme');
             if (legacyMode === 'dark' || legacyMode === 'light') return legacyMode;
-            if (localStorage.getItem('gunter_dark_mode') === 'true') return 'dark';
+            const legacyFlag = localStorage.getItem('gunter_dark_mode');
+            if (legacyFlag === 'true' || legacyFlag === 'false') return legacyFlag === 'true' ? 'dark' : 'light';
         } catch {}
         // Sistema
         if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) return 'dark';
@@ -35,12 +39,24 @@
     }
 
     function apply(mode, persist = true) {
-        document.body.classList.remove('at-light', 'at-dark');
-        document.body.classList.add('at-' + mode);
-        if (persist) try {
-            localStorage.setItem(KEY, mode);
-            localStorage.setItem('gunter_dark_mode', String(mode === 'dark'));
-        } catch {}
+        if (mode !== 'dark' && mode !== 'light') return;
+        if (bootstrap) bootstrap.apply(mode, persist);
+        else {
+            // Standalone/older cached shells retain their public toggle API.
+            const root = document.documentElement;
+            const previousMode = root?.getAttribute?.('data-color-mode');
+            for (const node of [root, document.body]) {
+                node?.classList?.remove('at-light', 'at-dark');
+                node?.classList?.add('at-' + mode);
+            }
+            root?.setAttribute?.('data-color-mode', mode);
+            if (root?.style) { root.style.colorScheme = mode; root.style.backgroundColor = mode === 'light' ? '#edf2fc' : '#080d20'; }
+            if (persist) try {
+                localStorage.setItem(KEY, mode);
+                localStorage.setItem('gunter_dark_mode', String(mode === 'dark'));
+            } catch {}
+            if (previousMode !== mode) window.dispatchEvent(new CustomEvent('gunter-theme-changed', { detail: { mode, previousMode } }));
+        }
         const btn = document.querySelector('.gd-theme-toggle');
         if (btn) btn.innerHTML = mode === 'dark' ? sunSvg() : moonSvg();
         const preference = document.getElementById('pref-dark-mode');
@@ -64,9 +80,16 @@
         const current = getPreferred();
         apply(current, hasExplicitPreference());
 
-        const colorScheme = window.matchMedia?.('(prefers-color-scheme: dark)');
-        colorScheme?.addEventListener?.('change', event => {
-            if (!hasExplicitPreference()) apply(event.matches ? 'dark' : 'light', false);
+        if (!bootstrap) {
+            const colorScheme = window.matchMedia?.('(prefers-color-scheme: dark)');
+            colorScheme?.addEventListener?.('change', event => {
+                if (!hasExplicitPreference()) apply(event.matches ? 'dark' : 'light', false);
+            });
+        }
+        window.addEventListener('gunter-theme-changed', event => {
+            const mode = event.detail?.mode;
+            const toggle = document.querySelector('.gd-theme-toggle');
+            if (toggle && (mode === 'light' || mode === 'dark')) toggle.innerHTML = mode === 'dark' ? sunSvg() : moonSvg();
         });
 
         const btn = document.createElement('button');

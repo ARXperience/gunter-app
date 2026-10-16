@@ -195,7 +195,8 @@ check('buried gas emits within the depth march while only matter extinguishes it
         'emission passes through the opacity already accumulated in front of its 3D sample');
     assert.match(volume,/opacity\+=\(1\.0-opacity\)\*density/);
     const strands=e.core.programs.strands.program.shaders.find(s=>s.source.includes('uniform sampler2D u_volume')).source;
-    assert.match(strands,/viewPoint\(v_world-energySource\(v_world,u_time\)\)\.z/,
+    assert.match(strands,/vec3 source=flowWind\(energySource\(flowUnwind\(v_world,u_flow\),u_time\),u_flow\)/);
+    assert.match(strands,/viewPoint\(v_world-source\)\.z/,
         'a filament covers the energy according to its 3D position relative to the current');
     assert.match(strands,/color=mix\(color,coat,frontCover\*\.88\)/,'front microfibres keep their shaded material color');
     assert.match(strands,/transmission=mix\(transmission,1\.0,frontCover\*\.85\)/,
@@ -448,7 +449,7 @@ check('Invalid, absent or muted samples cannot leave invented audio amplitude ac
     e.lost();e.restored();e.render(8);assert.equal(e.core.stats().audio.level,0);assert.equal(e.core.stats().audio.available,false);
     e.core.setAudioLevel(.7);e.core.dispose();assert.equal(e.core.stats().audio.level,0);released(e);
 });
-check('river transport deforms the same GPU filaments and buried volume without another simulation or trail',()=>{
+check('river strain and local curl are integrated in GPU material, not a reversible projected bitmap deformation',()=>{
     const e=environment();e.render(8,defaults,640,400);
     const histories=e.core.histories.slice(),field=e.core.field,steps=e.core.steps,builds=e.core.fieldBuilds;
     const created=e.created.Texture.length,programs=e.created.Program.length;
@@ -468,15 +469,68 @@ check('river transport deforms the same GPU filaments and buried volume without 
     assert.match(vertex,/return transported\(viewPoint\(p\)\.xy\*u_size\*\.80,aspect\)/);
     assert.match(volume,/untransported\(v_uv\*2\.0-1\.0,aspect\)/);
     const mapping=vertex.slice(vertex.indexOf('vec2 riverCurve'),vertex.indexOf('uniform sampler2D u_history'));
-    assert.ok(volume.includes(mapping),'ray marching inverts exactly the same curved material mapping');
-    assert.match(mapping,/along\*stretch\/distance/,'different material coordinates lag along the curved flow');
-    assert.match(mapping,/potential\(vec3\(q\*2\.7,u_time\*\.12\),curl\)/,'flow keeps the existing curl-noise field');
-    assert.match(mapping,/return mix\(affine,river,envelope\)\*aspect/,'endpoints recombine without a permanent stretched nucleus');
+    assert.ok(volume.includes(mapping),'volume and matter share only reference-frame placement');
+    assert.doesNotMatch(mapping,/determinant|potential\(|stretch|for\(/,'no Newton inverse or screen-space deformation remains');
+    const simulation=e.core.programs.simulation.program.shaders.find(s=>s.source.includes('uniform float u_dt')).source;
+    assert.match(simulation,/vec3 rest=flowUnwind\(p,u_previousFlow\)/,'GPU history integrates the previous strain state');
+    assert.match(simulation,/p=flowWind\(rest,u_flow\)/,'the new deformed coordinates are stored in the existing history texture');
+    assert.match(simulation,/potential\(rest\*3\.7/,'the current locally advects through multi-scale curl');
+    assert.match(simulation,/rest\+=\(curl\*\.31\+fine\*\.13\)\*u_flow\.z\*u_dt/);
+    assert.match(volume,/p\/=flowExtent\(\)/,'the volume atlas samples the actual strained material bounds');
     assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);
-    assert.equal(e.core.field,field);assert.equal(e.core.steps,steps);assert.equal(e.core.fieldBuilds,builds);
+    assert.equal(e.core.field,field);assert.equal(e.core.steps,steps);assert.ok(e.core.fieldBuilds>builds,'new material bounds invalidate the same atlas');
     assert.equal(e.created.Texture.length,created);assert.equal(e.created.Program.length,programs);
     e.render(8.1,{...defaults,transport},640,400);
     assert.ok(e.core.steps>steps,'the same fixed-step curl advection continues during transport');
+    e.core.dispose();released(e);
+});
+check('the fourth color independently tints unlit matter and front coats without rebuilding the colorless atlas',()=>{
+    const e=environment();e.render(8);const builds=e.core.fieldBuilds,created=e.created.Texture.length;
+    e.render(8,{...defaults,shadowColor:'#1188ee'});
+    for(const name of ['strands','volume']) {
+        assert.deepEqual(Array.from(e.core.programs[name].program.u_shadow),[17/255,136/255,238/255]);
+        const fragment=e.core.programs[name].program.shaders.find(s=>s.source.includes('uniform vec3 u_particle')).source;
+        assert.match(fragment,/u_shadow\*/,'unlit matter uses the supplied RGB, not an implicit black scalar');
+    }
+    assert.equal(e.core.fieldBuilds,builds);assert.equal(e.created.Texture.length,created);
+    e.render(8,{...defaults,shadowColor:'red'});
+    assert.deepEqual(Array.from(e.core.programs.volume.program.u_shadow),[7/255,20/255,35/255]);
+    e.core.dispose();released(e);
+});
+check('shape attractors morph retained material and the shared volume without re-seeding or allocating new resources',()=>{
+    const e=environment();e.render(8);const histories=e.core.histories.slice(),field=e.core.field,created=e.created.Texture.length;
+    e.render(8,{...defaults,shape:'eye'});
+    assert.equal(e.core.stats().shape,'eye');assert.equal(e.core.stats().morph,0);
+    assert.deepEqual(Array.from(e.core.programs.volume.program.u_shape),[0,2,0]);
+    e.render(8.825,{...defaults,shape:'eye'});
+    near(e.core.stats().morph,.5,'smooth morph midpoint');
+    for(const name of ['simulation','field','volume','strands']) {
+        const shape=e.core.programs[name].program.u_shape;
+        assert.equal(shape[0],0);assert.equal(shape[1],2);assert.ok(shape[2]>0&&shape[2]<1);
+    }
+    e.render(9.7,{...defaults,shape:'eye'});assert.equal(e.core.stats().morph,1);
+    e.render(9.72,{...defaults,shape:'hand'});assert.equal(e.core.stats().shape,'hand');
+    assert.equal(e.core.draws,undefined);assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);
+    assert.equal(e.core.field,field);assert.equal(e.created.Texture.length,created);
+    assert.equal(e.draws.filter(d=>d.program===e.core.programs.simulation.program&&d.initialize===1).length,1);
+    const shader=e.core.programs.simulation.program.shaders.find(s=>s.source.includes('uniform float u_dt')).source;
+    assert.match(shader,/v\+=\(morphGuide\(p,row,t\)-p\)\*3\.4\*morph/,'silhouettes are material velocity attractors');
+    assert.match(shader,/starPoint\(k\*2\.0,5\.0,\.77,-1\.5707963\)/,'pentagram extreme points start downwards');
+    e.core.dispose();released(e);
+});
+check('all basic silhouettes are available at a frozen phase and reduced motion requires no extra loop',()=>{
+    const e=environment();e.render(8);const steps=e.core.steps,created=e.created.Texture.length;
+    for(const [shape,id] of Object.entries({organic:0,pentagram:1,eye:2,hand:3,sword:4,octagram:5})) {
+        const builds=e.core.fieldBuilds;
+        e.render(8,{...defaults,shape,static:true});
+        assert.equal(e.core.stats().shape,shape);assert.deepEqual(Array.from(e.core.programs.volume.program.u_shape),[id,id,1]);
+        assert.equal(e.core.programs.strands.program.u_static[0],1);
+        assert.ok(e.core.fieldBuilds>=builds);const after=e.core.fieldBuilds;
+        e.render(8,{...defaults,shape,static:true});assert.equal(e.core.fieldBuilds,after,'same frozen shape reuses the atlas');
+    }
+    e.render(8,{...defaults,shape:'sword',speed:0});assert.equal(e.core.programs.strands.program.u_static[0],1);
+    assert.equal(e.core.steps,steps);assert.equal(e.created.Texture.length,created);
+    e.render(8,{...defaults,shape:'unknown',static:true});assert.equal(e.core.stats().shape,'organic');
     e.core.dispose();released(e);
 });
 check('river state is per presentation, resets for other avatars and rejects nonfinite geometry',()=>{
