@@ -43,6 +43,7 @@
             // The canonical registry owns these requests and confirmations;
             // the legacy feature dispatcher must not apply a competing write.
             const earlyIntent = window.GunterAssistantTools?.detect?.(text);
+            const informationalRequest = window.GunterAssistantTools?.isInformationalRequest?.(text) === true;
             const settingsFollowUp = ['settings.update', 'reminder.schedule'].includes(window.GunterAssistantTools?.getPending?.()?.toolId)
                 && window.GunterAssistantTools?.isContextualFollowUp?.(text);
             if (settingsFollowUp || ['app.navigate', 'app.inspect', 'settings.list', 'settings.update', 'reminder.schedule'].includes(earlyIntent?.toolId)) {
@@ -58,7 +59,7 @@
                     return { state, awaitingConfirmation: !!result.requiresConfirmation, response: state.execution.uiResponse };
                 }
             }
-            if (!window.GunterAssistantTools?.isUsageGuidanceRequest?.(text) && window.GunterActions?.dispatch) {
+            if (!informationalRequest && !window.GunterAssistantTools?.isUsageGuidanceRequest?.(text) && window.GunterActions?.dispatch) {
                 const action = await window.GunterActions.dispatch(text);
                 if (action?.reply) {
                     state.intent = {
@@ -78,7 +79,7 @@
 
             // Los planes multipaso pasan primero por el coordinador durable.
             // Una propuesta no ejecuta efectos hasta que el usuario aprueba la secuencia completa.
-            if (!window.GunterAssistantTools?.isUsageGuidanceRequest?.(text) && window.GunterWorkflowOrchestrator?.dispatch) {
+            if (!informationalRequest && !window.GunterAssistantTools?.isUsageGuidanceRequest?.(text) && window.GunterWorkflowOrchestrator?.dispatch) {
                 const workflowResult = await window.GunterWorkflowOrchestrator.dispatch(text);
                 if (workflowResult?.handled) {
                     state.intent = {
@@ -145,7 +146,9 @@
 
             // 1) Intent
             startStage(state, 'intent');
-            state.intent = await window.GunterIntentEngine.classifyIntent(text, ctx);
+            state.intent = informationalRequest
+                ? { primary: { type: 'query', confidence: 1 }, alternatives: [], multiIntent: false, method: 'informational-request' }
+                : await window.GunterIntentEngine.classifyIntent(text, ctx);
             endStage(state, { intent: state.intent.primary, multi: state.intent.multiIntent });
 
             // 2) Entities
@@ -160,7 +163,7 @@
 
             // 3) Time parsing
             startStage(state, 'time');
-            state.resolvedTimes = await window.GunterTimeParser.parseMany(
+            state.resolvedTimes = informationalRequest ? [] : await window.GunterTimeParser.parseMany(
                 state.entities.datetimeExpr, ctx
             );
             endStage(state, { resolved: state.resolvedTimes.length });

@@ -36,6 +36,22 @@
             || (/\b(?:soy|trabajo como|me dedico a)\b/.test(t) && /\b(?:como (?:me )?puedes ayudar|como me ayudas|que puedes hacer por mi)\b/.test(t));
     }
 
+    function conversationalText(text) {
+        return normalize(text).replace(/^[¿¡]+/, '').replace(/^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*/, '')
+            .replace(/^por favor\s+/, '');
+    }
+
+    // Explanations and creative requests are not authorization to operate the
+    // app/device, even when they contain words such as "activa" or "abre".
+    function isInformationalRequest(text) {
+        const t = conversationalText(text).replace(/^(?:(?:me )?puedes|(?:me )?podrias)\s+/, '');
+        return /^(?:que|como|por que|para que|cual|cuales|quien|cuando|donde|cuanto|cuantos)\b/.test(t)
+            || /^(?:explica(?:me|r(?:me)?)?|cuenta(?:me)?|habla(?:me)?|describe|define|compara|resume|traduce|ensena(?:me|r(?:me)?)?|resuelve|calcula)\b/.test(t)
+            || /^(?:quiero|necesito|quisiera|me gustaria)\s+(?:(?:que me )?(?:expliques|cuentes|ensenes)|(?:saber|aprender|entender|comprender|conocer)|(?:una? )?(?:receta|explicacion|cuento|poema|historia|resumen|consejo))\b/.test(t)
+            || /^(?:ayudame a|quiero|necesito)\s+(?:entender|aprender|comprender|escribir|redactar|resolver|estudiar|pensar)\b/.test(t)
+            || /^(?:escribe|redacta|inventa)\s+(?:(?:un|una|el|la)\s+)?(?:cuento|poema|historia|texto|carta|codigo|guion|receta)\b/.test(t);
+    }
+
     const NAVIGATION_TARGETS = Object.freeze({
         home: 'day.html', conversations: 'day.html#conversations', meetings: 'dashboard.html',
         'new meeting': 'new-project.html', meeting: 'dashboard.html', results: 'results.html',
@@ -54,14 +70,14 @@
             home: ['inicio', 'principal', 'dia', 'hoy'], conversations: ['conversaciones', 'mensajes', 'chats', 'inbox', 'bandeja'],
             meetings: ['reuniones', 'reunion', 'dashboard', 'panel de reuniones'], 'new meeting': ['nueva reunion', 'preparar reunion'],
             results: ['resultados', 'transcripciones', 'analisis de reunion'], capture: ['captura rapida', 'captura'],
-            tasks: ['tareas', 'pendientes'], agenda: ['agenda', 'calendario', 'eventos'], reminders: ['recordatorios'],
+            tasks: ['tareas', 'pendientes'], agenda: ['agenda', 'calendario', 'eventos'], reminders: ['recordatorios', 'alarmas'],
             commitments: ['compromisos', 'promesas'],
-            activity: ['actividad', 'historial'], settings: ['configuracion', 'ajustes'], preferences: ['preferencias'], account: ['mi cuenta', 'mi perfil', 'nombre preferido'],
-            connections: ['conexiones', 'datos y conexiones', 'redes sociales', 'dispositivos'], data: ['datos y privacidad', 'mis datos', 'respaldo', 'restauracion'], assistant: ['asistente ia', 'asistente e ia', 'funciones del asistente'],
+            activity: ['actividad', 'historial'], settings: ['configuracion', 'configuraciones', 'ajustes'], preferences: ['preferencias', 'apariencia', 'accesibilidad'], account: ['mi cuenta', 'mi perfil', 'perfil', 'nombre preferido'],
+            connections: ['conexiones', 'datos y conexiones', 'redes sociales', 'dispositivos'], data: ['datos y privacidad', 'mis datos', 'respaldo', 'restauracion'], assistant: ['asistente ia', 'asistente e ia', 'funciones del asistente', 'asistente', 'ia'],
             'advanced settings': ['configuracion avanzada', 'opciones avanzadas', 'ajustes avanzados', 'motores locales', 'centro de control'],
             'schedule settings': ['configuracion de agenda', 'ajustes de agenda', 'planificacion de agenda', 'horarios y jornada'],
-            voice: ['voz y escucha', 'configuracion de voz', 'ajustes de voz', 'escucha', 'microfono'],
-            'conversation settings': ['conversaciones y memoria', 'configuracion de memoria', 'mis recuerdos'],
+            voice: ['voz y escucha', 'configuracion de voz', 'ajustes de voz', 'voz', 'escucha', 'microfono'],
+            'conversation settings': ['conversaciones y memoria', 'configuracion de memoria', 'mis recuerdos', 'memoria'],
             permissions: ['acciones y permisos', 'permisos'], diagnostics: ['diagnostico', 'diagnosticos', 'estado del sistema'],
             trash: ['papelera'], administration: ['administracion', 'panel administrativo']
         };
@@ -825,7 +841,7 @@
             if (!t) return null;
             if (isUsageGuidanceRequest(text)) return null;
             const mobileTarget = /\b(en|desde|a|mi)\b.*\b(movil|celular|telefono|iphone|ipad|android)\b/.test(t);
-            const questionText = t.replace(/^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*/, '');
+            const questionText = conversationalText(text);
             // Commitment references may contain tool names. Interpret the anchored
             // operation first, never a command embedded in its literal action.
             const commitmentRequest = parseCommitmentRequest(text);
@@ -848,11 +864,20 @@
             const browserExplanation = /^(?:que (?:es|son|significa)|como (?:funciona|puedo|se)|por que|para que|explica(?:me)?|dime que)\b/.test(questionText);
             if (/\b(donde estoy|en que (?:apartado|seccion|pagina) estoy|para que sirve (?:esta|este) (?:pagina|apartado|seccion)|explicame (?:esta|este) (?:pagina|apartado|seccion))\b/.test(t))
                 return { toolId: 'app.inspect', args: { rawText: text } };
+            if (/^(?:(?:me )?puedes (?:decir |mostrar )?)?(?:que (?:puedes hacer|sabes hacer|funciones tienes|herramientas tienes|herramientas hay disponibles)|cuales son tus (?:funciones|herramientas)|lista (?:tus |las )?(?:funciones|herramientas))(?: (?:en |de )?gunter)?$/.test(questionText))
+                return { toolId: 'app.inspect', args: { rawText: text, capabilities: true } };
 
             const localMatch = matchSettings(t, localSettings());
-            const settingsQuestion = /^(?:que|cual|cuales|como|para que|donde|explica(?:me)?|dime|muestra(?:me)?|consulta|lista|ver)\b/.test(questionText);
+            const settingsStateQuestion = /^(?:esta|estan) (?:activad[oa]s?|desactivad[oa]s?|habilitad[oa]s?|disponibles?)\b/.test(questionText);
+            const settingsQuestion = settingsStateQuestion || /^(?:que|cual|cuales|como|para que|donde|explica(?:me)?|dime|muestra(?:me)?|consulta|lista|ver)\b/.test(questionText);
             const settingsCommand = /^(?:por favor )?(?:activa|activar|habilita|habilitar|desactiva|desactivar|apaga|enciende|inhabilita|cambia|cambiar|configura|ajusta|pon|establece|usa|no uses)\b/.test(questionText);
-            if (localMatch.candidates.length && settingsQuestion)
+            const informationOnly = isInformationalRequest(text);
+            const settingSubject = conversationalText(text).replace(/^(?:(?:me )?puedes|(?:me )?podrias)\s+/, '')
+                .replace(/^(?:para que sirve[n]?|que es|que son|como funciona[n]?|como (?:activo|desactivo|configuro)|explica(?:me)?)\s+/, '')
+                .replace(/^(?:el|la|los|las)\s+/, '').replace(/\s+(?:en|de) gunter$/, '');
+            const appSettingQuestion = settingsStateQuestion || /\b(?:gunter|configuraciones?|ajustes?|opciones avanzadas|tienes|usas)\b/.test(questionText)
+                || localMatch.candidates.some(item => [item.key, item.label, ...(item.aliases || [])].some(alias => normalize(alias) === settingSubject));
+            if (localMatch.candidates.length && settingsQuestion && (!informationOnly || appSettingQuestion))
                 return { toolId: 'settings.list', args: { rawText: text, preferenceQuery: true } };
             if (localMatch.candidates.length && settingsCommand)
                 return { toolId: 'settings.update', args: { rawText: text, preferenceQuery: true } };
@@ -866,10 +891,15 @@
                     || /\b(muestra|muestrame|consulta|dime|revisa)\b/.test(t)
                     || /^(?:mis preferencias de agenda|mi horario laboral|mi jornada)$/.test(questionText))
                     return { toolId: 'settings.list', args: { rawText: text, calendarPlanning: true } };
-                if (/\b(activa|activar|habilita|habilitar|desactiva|desactivar|quita|quitar|cambia|cambiar|ajusta|configura|establece|pon|deja|usa|no uses)\b/.test(t)
-                    || /^mi jornada (?:laboral )?es\b/.test(questionText))
+                if (!informationOnly && (/\b(activa|activar|habilita|habilitar|desactiva|desactivar|quita|quitar|cambia|cambiar|ajusta|configura|establece|pon|deja|usa|no uses)\b/.test(t)
+                    || /^mi jornada (?:laboral )?es\b/.test(questionText)))
                     return { toolId: 'preferences.update', args: parseCalendarPlanningChange(text) };
             }
+
+            // Keep live personal queries on their read-only tools. All other
+            // explanatory requests must reach the existing LLM, not a verb
+            // embedded in a question or a classifier's action-keyword rule.
+            if (informationOnly && !/^que tengo (?:para )?(?:hoy|manana|el (?:lunes|martes|miercoles|jueves|viernes|sabado|domingo))\b/.test(questionText)) return null;
 
             if (!mobileTarget && !browserExplanation && /\byoutube\b/.test(t) && /\b(pon|ponme|por|reproduce|reproducir|busca|buscar|mix|mezcla)\b/.test(t)) {
                 const args = parseBrowserRequest(text);
@@ -878,7 +908,8 @@
             if (!mobileTarget && !browserExplanation && /\b(abre|abrir|entra|ve)\b/.test(t) && /https?:\/\//i.test(text)) return { toolId: 'desktop.browser.open', args: { ...parseBrowserRequest(text), url: String(text).match(/https?:\/\/[^\s"'<>]+/i)?.[0]?.replace(/[.,!?]+$/, '') } };
             if (!mobileTarget && !browserExplanation && /\b(busca|buscar)\b/.test(t) && /\b(brave|chrome|edge|google|internet|navegador)\b/.test(t)) return { toolId: 'desktop.browser.search', args: { ...parseBrowserRequest(text), provider: 'google' } };
 
-            if (/\b(ve a|ir a|lleva(me)? a|abre|abrir|muestra(me)?|navega(r)? a|entra a)\b/.test(t)) {
+            const navigationCommand = questionText.replace(/^(?:(?:me )?puedes|(?:me )?podrias|quiero|necesito)\s+/, '');
+            if (/^(?:(?:ve|ir|lleva(?:r)?(?:me)?|navega(?:r)?|entra(?:r)?|ingresa(?:r)?|regresa|vuelve|volver)\s+(?:a|al|en|hacia)\b|abre\b|abrir\b|muestra(?:me)?\b|mostrar(?:me)?\b)/.test(navigationCommand)) {
                 const destination = parseNavigationTarget(t);
                 if (destination) return { toolId: 'app.navigate', args: { destination, rawText: text } };
                 if (localMatch.setting?.route) return { toolId: 'app.navigate', args: { settingRoute: localMatch.setting.route,
@@ -1029,11 +1060,13 @@
         function clarifyRequest(text) {
             if (isUsageGuidanceRequest(text)) return null;
             const normalized = normalize(text);
-            const actionRequest = /\b(quiero|necesito|puedes|podrias|ayudame|haz|hacer|abre|busca|mueve|sube|publica|edita|instala|envia|manda|automatiza|configura|cambia|activa|desactiva|descarga|organiza|resuelve|quiero que|necesito que)\b/.test(normalized);
             const toolDiscovery = /\b(herramienta|funcion|opcion)\b/.test(normalized)
                 && (/\b(para|busco|necesito|sirve|permite|no se|no conozco)\b/.test(normalized)
                     || /\b(cual|que)\s+(?:herramienta|funcion|opcion)\b/.test(normalized))
                 && !/\bque es\b/.test(normalized);
+            if (isInformationalRequest(text) && !toolDiscovery) return null;
+            const actionRequest = /\b(abre|abrir|busca|buscar|mueve|mover|sube|subir|publica|publicar|edita|editar|instala|instalar|envia|enviar|manda|mandar|automatiza|automatizar|configura|configurar|cambia|cambiar|activa|activar|desactiva|desactivar|descarga|descargar)\b/.test(normalized)
+                || /^(?:quiero|necesito|puedes|podrias|ayudame)\b.*\b(?:aplicacion|programa|archivo|carpeta|dispositivo|recordatorio|alarma|tarea|reunion)\b/.test(conversationalText(text));
             if (!normalized || (!actionRequest && !toolDiscovery)) return null;
 
             const available = id => registry.has(id);
@@ -1587,9 +1620,15 @@
         });
 
         register({
-            id: 'app.inspect', description: 'Explica la página y la sección actual verificadas.', confirm: 'never', reversible: true,
-            execute() { return describePage(); }, verify(result) { return !!result?.route; },
-            formatResult(result) { return `Estás en ${result.label}. ${result.description} Puedes pedirme «llévame a…» para abrir otro apartado de Gunter.`; }
+            id: 'app.inspect', description: 'Explica la ubicación actual y el catálogo real de herramientas registradas.', confirm: 'never', reversible: true,
+            execute(args) { return { ...describePage(), ...(args.capabilities ? { tools: listTools(), settingsCount: localSettings().length } : {}) }; },
+            verify(result) { return !!result?.route; },
+            formatResult(result) {
+                if (result.tools) return `Puedo conversar, explicar y ayudarte a razonar sobre temas generales, reconociendo mis límites. Estas son las ${result.tools.length} herramientas registradas en esta página:\n` +
+                    result.tools.map(tool => `• ${tool.description}`).join('\n') +
+                    `\nTambién puedo consultar ${result.settingsCount} ajustes locales registrados y los ajustes del servidor cuando esté disponible. Pídeme «llévame a…», describe el resultado que necesitas o pregunta por un ajuste. Una herramienta registrada no garantiza que el servicio o dispositivo esté conectado: compruebo disponibilidad y permisos al ejecutarla. Las acciones sensibles conservan su confirmación; no he ejecutado ninguna al mostrar esta lista.`;
+                return `Estás en ${result.label}. ${result.description} Puedes pedirme «llévame a…» para abrir otro apartado de Gunter.`;
+            }
         });
 
         register({
@@ -2794,7 +2833,7 @@
             executeWorkflowStep,
             clearPending: () => { savePending(null); referenceContext = pendingReminderReference = pendingEventSelection = null; }, normalize,
             getSettingsCatalog: localSettings, getCurrentPage: describePage,
-            isUsageGuidanceRequest,
+            isUsageGuidanceRequest, isInformationalRequest,
             getRecommendationContext(text) {
                 if (!isUsageGuidanceRequest(text)) return '';
                 const preferred = ['personalMemoryContext', 'conversationContinuity', 'contextualRecommendations', 'dailyPlanner', 'weeklyPlanner',

@@ -464,7 +464,10 @@
         }
 
         // Modo tutor: ¿qué libros / biblioteca / ruta de estudio?
-        if (/\b(que libros|cuales libros|biblioteca|que puedes enseñarme|que puedes ensename|ruta de estudio|curriculum|curriculo|catalog(o|ue)|obras (del|de|disponibles)|autor)\b/.test(t)) {
+        const tutorQuery = t.replace(/[¿?¡!.,;:]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (/\b(?:modo sabio|modo tutor|tu biblioteca|tus libros|tu catalogo|biblioteca (?:de gunter|del tutor)|catalogo del tutor|ruta de estudio (?:del tutor|de gunter))\b/.test(tutorQuery)
+            || /^(?:(?:muestra(?:me)?|abre|consulta) (?:la |el )?)?(?:biblioteca|catalogo|ruta de estudio)$/.test(tutorQuery)
+            || /^(?:que|cuales) libros (?:tienes|tiene gunter|hay en tu biblioteca)\b/.test(tutorQuery)) {
             const tutor = window.GunterTutor;
             if (!tutor) return { reply: 'El módulo tutor no está cargado en esta página. Recargá.', intent: 'tutor-guide', __clientHandled: true };
             if (!tutor.isEnabled?.()) {
@@ -603,17 +606,6 @@
         addMessage('user', text);
         setTyping(true);
 
-        // Navegación determinista de respaldo: las rutas son estáticas y
-        // allowlistadas; evita que el planificador de tareas interprete
-        // "ve a tareas" como una solicitud temporal.
-        const directDestination = !toolHint || toolHint.toolId === 'app.navigate' ? resolveGunterNavigation(text) : null;
-        if (directDestination) {
-            finishTyping();
-            reply(`Abriendo ${directDestination.label}.`);
-            window.location.assign(directDestination.href);
-            return;
-        }
-
         // Safety net: siempre limpiar el typing indicator al terminar
         const safetyTimer = setTimeout(() => {
             if (turnId !== STATE.turnId) return;
@@ -647,8 +639,9 @@
             // primero al registro allowlist antes de los interceptores históricos.
             const earlyIntent = window.GunterAssistantTools?.detect?.(text);
             const guidanceRequest = window.GunterAssistantTools?.isUsageGuidanceRequest?.(text) === true;
+            const informationalRequest = window.GunterAssistantTools?.isInformationalRequest?.(text) === true;
             const contextualFollowUp = window.GunterAssistantTools?.isContextualFollowUp?.(text) === true;
-            if (!earlyIntent && !voiceInput && !guidanceRequest && /\b(personalidad|estilo de voz|modo de personalidad|intensidad|ponte|comportamiento)\b/i.test(text) && window.GunterActions?.dispatch) {
+            if (!earlyIntent && !voiceInput && !guidanceRequest && !informationalRequest && /\b(personalidad|estilo de voz|modo de personalidad|intensidad|ponte|comportamiento)\b/i.test(text) && window.GunterActions?.dispatch) {
                 const styleResult = await window.GunterActions.dispatch(text);
                 if (turnId !== STATE.turnId) return;
                 if (styleResult?.reply) { clearTimeout(safetyTimer); finishTyping(); reply(styleResult.reply); return; }
@@ -693,7 +686,7 @@
 
             // 0.2. Planes multipaso durables. Solo intercepta cuando detecta
             // dos o más habilidades Web permitidas y siempre propone antes de actuar.
-            if (!guidanceRequest && !voiceInput && window.GunterWorkflowOrchestrator?.dispatch) {
+            if (!informationalRequest && !guidanceRequest && !voiceInput && window.GunterWorkflowOrchestrator?.dispatch) {
                 try {
                     const workflowResponse = await withTimeout(
                         window.GunterWorkflowOrchestrator.dispatch(text),
@@ -770,7 +763,7 @@
 
             // 1. Intentar action dispatcher (toggle, query, list) con timeout
             let response = null;
-            if (!guidanceRequest && !voiceInput && window.GunterActions?.dispatch) {
+            if (!informationalRequest && !guidanceRequest && !voiceInput && window.GunterActions?.dispatch) {
                 try {
                     response = await withTimeout(
                         window.GunterActions.dispatch(resolvedText),
@@ -805,7 +798,7 @@
             // 1.5. LLM classifier bridge — si el regex no matcheó nada, preguntamos
             //      al LLM si es realmente un intent de feature (typos, phrasing raro).
             //      Solo si tenemos NLP + tiempo.
-            if (!guidanceRequest && !voiceInput && window.GunterNlpLlm?.complete && window.GunterActions?.dispatch && text.length < 200 && /\b(feature|funci[oó]n|herramienta|configuraci[oó]n|opci[oó]n|ajuste|modo|personalidad|activa|desactiva|habilita|enciende|apaga|prende)\b/i.test(text)) {
+            if (!informationalRequest && !guidanceRequest && !voiceInput && window.GunterNlpLlm?.complete && window.GunterActions?.dispatch && text.length < 200 && /\b(feature|funci[oó]n|herramienta|configuraci[oó]n|opci[oó]n|ajuste|modo|personalidad|activa|desactiva|habilita|enciende|apaga|prende)\b/i.test(text)) {
                 if (turnId !== STATE.turnId) return;
                 try {
                     const classifier = await withTimeout(
@@ -928,32 +921,6 @@
             clearTimeout(safetyTimer);
             if (STATE.turnController === controller) STATE.turnController = null;
         }
-    }
-
-    function resolveGunterNavigation(text) {
-        const normalized = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-            .replace(/^(?:(?:hi|hey|hola|oye)\s+)?(?:gunter|gonter|gunder)\s*[,;:!\-]*\s*/, '').trim();
-        if (!/^(?:ve a|ir a|lleva(?:me)? a|abre|abrir|navega(?:r)? a|entra a|muestrame)\b/.test(normalized)) return null;
-        const routes = [
-            { label: 'las opciones avanzadas', href: 'config.html#premium', aliases: ['opciones avanzadas', 'ajustes avanzados', 'configuracion avanzada', 'asistente ia', 'configuracion de voz'] },
-            { label: 'Conversaciones', href: 'day.html#conversations', aliases: ['conversaciones', 'mensajes', 'chats', 'bandeja'] },
-            { label: 'Nueva reunión', href: 'new-project.html', aliases: ['nueva reunion', 'preparar reunion'] },
-            { label: 'Reuniones', href: 'dashboard.html', aliases: ['reuniones', 'reunion', 'panel de reuniones'] },
-            { label: 'Resultados', href: 'results.html', aliases: ['resultados', 'transcripciones'] },
-            { label: 'Captura rápida', href: 'day.html#capture', aliases: ['captura rapida', 'captura'] },
-            { label: 'Tareas', href: 'day.html#tasks', aliases: ['tareas', 'pendientes'] },
-            { label: 'Agenda', href: 'day.html#events', aliases: ['agenda', 'calendario', 'eventos'] },
-            { label: 'Recordatorios', href: 'day.html#reminders', aliases: ['recordatorios'] },
-            { label: 'Actividad', href: 'day.html#activity', aliases: ['actividad', 'historial'] },
-            { label: 'Conexiones', href: 'config.html#connections', aliases: ['conexiones', 'redes sociales'] },
-            { label: 'Preferencias', href: 'config.html#preferences', aliases: ['preferencias'] },
-            { label: 'Configuración', href: 'config.html#preferences', aliases: ['configuracion', 'ajustes'] },
-            { label: 'Inicio', href: 'day.html', aliases: ['inicio', 'principal', 'hoy'] }
-        ];
-        const target = normalized.replace(/^(?:ve a|ir a|lleva(?:me)? a|abre|abrir|navega(?:r)? a|entra a|muestrame)\s+/, '').trim();
-        const matches = routes.flatMap(route => route.aliases.map(alias => ({ route, alias })))
-            .sort((a, b) => b.alias.length - a.alias.length);
-        return matches.find(({ alias }) => new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(target))?.route || null;
     }
 
     // ─────────────────────────────────────
@@ -1191,6 +1158,7 @@ ${suggestions.length ? 'Sugerencias disponibles si son pertinentes (ofrécelas, 
 - ${continuityOn ? 'Mantén coherencia con la conversación reciente (abajo). Si el usuario usa pronombres, relaciónalos con el último tema tratado.' : 'La continuidad está desactivada: no presupongas temas de turnos anteriores; pregunta si una referencia es ambigua.'}
 - Responde breve (máx ~70 palabras), tesis primero, evidencia si aporta.
 - Nunca inventes datos, fuentes, estado de una integración, ejecución o resultado. Distingue claramente conocimiento general, datos comprobados en esta app e inferencias; si no puedes verificar, dilo y no lo presentes como hecho.
+- Puedes explicar temas generales, razonar, escribir y ayudar a aprender aunque no correspondan a una herramienta de Gunter. No confundas explicar una acción con ejecutarla. Tu conocimiento no es universal ni necesariamente actualizado; no finjas haber consultado fuentes ni disponer de acceso a internet.
 - No afirmes que puedes ejecutar una acción solo porque sabes explicarla. Solo declara disponible una acción si existe una herramienta cargada/permitida en esta sesión; nunca inventes nombres de opciones, rutas, permisos ni resultados.
 - Si la petición de acción es ambigua o no reconoces el nombre de una herramienta, explica brevemente qué entendiste, sugiere únicamente capacidades que consten en el contexto/herramientas disponibles y pregunta por el resultado deseado, aplicación/dispositivo o una descripción de la herramienta. Si faltan datos, pregunta antes de actuar.
 - Si una capacidad no existe o no está disponible, dilo sin rodeos y ofrece una alternativa realista; no simules que la hiciste.

@@ -404,7 +404,7 @@ function browserModule(relativePath, windowOverrides = {}) {
         assert.deepEqual(visited, ['day.html#conversations']);
         const settings = await toolset.dispatch('abre las opciones avanzadas');
         assert.equal(settings.status, 'complete');
-        assert.deepEqual(visited, ['day.html#conversations', 'config.html#premium']);
+        assert.deepEqual(visited, ['day.html#conversations', 'config.html#diagnostics']);
     });
 
     await test('Gunter cambia preferencias de apariencia y accesibilidad en la misma sesión', async () => {
