@@ -133,9 +133,10 @@ async function test(name, fn) { await fn(); passed++; console.log('  ✓ ' + nam
         voice.cancel();
     });
     await test('without an unlocked signal speech stays native and no intensity is invented', async () => {
-        const h = harness('voice-service.js'), voice = h.root.GunterVoice;
+        const h = harness('voice-service.js', { contextState: 'suspended', deferResume: true }), voice = h.root.GunterVoice;
         voice.setAudioAnalysisEnabled(true); await voice.speak('Fixture'); await tick();
-        assert.equal(h.contexts.length, 0); assert.equal(h.audios[0].paused, false);
+        assert.equal(h.contexts.length, 1); assert.equal(h.contexts[0].state, 'suspended'); assert.equal(h.audios[0].paused, false);
+        assert.equal(h.contexts[0].sources.length, 0, 'a blocked context never captures the audible route');
         assert.equal(h.levels('assistant').at(-1).reason, 'signal-unavailable');
         assert.equal(h.levels('assistant').some(level => level.level > 0), false);
         voice.cancel();
@@ -157,12 +158,12 @@ async function test(name, fn) { await fn(); passed++; console.log('  ✓ ' + nam
         h.audios[0].volume=.5;h.contexts[0].analyser.getFloatTimeDomainData=data=>data.fill(.125);h.step(0);
         assert.equal(v.getAudioAnalysisState().level,.125);v.cancel();
         const c=harness('voice-service.js',{captureSupported:true}),cv=c.root.GunterVoice;
-        cv.setAudioAnalysisEnabled(true);await cv.speak('Fixture');await tick();c.gesture();c.audios[0].volume=.5;c.step(0);
+        await cv.speak('Fixture');await tick();cv.setAudioAnalysisEnabled(true);c.gesture();c.audios[0].volume=.5;c.step(0);
         assert.equal(cv.getAudioAnalysisState().level,.125);cv.cancel();
     });
     await test('late user gesture attaches a single native playback tap after resume and reports real timestamps',async()=>{
         const h=harness('voice-service.js',{captureSupported:true,contextState:'suspended',deferResume:true}),v=h.root.GunterVoice;
-        v.setAudioAnalysisEnabled(true);await v.speak('Fixture');await tick();assert.equal(h.contexts.length,0);
+        v.setAudioAnalysisEnabled(true);await v.speak('Fixture');await tick();assert.equal(h.contexts.length,1);
         h.gesture();assert.equal(h.frames.size,0);h.contexts[0].finishResume();await tick();h.step(40);
         assert.equal(v.getAudioAnalysisState().at,40);assert.equal(v.getAudioAnalysisState().enabled,true);
         assert.ok(v.getAudioAnalysisState().level>0);h.gesture();h.step(80);
@@ -178,7 +179,7 @@ async function test(name, fn) { await fn(); passed++; console.log('  ✓ ' + nam
     });
     await test('buffering, ended capture and mute clear the measured level and never request microphone input',async()=>{
         const h=harness('voice-service.js',{captureSupported:true}),v=h.root.GunterVoice;
-        v.setAudioAnalysisEnabled(true);await v.speak('Fixture');await tick();h.gesture();h.step(0);
+        await v.speak('Fixture');await tick();v.setAudioAnalysisEnabled(true);h.gesture();h.step(0);
         const a=h.audios[0];a.emit('waiting');assert.equal(v.getAudioAnalysisState().level,0);assert.equal(h.frames.size,0);
         a.emit('playing');h.step(40);assert.ok(v.getAudioAnalysisState().level>0);
         a.muted=true;a.emit('volumechange');h.step(80);assert.equal(v.getAudioAnalysisState().level,0);
@@ -191,6 +192,26 @@ async function test(name, fn) { await fn(); passed++; console.log('  ✓ ' + nam
             h.contexts[0].analyser.getFloatTimeDomainData=data=>data.fill(sample);h.step(0);
             assert.equal(v.getAudioAnalysisState().level,0);assert.equal(v.getAudioAnalysisState().available,false);assert.equal(h.frames.size,0);v.cancel();
         }
+    });
+    await test('continuous voice playback starts real analysis without requiring another gesture when allowed', async () => {
+        const h=harness('voice-service.js'),v=h.root.GunterVoice;
+        v.setAudioAnalysisEnabled(true);await v.speak('Respuesta continua');await tick();h.step(0);
+        assert.equal(h.contexts.length,1);assert.equal(h.contexts[0].sources.length,1);
+        assert.equal(v.getAudioAnalysisState().level,.25);assert.equal(v.getAudioAnalysisState().available,true);
+        h.contexts[0].analyser.getFloatTimeDomainData=data=>data.fill(0);h.step(40);
+        assert.equal(v.getAudioAnalysisState().level,0,'a pause inside speech has no invented pulse');
+        h.contexts[0].analyser.getFloatTimeDomainData=data=>data.fill(.06);h.step(80);
+        assert.ok(Math.abs(v.getAudioAnalysisState().level-.06)<1e-7);
+        assert.equal(h.permissions(),0);v.cancel();
+    });
+    await test('late context unlock without captureStream meters native playback once without restarting speech', async () => {
+        const h=harness('voice-service.js',{contextState:'suspended',deferResume:true}),v=h.root.GunterVoice;
+        v.setAudioAnalysisEnabled(true);await v.speak('Respuesta continua');await tick();
+        const a=h.audios[0];assert.equal(a.paused,false);assert.equal(h.contexts[0].sources.length,0);
+        h.gesture();h.contexts[0].finishResume();await tick();h.step(40);
+        assert.equal(a.paused,false);assert.equal(h.audios.length,1);assert.equal(h.contexts[0].sources.length,1);
+        assert.equal(h.contexts[0].analyser.connections.length,1);assert.equal(v.getAudioAnalysisState().level,.25);
+        h.gesture();h.step(80);assert.equal(h.contexts[0].sources.length,1);assert.equal(h.permissions(),0);v.cancel();
     });
     await test('microphone metering reuses authorised stream and VAD analyser', async () => {
         const h = harness('voice-activity-service.js'), vad = h.root.GunterVoiceActivity;

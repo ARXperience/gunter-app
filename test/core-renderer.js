@@ -179,6 +179,15 @@ check('Existing API mounts an idle canvas while preserving the host layout', () 
     assert.equal(env.art.classList.contains('existing-layout'), true); assert.equal(env.art.dataset.particlesReady, 'true');
     assert.equal(env.nodes.some(node => ['VIDEO', 'IMG', 'SVG'].includes(node.tagName)), false);
 });
+check('Presence transitions use layout resolution, not the temporarily scaled FLIP rectangle', () => {
+    const env = environment();
+    env.art.clientWidth = 500; env.art.clientHeight = 500;
+    env.art.width = 112; env.art.height = 112;
+    const resize = env.observers.find(observer => observer instanceof env.window.ResizeObserver && observer.targets.has(env.art));
+    resize.callback();
+    assert.equal(env.canvas().width, 500); assert.equal(env.canvas().height, 500);
+    assert.equal(env.engines.length, 1, 'moving the visual never recreates its GPU compositor');
+});
 check('The visual defaults and energy color alias are exact and getters cannot mutate shared state', () => {
     const env = environment();
     const defaults = { particleColor: '#b8bec9', energyColor: '#ff452b', color: '#ff452b', glowColor: '#ff6d35',

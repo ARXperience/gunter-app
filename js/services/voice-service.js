@@ -68,7 +68,8 @@
     let audioSignal = { source: 'assistant', level: 0, active: false, available: false, at: Date.now() };
 
     // Optional visual metering. It never decodes a second audio file or opens a
-    // microphone. A running context is primed only by a real user gesture.
+    // microphone. A context may resume only when the browser allows it; failure
+    // leaves playback native rather than replacing a missing signal with pulses.
     function emitAudioLevel(level = 0, active = false, available = false, reason = '') {
         audioSignal = { source: 'assistant', level: Math.max(0, Math.min(1, Number(level) || 0)), active, available, reason, at: Date.now() };
         try { window.dispatchEvent(new CustomEvent('gunter-audio-level', { detail: audioSignal })); } catch {}
@@ -186,7 +187,11 @@
 
     function startAudioAnalysis(audio, token) {
         if (!audioAnalysisEnabled || token !== generation || currentAudio !== audio || audio.paused || audio.ended || audioBuffering) return;
-        const record = playbackAnalysis || createPlaybackAnalysis(audio, token, true);
+        // captureStream is a non-audible tap when available. Safari and some
+        // embedded browsers do not expose it, so an unlocked context can attach
+        // the same single audible graph even after playback has already begun.
+        const record = playbackAnalysis || createPlaybackAnalysis(audio, token, true)
+            || createPlaybackAnalysis(audio, token);
         if (!hasAnalysisSignal(record) || !window.requestAnimationFrame) {
             emitAudioLevel(0, false, false, 'signal-unavailable'); return;
         }
@@ -675,6 +680,10 @@
                 return;
             }
             voiceMetric('audioReady', { chars: next.text.length });
+            // Wake-word/continuous replies may begin without another click.
+            // Try the browser's existing autoplay permission, never block or
+            // await it: a suspended graph must not interrupt native speech.
+            primeAudioAnalysis();
             const audio = new Audio(url);
             audio.volume = next.opts.volume ?? 1;
             currentAudio = audio;

@@ -275,7 +275,11 @@
         delete el.dataset.videoPlayback; delete el.dataset.audioSignal; delete el.dataset.audioLevel;
         const resize = () => {
             const box = el.getBoundingClientRect();
-            const width = Math.max(0, box.width), height = Math.max(0, box.height);
+            // Layout dimensions stay stable during the presence controller's
+            // FLIP scale. Measuring its animated bounds left the final hero
+            // permanently rendered at the dock's low resolution.
+            const width = Math.max(0, typeof el.clientWidth === 'number' ? el.clientWidth : box.width);
+            const height = Math.max(0, typeof el.clientHeight === 'number' ? el.clientHeight : box.height);
             const ratio = Math.min(1.5, window.devicePixelRatio || 1, 720 / Math.max(1, width, height));
             const pixelWidth = Math.max(1, Math.round(width * ratio)), pixelHeight = Math.max(1, Math.round(height * ratio));
             if (record.width === width && record.height === height

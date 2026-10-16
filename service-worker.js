@@ -11,7 +11,7 @@
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = "v162-conversation-routing-20261015";
+const SW_VERSION = "v163-core-motion-20261016";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;
@@ -41,14 +41,16 @@ const PRECACHE_URLS = [
     '/assets/gunter/gunter-core-192.png',
     '/assets/gunter/gunter-core-512.png',
     '/styles/gunter-idle-core.css?v142b-idle-core',
-    '/js/components/gunter-idle-core.js?v149-contained-voice',
-    '/js/services/voice-service.js?v160-voice-continuity-guidance',
+    '/styles/gunter-core-presence.css?v163-core-motion',
+    '/js/services/gunter-core-presence.js?v163-core-motion',
+    '/js/components/gunter-idle-core.js?v163-core-motion',
+    '/js/services/voice-service.js?v163-core-motion',
     '/js/services/voice-activity-service.js?v141-video-core',
     '/js/config-settings.js?v159-section-navigation',
     '/styles/gunter-orbit-home.css?v135-orbit-home',
     '/styles/gunter-hologram.css?v135-orbit-home',
     '/js/services/gunter-orbit-home.js?v135-orbit-home',
-    '/js/services/gunter-particles.js?v149-contained-voice',
+    '/js/services/gunter-particles.js?v163-core-motion',
     '/styles/gunter-workspace.css?v139-orbital-workspaces',
     '/styles/gunter-interior.css?v155-unified-interior',
     '/styles/gunter-workspace-layout.css?v158-structured-workspaces',

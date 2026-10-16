@@ -322,8 +322,8 @@
             float matter=material.r;
             vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,emission+material.b*.45));
             vec3 color=u_particle*tint*material.b*(.55+material.a*2.0)*(1.0-emission*.65)
-                +u_energy*incident*(1.1+u_audio*.22)
-                +u_glow*emission*emission*(.35+u_pointer.z*.32+u_audio*.65);
+                +u_energy*incident*(1.1+u_audio*.70)
+                +u_glow*emission*emission*(.35+u_pointer.z*.32+u_audio*1.45);
             // Front microfibres cover the buried emitter. Keep their shaded
             // material response instead of painting emission over their face.
             vec3 coat=u_particle*tint*material.b*(.35+material.a*.90);
@@ -370,8 +370,10 @@
                 vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,heat+incident*.45));
                 vec3 scattered=u_particle*tint*incident*(.10+face*3.8)*(1.0-heat*.65)
                     +u_energy*incident*.10;
-                vec3 emitted=u_energy*(2.4+u_pointer.z*heat*.28+u_audio*.40)
-                    +u_glow*heat*(.25+u_pointer.z*.28+u_audio*.65);
+                // Voice changes the buried emitter, not a global screen flash.
+                // A syllable lifts local radiance while pauses restore idle.
+                vec3 emitted=u_energy*(2.4+u_pointer.z*heat*.28+u_audio*1.70)
+                    +u_glow*heat*(.25+u_pointer.z*.28+u_audio*1.45);
                 float emission=1.0-exp(-heat*3.0*(1.92/40.0));
                 // Emission is accumulated at its buried 3D sample. Only the
                 // actual matter extinguishes it; the gas has no front surface.

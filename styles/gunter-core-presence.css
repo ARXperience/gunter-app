@@ -1,0 +1,83 @@
+/* One visual identity travels between the home stage and the existing chat.
+   Its light comes from the shared renderer's real audio meter, never CSS beats. */
+:root { --core-dock-left: max(24px, env(safe-area-inset-left)); --core-dock-bottom: max(24px, env(safe-area-inset-bottom)); --core-dock-size: 68px; }
+.gn-core-presence {
+  position: fixed; left: 0; top: 0; z-index: 11001; pointer-events: none;
+  transform-origin: 0 0; isolation: isolate; overflow: visible;
+  view-transition-name: gunter-core-identity;
+}
+.gn-core-presence[hidden] { display: none !important; }
+.gn-core-presence[data-mode="home"] { z-index: 211; }
+.gn-core-presence > .gn-core-presence__art {
+  position: absolute !important; inset: 0 !important;
+  width: 100% !important; height: 100% !important; aspect-ratio: 1;
+  pointer-events: none !important; overflow: visible;
+  transform: translateY(var(--core-peek-y, 0px)) scale(var(--core-peek-scale, 1)) !important;
+  transition: transform 320ms cubic-bezier(.2, .8, .2, 1);
+}
+.gn-core-presence[data-mode="dock"].is-peeking { --core-peek-y: -18px; --core-peek-scale: 1.12; }
+html body.gunter-core-presence-active #gunter-companion.gn-comp {
+  display: block !important;
+  left: var(--core-dock-left) !important; right: auto !important;
+  bottom: var(--core-dock-bottom) !important;
+  width: var(--core-dock-size) !important; height: var(--core-dock-size) !important;
+  transform: none !important; z-index: 11000 !important;
+}
+html body.gunter-core-presence-active #gunter-companion.gn-comp.is-expanded {
+  bottom: calc(var(--core-dock-bottom) + var(--core-dock-size) + 16px) !important;
+  width: min(420px, calc(100vw - 48px)) !important;
+  height: min(560px, calc(100dvh - var(--core-dock-bottom) - var(--core-dock-size) - 40px)) !important;
+}
+html body.gunter-core-presence-active #gunter-companion.gn-comp .gn-comp__bubble {
+  position: fixed !important; inset: auto !important;
+  left: var(--core-dock-left) !important; bottom: var(--core-dock-bottom) !important;
+  width: var(--core-dock-size) !important; height: var(--core-dock-size) !important;
+  min-width: var(--core-dock-size) !important; min-height: var(--core-dock-size) !important;
+  display: flex !important; opacity: 1 !important; pointer-events: auto !important;
+  overflow: visible !important; transform: none !important;
+  background: color-mix(in srgb, var(--orbit-chat-bg, #101a2e) 88%, transparent) !important;
+  border-color: color-mix(in srgb, var(--gw-violet, #caa4ff) 45%, transparent) !important;
+  transition: border-color 180ms ease, box-shadow 180ms ease !important;
+}
+html body.gunter-core-presence-active #gunter-companion.gn-comp .gn-comp__bubble:is(:hover, :focus-visible) {
+  border-color: var(--gw-violet, #caa4ff) !important;
+  box-shadow: 0 0 24px color-mix(in srgb, var(--gw-violet, #caa4ff) 20%, transparent) !important;
+}
+html body.gunter-core-presence-active #gunter-companion .gn-comp__bubble .gn-mascot { display: none !important; }
+html body.gunter-core-presence-active #gunter-companion .gn-comp__bubble::after {
+  content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 22px; height: 22px; background: var(--orbit-chat-ink, #f1f4ff);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 18l-3 3V6a3 3 0 013-3h12a3 3 0 013 3v9a3 3 0 01-3 3H6z' fill='none' stroke='black' stroke-width='1.6'/%3E%3Cpath d='M7 8h10M7 12h7' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  opacity: 0; transition: opacity 180ms ease;
+}
+html body.gunter-core-presence-active.gunter-orbit-home-active #gunter-companion .gn-comp__bubble::after { opacity: .9; }
+html body.gunter-core-presence-active #gunter-companion .gn-comp__tooltip { left: 0; right: auto; transform-origin: bottom left; }
+html body.gunter-core-presence-active #gunter-companion .gn-comp__chat { transform-origin: bottom left; }
+@keyframes gunter-workspace-enter { from { opacity: 0; translate: 0 7px; } to { opacity: 1; translate: 0 0; } }
+body.gunter-core-presence-active:not(.gunter-orbit-home-active) :is(.gday__tab-panel, .config-panel):not([hidden]) {
+  animation: gunter-workspace-enter 220ms cubic-bezier(.2, .8, .2, 1);
+}
+
+/* The browser can carry the same identity across full-document navigation.
+   Hash navigation uses the controller's interruptible FLIP instead. */
+@view-transition { navigation: auto; }
+::view-transition-old(gunter-core-identity), ::view-transition-new(gunter-core-identity) { mix-blend-mode: normal; height: 100%; }
+::view-transition-group(gunter-core-identity) { animation-duration: 550ms; animation-timing-function: cubic-bezier(.22, .75, .18, 1); }
+@media (max-width: 700px) {
+  :root { --core-dock-left: max(32px, env(safe-area-inset-left)); --core-dock-bottom: calc(88px + env(safe-area-inset-bottom)); --core-dock-size: 48px; }
+  body.gunter-orbit-home-active { --core-dock-bottom: max(12px, env(safe-area-inset-bottom)); }
+  html body.gunter-core-presence-active #gunter-companion.gn-comp.is-expanded { left: max(14px, env(safe-area-inset-left)) !important; width: calc(100vw - 28px) !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gn-core-presence, .gn-core-presence > .gn-core-presence__art { transition: none !important; }
+  .gn-core-presence.is-peeking { --core-peek-y: 0px; --core-peek-scale: 1; }
+  body.gunter-core-presence-active :is(.gday__tab-panel, .config-panel) { animation: none !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+html.reduce-motion .gn-core-presence, html.reduce-motion .gn-core-presence > .gn-core-presence__art,
+body.reduce-motion .gn-core-presence, body.reduce-motion .gn-core-presence > .gn-core-presence__art { transition: none !important; }
+html.reduce-motion .gn-core-presence.is-peeking, body.reduce-motion .gn-core-presence.is-peeking { --core-peek-y: 0px; --core-peek-scale: 1; }
+html.reduce-motion body.gunter-core-presence-active :is(.gday__tab-panel, .config-panel),
+body.reduce-motion.gunter-core-presence-active :is(.gday__tab-panel, .config-panel) { animation: none !important; }
+html.reduce-motion::view-transition-group(*), html.reduce-motion::view-transition-old(*), html.reduce-motion::view-transition-new(*),
+html:has(body.reduce-motion)::view-transition-group(*), html:has(body.reduce-motion)::view-transition-old(*), html:has(body.reduce-motion)::view-transition-new(*) { animation: none !important; }

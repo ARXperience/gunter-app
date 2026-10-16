@@ -423,6 +423,20 @@ check('combined inertial pointer and measured audio retain one contained medium 
     assert.equal(e.core.stats().volumeGrid,48);assert.equal(e.core.stats().volumeSamples,40);
     e.core.dispose();released(e);
 });
+check('voice radiance modulates the buried energy and illuminated fibres, not a timed screen pulse',()=>{
+    const e=environment();e.render(8);
+    const volume=e.core.programs.volume.program.shaders.find(shader=>shader.source.includes('vec3 emitted=')).source;
+    const strands=e.core.programs.strands.program.shaders.find(shader=>shader.source.includes('vec3 coat=')).source;
+    assert.match(volume,/u_energy\*\(2\.4\+u_pointer\.z\*heat\*\.28\+u_audio\*1\.70\)/);
+    assert.match(volume,/color\+=\(1\.0-opacity\)\*\(scattered\*density\+emitted\*emission\)/);
+    assert.match(strands,/u_glow\*emission\*emission\*\(\.35\+u_pointer\.z\*\.32\+u_audio\*1\.45\)/);
+    for(const level of [0,.03,.15,0]) {
+        e.core.setAudioLevel(level,true);e.render(8);
+        assert.equal(e.core.programs.volume.program.u_audio[0],1-Math.exp(-level*5));
+    }
+    assert.equal(e.core.programs.volume.program.u_audio[0],0,'silence restores idle radiance');
+    assert.equal(e.live.Framebuffer.size,7);e.core.dispose();released(e);
+});
 check('Invalid, absent or muted samples cannot leave invented audio amplitude across restore/dispose',()=>{
     const e=environment();e.render(8);
     for(const level of [NaN,Infinity,'1',undefined]){
