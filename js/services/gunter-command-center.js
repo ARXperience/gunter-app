@@ -117,7 +117,7 @@
                 </div>
             </details>
             <div class="gunter-command-nav__dock" aria-label="Comandos de Gunter">
-                <a class="gw-dock-core" href="day.html" aria-label="Volver al núcleo"><img src="assets/gunter/gunter-core.svg?v166-bio-river" width="28" height="28" alt=""></a>
+                <a class="gw-dock-core" href="day.html" aria-label="Volver al núcleo"><img src="assets/gunter/gunter-core.svg?v173-material-navigation" width="28" height="28" alt=""></a>
                 <button class="gunter-command-nav__voice" type="button" data-gunter-voice-toggle aria-label="Activar escucha de voz" aria-pressed="false" title="Activar escucha de voz">${icon('microphone')}<span>Hablar con Gunter</span></button>
                 <button class="gw-write" type="button" data-workspace-chat>${icon('message')}<span>Escribir</span></button>
                 <button class="gunter-command-nav__dock-menu" type="button" data-open-mobile-menu aria-label="Más opciones" aria-controls="gunter-mobile-menu" aria-expanded="false">${icon('menu')}<span>Más</span></button>
@@ -609,7 +609,7 @@
                 <svg aria-hidden="true" viewBox="0 0 260 240" fill="none"><path d="M10 63h45l44 35M249 71h-42l-40 31M13 178h40l47-33M247 176h-44l-40-32"/>
                 <ellipse cx="130" cy="120" rx="91" ry="39"/><ellipse cx="130" cy="120" rx="91" ry="39" transform="rotate(62 130 120)"/><ellipse cx="130" cy="120" rx="91" ry="39" transform="rotate(-62 130 120)"/>
                 <circle cx="130" cy="120" r="18"/><circle cx="10" cy="63" r="4"/><circle cx="249" cy="71" r="4"/><circle cx="13" cy="178" r="4"/><circle cx="247" cy="176" r="4"/></svg>
-                <img src="assets/gunter/gunter-core.svg?v166-bio-river" width="54" height="54" alt="">
+                <img src="assets/gunter/gunter-core.svg?v173-material-navigation" width="54" height="54" alt="">
                 <nav class="gw-context-map-routes" aria-label="Rutas relacionadas" data-workspace-orbits></nav>
             </div>
             <span class="gw-rail-marker">ASISTENTE / CONTEXTO</span>

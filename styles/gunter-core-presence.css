@@ -55,15 +55,24 @@ html body.gunter-core-presence-active #gunter-companion.gn-comp .gn-comp__bubble
 html body.gunter-core-presence-active #gunter-companion .gn-comp__bubble .gn-mascot { display: none !important; }
 html body.gunter-core-presence-active #gunter-companion .gn-comp__bubble::after {
   content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: 44px; height: 44px; background: url('../assets/gunter/gunter-core.svg?v166-bio-river') center / contain no-repeat;
+  width: 44px; height: 44px; background: url('../assets/gunter/gunter-core.svg?v173-material-navigation') center / contain no-repeat;
   opacity: 0; transition: opacity 180ms ease;
 }
 html body.gunter-core-presence-active.gunter-orbit-home-active #gunter-companion .gn-comp__bubble::after { opacity: .9; }
 html body.gunter-core-presence-active #gunter-companion .gn-comp__tooltip { left: 0; right: auto; transform-origin: bottom left; }
 html body.gunter-core-presence-active #gunter-companion .gn-comp__chat { transform-origin: bottom left; }
-@keyframes gunter-workspace-enter { from { opacity: 0; translate: 0 7px; } to { opacity: 1; translate: 0 0; } }
-body.gunter-core-presence-active:not(.gunter-orbit-home-active) :is(.gday__tab-panel, .config-panel):not([hidden]) {
-  animation: gunter-workspace-enter 220ms cubic-bezier(.2, .8, .2, 1);
+/* Native same-origin document handoff; unsupported browsers keep normal links.
+   The particle journey finishes first in its live WebGL canvas. */
+@view-transition { navigation: auto; }
+::view-transition-group(root) { animation-duration: 280ms; background: var(--gunter-stage-edge, #080d20); }
+::view-transition-old(root), ::view-transition-new(root) { mix-blend-mode: normal; }
+::view-transition-old(root) { animation: gunter-document-out 180ms ease-in both; }
+::view-transition-new(root) { animation: gunter-document-in 280ms cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes gunter-document-out { to { opacity: 0; filter: blur(2px); translate: 0 -4px; } }
+@keyframes gunter-document-in { from { opacity: 0; filter: blur(3px); clip-path: inset(1% 0 0); translate: 0 6px; } to { opacity: 1; filter: none; clip-path: inset(0); translate: 0 0; } }
+@keyframes gunter-workspace-enter { from { opacity: .2; filter: blur(2px); translate: 0 7px; } to { opacity: 1; filter: none; translate: 0 0; } }
+body.gunter-core-presence-active:not(.gunter-orbit-home-active) :is(.gday__tab-panel, .config-panel, .dashboard-main, .results-page, .meeting-page):not([hidden]) {
+  animation: gunter-workspace-enter 280ms cubic-bezier(.2, .8, .2, 1);
 }
 
 /* Full document links hand off only the entry direction, not a frozen bitmap. */
@@ -75,13 +84,13 @@ body.gunter-core-presence-active:not(.gunter-orbit-home-active) :is(.gday__tab-p
 @media (prefers-reduced-motion: reduce) {
   .gn-core-presence, .gn-core-presence > .gn-core-presence__art { transition: none !important; }
   .gn-core-presence.is-peeking { --core-peek-y: 0px; --core-peek-scale: 1; }
-  body.gunter-core-presence-active :is(.gday__tab-panel, .config-panel) { animation: none !important; }
+  body.gunter-core-presence-active :is(.gday__tab-panel, .config-panel, .dashboard-main, .results-page, .meeting-page) { animation: none !important; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
 html.reduce-motion .gn-core-presence, html.reduce-motion .gn-core-presence > .gn-core-presence__art,
 body.reduce-motion .gn-core-presence, body.reduce-motion .gn-core-presence > .gn-core-presence__art { transition: none !important; }
 html.reduce-motion .gn-core-presence.is-peeking, body.reduce-motion .gn-core-presence.is-peeking { --core-peek-y: 0px; --core-peek-scale: 1; }
-html.reduce-motion body.gunter-core-presence-active :is(.gday__tab-panel, .config-panel),
-body.reduce-motion.gunter-core-presence-active :is(.gday__tab-panel, .config-panel) { animation: none !important; }
+html.reduce-motion body.gunter-core-presence-active :is(.gday__tab-panel, .config-panel, .dashboard-main, .results-page, .meeting-page),
+body.reduce-motion.gunter-core-presence-active :is(.gday__tab-panel, .config-panel, .dashboard-main, .results-page, .meeting-page) { animation: none !important; }
 html.reduce-motion::view-transition-group(*), html.reduce-motion::view-transition-old(*), html.reduce-motion::view-transition-new(*),
 html:has(body.reduce-motion)::view-transition-group(*), html:has(body.reduce-motion)::view-transition-old(*), html:has(body.reduce-motion)::view-transition-new(*) { animation: none !important; }

@@ -2,7 +2,7 @@
  * renderTo(canvas, width, height, seconds, config); setPointer(x,y,active);
  * config.transport: {progress,from:[ndcX,ndcY],to:[ndcX,ndcY],fromScale,toScale,bend?,startStrength?}.
  * Transport scales are native core-box sides / the output's smaller side; NDC y points up.
- * config.shape: organic, pentagram (point down), eye, hand, sword or octagram.
+ * config.shape: organic or a GunterCoreForms catalog id (six built-in fallbacks).
  * config.shadowColor controls unlit matter; config.static presents a still target.
  * resetPointer(); setAudioLevel(rms,available); stats(); dispose().
  * No DOM input, media or device capture; audio amplitude is supplied by the owner.
@@ -16,6 +16,8 @@
         uniform float u_time;
         uniform float u_audio;
         uniform vec3 u_pointer,u_pointerFlow,u_shape,u_flow,u_previousFlow;
+        uniform sampler2D u_shapeGuideFrom,u_shapeGuideTo;
+        uniform vec3 u_guideMode,u_guideWeights;
         uniform float u_static;
         vec3 worldPoint(vec3 p);
         vec3 viewPoint(vec3 p);
@@ -107,9 +109,22 @@
             }
             return guide;
         }
-        float shapedWeight(float shape) {return step(.5,shape);}
-        vec3 guidedPoint(vec3 p,float row,float shape,float t) {
-            vec3 q=viewPoint(p);vec4 guide=shapeGuide(shape,q.xy);
+        vec4 materialGuide(vec2 p,bool target) {
+            float shape=target?u_shape.y:u_shape.x;
+            float mode=target?u_guideMode.y:u_guideMode.x;
+            if(mode<.5)return shapeGuide(shape,p);
+            // Guides contain nearest material coordinates, not a visible image.
+            // Texel centres preserve the catalog's [-1,1], y-up coordinate map.
+            vec2 uv=(clamp(p,-1.0,1.0)*.5+.5)*(127.0/128.0)+vec2(.5/128.0);
+            vec4 guide=target?texture(u_shapeGuideTo,uv):texture(u_shapeGuideFrom,uv);
+            // Preserve sampled distance across Voronoi boundaries: averaging
+            // two nearest points must not invent a luminous bridge between
+            // separated fingers, wings or orbital strokes.
+            guide.z=max(guide.z,length(p-guide.xy));
+            return guide;
+        }
+        vec3 guidedPoint(vec3 p,float row,bool target,float t) {
+            vec3 q=viewPoint(p);vec4 guide=materialGuide(q.xy,target);
             vec2 normal=normalize(q.xy-guide.xy+vec2(.0001,.0002));
             float grain=fract(row*.6180339)*2.0-1.0;
             q.xy=guide.xy+normal*guide.w*grain;
@@ -118,21 +133,21 @@
             return worldPoint(q);
         }
         vec3 morphGuide(vec3 p,float row,float t) {
-            vec3 a=u_shape.x<.5?p:guidedPoint(p,row,u_shape.x,t);
-            vec3 b=u_shape.y<.5?p:guidedPoint(p,row,u_shape.y,t);
+            vec3 a=u_guideWeights.x<.0001?p:mix(p,guidedPoint(p,row,false,t),u_guideWeights.x);
+            vec3 b=u_guideWeights.y<.0001?p:mix(p,guidedPoint(p,row,true,t),u_guideWeights.y);
             return mix(a,b,u_shape.z);
         }
-        float morphWeight() {return mix(shapedWeight(u_shape.x),shapedWeight(u_shape.y),u_shape.z);}
-        float shapedDensity(vec3 p,float shape,float t) {
+        float morphWeight() {return mix(u_guideWeights.x,u_guideWeights.y,u_shape.z);}
+        float shapedDensity(vec3 p,bool target,float t) {
             vec3 q=viewPoint(p);q.xy+=vec2(sin(q.y*23.0+t*.27),cos(q.x*21.0-t*.31))*.012;
-            vec4 guide=shapeGuide(shape,q.xy);
+            vec4 guide=materialGuide(q.xy,target);
             float channel=1.0-smoothstep(guide.w*.55,guide.w*2.15,guide.z);
             float depth=1.0-smoothstep(.075,.28,abs(q.z));
             float fold=.48+.52*sin(q.x*31.0+q.y*27.0+q.z*22.0+t*.28);
             return channel*depth*(.35+fold*1.20);
         }
-        float shapedHeat(vec3 p,float shape,float t) {
-            vec3 q=viewPoint(p);vec4 guide=shapeGuide(shape,q.xy);
+        float shapedHeat(vec3 p,bool target,float t) {
+            vec3 q=viewPoint(p);vec4 guide=materialGuide(q.xy,target);
             float channel=exp(-pow(guide.z/max(.018,guide.w*.54),2.0));
             return channel*exp(-q.z*q.z/.006)*(.56+.24*sin(q.y*6.0+q.x*4.0-t*.75));
         }
@@ -186,8 +201,8 @@
         vec3 energySource(vec3 p,float t) {
             vec3 original=energyWorld(energyCurve(clamp(energyFrame(p,t).x,-.27,.27),t),t);
             vec2 q=viewPoint(p).xy;
-            vec3 a=u_shape.x<.5?original:worldPoint(vec3(shapeGuide(u_shape.x,q).xy,0));
-            vec3 b=u_shape.y<.5?original:worldPoint(vec3(shapeGuide(u_shape.y,q).xy,0));
+            vec3 a=u_guideWeights.x<.0001?original:mix(original,worldPoint(vec3(materialGuide(q,false).xy,0)),u_guideWeights.x);
+            vec3 b=u_guideWeights.y<.0001?original:mix(original,worldPoint(vec3(materialGuide(q,true).xy,0)),u_guideWeights.y);
             return mix(a,b,u_shape.z);
         }
         // A single thick, bent support carries a travelling pulse. Its floor
@@ -205,8 +220,8 @@
             float support=exp(-pow(radial,2.2))*(1.0-smoothstep(.9,1.45,radial));
             float pulse=.67+.33*sin(along*5.4-t*.82);
             float original=support*pulse*(1.0+u_audio*.12);
-            float a=u_shape.x<.5?original:shapedHeat(p,u_shape.x,t);
-            float b=u_shape.y<.5?original:shapedHeat(p,u_shape.y,t);
+            float a=u_guideWeights.x<.0001?original:mix(original,shapedHeat(p,false,t),u_guideWeights.x);
+            float b=u_guideWeights.y<.0001?original:mix(original,shapedHeat(p,true,t),u_guideWeights.y);
             return mix(a,b,u_shape.z);
         }
         vec3 energyTransport(vec3 p,float t) {
@@ -241,8 +256,8 @@
             float cavity=1.0-.66*exp(-dot(hole/vec2(.13,.19),hole/vec2(.13,.19)));
             float fine=potential(q*7.8+vec3(-3.1+t*.08,4.2-t*.055,t*.065),unused).x*.5+.5;
             float original=envelope*packing*cavity*(.15+fine*fine*1.50);
-            float a=u_shape.x<.5?original:shapedDensity(p,u_shape.x,t);
-            float b=u_shape.y<.5?original:shapedDensity(p,u_shape.y,t);
+            float a=u_guideWeights.x<.0001?original:mix(original,shapedDensity(p,false,t),u_guideWeights.x);
+            float b=u_guideWeights.y<.0001?original:mix(original,shapedDensity(p,true,t),u_guideWeights.y);
             return mix(a,b,u_shape.z);
         }
         vec3 velocity(vec3 p,float t,float row,float boundary) {
@@ -302,34 +317,62 @@
             return p;
         }
     `;
-    // Presentation places the moving reference frame only. Deformation lives
-    // in the GPU material state (SIM), not a post-projection screen warp.
+    // Material depths travel as overlapping smoke packets, not one affine box.
+    // Each packet has its own delayed progress, orbit and contraction. The
+    // volume ray uses the exact inverse for that depth: light travels with its
+    // matter, with no cloned trail or screen-wide longitudinal stretch.
     const TRANSPORT=`
         uniform vec3 u_transport,u_transportFrom,u_transportTo;
         vec2 riverCurve(float t,vec2 from,vec2 delta,vec2 normal,float bend) {
             return from+delta*t+normal*(4.0*length(delta)*bend*t*(1.0-t));
         }
-        vec2 transported(vec2 q,vec2 aspect) {
+        float packetProgress(float depth) {
+            float p=u_transport.y;
+            float envelope=pow(sin(p*3.14159265),2.0);
+            float lane=.66*sin(depth*4.3+.7)+.34*sin(depth*8.1-1.1);
+            return smoothstep(0.0,1.0,clamp(p+envelope*lane*.19,0.0,1.0));
+        }
+        vec2 packetCenter(float depth,vec2 from,vec2 delta,vec2 normal) {
+            float p=u_transport.y,t=packetProgress(depth);
+            float envelope=pow(sin(p*3.14159265),2.0);
+            float orbit=sin(depth*11.1-p*4.4)*.080+sin(depth*17.3+p*3.0)*.035;
+            return riverCurve(t,from,delta,normal,u_transport.z)
+                +normal*length(delta)*envelope*orbit;
+        }
+        float packetTurn(float depth) {
+            return sin(u_transport.y*3.14159265)*sin(depth*5.1-u_transport.y*3.6)*.78;
+        }
+        vec2 packetRotate(vec2 p,float a) {
+            float c=cos(a),s=sin(a);return vec2(c*p.x-s*p.y,s*p.x+c*p.y);
+        }
+        vec2 transported(vec2 q,vec2 aspect,float depth) {
             if(u_transport.x<.5)return q*aspect;
-            float progress=smoothstep(0.0,1.0,u_transport.y);
+            float progress=packetProgress(depth);
             float scale=mix(u_transportFrom.z,u_transportTo.z,progress);
             vec2 from=u_transportFrom.xy/aspect,delta=(u_transportTo.xy-u_transportFrom.xy)/aspect;
             float distance=length(delta);
             if(distance<.0001)return (from+q*scale)*aspect;
             vec2 normal=vec2(-delta.y,delta.x)/distance;
-            vec2 center=riverCurve(progress,from,delta,normal,u_transport.z);
-            return (center+q*scale)*aspect;
+            vec2 center=packetCenter(depth,from,delta,normal);
+            return (center+packetRotate(q,packetTurn(depth))*scale)*aspect;
         }
-        vec2 untransported(vec2 screen,vec2 aspect) {
+        vec2 untransported(vec2 screen,vec2 aspect,float depth) {
             if(u_transport.x<.5)return screen/aspect;
-            float progress=smoothstep(0.0,1.0,u_transport.y);
+            float progress=packetProgress(depth);
             float scale=mix(u_transportFrom.z,u_transportTo.z,progress);
             vec2 from=u_transportFrom.xy/aspect,delta=(u_transportTo.xy-u_transportFrom.xy)/aspect;
             float distance=length(delta);
             if(distance<.0001)return (screen/aspect-from)/scale;
             vec2 normal=vec2(-delta.y,delta.x)/distance;
-            vec2 center=riverCurve(progress,from,delta,normal,u_transport.z);
-            return (screen/aspect-center)/scale;
+            vec2 center=packetCenter(depth,from,delta,normal);
+            return packetRotate((screen/aspect-center)/scale,-packetTurn(depth));
+        }
+        vec2 packetBounds(vec2 aspect) {
+            if(u_transport.x<.5)return vec2(0);
+            float scale=mix(u_transportFrom.z,u_transportTo.z,packetProgress(0.0));
+            vec2 delta=(u_transportTo.xy-u_transportFrom.xy)/aspect;
+            float spread=pow(sin(u_transport.y*3.14159265),2.0);
+            return (abs(delta)*.44+vec2(length(delta)*.17))*spread/max(.01,scale);
         }
     `;
     const QUAD=HEADER+`
@@ -358,6 +401,8 @@
     `;
     const FIELD_CACHE=HEADER+FIELD+`
         uniform float u_density;
+        uniform sampler2D u_shapeSnapshot;
+        uniform float u_snapshotWeight;
         out vec4 result;
         void main() {
             vec2 cell=floor(gl_FragCoord.xy),tile=floor(cell/48.0);
@@ -393,6 +438,8 @@
             float light=energyHeat(source,u_time)*exp(-obstruction*distance*1.25*u_density)
                 /(1.0+distance*distance*8.0);
             result=vec4(density,heat,light,facing);
+            if(u_snapshotWeight>.0001)result=mix(result,
+                texture(u_shapeSnapshot,gl_FragCoord.xy/vec2(384,288)),u_snapshotWeight);
         }
     `;
     const SIM=HEADER+FIELD+`
@@ -453,7 +500,8 @@
         flat out float v_seed;
         vec2 projected(vec3 p) {
             vec2 aspect=min(u_resolution.x,u_resolution.y)/u_resolution;
-            return transported(viewPoint(p).xy*u_size*.80,aspect);
+            vec3 view=viewPoint(p);
+            return transported(view.xy*u_size*.80,aspect,view.z);
         }
         vec3 presentationPoint(vec3 p,float row) {
             p=flowUnwind(p,u_previousFlow);
@@ -543,9 +591,10 @@
         out vec4 result;
         void main() {
             vec2 aspect=min(u_resolution.x,u_resolution.y)/u_resolution;
-            vec2 xy=untransported(v_uv*2.0-1.0,aspect)/(u_size*.80);
-            vec2 bounds=vec2(1.02+u_flow.z*.20);
-            if(any(greaterThan(abs(xy),bounds))){result=vec4(0);return;}
+            vec2 screen=v_uv*2.0-1.0;
+            vec2 centerPlane=untransported(screen,aspect,0.0)/(u_size*.80);
+            vec2 bounds=vec2(1.02+u_flow.z*.20)+packetBounds(aspect)/(u_size*.80);
+            if(any(greaterThan(abs(centerPlane),bounds))){result=vec4(0);return;}
             vec3 color=vec3(0);float opacity=0.0;
             // Fixed per-ray stratification breaks the sampling lattice without
             // frame-random grain or a moving screen-space noise overlay.
@@ -553,6 +602,7 @@
             for(int i=0;i<40;i++) {
                 float marchDepth=1.92*flowExtent().z;
                 float z=(.5-(float(i)+.5+jitter)/40.0)*marchDepth;
+                vec2 xy=untransported(screen,aspect,z)/(u_size*.80);
                 vec3 p=worldPoint(vec3(xy,z));
                 vec4 material=mediumAt(p);
                 vec3 detail=flowUnwind(p,u_flow)-idleCenter(u_time)*.25;
@@ -628,6 +678,13 @@
     const color=(v,fallback)=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v)?v:fallback;
     const rgb=v=>v.match(/[0-9a-f]{2}/gi).map(c=>parseInt(c,16)/255);
     const SHAPES=Object.freeze({organic:0,pentagram:1,eye:2,hand:3,sword:4,octagram:5});
+    const CATALOG_IDS=new Map();
+    const knownShape=name=>Object.hasOwn(SHAPES,name)||!!window.GunterCoreForms?.get?.(name);
+    const shapeId=name=>{
+        if(Object.hasOwn(SHAPES,name))return SHAPES[name];
+        if(!CATALOG_IDS.has(name))CATALOG_IDS.set(name,6+CATALOG_IDS.size);
+        return CATALOG_IDS.get(name);
+    };
     const transportConfig=value=>{
         if(!value||!Number.isFinite(value.progress)||!Array.isArray(value.from)||!Array.isArray(value.to)
             ||value.from.length!==2||value.to.length!==2||![...value.from,...value.to].every(Number.isFinite))return null;
@@ -643,6 +700,8 @@
             this.pointerRevision=0;this.resetPointer();
             this.audioRevision=0;this.setAudioLevel(0,false);
             this.shapeState={from:0,to:0,start:0};this.shapeName='organic';
+            this.guideFrom={name:'organic',id:0,weight:0,data:null};this.guideTo=this.guideFrom;
+            this.guideTextures={};this.guideRevision=0;this.snapshotActive=false;this.shapeSnapshot=null;
             this.currentFlow=[1,0,0];this.historyFlow=[1,0,0];this.flowTime=-1;this.staticPresentation=false;
             this.canvas.addEventListener('webglcontextlost',event=>{
                 event.preventDefault();this.available=false;this.error='Se perdió el contexto WebGL2.';
@@ -651,6 +710,7 @@
             this.canvas.addEventListener('webglcontextrestored',()=>{
                 if(this.disposed)return;
                 this.resources=[];this.targets=null;this.histories=null;this.field=null;this.fieldTime=null;this.fieldDensity=null;
+                this.guideTextures={};this.shapeSnapshot=null;this.snapshotActive=false;
                 this.simulationTime=null;this.displayTime=null;
                 this.flowTime=-1;
                 this.historyFlow=[...this.currentFlow];this.fieldShapeKey=null;this.fieldFlowKey=null;
@@ -677,6 +737,7 @@
                 this.histories=[];this.histories.push(this.target(HISTORY,SIM_HEADS,true));
                 this.histories.push(this.target(HISTORY,SIM_HEADS,true));
                 this.field=this.target(384,288);this.fieldTime=null;this.fieldDensity=null;
+                this.uploadGuide('from',this.guideFrom.data);this.uploadGuide('to',this.guideTo.data);
                 this.historyIndex=0;this.simulationTime=null;this.displayTime=null;
                 this.historyFlow=[...this.currentFlow];this.fieldShapeKey=null;this.fieldFlowKey=null;
                 this.available=true;this.error='';
@@ -747,15 +808,65 @@
             this.scalar(program,'u_audio',this.audio.available?1-Math.exp(-this.audio.level*5):0);
         }
         selectShape(name,time,still) {
-            const target=SHAPES[name],state=this.shapeState;
-            if(target!==state.to) {
-                // Material positions/velocities are retained on every change.
-                // Even a rapid second selection never re-seeds the history.
-                const progress=number((time-state.start)/1.65,0,1,1);
-                this.shapeState={from:progress<.5?state.from:state.to,to:target,start:time};
+            const target=shapeId(name),state=this.shapeState;
+            if(name!==this.shapeName) {
+                const progress=this.shapeCoefficients(time)[2];
+                if(window.GunterCoreForms?.guide) {
+                    // Freeze the currently blended attractor, not the nearest
+                    // old endpoint. Existing particle history is never reset.
+                    this.guideFrom=this.blendedGuide(progress);
+                    this.guideTo=this.catalogGuide(name);
+                    this.captureShapeSnapshot(progress,still);
+                    this.uploadGuide('from',this.guideFrom.data);this.uploadGuide('to',this.guideTo.data);
+                    this.shapeState={from:this.guideFrom.id,to:target,start:time};this.guideRevision++;
+                } else {
+                    // Minimal six-form fallback for an older/offline document.
+                    this.shapeState={from:progress<.5?state.from:state.to,to:target,start:time};
+                    this.guideFrom={id:this.shapeState.from,weight:this.shapeState.from>.5?1:0,data:null};
+                    this.guideTo={id:target,weight:target>.5?1:0,data:null};
+                }
             }
-            if(still)this.shapeState={from:target,to:target,start:time};
+            if(still) {
+                this.shapeState={from:target,to:target,start:time};this.snapshotActive=false;
+                if(this.guideFrom!==this.guideTo){
+                    this.guideFrom=this.guideTo;this.uploadGuide('from',this.guideFrom.data);this.guideRevision++;
+                }
+            }
             this.shapeName=name;this.staticPresentation=still;
+        }
+        catalogGuide(name) {
+            const data=name==='organic'?null:window.GunterCoreForms?.guide?.(name,128);
+            if(name!=='organic'&&(!data||data.length!==128*128*4))throw new Error('Guía de forma no disponible: '+name);
+            return {name,id:shapeId(name),weight:name==='organic'?0:1,data};
+        }
+        blendedGuide(progress) {
+            const a=this.guideFrom,b=this.guideTo;
+            if(progress>=1)return b;if(progress<=0)return a;
+            const wa=a.weight*(1-progress),wb=b.weight*progress,weight=wa+wb;
+            if(weight<.00001)return {name:'organic',id:0,weight:0,data:null};
+            if(!wa)return {...b,weight};if(!wb)return {...a,weight};
+            const data=new Float32Array(128*128*4),mix=wb/weight;
+            for(let i=0;i<data.length;i++)data[i]=a.data[i]+(b.data[i]-a.data[i])*mix;
+            return {name:'blended',id:-1,weight,data};
+        }
+        uploadGuide(side,data) {
+            if(!data||!this.gl)return;
+            const gl=this.gl,texture=this.guideTextures[side]||(this.guideTextures[side]=gl.createTexture());
+            gl.bindTexture(gl.TEXTURE_2D,texture);
+            // Half-float guide storage supports mobile WebGL2 linear sampling
+            // without requesting the optional full-float filter extension.
+            for(const name of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,name,gl.LINEAR);
+            for(const name of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,name,gl.CLAMP_TO_EDGE);
+            gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,128,128,0,gl.RGBA,gl.FLOAT,data);
+        }
+        captureShapeSnapshot(progress,still) {
+            this.snapshotActive=false;
+            if(still||progress>=1||this.fieldTime===null)return;
+            // One reusable GPU snapshot prevents the volume from snapping when
+            // a voice command interrupts an unfinished morph. No CPU readback.
+            this.shapeSnapshot ||= this.target(384,288);
+            const gl=this.gl,p=this.programs.copy;gl.disable(gl.BLEND);this.use(p);
+            this.texture(p,'u_image',this.field.texture);this.quad(this.shapeSnapshot);this.snapshotActive=true;
         }
         shapeCoefficients(time) {
             const state=this.shapeState,p=state.from===state.to?1:number((time-state.start)/1.65,0,1,1);
@@ -763,6 +874,11 @@
         }
         materialUniforms(program,time) {
             this.vector(program,'u_shape',this.shapeCoefficients(time));
+            this.vector(program,'u_guideMode',[this.guideFrom.data?1:0,this.guideTo.data?1:0,0]);
+            this.vector(program,'u_guideWeights',[this.guideFrom.weight,this.guideTo.weight,0]);
+            const fallback=this.histories[this.historyIndex].texture;
+            this.texture(program,'u_shapeGuideFrom',this.guideFrom.data?this.guideTextures.from:fallback,3);
+            this.texture(program,'u_shapeGuideTo',this.guideTo.data?this.guideTextures.to:fallback,4);
             this.vector(program,'u_flow',this.currentFlow);
             this.vector(program,'u_previousFlow',this.historyFlow);
             this.scalar(program,'u_static',this.staticPresentation?1:0);
@@ -853,12 +969,15 @@
             const gl=this.gl,t=this.displayTime,volume=this.programs.volume;
             const density=Math.sqrt(config.density),audio=this.audio.available?1-Math.exp(-this.audio.level*5):0;
             const size=config.size*(1+audio*.04);
-            const shapeKey=this.shapeCoefficients(t).join(','),flowKey=this.currentFlow.join(',');
+            const shapeKey=this.shapeCoefficients(t).join(',')+':'+this.guideRevision,flowKey=this.currentFlow.join(',');
             if(this.fieldTime!==t||this.fieldDensity!==density||this.fieldPointerRevision!==this.pointerRevision||this.fieldAudioRevision!==this.audioRevision
                 ||this.fieldShapeKey!==shapeKey||this.fieldFlowKey!==flowKey) {
                 const field=this.programs.field;gl.disable(gl.BLEND);this.use(field);
                 this.interactionUniforms(field);
                 this.materialUniforms(field,t);
+                const snapshotWeight=this.snapshotActive?1-this.shapeCoefficients(t)[2]:0;
+                this.scalar(field,'u_snapshotWeight',snapshotWeight);
+                this.texture(field,'u_shapeSnapshot',this.shapeSnapshot?.texture||this.histories[this.historyIndex].texture,5);
                 this.scalar(field,'u_time',t);this.scalar(field,'u_density',density);this.quad(this.field);
                 this.fieldTime=t;this.fieldDensity=density;this.fieldPointerRevision=this.pointerRevision;
                 this.fieldAudioRevision=this.audioRevision;this.fieldBuilds++;
@@ -908,7 +1027,7 @@
                 energyColor:color(config?.energyColor,color(config?.color,'#ff452b')),
                 glowColor:color(config?.glowColor,'#ff6d35'),
                 shadowColor:color(config?.shadowColor,'#071423'),
-                shape:Object.hasOwn(SHAPES,config?.shape)?config.shape:'organic',
+                shape:knownShape(config?.shape)?config.shape:'organic',
                 static:config?.static===true||config?.speed===0,
                 brightness:number(config?.brightness,.2,2.5,1),density:number(config?.density,.25,2,1),
                 speed:number(config?.speed,0,2,1),size:number(config?.size,.7,1.3,1),
@@ -929,12 +1048,14 @@
                 time:this.simulationTime,width:this.width,height:this.height,error:this.error,
                 volumeGrid:48,volumeSamples:40,fieldBuilds:this.fieldBuilds,interaction:{...this.pointer},audio:{...this.audio},
                 shape:this.shapeName,morph:this.shapeCoefficients(this.displayTime||0)[2],flow:[...this.currentFlow],
-                transportFlow:'bounded-smoke-rolls'};
+                transportFlow:'depth-delayed-smoke-packets'};
         }
         release() {
             if(!this.gl)return;
             this.deleteTargets(this.targets);this.targets=null;this.deleteTargets(this.histories);this.histories=null;
             this.deleteTargets(this.field?[this.field]:null);this.field=null;this.fieldTime=null;this.fieldDensity=null;
+            this.deleteTargets(this.shapeSnapshot?[this.shapeSnapshot]:null);this.shapeSnapshot=null;this.snapshotActive=false;
+            Object.values(this.guideTextures||{}).forEach(texture=>this.gl.deleteTexture(texture));this.guideTextures={};
             this.resources.forEach(program=>this.gl.deleteProgram(program));this.resources=[];
         }
         dispose() {

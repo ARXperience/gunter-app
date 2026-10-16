@@ -11,7 +11,7 @@
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = "v170-smoke-play-20261016";
+const SW_VERSION = "v173-material-navigation-20261016";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;
@@ -37,30 +37,31 @@ const PRECACHE_URLS = [
     '/index.html',
     '/login.html',
     '/manifest.json',
-    '/js/services/theme-bootstrap.js?v168-core-forms',
+    '/js/services/theme-bootstrap.js?v173-material-navigation',
     '/js/services/theme-toggle.js?v168-core-forms',
-    '/assets/gunter/gunter-core.svg?v166-bio-river',
+    '/assets/gunter/gunter-core.svg?v173-material-navigation',
     '/assets/gunter/gunter-core-192.png?v166-bio-river',
     '/assets/gunter/gunter-core-512.png?v166-bio-river',
     '/styles/gunter-idle-core.css?v142b-idle-core',
-    '/styles/gunter-core-presence.css?v170-smoke-play',
-    '/js/services/gunter-core-presence.js?v170-smoke-play',
-    '/js/components/gunter-idle-core.js?v170-smoke-play',
+    '/styles/gunter-core-presence.css?v173-material-navigation',
+    '/js/services/gunter-core-presence.js?v173-material-navigation',
+    '/js/components/gunter-core-forms.js?v173-material-navigation',
+    '/js/components/gunter-idle-core.js?v173-material-navigation',
     '/js/services/voice-service.js?v163-core-motion',
     '/js/services/voice-activity-service.js?v141-video-core',
     '/js/config-settings.js?v170-smoke-play',
-    '/styles/gunter-orbit-home.css?v166-bio-river',
+    '/styles/gunter-orbit-home.css?v173-material-navigation',
     '/styles/gunter-hologram.css?v135-orbit-home',
-    '/js/services/gunter-orbit-home.js?v166-bio-river',
-    '/js/services/gunter-particles.js?v170-smoke-play',
+    '/js/services/gunter-orbit-home.js?v173-material-navigation',
+    '/js/services/gunter-particles.js?v173-material-navigation',
     '/styles/gunter-workspace.css?v139-orbital-workspaces',
-    '/styles/gunter-interior.css?v155-unified-interior',
+    '/styles/gunter-interior.css?v173-material-navigation',
     '/styles/gunter-workspace-layout.css?v158-structured-workspaces',
     '/styles/pages/config-layout.css?v157-section-navigation',
     '/js/premium-features-service.js?v154-unified-settings',
     '/js/advanced-settings.js?v156-structured-workspaces',
     '/js/services/actions-service.js?v154-unified-settings',
-    '/js/core/assistant-tools.js?v166-bio-river',
+    '/js/core/assistant-tools.js?v173-material-navigation',
     '/js/services/diagnostics-service.js?v156-structured-workspaces',
     '/styles/pages/orbital-day.css?v139-orbital-workspaces',
     '/styles/pages/orbital-meetings.css?v139-orbital-workspaces',
@@ -205,8 +206,8 @@ self.addEventListener('push', event => {
     const options = {
         body: String(payload.body || 'Tienes una actualización pendiente.').slice(0, 500),
         tag: String(payload.tag || 'gunter-update').slice(0, 120),
-        icon: '/assets/gunter/gunter-core.svg?v166-bio-river',
-        badge: '/assets/gunter/gunter-core.svg?v166-bio-river',
+        icon: '/assets/gunter/gunter-core.svg?v173-material-navigation',
+        badge: '/assets/gunter/gunter-core.svg?v173-material-navigation',
         renotify: priority !== 'normal', requireInteraction: priority === 'urgent',
         silent: priority === 'low', data: { url: safeNotificationUrl(payload.url), ...(payload.data || {}) }
     };

@@ -13,7 +13,7 @@ function environment(options={}) {
         'FRAMEBUFFER_COMPLETE','TRIANGLES','BLEND','SRC_ALPHA','ONE_MINUS_SRC_ALPHA','ONE'];
     names.forEach((name,i)=>gl[name]=i+1);gl.TEXTURE0=100;
     const live={Program:new Set(),Shader:new Set(),Texture:new Set(),Framebuffer:new Set()};
-    const created={Program:[],Shader:[],Texture:[],Framebuffer:[]},draws=[],textures=new Map(),events=[],contexts=[],listeners=new Map();
+    const created={Program:[],Shader:[],Texture:[],Framebuffer:[]},draws=[],textures=new Map(),events=[],contexts=[],listeners=new Map(),uploads=[];
     let sequence=0,program,framebuffer,unit=0,boundTexture,viewport,losses=0;
     for(const kind of Object.keys(live)) {
         gl['create'+kind]=()=>{const resource={kind,id:++sequence};live[kind].add(resource);created[kind].push(resource);return resource;};
@@ -32,9 +32,10 @@ function environment(options={}) {
     };
     gl.activeTexture=value=>{unit=value-gl.TEXTURE0;};gl.bindTexture=(type,value)=>{boundTexture=value;textures.set(unit,value);};
     gl.texParameteri=()=>{};
-    gl.texImage2D=(type,level,internal,w,h,border,format,dataType)=>{
+    gl.texImage2D=(type,level,internal,w,h,border,format,dataType,data)=>{
         assert.ok(Number.isInteger(w)&&Number.isInteger(h)&&w>0&&h>0);
         Object.assign(boundTexture,{w,h,internal,dataType});
+        if(data)uploads.push({texture:boundTexture,data,w,h,internal,dataType});
     };
     gl.bindFramebuffer=(type,value)=>{framebuffer=value;};
     gl.framebufferTexture2D=(type,attachment,target,texture)=>{framebuffer.texture=texture;};
@@ -60,12 +61,13 @@ function environment(options={}) {
     gl.drawArraysInstanced=(mode,first,count,instances)=>{assert.ok(instances>0&&instances<=5120*95);record(mode,count,instances);};
     const canvas={width:300,height:150,getContext(type,attributes){contexts.push({type,attributes});return options.noWebgl?null:gl;},
         addEventListener(type,cb){listeners.set(type,cb);}};
-    const window={dispatchEvent(event){events.push(event);}},document={createElement(tag){assert.equal(tag,'canvas');return canvas;}};
+    const window={dispatchEvent(event){events.push(event);},GunterCoreForms:options.catalog},document={createElement(tag){assert.equal(tag,'canvas');return canvas;}};
     const context=vm.createContext({window,document,CustomEvent:class{constructor(type,value){this.type=type;this.detail=value.detail;}}});
+    if(options.realCatalog)vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../js/components/gunter-core-forms.js'),'utf8'),context);
     vm.runInContext(source,context);
     const core=new window.GunterIdleCore();
     const output=()=>({width:0,height:0,getContext(type){assert.equal(type,'2d');return{clearRect(){},drawImage(value){assert.equal(value,canvas);}};}});
-    return {gl,core,options,live,created,draws,contexts,events,listeners,losses:()=>losses,
+    return {gl,core,options,live,created,draws,contexts,events,listeners,uploads,losses:()=>losses,
         render(time=8,config=defaults,w=240,h=240){const target=output();core.renderTo(target,w,h,time,config);return target;},
         lost(){Object.values(live).forEach(set=>set.clear());listeners.get('webglcontextlost')({preventDefault(){}});},
         restored(){listeners.get('webglcontextrestored')();}};
@@ -449,7 +451,7 @@ check('Invalid, absent or muted samples cannot leave invented audio amplitude ac
     e.lost();e.restored();e.render(8);assert.equal(e.core.stats().audio.level,0);assert.equal(e.core.stats().audio.available,false);
     e.core.setAudioLevel(.7);e.core.dispose();assert.equal(e.core.stats().audio.level,0);released(e);
 });
-check('compact smoke rolls and local curl are integrated in GPU material, not a projected rubber stretch',()=>{
+check('depth-delayed smoke packets share coherent per-depth volume and filament paths without clones',()=>{
     const e=environment();e.render(8,defaults,640,400);
     const histories=e.core.histories.slice(),field=e.core.field,steps=e.core.steps,builds=e.core.fieldBuilds;
     const created=e.created.Texture.length,programs=e.created.Program.length;
@@ -466,13 +468,15 @@ check('compact smoke rolls and local curl are integrated in GPU material, not a 
     }
     const vertex=e.core.programs.strands.program.shaders.find(s=>s.source.includes('int filament=')).source;
     const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('vec3 emitted=')).source;
-    assert.match(vertex,/return transported\(viewPoint\(p\)\.xy\*u_size\*\.80,aspect\)/);
-    assert.match(volume,/untransported\(v_uv\*2\.0-1\.0,aspect\)/);
+    assert.match(vertex,/return transported\(view\.xy\*u_size\*\.80,aspect,view\.z\)/);
+    assert.match(volume,/vec2 xy=untransported\(screen,aspect,z\)\/\(u_size\*\.80\)/);
     const mapping=vertex.slice(vertex.indexOf('vec2 riverCurve'),vertex.indexOf('uniform sampler2D u_history'));
-    assert.ok(volume.includes(mapping),'volume and matter share only reference-frame placement');
-    assert.equal((mapping.match(/float progress=smoothstep\(0\.0,1\.0,u_transport\.y\)/g)||[]).length,2,
-        'placement and inverse both ease to zero velocity at the journey endpoints');
-    assert.doesNotMatch(mapping,/determinant|potential\(|stretch|for\(/,'no Newton inverse or screen-space deformation remains');
+    assert.ok(volume.includes(mapping),'volume and matter share the exact same packet mapping');
+    assert.equal((mapping.match(/float progress=packetProgress\(depth\)/g)||[]).length,2,
+        'forward and inverse use each material layer’s delayed phase');
+    assert.match(mapping,/p\+envelope\*lane\*\.19/,'different layers leave/arrive at different times');
+    assert.match(mapping,/packetRotate\(\(screen\/aspect-center\)\/scale,-packetTurn\(depth\)\)/,'each rolling packet has an exact per-depth inverse');
+    assert.doesNotMatch(mapping,/determinant|potential\(|for\(/,'no iterative screen solver or noise-heavy per-ray warp');
     const simulation=e.core.programs.simulation.program.shaders.find(s=>s.source.includes('uniform float u_dt')).source;
     assert.match(simulation,/vec3 rest=flowUnwind\(p,u_previousFlow\)/,'GPU history retains its previous roll coordinates');
     assert.match(simulation,/p=flowWind\(rest,u_flow\)/,'the new deformed coordinates are stored in the existing history texture');
@@ -517,7 +521,7 @@ check('smoke roll maps have a bounded lag and exact reverse order for volume/fib
 check('transport pulse settles at exact endpoints, reverses without axis flips and carries interrupted roll strength',()=>{
     const e=environment(),route={from:[.4,.5],to:[-.85,-.7],fromScale:1,toScale:.2,bend:.18};
     e.render(8,{...defaults,transport:{...route,progress:0}},640,400);
-    assert.equal(e.core.stats().flow[2],0);assert.equal(e.core.stats().transportFlow,'bounded-smoke-rolls');
+    assert.equal(e.core.stats().flow[2],0);assert.equal(e.core.stats().transportFlow,'depth-delayed-smoke-packets');
     e.render(8,{...defaults,transport:{...route,progress:1e-4}},640,400);
     assert.ok(e.core.stats().flow[2]/1e-4<.001,'zero initial deformation velocity');
     e.render(8,{...defaults,transport:{...route,progress:.4}},640,400);
@@ -533,6 +537,35 @@ check('transport pulse settles at exact endpoints, reverses without axis flips a
     e.render(8,{...defaults,transport:{...route,progress:1,startStrength:1}},640,400);
     assert.equal(e.core.stats().flow[2],0,'the arrival always settles into idle coordinates');
     e.core.dispose();released(e);
+});
+check('packet trajectories have independent timing, exact endpoints and a finite analytic inverse',()=>{
+    const smooth=v=>{v=Math.max(0,Math.min(1,v));return v*v*(3-2*v);};
+    const rotate=([x,y],a)=>[Math.cos(a)*x-Math.sin(a)*y,Math.sin(a)*x+Math.cos(a)*y];
+    const route={from:[.4,.5],to:[-.85,-.7],fromScale:1,toScale:.2,bend:.18};
+    function packet(progress,depth) {
+        const delta=route.to.map((v,i)=>v-route.from[i]),distance=Math.hypot(...delta),normal=[-delta[1]/distance,delta[0]/distance];
+        const envelope=Math.sin(progress*Math.PI)**2,lane=.66*Math.sin(depth*4.3+.7)+.34*Math.sin(depth*8.1-1.1);
+        const t=smooth(progress+envelope*lane*.19),orbit=Math.sin(depth*11.1-progress*4.4)*.080+Math.sin(depth*17.3+progress*3)*.035;
+        const center=route.from.map((v,i)=>v+delta[i]*t+normal[i]*distance*(4*route.bend*t*(1-t)+envelope*orbit));
+        return {center,scale:route.fromScale+(route.toScale-route.fromScale)*t,
+            turn:Math.sin(progress*Math.PI)*Math.sin(depth*5.1-progress*3.6)*.78,t};
+    }
+    const phases=[];
+    for(const progress of [0,.00001,.17,.5,.83,.99999,1])for(let i=0;i<30;i++) {
+        const depth=-1.1+i*2.2/29,state=packet(progress,depth),point=[Math.sin(i*2.3)*.7,Math.cos(i*1.7)*.7];
+        const rotated=rotate(point,state.turn),screen=rotated.map((v,k)=>v*state.scale+state.center[k]);
+        const recovered=rotate(screen.map((v,k)=>(v-state.center[k])/state.scale),-state.turn);
+        recovered.forEach((v,k)=>near(v,point[k],'packet inverse',1e-12));
+        if(progress===0||progress===1){
+            const expected=progress===0?route.from:route.to;
+            state.center.forEach((v,k)=>near(v,expected[k],'exact packet endpoint',1e-12));
+            near(state.turn,0,'no residual rotation at either endpoint',1e-12);
+        }
+        if(progress===.5)phases.push(state.t);
+    }
+    assert.ok(Math.max(...phases)-Math.min(...phases)>.35,'material packets are not attached to one shared center');
+    assert.ok(packet(.00001,.4).t/.00001<.001,'departure velocity tends to zero');
+    assert.ok((1-packet(.99999,.4).t)/.00001<.001,'arrival velocity tends to zero');
 });
 check('the fourth color independently tints unlit matter and front coats without rebuilding the colorless atlas',()=>{
     const e=environment();e.render(8);const builds=e.core.fieldBuilds,created=e.created.Texture.length;
@@ -582,6 +615,79 @@ check('all basic silhouettes are available at a frozen phase and reduced motion 
     assert.equal(e.core.steps,steps);assert.equal(e.created.Texture.length,created);
     e.render(8,{...defaults,shape:'unknown',static:true});assert.equal(e.core.stats().shape,'organic');
     e.core.dispose();released(e);
+});
+function testCatalog() {
+    const calls=[],guides=new Map(),ids=new Set(['organic','lotus','dragon','eye']);
+    return {calls,get(id){return ids.has(id)?{id}:undefined;},guide(id,size){
+        assert.equal(size,128);calls.push(id);if(id==='organic')return null;
+        if(!guides.has(id)){
+            const data=new Float32Array(size*size*4),offset=id==='dragon'?.24:id==='lotus'?-.24:0;
+            for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+                const i=(y*size+x)*4,px=x/(size-1)*2-1,py=y/(size-1)*2-1;
+                data[i]=offset;data[i+1]=Math.max(-.8,Math.min(.8,py));data[i+2]=Math.abs(px-offset);data[i+3]=.05;
+            }
+            guides.set(id,data);
+        }
+        return guides.get(id);
+    }};
+}
+check('catalog forms lazily upload only selected fixed-size material guides and reuse GPU resources',()=>{
+    const catalog=testCatalog(),e=environment({catalog});e.render(8);
+    assert.deepEqual(catalog.calls,[],'no catalog texture builds at startup');
+    const histories=e.core.histories.slice(),field=e.core.field;
+    e.render(8,{...defaults,shape:'lotus'});
+    assert.equal(e.core.stats().shape,'lotus');assert.equal(e.core.stats().morph,0);
+    assert.deepEqual(catalog.calls,['lotus']);assert.equal(e.uploads.length,1);
+    assert.equal(e.uploads[0].w,128);assert.equal(e.uploads[0].h,128);assert.equal(e.uploads[0].internal,e.gl.RGBA16F);
+    const guideTexture=e.uploads[0].texture;
+    for(const name of ['field','volume','strands']){
+        const program=e.core.programs[name].program;
+        assert.deepEqual(Array.from(program.u_guideMode),[0,1,0]);
+        assert.deepEqual(Array.from(program.u_guideWeights),[0,1,0]);
+        assert.equal(program.u_shapeGuideFrom[0],3);assert.equal(program.u_shapeGuideTo[0],4);
+    }
+    e.render(8.4,{...defaults,shape:'lotus'});assert.equal(e.uploads.length,1,'animation never uploads guides per frame');
+    e.render(8.4,{...defaults,shape:'dragon'});
+    assert.equal(e.core.stats().morph,0);assert.notEqual(e.core.shapeState.from,e.core.shapeState.to);
+    assert.ok(e.core.programs.field.program.u_guideWeights[0]>0&&e.core.programs.field.program.u_guideWeights[0]<1,
+        'interrupted organic attraction is retained, not rounded to an old endpoint');
+    assert.equal(e.core.guideTextures.to,guideTexture,'target storage is replaced in place');
+    assert.equal(e.core.programs.field.program.u_snapshotWeight[0],1,'the first interrupted volume is exactly the previous atlas');
+    const snapshot=e.core.shapeSnapshot,textureCount=e.created.Texture.length;
+    e.render(8.6,{...defaults,shape:'dragon'});
+    assert.ok(e.core.programs.field.program.u_snapshotWeight[0]<1);
+    e.render(8.6,{...defaults,shape:'eye'});
+    assert.equal(e.core.shapeSnapshot,snapshot);assert.equal(e.created.Texture.length,textureCount,'repeated interruptions reuse two guides and one snapshot');
+    assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);assert.equal(e.core.field,field);
+    assert.equal(e.draws.filter(d=>d.program===e.core.programs.simulation.program&&d.initialize===1).length,1,'no particle history reseed');
+    e.render(10.3,{...defaults,shape:'eye'});assert.equal(e.core.stats().morph,1);
+    assert.equal(e.core.programs.field.program.u_snapshotWeight[0],0);
+    e.core.dispose();released(e);
+});
+check('catalog guides survive context restore, static presentation snaps only when requested and cleanup is complete',()=>{
+    const e=environment({catalog:testCatalog()});e.render(8,{...defaults,shape:'dragon',static:true});
+    assert.equal(e.core.stats().morph,1);assert.equal(e.core.programs.strands.program.u_static[0],1);
+    const previous=e.core.guideTextures.to;
+    e.lost();e.restored();e.render(8,{...defaults,shape:'dragon',static:true});
+    assert.notEqual(e.core.guideTextures.to,previous);assert.ok(e.live.Texture.has(e.core.guideTextures.to));
+    e.render(8,{...defaults,shape:'not-a-shape',static:true});assert.equal(e.core.stats().shape,'organic');
+    assert.deepEqual(Array.from(e.core.programs.field.program.u_guideWeights),[0,0,0]);
+    e.core.dispose();e.core.dispose();released(e);
+});
+check('the real catalog reaches the renderer as selected material guides, not texture overlays or a GLSL branch per form',()=>{
+    const e=environment({realCatalog:true});e.render(8);
+    for(const shape of ['butterfly','hourglass','pentagram']) {
+        const prior=e.core.histories[0];e.render(8,{...defaults,shape,static:true});
+        assert.equal(e.core.stats().shape,shape);assert.equal(e.core.stats().morph,1);
+        assert.equal(e.core.histories[0],prior);
+        const data=e.core.guideTo.data;
+        assert.equal(data.length,128*128*4);assert.ok(data.every(Number.isFinite));
+        assert.equal(e.core.programs.strands.program.u_guideMode[1],1);
+    }
+    const shader=e.core.programs.field.program.shaders.find(s=>s.source.includes('vec4 materialGuide')).source;
+    assert.match(shader,/texture\(u_shapeGuideTo,uv\)/);assert.match(shader,/guide\.z=max\(guide\.z,length\(p-guide\.xy\)\)/);
+    assert.doesNotMatch(shader,/butterfly|hourglass/,'the new catalog does not enlarge the shader branch tree');
+    assert.equal(e.core.stats().filaments,2560);e.core.dispose();released(e);
 });
 check('river state is per presentation, resets for other avatars and rejects nonfinite geometry',()=>{
     const e=environment(),valid={progress:.5,from:[.2,.4],to:[-.8,-.7],fromScale:1.1,toScale:.2};

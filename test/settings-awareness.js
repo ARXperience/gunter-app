@@ -207,7 +207,7 @@ test('pipeline and chat prioritize canonical settings over the legacy writer and
     assert.equal(h.root.PremiumFeaturesService.get('contextualHumor'), false);
     const companion = read('js/services/gunter-companion.js');
     assert.match(companion, /if \(!earlyIntent && !voiceInput/);
-    assert.match(companion, /'app\.navigate', 'app\.inspect', 'preferences\.update'/);
+    assert.match(companion, /'app\.navigate', 'app\.inspect', 'app\.core\.shape', 'preferences\.update'/);
 });
 
 (async () => {

@@ -1167,6 +1167,12 @@ body.gunter-page-day .gunter-home__mascot { isolation: isolate; pointer-events: 
 body.gunter-page-day .gunter-home__halo { opacity: .35; }
 
 .gunter-command-nav__voice { position: relative; z-index: 1; }
+/* Compact brand marks are optically sized SVGs, not a blurred miniature core. */
+.gunter-command-nav__dock .gw-dock-core img {
+  display: block; width: 30px; height: 30px; min-width: 30px;
+  object-fit: contain; filter: none; opacity: 1;
+}
+.gunter-command-nav__dock .gw-dock-core { min-width: 44px; min-height: 44px; }
 @media (max-width: 820px) {
   body.gunter-command-center .gunter-command-nav__dock {
     min-height: 72px;

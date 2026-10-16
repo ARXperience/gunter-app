@@ -2,7 +2,7 @@
    The original controls, state attributes and permission gates own behavior.
    Every rule excludes the approved home stage, including its shared widgets. */
 html body.gunter-workspace:not(.gunter-orbit-home-active) {
-  --gw-bg: #050811;
+  --gw-bg: #080d20;
   --gw-surface: #0a0f1d;
   --gw-raised: #111a2c;
   --gw-ink: #f0f4ff;
@@ -30,13 +30,13 @@ html body.gunter-workspace:not(.gunter-orbit-home-active) {
   --bg-input: var(--gw-bg);
   --glass-border: var(--gw-border);
   --border-subtle: var(--gw-border);
-  background: var(--gw-bg) !important;
+  background: var(--gunter-stage-background, #080d20) fixed !important;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
 html body.gunter-workspace.at-light:not(.gunter-orbit-home-active) {
-  --gw-bg: #edf3f8;
+  --gw-bg: #dce8f7;
   --gw-surface: #f9fcff;
   --gw-raised: #e2edf5;
   --gw-ink: #172b42;
@@ -52,15 +52,18 @@ html body.gunter-workspace.at-light:not(.gunter-orbit-home-active) {
   --gi-glass: color-mix(in srgb, var(--gw-surface) 94%, transparent);
 }
 
-/* The quiet circuit atmosphere belongs to the workspace, never to Inicio. */
+/* A shared, quiet grid keeps the same atmosphere as Inicio behind workspaces. */
 html body.gunter-workspace:not(.gunter-orbit-home-active)::before {
   content: '' !important;
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at 54% 19%, color-mix(in srgb, var(--gw-violet) 8%, transparent), transparent 57%),
-    linear-gradient(90deg, transparent calc(50% - .5px), color-mix(in srgb, var(--gw-cyan) 5%, transparent) 50%, transparent calc(50% + .5px)) !important;
+  opacity: .19;
+  background: linear-gradient(rgba(119, 160, 215, .08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(119, 160, 215, .08) 1px, transparent 1px) !important;
+  background-size: 72px 72px !important;
+  mask-image: radial-gradient(ellipse, #000, transparent 80%);
 }
 
 html body.gunter-workspace:not(.gunter-orbit-home-active) :is(.gday__main, .dashboard-main, .config-page, .results-page, .meeting-page, .gadm) {

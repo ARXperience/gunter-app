@@ -6,7 +6,7 @@
     const DEFAULTS = Object.freeze({ particleColor: '#3458c7', shadowColor: '#142642', energyColor: '#19bcd3', color: '#19bcd3',
         glowColor: '#8ebdff', brightness: 1, density: 1, speed: 1, size: 1, themeAdaptive: true, shape: 'organic' });
     const MOMENTARY_SHAPES = ['pentagram', 'eye', 'hand', 'sword', 'octagram'];
-    const SHAPE_HOLD_MS = 5200;
+    const DEFAULT_SHAPE_SECONDS = 5, MAX_SHAPE_SECONDS = 3600;
     const STATIC_TIME = 8, FRAME_INTERVAL = 1000 / 30;
     const records = new Map(), disposers = [];
     const motionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
@@ -16,6 +16,7 @@
     let voiceMeter = null, meterEnabled = false, bindingMeter = false, audioLive = false;
     let audioLevel = 0, audioFrame = 0, activeTheme, palette, shapeSnapshotsPending = false;
     let momentaryShape = '', lastMomentaryShape = '', shapeTimer = 0;
+    let shapeExpiresAt = 0, shapeSource = '';
 
     const object = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     const clamp = (value, low, high, fallback) => typeof value === 'number' && Number.isFinite(value)
@@ -205,6 +206,8 @@
             record.el.dataset.particlesReady = 'true';
             record.el.dataset.particlesStatus = record.animated ? 'animated' : 'static';
             record.el.dataset.coreForm = momentaryShape || 'organic';
+            if (momentaryShape) record.el.dataset.coreFormUntil = String(shapeExpiresAt);
+            else delete record.el.dataset.coreFormUntil;
             delete record.el.dataset.particlesError;
         } catch (error) {
             engineError = error?.message || 'No se pudo dibujar el núcleo visual';
@@ -305,27 +308,55 @@
         window.dispatchEvent(new CustomEvent('gunter-core-config-changed', { detail: { ...config } }));
         return { ...config };
     }
-    function endShape() {
+    function endShape(options = {}) {
+        if (options.randomOnly && shapeSource === 'command') return;
         if (shapeTimer) window.clearTimeout(shapeTimer);
-        shapeTimer = 0;
+        shapeTimer = 0; shapeExpiresAt = 0; shapeSource = '';
         if (!momentaryShape) return;
         momentaryShape = '';
         shapeSnapshotsPending = !reduced() && config.speed > 0;
         if (!disposed) invalidate();
     }
-    function playShape(el) {
+    function availableShapes() {
+        return window.GunterCoreForms?.list?.().map(form => form.id).filter(id => id !== 'organic') || MOMENTARY_SHAPES;
+    }
+    function getShapeState() {
+        return { shape: momentaryShape || 'organic', active: !!momentaryShape, source: shapeSource,
+            secondsRemaining: Math.max(0, Math.ceil((shapeExpiresAt - Date.now()) / 1000)),
+            available: !disposed && !suspended && !drawBlocked && engine?.available === true };
+    }
+    function playShape(el, options = {}) {
         const record = records.get(el);
         if (!record || record.variant !== 'hero' || !record.visible || !el.isConnected || record.transport
-            || disposed || suspended || document.hidden || drawBlocked || !engine?.available || momentaryShape) return false;
-        const choices = MOMENTARY_SHAPES.filter(shape => shape !== lastMomentaryShape);
-        momentaryShape = choices[Math.floor(Math.random() * choices.length)];
+            || disposed || suspended || document.hidden || drawBlocked || !engine?.available
+            || (momentaryShape && !options.shape)) return false;
+        const known = availableShapes();
+        if (options.shape && !known.includes(options.shape)) return false;
+        const seconds = options.durationSeconds ?? DEFAULT_SHAPE_SECONDS;
+        if (!Number.isFinite(seconds) || seconds < 5 || seconds > MAX_SHAPE_SECONDS) return false;
+        const choices = known.filter(shape => shape !== lastMomentaryShape);
+        if (!choices.length && !options.shape) return false;
+        const next = options.shape || choices[Math.floor(Math.random() * choices.length)];
+        const changing = next !== momentaryShape;
+        if (shapeTimer) window.clearTimeout(shapeTimer);
+        momentaryShape = next; shapeSource = options.shape ? 'command' : 'random';
         lastMomentaryShape = momentaryShape;
         shapeSnapshotsPending = !reduced() && config.speed > 0;
+        const morphMs = changing && !reduced() && config.speed > 0 ? Math.min(6600, 1650 / config.speed) : 0;
+        const lifetime = seconds * 1000 + morphMs;
+        shapeExpiresAt = Date.now() + lifetime;
         // A single finite expiry also works for a still/reduced-motion core.
         // No new animation loop and absolutely no preference writes.
-        shapeTimer = window.setTimeout(endShape, SHAPE_HOLD_MS);
+        shapeTimer = window.setTimeout(endShape, lifetime);
         invalidate();
-        return true;
+        return !drawBlocked && engine?.available === true;
+    }
+    function showShape(name, options = {}) {
+        if (name === 'organic') { endShape(); return !momentaryShape; }
+        const candidates = [...records.values()].filter(record => record.variant === 'hero' && record.visible && record.el.isConnected);
+        candidates.sort((a, b) => Number(b.el.classList.contains('gn-core-presence__art')) - Number(a.el.classList.contains('gn-core-presence__art'))
+            || b.width * b.height - a.width * a.height);
+        return !!candidates[0] && playShape(candidates[0].el, { shape: name, durationSeconds: options.durationSeconds });
     }
     function setTransport(el, value = null) {
         const record = records.get(el);
@@ -468,7 +499,7 @@
         listen(window, 'pageshow', () => { suspended = false; invalidate(); });
     }
     refreshPreferences(); activeTheme = themeMode();
-    window.GunterParticles = { mount, configure, setTransport, getPalette, playShape, endShape,
+    window.GunterParticles = { mount, configure, setTransport, getPalette, playShape, endShape, showShape, getShapeState,
         getConfig: () => ({ ...config }), getDefaults: () => ({ ...DEFAULTS }) };
     if (document.readyState === 'loading') listen(document, 'DOMContentLoaded', init, { once: true });
     else init();

@@ -646,7 +646,7 @@
                 if (turnId !== STATE.turnId) return;
                 if (styleResult?.reply) { clearTimeout(safetyTimer); finishTyping(); reply(styleResult.reply); return; }
             }
-            if (contextualFollowUp || (earlyIntent && ['app.navigate', 'app.inspect', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update', 'reminder.schedule'].includes(earlyIntent.toolId))) {
+            if (contextualFollowUp || (earlyIntent && ['app.navigate', 'app.inspect', 'app.core.shape', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update', 'reminder.schedule'].includes(earlyIntent.toolId))) {
                 const earlyResult = await withTimeout(window.GunterAssistantTools.dispatch(text, { inputSource: voiceInput ? 'voice' : 'text' }), 8000, 'assistant-settings-timeout');
                 if (turnId !== STATE.turnId) return;
                 if (earlyResult?.handled) {

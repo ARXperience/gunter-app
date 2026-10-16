@@ -307,7 +307,7 @@ check('A playful shape is random, temporary, non-repeating and never stored as a
     assert.equal(e.api.playShape(e.art), false, 'active morph cannot be interrupted by repeated triples');
     assert.equal(e.timers.size, 1); assert.equal(e.api.getConfig().shape, 'organic');
     e.api.configure({ brightness: 1.2 }); assert.equal(e.art.dataset.coreForm, first);
-    e.step(5199); assert.equal(e.art.dataset.coreForm, first);
+    e.step(6649); assert.equal(e.art.dataset.coreForm, first);
     e.step(1); assert.equal(e.art.dataset.coreForm, 'organic'); assert.equal(e.timers.size, 0);
     assert.equal(e.engines[0], engine); assert.deepEqual(e.prefs(), prefs); assert.equal(e.writes.length, 0);
     assert.equal(e.api.playShape(e.art), true); assert.notEqual(e.art.dataset.coreForm, first);
@@ -318,9 +318,30 @@ check('Reduced motion still permits a temporary still silhouette without startin
         const e = environment(options); if (!options.reducedOS && !options.prefs) e.api.configure({ speed: 0 });
         assert.equal(e.api.playShape(e.art), true); assert.equal(e.renders.at(-1).config.static, true);
         assert.equal(e.frames.size, 0); assert.equal(e.timers.size, 1);
-        e.step(5200); assert.equal(e.art.dataset.coreForm, 'organic'); assert.equal(e.frames.size, 0);
+        e.step(5000); assert.equal(e.art.dataset.coreForm, 'organic'); assert.equal(e.frames.size, 0);
         assert.equal(e.timers.size, 0); assert.equal(e.writes.length, 0);
     }
+});
+check('Named forms interrupt safely, honor duration, survive random-only cancellation and never save preferences', () => {
+    const e = environment(), prefs = e.prefs();
+    e.window.GunterCoreForms = { list: () => [{ id: 'organic' }, { id: 'jellyfish' }, { id: 'dragon' }] };
+    assert.equal(e.api.showShape('jellyfish', { durationSeconds: 20 }), true);
+    assert.equal(e.api.getShapeState().shape, 'jellyfish');
+    assert.equal(e.api.getShapeState().source, 'command');
+    e.step(6000); assert.equal(e.art.dataset.coreForm, 'jellyfish');
+    e.api.endShape({ randomOnly: true }); assert.equal(e.art.dataset.coreForm, 'jellyfish');
+    assert.equal(e.timers.size, 1);
+    assert.equal(e.api.showShape('dragon', { durationSeconds: 10 }), true);
+    assert.equal(e.art.dataset.coreForm, 'dragon'); assert.equal(e.timers.size, 1);
+    e.step(11649); assert.equal(e.art.dataset.coreForm, 'dragon');
+    e.step(1); assert.equal(e.art.dataset.coreForm, 'organic'); assert.equal(e.timers.size, 0);
+    assert.equal(e.api.showShape('unknown'), false);
+    assert.equal(e.api.showShape('dragon', { durationSeconds: Infinity }), false);
+    assert.equal(e.api.showShape('dragon', { durationSeconds: 3601 }), false);
+    assert.equal(e.api.showShape('dragon', { durationSeconds: 4 }), false);
+    assert.deepEqual(e.prefs(), prefs); assert.equal(e.writes.length, 0);
+    e.api.showShape('dragon'); assert.equal(e.api.showShape('organic'), true);
+    assert.equal(e.api.getShapeState().active, false); assert.equal(e.timers.size, 0);
 });
 check('Hidden pages, unsupported hosts and active transport cannot retain or start a playful shape', () => {
     for (const options of [{ variant: 'thumb', width: 44 }, { webgl: false }, { autoVisible: false }]) {

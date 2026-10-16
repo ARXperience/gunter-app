@@ -43,7 +43,7 @@ test('explicit light resolves in head and corrects parser body before deferred s
     const f = fixture({ gunter_color_mode: 'light', gunter_dark_mode: 'true', gunter_theme: 'dark' }, { dark: true });
     assert.equal(f.html.getAttribute('data-color-mode'), 'light');
     assert.equal(f.html.style.colorScheme, 'light');
-    assert.equal(f.html.style.backgroundColor, '#edf2fc');
+    assert.equal(f.html.style.backgroundColor, '#dce8f7');
     assert.equal(f.writes.length, 0);
     f.parseBody();
     assert.ok(f.document.body.classList.contains('at-light'));

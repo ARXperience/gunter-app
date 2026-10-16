@@ -14,7 +14,9 @@
     const PENDING_KEY = 'gunter_pending_tool_v1';
     const PENDING_TTL_MS = 5 * 60 * 1000;
     const REFERENCE_TTL_MS = 10 * 60 * 1000;
-    const VOICE_READ_ONLY_TOOLS = new Set(['app.navigate', 'app.inspect', 'settings.list', 'agenda.list', 'jobs.list', 'reminder.inspect', 'commitments.list',
+    // A temporary visual form is local/reversible, like navigation: it never
+    // changes preferences, permissions, files, models or external systems.
+    const VOICE_READ_ONLY_TOOLS = new Set(['app.navigate', 'app.inspect', 'app.core.shape', 'settings.list', 'agenda.list', 'jobs.list', 'reminder.inspect', 'commitments.list',
         'desktop.files.list', 'desktop.files.search', 'desktop.ui.inspect', 'mobile.files.list', 'mobile.files.search']);
 
     function normalize(value) {
@@ -39,6 +41,49 @@
     function conversationalText(text) {
         return normalize(text).replace(/^[¿¡]+/, '').replace(/^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*/, '')
             .replace(/^por favor\s+/, '');
+    }
+
+    function parseCoreFormRequest(text, catalog) {
+        let t = conversationalText(text).replace(/^(?:(?:me )?puedes|(?:me )?podrias|quiero que|quisiera que)\s+/, '')
+            .replace(/^(?:te conviertas|convertirte)\s+en\b/, 'conviertete en')
+            .replace(/^(?:te transformes|transformarte)\s+en\b/, 'transformate en');
+        if (/^(?:en que|que|cuales|lista|muestra(?:me)?|dime|ensename)\b/.test(t)
+            && /\b(?:formas|siluetas|figuras)\b/.test(t)
+            && /\b(?:tus|puedes|tienes|conviertes|convertirte|nucleo|gunter|lista)\b/.test(t)) return { action: 'list' };
+        if (/^(?:(?:vuelve|regresa|retorna)\s+a\s+(?:(?:tu|la|el)\s+)?(?:(?:forma|nucleo)\s+)?(?:organic[oa]|original|normal)|(?:cancela|termina|quita|deten)\s+(?:(?:la|esta|esa)\s+)?(?:transformacion|previsualizacion|silueta)|vuelve a ser gunter)\s*$/.test(t)) return { action: 'stop', shape: 'organic' };
+        const extending = /^(?:(?:manten|conserva|deja)(?:te)?\s+(?:(?:esta|esa|la misma|tu)\s+forma|asi|la previsualizacion)|mantenla\s+(?:por|durante))\b/.test(t);
+        const explicit = /^(?:conviertete|transformate)\b/.test(t) || /\b(?:tu forma|tu nucleo|el nucleo|silueta|forma de)\b/.test(t);
+        const prefix = /^(?:(?:conviertete|transformate)\s+(?:en|a)|(?:cambia|cambiate|convierte|transforma)\s+(?:(?:a gunter|tu nucleo|el nucleo|tu forma|la forma|la silueta)\s+)?(?:a|en|por)|(?:adopta|toma|ponte|hazte|muestra(?:me)?)\s+(?:(?:la|una|tu)\s+)?(?:forma|silueta)(?:\s+de)?)\s+/;
+        if (!extending && !prefix.test(t)) return null;
+        if (/\b(?:y luego|y despues|ademas|y (?:borra|elimina|envia|activa|desactiva|crea|abre))\b/.test(t))
+            return { action: 'invalid', error: 'Pídeme una transformación a la vez; las demás acciones conservan sus confirmaciones.' };
+        const words = { un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9,
+            diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciseis: 16, diecisiete: 17, dieciocho: 18,
+            diecinueve: 19, veinte: 20, veintiuno: 21, veintidos: 22, veintitres: 23, veinticuatro: 24, veinticinco: 25,
+            treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, noventa: 90, cien: 100 };
+        const numeric = value => /^\d+(?:[.,]\d+)?$/.test(value) ? Number(value.replace(',', '.')) : words[value]
+            || (value.includes(' y ') ? value.split(' y ').map(part => words[part] || NaN).reduce((sum, n) => sum + n, 0) : NaN);
+        // Units disambiguate a duration from e.g. an eight-pointed star.
+        const raw = String(text).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        const wordNumber = `(?:${Object.keys(words).join('|')})(?: y (?:${Object.keys(words).join('|')}))?`;
+        const duration = raw.match(new RegExp(`\\b(?:por|durante)\\s+(\\d+(?:[.,]\\d+)?|${wordNumber})\\s+(segundos?|seg|minutos?|min|horas?)\\b`))
+            || raw.match(/\b(\d+(?:[.,]\d+)?)\s*(segundos?|seg|minutos?|min|horas?)\b/);
+        if (!duration && /\b(?:por|durante)\b.*\b(?:segundos?|seg|minutos?|min|horas?)\b/.test(t))
+            return { action: 'invalid', error: 'No entendí la duración. Dime por ejemplo «durante veinte segundos» o «por dos minutos».' };
+        let durationSeconds = extending ? null : 5;
+        if (duration) {
+            durationSeconds = numeric(duration[1]) * (/^h/.test(duration[2]) ? 3600 : /^m/.test(duration[2]) ? 60 : 1);
+            if (!Number.isFinite(durationSeconds) || durationSeconds < 5 || durationSeconds > 3600)
+                return { action: 'invalid', error: 'Indica una duración entre 5 segundos y una hora, por ejemplo «durante veinte segundos».' };
+            t = t.replace(/\s+(?:por|durante)\s+.+?\s+(?:segundos?|seg|minutos?|min|horas?)\b.*$/, '')
+                .replace(/\s+\d+(?:[.,]\d+)?\s*(?:segundos?|seg|minutos?|min|horas?)\b.*$/, '');
+        }
+        if (extending) return { action: 'extend', durationSeconds };
+        const name = t.replace(prefix, '').replace(/^(?:(?:la|el|un|una)\s+)?(?:forma|silueta)\s+(?:de\s+)?/, '')
+            .replace(/^(?:la|el|un|una)\s+/, '').replace(/\s+por favor$/, '').trim();
+        const shape = catalog?.resolve?.(name) || null;
+        if (!shape && !explicit) return null;
+        return { action: 'show', shape, requestedName: name, durationSeconds };
     }
 
     // Explanations and creative requests are not authorization to operate the
@@ -717,7 +762,7 @@
         async function controlPlan(tool, match, confirmed) {
             // Las rutas locales deterministas no son tareas persistentes ni deben
             // pasar por un planificador temporal que pueda pedir fecha/hora.
-            if (['app.navigate', 'app.inspect', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update'].includes(tool.id)) return null;
+            if (['app.navigate', 'app.inspect', 'app.core.shape', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update'].includes(tool.id)) return null;
             // Node adapters already create, authorize and audit their canonical
             // command. A second legacy plan would use a different autonomy level.
             if (tool.id.startsWith('desktop.') || tool.id.startsWith('mobile.')) return null;
@@ -856,6 +901,8 @@
             const reminderCreation = parseReminderCreation(text);
             if (reminderCreation) return { toolId: 'reminder.schedule', args: { rawText: text, requestedAlarm: reminderCreation.alarm,
                 ...(parseEventReminder(text) ? { eventReminderRequest: true } : {}) } };
+            const formRequest = parseCoreFormRequest(text, runtime.GunterCoreForms);
+            if (formRequest) return { toolId: 'app.core.shape', args: { ...formRequest, rawText: text } };
             if (/^(?:por favor )?(?:reintenta|reintentar|vuelve a intentar)\b.*\b(?:todos|varios|recordatorios|avisos)\b/.test(questionText))
                 return { toolId: 'reminder.retry', args: { rawText: text, compound: true } };
             if (/^(?:por favor )?(?:mis|los|que|cuales|lista|muestra|muestrame|ver|revisa)\b.*\b(recordatorios|avisos|seguimientos|procesos)\b.*\b(fallidos|fallaron|fallan|errores|fallos)\b/.test(questionText))
@@ -1628,6 +1675,38 @@
                     result.tools.map(tool => `• ${tool.description}`).join('\n') +
                     `\nTambién puedo consultar ${result.settingsCount} ajustes locales registrados y los ajustes del servidor cuando esté disponible. Pídeme «llévame a…», describe el resultado que necesitas o pregunta por un ajuste. Una herramienta registrada no garantiza que el servicio o dispositivo esté conectado: compruebo disponibilidad y permisos al ejecutarla. Las acciones sensibles conservan su confirmación; no he ejecutado ninguna al mostrar esta lista.`;
                 return `Estás en ${result.label}. ${result.description} Puedes pedirme «llévame a…» para abrir otro apartado de Gunter.`;
+            }
+        });
+
+        register({
+            id: 'app.core.shape', description: 'Consulta las siluetas disponibles o transforma temporalmente el núcleo de Gunter, con duración indicada.', confirm: 'never', reversible: true,
+            validate(args) {
+                if (args.error) return { ok: false, reply: args.error };
+                const catalog = runtime.GunterCoreForms;
+                if (!catalog?.list || !catalog?.get) return { ok: false, reply: 'El catálogo visual no está disponible en esta página. Abre Inicio o recarga Gunter.' };
+                if (args.action === 'list' || args.action === 'stop') return { ok: true };
+                if (args.action === 'extend') {
+                    if (!runtime.GunterParticles?.getShapeState?.().active) return { ok: false, reply: 'No hay una silueta temporal activa. Dime primero en cuál quieres que me transforme.' };
+                    if (args.durationSeconds == null) return { ok: false, reply: '¿Cuántos segundos o minutos quieres que mantenga esta forma?' };
+                } else if (!args.shape || !catalog.get(args.shape)) return { ok: false,
+                    reply: 'No identifiqué una silueta exacta. Puedes pedirme «medusa», «dragón», «ojo de Horus» o «estrella invertida», o decir «lista tus formas».' };
+                return { ok: true };
+            },
+            execute(args) {
+                const visual = runtime.GunterParticles;
+                if (args.action === 'list') return { forms: runtime.GunterCoreForms.list().filter(form => form.id !== 'organic') };
+                if (!visual?.showShape || !visual?.getShapeState) throw new Error('El núcleo visual no está disponible en esta página. Abre Inicio e inténtalo allí.');
+                const shape = args.action === 'stop' ? 'organic' : args.action === 'extend' ? visual.getShapeState().shape : args.shape;
+                if (!visual.showShape(shape, { durationSeconds: args.durationSeconds ?? 5 })) throw new Error('No pude iniciar la transformación. Espera a que termine el recorrido del núcleo y comprueba que esté visible y disponible.');
+                return { ...visual.getShapeState(), requestedShape: shape, durationSeconds: args.durationSeconds ?? 5,
+                    label: shape === 'organic' ? 'núcleo orgánico' : runtime.GunterCoreForms.get(shape)?.label };
+            },
+            verify(result) { return Array.isArray(result?.forms) || (result?.shape === result?.requestedShape &&
+                (result.requestedShape === 'organic' || (result.available === true && result.active === true))); },
+            formatResult(result) {
+                if (result.forms) return `Puedo adoptar ${result.forms.length} siluetas básicas con mis partículas: ${result.forms.map(form => form.label).join(', ')}. Pídeme una forma y, si quieres, una duración; por defecto la mantengo unos cinco segundos antes de volver al núcleo orgánico.`;
+                return result.requestedShape === 'organic' ? 'Vuelvo al núcleo orgánico.'
+                    : `Adopto la forma de ${result.label} y la mantengo unos ${result.durationSeconds} segundos después de la transición. Luego vuelvo al núcleo orgánico.`;
             }
         });
 
@@ -3512,5 +3591,5 @@
         return String(value || '').replace(/\.$/, '');
     }
 
-    return { create, normalize, extractTitle, parseSocialSend, parseDesktopRequest, parseProcedureRequest, parseUiRequest, detectMediaAction, desktopErrorMessage, mobileErrorMessage, explainFailure };
+    return { create, normalize, parseCoreFormRequest, extractTitle, parseSocialSend, parseDesktopRequest, parseProcedureRequest, parseUiRequest, detectMediaAction, desktopErrorMessage, mobileErrorMessage, explainFailure };
 });

@@ -92,13 +92,19 @@ for (const [name, ink, muted, background, accent, onAccent] of [
     assert.ok(contrast(accent, onAccent) >= 4.5, `${name} action text contrast`);
 }
 console.log('PASS light/dark primary, supporting and action text contrast');
+assert.match(css, /background: var\(--gunter-stage-background, #080d20\) fixed !important/);
+const homeCss = fs.readFileSync(path.join(__dirname, '..', 'styles/gunter-orbit-home.css'), 'utf8');
+assert.match(homeCss, /background: var\(--gunter-stage-background\)/);
+assert.match(homeCss, /--gunter-stage-edge: #dce8f7/);
+const mark = fs.readFileSync(path.join(__dirname, '..', 'assets/gunter/gunter-core.svg'), 'utf8');
+assert.match(mark, /viewBox="0 0 32 32"/); assert.doesNotMatch(mark, /<filter|feGaussianBlur/);
 
 for (const page of ['day', 'dashboard', 'config', 'meeting', 'new-project', 'results', 'admin', 'login', 'index', 'reset']) {
     const html = fs.readFileSync(path.join(__dirname, '..', `${page}.html`), 'utf8');
     const links = [...html.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/g)].map(match => match[1]);
     const theme = links.filter(href => href.startsWith('styles/gunter-interior.css?'));
     assert.equal(theme.length, 1, `${page}: exactly one interior theme`);
-    assert.match(theme[0], /\?v155-unified-interior$/, `${page}: current asset revision`);
+    assert.match(theme[0], /\?v173-material-navigation$/, `${page}: current asset revision`);
     const workspace = links.filter(href => href.startsWith('styles/gunter-workspace-layout.css?'));
     const settings = links.filter(href => href.startsWith('styles/pages/config-layout.css?'));
     if (['login', 'index', 'reset'].includes(page)) {
@@ -116,7 +122,7 @@ for (const page of ['day', 'dashboard', 'config', 'meeting', 'new-project', 'res
     }
 }
 const offlineShell = fs.readFileSync(path.join(__dirname, '..', 'service-worker.js'), 'utf8');
-assert.match(offlineShell, /\/styles\/gunter-interior\.css\?v155-unified-interior/);
+assert.match(offlineShell, /\/styles\/gunter-interior\.css\?v173-material-navigation/);
 assert.match(offlineShell, /\/styles\/gunter-workspace-layout\.css\?v158-structured-workspaces/);
 assert.match(offlineShell, /\/styles\/pages\/config-layout\.css\?v157-section-navigation/);
 console.log('PASS versioned theme, ordered structural layers and offline shell');

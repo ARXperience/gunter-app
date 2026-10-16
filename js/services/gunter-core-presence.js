@@ -122,7 +122,7 @@
     }
     function move(next, nextMode, initial) {
         portal.hidden = false;
-        if (nextMode !== 'home') { shapeClicks = 0; window.GunterParticles?.endShape?.(); }
+        if (nextMode !== 'home') { shapeClicks = 0; window.GunterParticles?.endShape?.({ randomOnly: true }); }
         if (!initial && same(target, next) && mode === nextMode) {
             if (flight && (reduced() || speed() === 0)) settle();
             if (!flight) layout(next);
@@ -224,7 +224,7 @@
             move(destination, 'home', initial); return;
         }
         shapeClicks = 0;
-        window.GunterParticles?.endShape?.();
+        window.GunterParticles?.endShape?.({ randomOnly: true });
         const companion = document.getElementById('gunter-companion');
         if (companion?.hidden || companion?.classList.contains('is-hidden')) {
             portal.hidden = true; cancelFlow(); target = null; return;

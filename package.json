@@ -10,6 +10,7 @@
     "test:api-base": "node test/api-base.js",
     "test:preflight": "node test/preflight-guard.js",
     "test:assistant": "node test/assistant-core.js",
+    "test:core-forms": "node test/core-form-catalog.js && node test/core-form-commands.js && node test/idle-core-gpu.js && node test/core-renderer.js && node test/core-presence-transition.js",
     "test:agenda": "node test/event-tools.js && node test/event-service.js && node test/event-action-engine.js",
     "test:followups": "node test/conversational-followups.js",
     "test:event-reminders": "node test/event-reminders.js && node test/event-reminder-notifications.js && node test/conversational-followups.js",

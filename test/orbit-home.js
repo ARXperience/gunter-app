@@ -27,7 +27,7 @@ function node() {
         }
     });
 }
-function environment({ hash = '', pathname = '/day.html', companion = true, voiceControl = true, loading = false } = {}) {
+function environment({ hash = '', pathname = '/day.html', companion = true, voiceControl = true, loading = false, tutor = false, canTutor = true } = {}) {
     const calls = { mounts: 0, show: 0, expand: 0, voice: 0, activate: [], history: [], scroll: 0, cleared: [], permission: 0 };
     const body = node(), html = node(), tabs = node(); body.children = [];
     body.append = child => body.children.push(child);
@@ -36,6 +36,8 @@ function environment({ hash = '', pathname = '/day.html', companion = true, voic
         '[data-orbit-status]', '[data-orbit-voice-label]', 'time'].map(selector => [selector, node()]));
     const microphone = node(); microphone.click = () => { calls.voice++; };
     let observer = null;
+    const featureNodes = [node(), node()];
+    featureNodes.forEach(item => { item.dataset.orbitFeature = 'tutorMode'; });
     const location = { hash, pathname };
     const document = emitter({ body, documentElement: html, readyState: loading ? 'loading' : 'complete',
         getElementById(id) { return id === 'gday-tabs' ? tabs : body.children.find(child => child.id === id) || null; },
@@ -44,15 +46,18 @@ function environment({ hash = '', pathname = '/day.html', companion = true, voic
             if (selector === '[data-gunter-voice-toggle]') return voiceControl ? microphone : null;
             return null;
         },
-        createElement() { const el = node(); el.querySelector = selector => controls[selector] || null; return el; }
+        createElement() { const el = node(); el.querySelector = selector => controls[selector] || null;
+            el.querySelectorAll = selector => selector === '[data-orbit-feature]' ? featureNodes : []; return el; }
     });
-    const state = { conversation: 'idle', playback: { speaking: false }, ptt: { active: false, phase: 'off' }, wake: { active: false, mode: 'off' } };
+    const state = { conversation: 'idle', playback: { speaking: false }, ptt: { active: false, phase: 'off' }, wake: { active: false, mode: 'off' }, tutor, canTutor };
     class Observer {
         constructor(callback) { this.callback = callback; this.connected = false; observer = this; }
         observe(target) { assert.equal(target, tabs); this.connected = true; }
         disconnect() { this.connected = false; }
     }
     const window = emitter({ MutationObserver: Observer,
+        PremiumFeaturesService: { isEnabled: key => key === 'tutorMode' && state.tutor },
+        GunterAuth: { canTutor: () => state.canTutor },
         scrollTo() { calls.scroll++; },
         setInterval(fn, ms) { assert.equal(ms, 30000); calls.clock = fn; return 42; },
         clearInterval(id) { calls.cleared.push(id); },
@@ -83,7 +88,7 @@ function environment({ hash = '', pathname = '/day.html', companion = true, voic
     const sandbox = { window, document, location, history, MutationObserver: Observer, queueMicrotask, Date, Intl, console };
     vm.runInNewContext(source, sandbox, { filename: 'gunter-orbit-home.js' });
     const flush = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); assert.ok(calls.activate.length < 35, 'routing must not loop'); };
-    return { window, document, location, state, calls, controls, body, html, selected, sandbox, flush,
+    return { window, document, location, state, calls, controls, body, html, selected, sandbox, flush, featureNodes,
         home: () => document.getElementById('gunter-orbit-home'), observer: () => observer,
         async navigate(nextHash) { location.hash = nextHash; window.fire('hashchange'); await flush(); }
     };
@@ -185,10 +190,24 @@ check('route map reuses existing destinations and exposes no new services', asyn
     const e = environment(); await e.flush();
     const hrefs = Array.from(e.window.GunterOrbitHome.routes, item => item.href);
     for (const href of ['day.html#tasks', 'day.html#events', 'day.html#reminders', 'day.html#capture',
-        'day.html#conversations', 'day.html#activity', 'dashboard.html', 'results.html', 'config.html#data', 'config.html#connections']) {
+        'day.html#conversations', 'day.html#activity', 'dashboard.html', 'results.html', 'config.html#connections']) {
         assert.ok(hrefs.includes(href), href);
     }
     assert.doesNotMatch(source, /fetch\(|getUserMedia\(|new (?:AudioContext|SpeechRecognition|WebSocket)|localStorage\.setItem|\.dispatch\(/);
+});
+check('Inicio omits memory and shows the wise node and wire only while enabled and authorized', async () => {
+    const e = environment(); await e.flush();
+    assert.ok(!e.home().innerHTML.includes('config.html#data'));
+    assert.ok(!e.home().innerHTML.includes('Memoria'));
+    assert.ok(e.featureNodes.every(item => item.hidden));
+    assert.ok(!e.window.GunterOrbitHome.routes.some(item => item.href === 'day.html#tutor'));
+    e.state.tutor = true; e.window.fire('gunterPremiumFeaturesChange');
+    assert.ok(e.featureNodes.every(item => !item.hidden));
+    assert.ok(e.window.GunterOrbitHome.routes.some(item => item.href === 'day.html#tutor'));
+    e.state.canTutor = false; e.document.fire('gunter-auth-profile-changed');
+    assert.ok(e.featureNodes.every(item => item.hidden));
+    e.state.canTutor = true; e.state.tutor = false; e.window.fire('pageshow');
+    assert.ok(e.featureNodes.every(item => item.hidden));
 });
 check('home nodes and account controls reuse the semantic octagram icon family, not independent circle icons', () => {
     const e = environment(), markup = e.home().innerHTML;

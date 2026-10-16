@@ -326,6 +326,17 @@ async function check(label, fn) { await fn(); passed++; console.log('PASS ' + la
         }
         assert.doesNotMatch(source, /portal\.animate\(/);
         assert.match(read('service-worker.js'), /\/js\/services\/gunter-core-presence\.js\?/);
+        const worker = read('service-worker.js');
+        for (const page of ['day.html', 'dashboard.html', 'config.html', 'results.html', 'meeting.html', 'new-project.html', 'index.html', 'admin.html']) {
+            const html = read(page), catalog = 'js/components/gunter-core-forms.js';
+            assert.equal((html.match(/src="js\/components\/gunter-core-forms\.js\?/g) || []).length, 1, page);
+            assert.ok(html.indexOf(catalog) < html.indexOf('js/components/gunter-idle-core.js'), `${page}: guides precede renderer`);
+            assert.ok(worker.includes('/' + html.match(/src="(js\/components\/gunter-core-forms\.js\?[^"]+)"/)[1]));
+        }
+        const css = read('styles/gunter-core-presence.css');
+        assert.match(css, /@view-transition\s*\{\s*navigation:\s*auto/);
+        assert.match(css, /::view-transition-new\(root\)/);
+        assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
     });
     console.log('Core presence: ' + passed + ' focused checks passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

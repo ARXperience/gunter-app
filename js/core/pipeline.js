@@ -46,7 +46,7 @@
             const informationalRequest = window.GunterAssistantTools?.isInformationalRequest?.(text) === true;
             const settingsFollowUp = ['settings.update', 'reminder.schedule'].includes(window.GunterAssistantTools?.getPending?.()?.toolId)
                 && window.GunterAssistantTools?.isContextualFollowUp?.(text);
-            if (settingsFollowUp || ['app.navigate', 'app.inspect', 'settings.list', 'settings.update', 'reminder.schedule'].includes(earlyIntent?.toolId)) {
+            if (settingsFollowUp || ['app.navigate', 'app.inspect', 'app.core.shape', 'settings.list', 'settings.update', 'reminder.schedule'].includes(earlyIntent?.toolId)) {
                 const result = await window.GunterAssistantTools.dispatch(text);
                 if (result?.handled) {
                     state.intent = { primary: { type: 'settings', confidence: 1 }, alternatives: [], multiIntent: false, method: 'canonical-settings-catalog' };

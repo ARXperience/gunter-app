@@ -9,13 +9,26 @@
         ['Recordatorios', 'day.html#reminders', 27, 73, 'amber', 'reminder'],
         ['Captura rápida', 'day.html#capture', 41, 85, 'amber', 'capture'],
         ['Conversaciones', 'day.html#conversations', 70, 20, 'cyan', 'message'],
-        ['Memoria', 'config.html#data', 80, 39, 'cyan', 'brain'],
+        ['Modo sabio', 'day.html#tutor', 80, 39, 'violet', 'brain', 'tutorMode'],
         ['Resultados', 'results.html', 79, 62, 'amber', 'chart'],
         ['Conexiones', 'config.html#connections', 66, 79, 'amber', 'link'],
         ['Actividad', 'day.html#activity', 56, 89, 'violet', 'activity']
     ];
     const homeHashes = new Set(['', '#home', '#today', '#main-content']);
     let home, syncPending = false, disposed = false, clockTimer, mutationObserver, resizeObserver;
+    function routeAvailable(route) {
+        if (!route[6]) return true;
+        if (route[6] === 'tutorMode' && window.GunterAuth && !window.GunterAuth.canTutor?.()) return false;
+        return window.PremiumFeaturesService?.isEnabled?.(route[6]) === true;
+    }
+    function syncTools() {
+        if (!home || disposed) return;
+        home.querySelectorAll('[data-orbit-feature]').forEach(node => {
+            const route = routes.find(item => item[6] === node.dataset.orbitFeature);
+            node.hidden = !route || !routeAvailable(route);
+        });
+        layoutWires();
+    }
     function layoutWires() {
         if (!home || home.hidden || disposed) return;
         const scene = home.querySelector('.gn-orbit-scene')?.getBoundingClientRect?.();
@@ -25,6 +38,7 @@
         const cy = (core.top + core.height / 2 - scene.top) / scene.height * 1000;
         const wires = home.querySelectorAll('.gn-orbit-wire');
         home.querySelectorAll('.gn-orbit-node__point').forEach((point, index) => {
+            if (point.closest?.('[hidden]')) return;
             const box = point.getBoundingClientRect();
             const x = (box.left + box.width / 2 - scene.left) / scene.width * 1000;
             const y = (box.top + box.height / 2 - scene.top) / scene.height * 1000;
@@ -105,12 +119,18 @@
         if (home) return;
         home = document.createElement('section'); home.id = 'gunter-orbit-home'; home.className = 'gn-orbit-home';
         home.setAttribute('aria-label', 'Inicio de Gunter');
-        const links = routes.map(([label, href, x, y, color, symbol], index) => `<a class="gn-orbit-node gn-orbit-node--${color}"
-            href="${href}" style="--node-x:${x}%;--node-y:${y}%;--node-i:${index}" data-orbit-route="${href}">
-            <span class="gn-orbit-node__point" aria-hidden="true">${icon(symbol)}</span><span class="gn-orbit-node__label">${escape(label)}</span></a>`).join('');
-        const wires = routes.map(([, , x, y, color]) => `<path class="gn-orbit-wire gn-orbit-wire--${color}" d="M500 490 Q${500 + (x - 50) * 3} ${490 + (y - 49) * 8} ${x * 10} ${y * 10}"/>`).join('');
+        const links = routes.map((route, index) => {
+            const [label, href, x, y, color, symbol, feature] = route;
+            return `<a class="gn-orbit-node gn-orbit-node--${color}"
+            href="${href}" style="--node-x:${x}%;--node-y:${y}%;--node-i:${index}" data-orbit-route="${href}"${feature ? ` data-orbit-feature="${feature}"${routeAvailable(route) ? '' : ' hidden'}` : ''}>
+            <span class="gn-orbit-node__point" aria-hidden="true">${icon(symbol)}</span><span class="gn-orbit-node__label">${escape(label)}</span></a>`;
+        }).join('');
+        const wires = routes.map(route => {
+            const [, , x, y, color, , feature] = route;
+            return `<path class="gn-orbit-wire gn-orbit-wire--${color}"${feature ? ` data-orbit-feature="${feature}"${routeAvailable(route) ? '' : ' hidden'}` : ''} d="M500 490 Q${500 + (x - 50) * 3} ${490 + (y - 49) * 8} ${x * 10} ${y * 10}"/>`;
+        }).join('');
         home.innerHTML = `<header class="gn-orbit-header"><a href="day.html" class="gn-orbit-brand" aria-label="Inicio Gunter">
-            <img src="assets/gunter/gunter-core.svg?v166-bio-river" width="30" height="30" alt=""><h1>GUNTER</h1></a>
+            <img src="assets/gunter/gunter-core.svg?v173-material-navigation" width="30" height="30" alt=""><h1>GUNTER</h1></a>
             <span class="gn-orbit-header__subtitle">Tu asistente personal</span>
             <div class="gn-orbit-header__actions"><time aria-label="Hora local"></time>
             <button type="button" data-orbit-theme aria-label="Cambiar tema claro u oscuro" title="Cambiar tema">${icon('sun')}</button>
@@ -145,16 +165,20 @@
         }
         window.addEventListener('hashchange', () => syncRoute(true));
         window.addEventListener('gunter-open-tab', queueSync);
+        window.addEventListener('gunterPremiumFeaturesChange', syncTools);
+        document.addEventListener('gunter-auth-ready', syncTools);
+        document.addEventListener('gunter-auth-profile-changed', syncTools);
         for (const event of ['gunter-conversation-state', 'gunter-voice-state', 'gunter-push-to-talk-state', 'wake-word-state'])
             window.addEventListener(event, syncState);
         updateClock(); clockTimer = window.setInterval(updateClock, 30000);
-        syncRoute(true); syncState(); window.GunterParticles?.mount?.(home);
+        syncRoute(true); syncState(); syncTools(); window.GunterParticles?.mount?.(home);
         window.addEventListener('pagehide', event => {
             if (event.persisted) return;
             disposed = true; mutationObserver?.disconnect(); resizeObserver?.disconnect(); window.clearInterval(clockTimer);
         });
-        window.addEventListener('pageshow', () => { if (!disposed) syncRoute(true); });
+        window.addEventListener('pageshow', () => { if (!disposed) { syncRoute(true); syncTools(); } });
     }
-    window.GunterOrbitHome = { init, syncRoute, routes: routes.map(([label, href]) => ({ label, href })) };
+    window.GunterOrbitHome = { init, syncRoute,
+        get routes() { return routes.filter(routeAvailable).map(([label, href]) => ({ label, href })); } };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
 })();

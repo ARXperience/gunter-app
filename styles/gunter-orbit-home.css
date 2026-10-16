@@ -1,4 +1,12 @@
 /* Single-screen spatial entrance. Workspaces retain their native scrolling. */
+:root {
+    --gunter-stage-edge: #080d20;
+    --gunter-stage-background: radial-gradient(ellipse at 50% 47%, #233654 0%, #132442 33%, #101831 61%, #080d20 100%);
+}
+html[data-color-mode="light"], html.at-light {
+    --gunter-stage-edge: #dce8f7;
+    --gunter-stage-background: radial-gradient(ellipse at 50% 47%, #fff 0%, #e3e9fb 46%, #dce8f7 100%);
+}
 .gn-orbit-home {
     --orbit-bg: #080d20; --orbit-ink: #f1f4ff; --orbit-muted: #aab8d5;
     --orbit-line: rgba(103, 174, 250, .28); --orbit-cyan: #6edafa;
@@ -6,10 +14,11 @@
     position: fixed; inset: 0; z-index: 210; isolation: isolate;
     height: 100dvh; min-height: 0; color: var(--orbit-ink);
     font-family: 'IBM Plex Sans', system-ui, sans-serif;
-    background: radial-gradient(ellipse at 50% 47%, #233654 0%, #132442 33%, #101831 61%, var(--orbit-bg) 100%);
+    background: var(--gunter-stage-background);
     overflow: hidden; box-sizing: border-box;
 }
 .gn-orbit-home[hidden] { display: none !important; }
+.gn-orbit-home [data-orbit-feature][hidden] { display: none !important; }
 html.gunter-orbit-home-active, body.gunter-orbit-home-active { overflow: hidden !important; height: 100dvh; }
 body.gunter-orbit-home-active :is(.gunter-command-nav, .gunter-console, .gunter-breadcrumb, .gunter-command-flow, .gday__sidebar, #gday-tabs, .gday__tab-panel, .gd-theme-toggle, #gauth-chip) { display: none !important; }
 body.gunter-orbit-home-active :is(.gday, .gday__shell, .gday__main) { min-height: 0 !important; margin: 0 !important; padding: 0 !important; height: 100dvh !important; overflow: hidden !important; }
@@ -131,7 +140,7 @@ body.gunter-orbit-home-active .gn-comp:not(.is-expanded) :is(.gn-comp__bubble, .
 body.at-light .gn-orbit-home {
     --orbit-bg: #e5edfa; --orbit-ink: #152440; --orbit-muted: #455a79;
     --orbit-line: rgba(39, 80, 130, .25); --orbit-cyan: #126c8c; --orbit-violet: #714bac; --orbit-amber: #a55116;
-    background: radial-gradient(ellipse at 50% 47%, #fff 0%, #e3e9fb 46%, #dce8f7 100%);
+    background: var(--gunter-stage-background);
 }
 body.at-light .gn-orbit-header__actions :is(button, a), body.at-light .gn-orbit-footer button { background: rgba(255, 255, 255, .7); }
 body.at-light .gn-orbit-node__label { text-shadow: none; }

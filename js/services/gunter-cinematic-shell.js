@@ -8,7 +8,7 @@
     'use strict';
     if (window.GunterCinematicShell) return;
 
-    const MASCOT_SOURCE = 'assets/gunter/gunter-core.svg?v166-bio-river';
+    const MASCOT_SOURCE = 'assets/gunter/gunter-core.svg?v173-material-navigation';
     const PAGE_MAP = [
         ['login.html', 'login'], ['dashboard.html', 'dashboard'], ['day.html', 'day'],
         ['config.html', 'config'], ['new-project.html', 'new-project'],

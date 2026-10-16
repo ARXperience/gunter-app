@@ -54,7 +54,7 @@
         classes(root, mode);
         root.style.colorScheme = mode;
         // The document canvas must match the workspace while styles are loading.
-        root.style.backgroundColor = mode === 'light' ? '#edf2fc' : '#080d20';
+        root.style.backgroundColor = mode === 'light' ? '#dce8f7' : '#080d20';
         syncBody();
         const preference = document.getElementById('pref-dark-mode');
         if (preference) preference.checked = mode === 'dark';
