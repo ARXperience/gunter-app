@@ -88,7 +88,7 @@ function captureHarness(service) {
         static isTypeSupported(type) { return type === 'audio/webm;codecs=opus'; }
         constructor() { this.mimeType = 'audio/webm;codecs=opus'; recorder = this; }
         start() { this.state = 'recording'; }
-        stop() { this.state = 'inactive'; }
+        stop() { this.state = 'inactive'; queueMicrotask(() => this.onstop?.()); }
         requestData() { this.ondataavailable?.({ data: new Blob(['audio'], { type: 'audio/webm' }) }); }
     }
     const context = { console, Blob, FormData, setTimeout, clearTimeout, CustomEvent: class {

@@ -75,3 +75,26 @@ permite el plazo ya existente del servidor (6 s de preparación + 12 s de
 síntesis, con 2 s de margen); no es una garantía de latencia ni un benchmark.
 Solo una cancelación local reciente permite un reintento ocupado, abortable,
 tras 350 ms. Silenciar/interrumpir cancela también esa espera y la precarga.
+
+### Continuidad y cortes de voz
+
+Cada frase local se cierra mediante `MediaRecorder.stop()` y su evento `stop`:
+incluye la cabecera del contenedor y el último bloque de audio. Se reinicia el
+grabador sobre el mismo micrófono; los intervalos silenciosos se rotan completos,
+sin descartar cabeceras WebM/Ogg. El bloqueo de STT termina antes de esperar al
+LLM/TTS; una cola acotada permite recuperar frases que llegan mientras transcribe.
+Parar o revocar la escucha aborta la transcripción y descarta esa cola.
+
+Con continuidad habilitada, los siguientes turnos no exigen repetir el nombre
+dentro de la ventana configurada. El reinicio del reconocimiento conserva esa
+ventana; una pausa breve no corta la frase al retomarla. Al terminar la voz
+se renueva la espera. El modo manual y la continuidad desactivada se respetan.
+
+Ocultar la pestaña ya no pausa la respuesta: se suspende solo el medidor visual.
+Un historial efímero y acotado del texto realmente reproducido filtra eco tardío
+y entre segmentos; llamadas explícitas y «para» conservan la interrupción.
+No garantiza captura con la pantalla apagada ni elude restricciones del SO.
+
+Pruebas: `voice-conversation-continuity.js`, `local-wake-browser.js`,
+`wake-autostart.js`, `voice-reply-policy.js` y `presence-voice.js` en `test/`.
+Son verificaciones deterministas de eventos; no sustituyen escuchar el dispositivo.

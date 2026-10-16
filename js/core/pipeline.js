@@ -58,7 +58,7 @@
                     return { state, awaitingConfirmation: !!result.requiresConfirmation, response: state.execution.uiResponse };
                 }
             }
-            if (window.GunterActions?.dispatch) {
+            if (!window.GunterAssistantTools?.isUsageGuidanceRequest?.(text) && window.GunterActions?.dispatch) {
                 const action = await window.GunterActions.dispatch(text);
                 if (action?.reply) {
                     state.intent = {
@@ -78,7 +78,7 @@
 
             // Los planes multipaso pasan primero por el coordinador durable.
             // Una propuesta no ejecuta efectos hasta que el usuario aprueba la secuencia completa.
-            if (window.GunterWorkflowOrchestrator?.dispatch) {
+            if (!window.GunterAssistantTools?.isUsageGuidanceRequest?.(text) && window.GunterWorkflowOrchestrator?.dispatch) {
                 const workflowResult = await window.GunterWorkflowOrchestrator.dispatch(text);
                 if (workflowResult?.handled) {
                     state.intent = {

@@ -646,8 +646,9 @@
             // Navegación, configuración y followups reconocidos deben llegar
             // primero al registro allowlist antes de los interceptores históricos.
             const earlyIntent = window.GunterAssistantTools?.detect?.(text);
+            const guidanceRequest = window.GunterAssistantTools?.isUsageGuidanceRequest?.(text) === true;
             const contextualFollowUp = window.GunterAssistantTools?.isContextualFollowUp?.(text) === true;
-            if (!earlyIntent && !voiceInput && /\b(personalidad|estilo de voz|modo de personalidad|intensidad|ponte|comportamiento)\b/i.test(text) && window.GunterActions?.dispatch) {
+            if (!earlyIntent && !voiceInput && !guidanceRequest && /\b(personalidad|estilo de voz|modo de personalidad|intensidad|ponte|comportamiento)\b/i.test(text) && window.GunterActions?.dispatch) {
                 const styleResult = await window.GunterActions.dispatch(text);
                 if (turnId !== STATE.turnId) return;
                 if (styleResult?.reply) { clearTimeout(safetyTimer); finishTyping(); reply(styleResult.reply); return; }
@@ -692,7 +693,7 @@
 
             // 0.2. Planes multipaso durables. Solo intercepta cuando detecta
             // dos o más habilidades Web permitidas y siempre propone antes de actuar.
-            if (!voiceInput && window.GunterWorkflowOrchestrator?.dispatch) {
+            if (!guidanceRequest && !voiceInput && window.GunterWorkflowOrchestrator?.dispatch) {
                 try {
                     const workflowResponse = await withTimeout(
                         window.GunterWorkflowOrchestrator.dispatch(text),
@@ -769,7 +770,7 @@
 
             // 1. Intentar action dispatcher (toggle, query, list) con timeout
             let response = null;
-            if (!voiceInput && window.GunterActions?.dispatch) {
+            if (!guidanceRequest && !voiceInput && window.GunterActions?.dispatch) {
                 try {
                     response = await withTimeout(
                         window.GunterActions.dispatch(resolvedText),
@@ -804,7 +805,7 @@
             // 1.5. LLM classifier bridge — si el regex no matcheó nada, preguntamos
             //      al LLM si es realmente un intent de feature (typos, phrasing raro).
             //      Solo si tenemos NLP + tiempo.
-            if (!voiceInput && window.GunterNlpLlm?.complete && window.GunterActions?.dispatch && text.length < 200 && /\b(feature|funci[oó]n|herramienta|configuraci[oó]n|opci[oó]n|ajuste|modo|personalidad|activa|desactiva|habilita|enciende|apaga|prende)\b/i.test(text)) {
+            if (!guidanceRequest && !voiceInput && window.GunterNlpLlm?.complete && window.GunterActions?.dispatch && text.length < 200 && /\b(feature|funci[oó]n|herramienta|configuraci[oó]n|opci[oó]n|ajuste|modo|personalidad|activa|desactiva|habilita|enciende|apaga|prende)\b/i.test(text)) {
                 if (turnId !== STATE.turnId) return;
                 try {
                     const classifier = await withTimeout(
@@ -861,7 +862,7 @@
                                 detail: { name: 'llmRequest', at: performance.now() }
                             }));
                             for await (const delta of window.GunterNlpLlm.stream(prompt, {
-                                temperature: 0.6, maxTokens: 260, skipMemory: true, signal: controller.signal
+                                temperature: 0.6, maxTokens: 260, skipMemory: true, memoryQuery: text, signal: controller.signal
                             })) {
                                 if (turnId !== STATE.turnId || controller.signal.aborted) return;
                                 if (firstToken) {
@@ -890,6 +891,7 @@
                             temperature: 0.6,
                             maxTokens: 260,
                             skipMemory: true,
+                            memoryQuery: text,
                             signal: controller.signal
                         }),
                         SAFETY_TIMEOUT_MS,

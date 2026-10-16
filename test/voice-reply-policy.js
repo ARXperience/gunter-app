@@ -57,8 +57,9 @@ function harness(overrides = {}, options = {}) {
         pause() { this.paused = true; }
         finish() { this.ended = true; this.paused = true; this.onended?.(); }
     }
+    const documentHandlers = new Map();
     const document = { readyState: 'loading', body: { classList: classList(), appendChild() {} }, hidden: false,
-        createElement: element, addEventListener() {}, querySelectorAll: () => [], getElementById: node };
+        createElement: element, addEventListener(type, listener) { documentHandlers.set(type, listener); }, querySelectorAll: () => [], getElementById: node };
     const sandbox = {
         window: root, document, navigator: {}, location: root.location, localStorage,
         fetch: async (url, init) => {
@@ -81,6 +82,7 @@ function harness(overrides = {}, options = {}) {
     load('voice-service.js');
     if (options.lateFeatures) root.PremiumFeaturesService = features;
     return { config, root, voice: root.GunterVoice, events, audios, requests, utterances, localStorage, nodes,
+        visibility(hidden) { document.hidden = hidden; documentHandlers.get('visibilitychange')?.(); },
         companion() { load('gunter-companion.js'); return root.GunterCompanion; },
         change(key, value) {
             config[key === 'voiceEnabled' ? 'enabled' : key === 'voiceMode' ? 'mode' : key] = value;
@@ -394,6 +396,34 @@ async function test(name, fn) { await fn(); passed++; console.log('  ✓ ' + nam
         assert.equal(h.requests.length, 0);
         assert.equal(h.audios.length, 0); assert.equal(h.utterances.length, 0);
         assert.equal(h.voice.isSpeaking(), false);
+    });
+    await test('hiding and restoring the tab does not pause, replay or regenerate the spoken response', async () => {
+        const h = harness();
+        await h.voice.speak('Esta respuesta debe seguir escuchándose al cambiar de pestaña.');
+        await tick(); await tick();
+        const audio = h.audios[0];
+        assert.equal(audio.paused, false);
+        h.visibility(true); assert.equal(audio.paused, false);
+        h.visibility(false); assert.equal(audio.paused, false);
+        assert.equal(h.requests.length, 1);
+        audio.finish(); assert.equal(h.voice.isSpeaking(), false);
+    });
+    await test('delayed echo is filtered across audible chunks and after playback without swallowing explicit interruptions', async () => {
+        const h = harness();
+        const first = 'Revisé tus compromisos del proyecto y organicé las prioridades pendientes para hoy.';
+        const second = 'Podemos comenzar por la presentación y después revisar los próximos pasos del equipo.';
+        await h.voice.speak(first); await h.voice.speak(second);
+        await tick(); await tick();
+        assert.equal(h.voice.isLikelyEcho('la presentación y después revisar'), false, 'prefetched text is not yet audible');
+        h.audios[0].finish(); await tick(); await tick();
+        assert.equal(h.voice.isLikelyEcho('organicé las prioridades pendientes para hoy podemos comenzar por la presentación'), true);
+        await finishPlayback(h);
+        assert.equal(h.voice.isLikelyEcho('revisé tus compromisos del proyecto'), true, 'late STT echo survives ended');
+        for (const command of ['Hola Gunter cambia de tema', 'Gunter', 'para', 'silencio', 'No estoy de acuerdo con esa propuesta'])
+            assert.equal(h.voice.isLikelyEcho(command), false, command);
+        await h.voice.speak('Te escucho.'); await tick(); await tick();
+        assert.equal(h.voice.isLikelyEcho('te escucho'), true, 'short audible wake feedback cannot trigger a response loop');
+        await finishPlayback(h);
     });
     console.log(`VOICE REPLY POLICY: ${passed} passed`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

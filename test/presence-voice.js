@@ -130,6 +130,8 @@ function voiceRuntime(fetcher, hybrid = null) {
     await test('si TTS falla usa voz local y la interrupción cancela esa voz', async () => {
         const setup = voiceRuntime(async () => { throw new Error('offline'); });
         setup.voice.speak('Hola Andrea'); await tick(); assert.equal(setup.utterances[0].text, 'Hola Andrea');
+        assert.equal(setup.voice.isLikelyEcho('Hola Andrea'), false, 'a queued utterance is not yet audible');
+        setup.utterances[0].onstart();
         assert.equal(setup.voice.isLikelyEcho('Hola Andrea'), true);
         setup.voice.cancel(); assert.equal(setup.utterances[0].onend, null); assert.equal(setup.voice.isSpeaking(), false);
     });

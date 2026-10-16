@@ -57,7 +57,7 @@ function harness(options = {}) {
             listeners.get(type).push(listener);
         },
         dispatchEvent(event) { for (const listener of listeners.get(event.type) || []) listener(event); },
-        PremiumFeaturesService: { getWakeWordConfig: () => config },
+        PremiumFeaturesService: { getWakeWordConfig: () => config, isEnabled: key => key !== 'conversationContinuity' || options.continuity === true },
         GunterRuntimeState: { getState: () => runtime },
         GunterSTT: { transcribe: async () => '' },
         GunterVoiceActivity: { supported: true, onChange(listener) { vadListener = listener; return () => { vadListener = null; }; },
@@ -273,6 +273,19 @@ function harness(options = {}) {
     assert.equal(voiceFeedback.calls.voices.length, 1, 'text wake responses override otherwise allowed meeting audio');
     assert.equal(voiceFeedback.calls.feedback.length, 2);
     voiceFeedback.wake.stop();
+
+    const continuous = harness({ continuity: true });
+    await continuous.load();
+    await continuous.say('Hola Gunter revisa mis tareas'); await continuous.timer(300);
+    for (let i = 1; i < 10; i++) {
+        await continuous.endRecognition(); await continuous.timer(600);
+        assert.equal(continuous.wake.getState().mode, 'query', 'recognizer restart preserves the conversation window');
+        await continuous.say('consulta siguiente numero ' + i);
+    }
+    assert.equal(continuous.calls.commands.length, 10);
+    assert.equal(continuous.calls.microphone, 0, 'no extra VAD or microphone permission requests');
+    assert.equal(continuous.calls.feedback.length, 1, 'follow-ups do not re-greet or require the name again');
+    continuous.wake.stop();
 
     const unsupportedPermission = harness({ permissionUnsupported: true });
     await unsupportedPermission.load();

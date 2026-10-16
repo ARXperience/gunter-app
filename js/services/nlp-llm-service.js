@@ -54,7 +54,8 @@
             } catch { /* noop, never block LLM call */ }
         }
 
-        return (preamble ? `${baseSystem}\n\n${preamble}` : baseSystem) + memoryBlock;
+        const guidance = !opts.jsonMode ? window.GunterAssistantTools?.getRecommendationContext?.(opts.memoryQuery || prompt) || '' : '';
+        return (preamble ? `${baseSystem}\n\n${preamble}` : baseSystem) + memoryBlock + (guidance ? '\n\n' + guidance : '');
     }
 
     function contextEnvelope(channel) {
@@ -76,6 +77,7 @@
         const runtime = window.GunterRuntimeState?.getState?.() || {};
         const local = localSelected();
         const key = JSON.stringify({ p: prompt, o: { ...opts, signal: undefined }, personality: pp,
+            guidance: !opts.jsonMode ? window.GunterAssistantTools?.getRecommendationContext?.(opts.memoryQuery || prompt) || '' : '',
             mode: runtime.mode || 'AUTO', privacy: runtime.privacy || 'STANDARD' });
         if (!local && cache.has(key)) return cache.get(key);
         const system = await buildSystem(prompt, opts, pp);

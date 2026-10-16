@@ -46,6 +46,13 @@
     let speaking = false;
     let lastSpokenText = '';
     let speechStartedAt = 0;
+    const recentSpeech = [];
+    const ECHO_TAIL_MS = 12000;
+    function rememberAudibleText(text) {
+        const at = Date.now();
+        recentSpeech.push({ text, at, owner: window.GunterAuth?.getUser?.()?.id });
+        while (recentSpeech.length > 8 || (recentSpeech[0] && at - recentSpeech[0].at > ECHO_TAIL_MS)) recentSpeech.shift();
+    }
     let generation = 0;
     let synthesisController = null;
     let prefetched = null;
@@ -384,7 +391,7 @@
             u.lang = preferred.lang || 'es-MX';
         }
         currentUtterance = u;
-        u.onstart = () => { if (token === generation) { fallbackPlaying = true; notifyVoiceState('speaking'); } };
+        u.onstart = () => { if (token === generation) { rememberAudibleText(text); fallbackPlaying = true; notifyVoiceState('speaking'); } };
         u.onend = () => {
             if (token !== generation) return;
             currentUtterance = null;
@@ -731,6 +738,7 @@
                 } else speakFallback(next.text, next.sv, token);
             });
             if (played && token === generation) {
+                rememberAudibleText(next.text);
                 notifyVoiceState('speaking', { context: next.opts.context || 'chat' });
                 prefetchNext();
             }
@@ -790,22 +798,29 @@
     // una interrupción del usuario. Se compara la transcripción reciente
     // con el texto que está reproduciendo el TTS.
     function isLikelyEcho(transcript) {
-        if (!speaking || (!currentAudio && !currentUtterance) || !transcript || !lastSpokenText) return false;
-        if (Date.now() - speechStartedAt > 60_000) return false;
+        if (!transcript) return false;
         const clean = value => String(value || '').toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
             .replace(/[^a-z0-9ñ\s]/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
         const heard = clean(transcript);
-        const spoken = clean(lastSpokenText);
-        if (heard.length >= 10 && (spoken.includes(heard) || heard.includes(spoken))) return true;
+        // Explicit calls and stop commands must still interrupt. A late STT
+        // result can otherwise contain the previous, not the current TTS chunk.
+        if (/^(?:(?:hi|hey|hola|oye|ok) )?(?:gunter|gonter|gunder)(?:\s|$)/.test(heard)
+            || /^(?:para|detente|silencio|espera|basta)(?: (?:gunter|por favor))?$/.test(heard)) return false;
+        const owner = window.GunterAuth?.getUser?.()?.id;
+        const recent = recentSpeech.filter(row => row.owner === owner && Date.now() - row.at <= ECHO_TAIL_MS);
+        if (!recent.length) return false;
+        const spoken = clean(recent.map(row => row.text).join(' '));
+        if (heard.length >= 4 && recent.some(row => clean(row.text) === heard)) return true;
+        if (heard.length >= 12 && spoken.includes(heard)) return true;
         const heardTokens = new Set(heard.split(' ').filter(token => token.length > 2));
         const spokenTokens = new Set(spoken.split(' ').filter(token => token.length > 2));
-        if (!heardTokens.size || !spokenTokens.size) return false;
+        if (heardTokens.size < 3 || !spokenTokens.size) return false;
         let overlap = 0;
         heardTokens.forEach(token => { if (spokenTokens.has(token)) overlap += 1; });
-        return overlap / heardTokens.size >= 0.7;
+        return overlap / heardTokens.size >= 0.85;
     }
 
     function stripMarkdown(s) {
@@ -870,13 +885,12 @@
         }
     });
 
-    // Pause on tab hide
+    // Hiding a tab must not cut a spoken reply. Only the optional visual meter
+    // is suspended; microphone privacy remains owned by the listening service.
     document.addEventListener('visibilitychange', () => {
-        if (document.hidden && currentAudio) {
-            try { currentAudio.pause(); } catch {}
-        } else if (!document.hidden && currentAudio && currentAudio.paused) {
-            try { currentAudio.play(); } catch {}
-        }
+        if (document.hidden) pauseAudioAnalysis('page-hidden');
+        else if (audioAnalysisEnabled && currentAudio && !currentAudio.paused && !currentAudio.ended)
+            startAudioAnalysis(currentAudio, generation);
     });
     window.addEventListener('pagehide', event => {
         setAudioAnalysisEnabled(false);

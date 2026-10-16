@@ -47,6 +47,9 @@
     let localClipTimer = null;
     let localEndTimer = null;
     let localBusy = false;
+    let localClosing = null;
+    let localPendingClips = [];
+    let localTranscribeAbort = null;
     let localSpeech = false;
     let localClip = [];
     let localPreRoll = [];
@@ -72,6 +75,8 @@
     let manualSessionStarted = false;
     let lastKnownWakeEnabled = !!getConfig().enabled;
     let lastInvocation = null;
+    let queryGeneration = 0;
+    let queryWindowUntil = 0;
 
     function setIndicator(state, label) {
         // The navigation and settings panel are the sole visible status surfaces.
@@ -203,43 +208,77 @@
         return hybrid.mode === 'LOCAL' || hybrid.privacy === 'LOCAL_ONLY';
     }
 
-    async function processLocalClip() {
-        if (localBusy || !localClip.length || !running) return;
+    async function processLocalClip(chunks, mime = 'audio/webm') {
+        if (!chunks?.length || !running) return;
+        if (localBusy) {
+            // A short utterance may finish while Moonshine is still decoding
+            // the previous one. Keep a bounded queue, not a permanently busy VAD.
+            if (localPendingClips.length < 2) localPendingClips.push({ chunks, mime });
+            else {
+                lastError = 'La transcripción está ocupada. Espera un momento y repite la última frase.';
+                setIndicator('error', lastError);
+            }
+            return;
+        }
         const generation = captureGeneration;
-        const chunks = localClip.splice(0);
         localBusy = true;
         phase = 'transcribing';
         notifyState();
+        let transcript = '';
+        const abort = typeof AbortController === 'function' ? new AbortController() : null;
+        localTranscribeAbort = abort;
+        const timeout = setTimeout(() => abort?.abort(), 30000);
         try {
-            const mime = localRecorder?.mimeType?.split(';')[0] || 'audio/webm';
             const blob = new Blob(chunks, { type: mime });
             if (!blob.size || blob.size > 30 * 1024 * 1024) return;
             const form = new FormData();
             form.append('file', blob, mime === 'audio/ogg' ? 'wake.ogg' : 'wake.webm');
-            const transcript = String(await window.GunterSTT.transcribe(form)).trim();
+            transcript = String(await window.GunterSTT.transcribe(form, { signal: abort?.signal })).trim();
             if (generation !== captureGeneration || !getConfig().enabled || !running) return;
             lastError = null;
-            if (!transcript || window.GunterVoice?.isLikelyEcho?.(transcript)) return;
-            lastHeard = transcript;
-            const invocation = detectInvocation(transcript);
-            if (mode === 'wake' && invocation) enterQueryMode(invocation);
-            else if (mode === 'query') {
-                if (invocation && !invocation.command) enterQueryMode(invocation);
-                else await handleQuery(invocation?.command || transcript);
-            }
         } catch (error) {
             if (generation !== captureGeneration || !getConfig().enabled || !running) return;
-            lastError = error.code || error.message;
+            lastError = error.name === 'AbortError' ? 'La transcripción tardó demasiado. Puedes volver a hablar.' : error.code || error.message;
             phase = 'error';
             notifyState();
-            window.GunterNotificationsService?.showToast?.(`Activación local no disponible: ${lastError}`, { variant: 'warn' });
+            window.GunterNotificationsService?.showToast?.(`Activación local no disponible: ${lastError}`, { variant: 'warn', silent: true });
+            return;
         } finally {
+            clearTimeout(timeout);
+            if (localTranscribeAbort === abort) localTranscribeAbort = null;
             if (generation === captureGeneration) localBusy = false;
             if (generation === captureGeneration && running && phase !== 'error') {
                 phase = mode === 'query' ? 'recording' : 'waiting_activation';
                 notifyState();
             }
+            if (generation === captureGeneration && running && localPendingClips.length) {
+                const next = localPendingClips.shift();
+                Promise.resolve().then(() => processLocalClip(next.chunks, next.mime));
+            }
         }
+        // Only STT owns localBusy. Waiting for an LLM/tool/TTS response must not
+        // swallow the next speech-started event and make capture appear frozen.
+        if (generation !== captureGeneration || !getConfig().enabled || !running
+            || !transcript || window.GunterVoice?.isLikelyEcho?.(transcript)) return;
+        lastHeard = transcript;
+        const invocation = detectInvocation(transcript);
+        if (window.GunterVoice?.isSpeaking?.() && (invocation || mode === 'query'))
+            window.GunterVoice.cancel?.('barge-in');
+        if (mode === 'wake' && invocation) enterQueryMode(invocation);
+        else if (mode === 'query') {
+            if (invocation && !invocation.command) enterQueryMode(invocation);
+            else await handleQuery(invocation?.command || transcript);
+        }
+    }
+
+    function finishLocalSegment(withSpeech = true) {
+        if (!running || localClosing || localRecorder?.state !== 'recording') return;
+        clearTimeout(localClipTimer); clearTimeout(localEndTimer);
+        localClosing = withSpeech ? 'utterance' : 'idle';
+        localSpeech = false;
+        // stop() flushes the final dataavailable BEFORE onstop. A fixed 150 ms
+        // delay could lose final syllables. Every segment is a complete container.
+        localRecorder.stop();
     }
 
     async function startLocal(fromUserGesture) {
@@ -290,13 +329,25 @@
                 stop({ preserveIntent: true });
                 restartTimer = setTimeout(() => start(), 600);
             };
-            localRecorder.onstop = rearmEndedCapture;
+            localRecorder.onstop = () => {
+                if (generation !== captureGeneration || !running) return;
+                if (!localClosing) { rearmEndedCapture(); return; }
+                const chunks = localClosing === 'utterance' ? localClip.splice(0) : [];
+                const mime = localRecorder.mimeType?.split(';')[0] || 'audio/webm';
+                localClosing = null;
+                localClip = []; localPreRoll = [];
+                try { localRecorder.start(250); }
+                catch { rearmEndedCapture(); return; }
+                if (chunks.length) processLocalClip(chunks, mime);
+            };
             localRecorder.ondataavailable = event => {
-                if (!event.data?.size) return;
-                if (localSpeech) localClip.push(event.data);
-                else {
+                if (generation !== captureGeneration || !running || !event.data?.size) return;
+                if (localSpeech || localClosing === 'utterance') localClip.push(event.data);
+                else if (!localClosing) {
                     localPreRoll.push(event.data);
-                    if (localPreRoll.length > 6) localPreRoll.shift();
+                    // Never splice away the WebM/Ogg initialization headers.
+                    // Rotate silent complete segments instead; the mic/VAD stay on.
+                    if (localPreRoll.length >= 8) finishLocalSegment(false);
                 }
             };
             localRecorder.onerror = event => {
@@ -305,25 +356,24 @@
             };
             localUnsubscribe = window.GunterVoiceActivity.onChange(state => {
                 if (state.reason === 'capture-ended') { rearmEndedCapture(); return; }
-                if (!running || localBusy) return;
-                if (state.reason === 'speech-started' && !window.GunterVoice?.isSpeaking?.()) {
+                if (!running || localClosing) return;
+                if (state.reason === 'speech-started' && localSpeech) {
+                    // A brief pause did not finish the utterance yet. Do not
+                    // let its old silence timer cut the resumed words.
+                    clearTimeout(localEndTimer); clearTimeout(localClipTimer);
+                    localClipTimer = setTimeout(() => finishLocalSegment(true), 12000);
+                    return;
+                }
+                if (!localSpeech && (state.reason === 'speech-started' || (state.reason === 'level' && state.activity === 'speech'))) {
                     clearTimeout(localEndTimer);
                     localSpeech = true;
                     localClip = localPreRoll.splice(0);
                     phase = 'recording'; notifyState();
                     clearTimeout(localClipTimer);
-                    localClipTimer = setTimeout(() => {
-                        localSpeech = false;
-                        localRecorder?.requestData?.();
-                        localEndTimer = setTimeout(processLocalClip, 150);
-                    }, 12000);
+                    localClipTimer = setTimeout(() => finishLocalSegment(true), 12000);
                 } else if (state.reason === 'speech-ended' && localSpeech) {
                     clearTimeout(localClipTimer);
-                    localEndTimer = setTimeout(() => {
-                        localSpeech = false;
-                        localRecorder?.requestData?.();
-                        setTimeout(processLocalClip, 150);
-                    }, 650);
+                    localEndTimer = setTimeout(() => finishLocalSegment(true), 650);
                 }
             });
             const vad = await window.GunterVoiceActivity.start(stream);
@@ -340,8 +390,9 @@
             localRecorder.start(250);
             lastError = null;
             running = true;
-            mode = 'wake';
-            setIndicator('wake', `Di "${getConfig().wakeWord}"`);
+            mode = queryWindowUntil > Date.now() && window.PremiumFeaturesService?.isEnabled?.('conversationContinuity') !== false ? 'query' : 'wake';
+            setIndicator(mode, mode === 'query' ? 'Te escucho…' : `Di "${getConfig().wakeWord}"`);
+            if (mode === 'query') armQueryWindow();
             maybeShowAndroidWarning();
         } catch (error) {
             if (!isCurrent()) return;
@@ -412,25 +463,29 @@
         // second VAD stream would compete with it on some devices.
 
         try {
-            recognition = new SR();
+            const instance = new SR();
+            recognition = instance;
             recognition.lang = 'es-MX';
             recognition.continuous = true;
             recognition.interimResults = true;
             recognition.maxAlternatives = 3;  // más alternativas = más chance de match
 
             recognition.onstart = () => {
+                if (recognition !== instance) return;
                 browserStarting = false;
                 if (generation !== captureGeneration || !getConfig().enabled || !userWantsRunning
                     || suspendedForCapture || meetingCaptureActive || usesLocalAudio()) return;
                 running = true;
                 localProvider = false;
-                mode = 'wake';
-                setIndicator('wake', `Di "${cfg.wakeWord}"`);
+                mode = queryWindowUntil > Date.now() && window.PremiumFeaturesService?.isEnabled?.('conversationContinuity') !== false ? 'query' : 'wake';
+                setIndicator(mode, mode === 'query' ? 'Te escucho…' : `Di "${cfg.wakeWord}"`);
+                if (mode === 'query') armQueryWindow();
                 notifyState();
                 console.log('[wake-word] 🎙 Escuchando');
             };
 
             recognition.onresult = (event) => {
+                if (recognition !== instance || generation !== captureGeneration || !running) return;
                 const last = event.results[event.results.length - 1];
                 // Iterar todas las alternativas: la más larga no siempre es la
                 // que SpeechRecognition transcribió correctamente como "Gunter".
@@ -445,6 +500,7 @@
                     }
                 }
                 if (!bestText) return;
+                if (window.GunterVoice?.isLikelyEcho?.(bestText)) return;
                 lastHeard = bestText;
                 notifyState();
 
@@ -491,6 +547,7 @@
             };
 
             recognition.onerror = (e) => {
+                if (recognition !== instance || generation !== captureGeneration) return;
                 lastError = e.error;
                 console.warn('[wake-word] error:', e.error, e.message);
                 if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
@@ -503,6 +560,8 @@
             };
 
             recognition.onend = () => {
+                if (recognition !== instance || generation !== captureGeneration) return;
+                recognition = null;
                 browserStarting = false;
                 running = false;
                 phase = 'off';
@@ -543,7 +602,10 @@
     function stop(options = {}) {
         const ownedLocalCapture = localProvider || localStarting;
         captureGeneration++;
-        if (!options.preserveIntent) { userWantsRunning = false; manualSessionStarted = false; }
+        queryGeneration++;
+        localTranscribeAbort?.abort(); localTranscribeAbort = null;
+        localPendingClips = []; localClosing = null;
+        if (!options.preserveIntent) { userWantsRunning = false; manualSessionStarted = false; queryWindowUntil = 0; }
         if (queryTimeout) { clearTimeout(queryTimeout); queryTimeout = null; }
         if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
         clearTimeout(localClipTimer); clearTimeout(localEndTimer);
@@ -600,7 +662,23 @@
         return cfg.responseMode === 'voice' && !!window.GunterVoice?.shouldSpeak?.(context);
     }
 
+    function armQueryWindow() {
+        clearTimeout(queryTimeout);
+        if (!running || mode !== 'query') return;
+        const cfg = getConfig();
+        queryWindowUntil = Date.now() + (cfg.autoStopSeconds || 20) * 1000;
+        queryTimeout = setTimeout(() => {
+            if (!running || mode !== 'query') return;
+            if (localSpeech || localBusy || phase === 'processing' || window.GunterVoice?.isSpeaking?.()) {
+                armQueryWindow(); return;
+            }
+            mode = 'wake'; setIndicator('wake', `Di "${cfg.wakeWord}"`); notifyState();
+        }, (cfg.autoStopSeconds || 20) * 1000);
+    }
+
     function enterQueryMode(invocation = null) {
+        const activation = ++queryGeneration;
+        window.GunterCompanion?.interrupt?.();
         mode = 'query';
         lastInvocation = invocation;
         const cfg = getConfig();
@@ -622,12 +700,7 @@
             }
         } catch {}
 
-        if (queryTimeout) clearTimeout(queryTimeout);
-        queryTimeout = setTimeout(() => {
-            mode = 'wake';
-            setIndicator('wake', `Di "${cfg.wakeWord}"`);
-            notifyState();
-        }, (cfg.autoStopSeconds || 20) * 1000);
+        armQueryWindow();
 
         // Si la wake word vino con texto después ("gunter crea una tarea"), procesar ya
         const preText = invocation?.command || '';
@@ -635,7 +708,7 @@
             // Pequeño delay para no pisar el beep
             const generation = captureGeneration;
             setTimeout(() => {
-                if (generation === captureGeneration && running && getConfig().enabled) handleQuery(preText);
+                if (generation === captureGeneration && activation === queryGeneration && running && getConfig().enabled) handleQuery(preText);
             }, 300);
         }
 
@@ -656,12 +729,16 @@
     }
 
     async function handleQuery(transcript) {
+        const turn = ++queryGeneration;
+        const capture = captureGeneration;
         window.GunterCompanion?.interrupt?.();
-        if (/^(para|detente|silencio|espera)[.!]?$/i.test(String(transcript).trim())) { setIndicator('query', 'Te escucho…'); return; }
+        if (/^(para|detente|silencio|espera)[.!]?$/i.test(String(transcript).trim())) {
+            window.GunterVoice?.cancel?.('user-stop'); mode = 'query'; setIndicator('query', 'Te escucho…'); armQueryWindow(); return;
+        }
         const cfg = getConfig();
         if (queryTimeout) { clearTimeout(queryTimeout); queryTimeout = null; }
-        mode = 'wake';
-        setIndicator('wake', `Di "${cfg.wakeWord}"`);
+        mode = window.PremiumFeaturesService?.isEnabled?.('conversationContinuity') === false ? 'wake' : 'query';
+        setIndicator(mode, mode === 'query' ? 'Te escucho…' : `Di "${cfg.wakeWord}"`);
         notifyState();
 
         const text = (transcript || '').trim();
@@ -674,9 +751,21 @@
         // confirmations and personality must not diverge between voice and text.
         if (window.GunterCompanion?.__handleFromWake) {
             ensureAssistantOpen();
-            await window.GunterCompanion.__handleFromWake(text);
-            if (cfg.listeningMode === 'manual') stop();
-            else if (running && phase === 'processing') { phase = 'waiting_activation'; notifyState(); }
+            try { await window.GunterCompanion.__handleFromWake(text); }
+            catch (error) {
+                if (capture === captureGeneration && turn === queryGeneration) {
+                    lastError = error.code || error.message; setIndicator('error', 'No pude completar la respuesta. Puedes volver a hablar.'); notifyState();
+                }
+            } finally {
+                if (capture === captureGeneration && turn === queryGeneration && running && getConfig().enabled) {
+                    if (getConfig().listeningMode === 'manual') stop();
+                    else {
+                        mode = window.PremiumFeaturesService?.isEnabled?.('conversationContinuity') === false ? 'wake' : 'query';
+                        setIndicator(mode, mode === 'query' ? 'Te escucho…' : `Di "${getConfig().wakeWord}"`);
+                        armQueryWindow(); notifyState();
+                    }
+                }
+            }
             return;
         }
 
@@ -965,7 +1054,7 @@
         if (!running) return;
         if (event.detail?.state === 'speaking') { phase = 'responding'; notifyState(); }
         else if (event.detail?.state === 'idle' && phase === 'responding') {
-            phase = mode === 'query' ? 'recording' : 'waiting_activation'; notifyState();
+            phase = mode === 'query' ? 'recording' : 'waiting_activation'; armQueryWindow(); notifyState();
         }
     });
 
