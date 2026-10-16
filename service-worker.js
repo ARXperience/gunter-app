@@ -11,7 +11,7 @@
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = "v160-voice-continuity-guidance-20261015";
+const SW_VERSION = "v161-reminder-language-20261015";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;
@@ -56,7 +56,7 @@ const PRECACHE_URLS = [
     '/js/premium-features-service.js?v154-unified-settings',
     '/js/advanced-settings.js?v156-structured-workspaces',
     '/js/services/actions-service.js?v154-unified-settings',
-    '/js/core/assistant-tools.js?v160-voice-continuity-guidance',
+    '/js/core/assistant-tools.js?v161-reminder-language',
     '/js/services/diagnostics-service.js?v156-structured-workspaces',
     '/styles/pages/orbital-day.css?v139-orbital-workspaces',
     '/styles/pages/orbital-meetings.css?v139-orbital-workspaces',

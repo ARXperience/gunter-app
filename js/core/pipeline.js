@@ -43,9 +43,9 @@
             // The canonical registry owns these requests and confirmations;
             // the legacy feature dispatcher must not apply a competing write.
             const earlyIntent = window.GunterAssistantTools?.detect?.(text);
-            const settingsFollowUp = window.GunterAssistantTools?.getPending?.()?.toolId === 'settings.update'
+            const settingsFollowUp = ['settings.update', 'reminder.schedule'].includes(window.GunterAssistantTools?.getPending?.()?.toolId)
                 && window.GunterAssistantTools?.isContextualFollowUp?.(text);
-            if (settingsFollowUp || ['app.navigate', 'app.inspect', 'settings.list', 'settings.update'].includes(earlyIntent?.toolId)) {
+            if (settingsFollowUp || ['app.navigate', 'app.inspect', 'settings.list', 'settings.update', 'reminder.schedule'].includes(earlyIntent?.toolId)) {
                 const result = await window.GunterAssistantTools.dispatch(text);
                 if (result?.handled) {
                     state.intent = { primary: { type: 'settings', confidence: 1 }, alternatives: [], multiIntent: false, method: 'canonical-settings-catalog' };

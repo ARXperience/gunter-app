@@ -152,9 +152,12 @@
 
     // ---------- Regex-based parser ----------
     function parseWithRegex(raw, referenceDate, tz) {
-        const text = raw.toLowerCase().trim();
+        const original = raw.toLowerCase().trim();
+        // A clock qualifier is not a relative date: "mañana a las once de
+        // la mañana" contains one date and one AM qualifier, not two dates.
+        const text = original.replace(/\bde la (?:mañana|manana|tarde|noche|madrugada)\b/g, '');
         const today = nowInTz(tz, referenceDate);
-        const tod = extractTimeOfDay(text);
+        const tod = extractTimeOfDay(original);
 
         if (/\b(ahora|ahorita|en este momento)\b/.test(text)) {
             return result(raw, toIsoWithTz(today, tz), 'instant', tz, { confidence: 1 });
@@ -174,7 +177,7 @@
         }
 
         // "hoy"
-        if (/\b(hoy|today)\b/.test(text)) {
+        if (/\b(hoy|today|esta mañana|esta manana|esta tarde|esta noche|esta madrugada)\b/.test(text)) {
             if (tod) return result(raw, toIsoWithTz(setTime(today, tod.hour, tod.minute), tz), 'instant', tz);
             return result(raw, toIsoWithTz(setTime(today, 9, 0), tz), 'allDay', tz, { confidence: 0.85 });
         }

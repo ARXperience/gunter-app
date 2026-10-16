@@ -27,6 +27,7 @@
     }
 
     function isUsageGuidanceRequest(text) {
+        if (parseReminderCreation(text)) return false;
         const t = normalize(text).replace(/^(?:(?:hi|hola|oye|hey) )?gunter\s*/, '');
         // Advice never authorizes a mutation; explicit orders retain the gate.
         if (/^(?:por favor )?(?:activa|activar|habilita|desactiva|desactivar|cambia|configura|abre|crea|guarda|recuerda|elimina|borra|cancela|envia|completa|reprograma)\b/.test(t)) return false;
@@ -329,7 +330,7 @@
 
     function accountPendingTool(pending) {
         return pending && (pending.toolId?.startsWith('tasks.') || pending.toolId?.startsWith('calendar.') || pending.toolId?.startsWith('commitments.')
-            || pending.toolId === 'reminder.update' || pending.toolId === 'reminder.retry' || pending.toolId === 'jobs.cancel'
+            || pending.toolId === 'reminder.schedule' || pending.toolId === 'reminder.update' || pending.toolId === 'reminder.retry' || pending.toolId === 'jobs.cancel'
             || !!pending.args?.eventLink || !!pending.args?.target?.meta?.eventLink
             || pending.toolId === 'settings.update'
             || (pending.toolId === 'preferences.update' && pending.args?.key === 'calendarPlanning'));
@@ -418,6 +419,7 @@
             if (accountPendingTool(pending)
                 && (pending.actorId || pending.args?.ownerId) !== ownerId) savePending(null);
             if (!continuityEnabled()) {
+                if (pending?.stage === 'collecting') savePending(null);
                 referenceContext = pendingReminderReference = null;
                 if (pendingEventSelection?.request) pendingEventSelection = null;
             }
@@ -573,7 +575,7 @@
                 && (isAffirmative(normalize(text)) || isNegative(normalize(text)));
             const scheduleChoice = usesCalendarSchedule(pending) && pending.args?.scheduleCheck?.suggestions?.length
                 && calendarSuggestionChoice(text) !== null;
-            return Boolean(domainConfirmation || scheduleChoice || parseReferenceRequest(text) || ((pendingEventSelection || referenceContext) && referenceChoice(text) !== null)
+            return Boolean(continuesReminderDraft(pending, text) || domainConfirmation || scheduleChoice || parseReferenceRequest(text) || ((pendingEventSelection || referenceContext) && referenceChoice(text) !== null)
                 || (pendingReminderReference && isTimeReply(text)));
         }
         runtime.addEventListener?.('gunterPremiumFeaturesChange', syncReferenceScope);
@@ -759,6 +761,10 @@
                     savePending(null);
                     return null;
                 }
+                if (parsed.stage === 'collecting' && (!Number.isFinite(parsed.referenceAt) || referenceNow() - parsed.referenceAt > PENDING_TTL_MS)) {
+                    savePending(null);
+                    return null;
+                }
                 if (!registry.has(parsed.toolId)) {
                     savePending(null);
                     return null;
@@ -774,6 +780,44 @@
             const parser = options.timeParser || runtime.GunterTimeParser;
             if (!parser?.parse) return null;
             return parser.parse(text, now(), timezone());
+        }
+
+        function continuesReminderDraft(pending, text) {
+            if (pending?.toolId !== 'reminder.schedule' || pending.stage !== 'collecting' || !continuityEnabled()) return false;
+            if (isAffirmative(normalize(text)) || isNegative(normalize(text)) || isTimeReply(text)) return true;
+            return pending.args.missingReminderField === 'title' && !detect(text)
+                && !/^(?:que|como|por que|donde|quien|puedes)\b/.test(normalize(text)) && String(text).trim().length <= 180;
+        }
+
+        async function completeReminderDraft(pending, text, inputSource) {
+            const args = { ...pending.args, inputSource: pending.args.inputSource === 'voice' || inputSource === 'voice' ? 'voice' : 'text' };
+            args.voiceTranscript = [args.voiceTranscript || args.rawText, text].filter(Boolean).join(' / ').slice(0, 500);
+            if (isAffirmative(normalize(text))) return { handled: true, intent: 'reminder.schedule', status: 'needs_input', reply: pending.prompt };
+            if (args.missingReminderField === 'title' && !isTimeReply(text)) {
+                args.title = String(text).trim().replace(/^(?:para|de|que)\s+/i, '');
+            } else {
+                let timeText = String(text).trim();
+                const hasDay = /\b(?:hoy|manana|pasado|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b|\d{1,2}[\/-]\d{1,2}|\d{4}-\d{2}-\d{2}/.test(normalize(text).replace(/de la (?:manana|tarde|noche|madrugada)/g, ''));
+                if (args.runAt && Number.isFinite(Date.parse(args.runAt))) {
+                    if (!hasDay) {
+                        const [year, month, day] = dateKey(args.runAt, timezone()).split('-');
+                        timeText = `${day}/${month}/${year} ${timeText}`;
+                    } else if (args.reminderTimeKind === 'instant') {
+                        const dateOnly = await resolveTime(timeText);
+                        if (dateOnly?.kind === 'allDay') {
+                            const clock = new Intl.DateTimeFormat('en-GB', { timeZone: timezone(), hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(args.runAt));
+                            timeText += ` a las ${clock}`;
+                        }
+                    }
+                }
+                const resolved = await resolveTime(timeText);
+                args.runAt = resolved?.iso || null;
+                args.reminderTimeKind = resolved?.kind || null;
+                args.temporalAmbiguity = resolved?.ambiguity || null;
+            }
+            delete args.missingReminderField;
+            savePending(null);
+            return execute({ toolId: 'reminder.schedule', args }, false);
         }
 
         function detect(text) {
@@ -793,6 +837,9 @@
             // its anchored operation must win over broad application routing.
             const reminderOperation = parseReminderOperation(text);
             if (reminderOperation) return { toolId: reminderOperation.mode === 'retry' ? 'reminder.retry' : 'reminder.inspect', args: { rawText: text } };
+            const reminderCreation = parseReminderCreation(text);
+            if (reminderCreation) return { toolId: 'reminder.schedule', args: { rawText: text, requestedAlarm: reminderCreation.alarm,
+                ...(parseEventReminder(text) ? { eventReminderRequest: true } : {}) } };
             if (/^(?:por favor )?(?:reintenta|reintentar|vuelve a intentar)\b.*\b(?:todos|varios|recordatorios|avisos)\b/.test(questionText))
                 return { toolId: 'reminder.retry', args: { rawText: text, compound: true } };
             if (/^(?:por favor )?(?:mis|los|que|cuales|lista|muestra|muestrame|ver|revisa)\b.*\b(recordatorios|avisos|seguimientos|procesos)\b.*\b(fallidos|fallaron|fallan|errores|fallos)\b/.test(questionText))
@@ -960,12 +1007,6 @@
 
             if (/\b(programa|programame|crea|haz|hacer)\b.*\b(seguimiento|follow up|follow-up)\b/.test(t)) {
                 return { toolId: 'follow_up.schedule', args: { rawText: text } };
-            }
-
-            if (/\b(recuerdame|recordarme|avisame)\b/.test(t)
-                || /\b(ponme|crea|programa)\b.*\b(recordatorio|aviso)\b/.test(t)) {
-                return { toolId: 'reminder.schedule', args: { rawText: text,
-                    ...(parseEventReminder(text) ? { eventReminderRequest: true } : {}) } };
             }
 
             if (/\b(que tengo|muestrame|dime|revisa|consulta|ver)\b.*\b(hoy|manana|agenda|calendario|pendientes?|eventos?|reuniones?)\b/.test(t)
@@ -1264,6 +1305,7 @@
             // An undated task must not send its title to the temporal LLM, which
             // can invent ambiguity and block an otherwise valid capture command.
             const hasTime = /\b(hoy|mañana|manana|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|horas?|minutos?|segundos?|semanas?|mes|meses|año|mediod[ií]a|medianoche|a las?|a la)\b|\b\d{1,2}[:/]\d{1,2}\b|\b\d{4}-\d{2}-\d{2}\b/i.test(match.args.rawText || '');
+            const reminderOwner = match.toolId === 'reminder.schedule' && runtime.GunterAuth ? taskOwnerId() : undefined;
             const resolved = match.toolId === 'tasks.create' && !hasTime ? null : await resolveTime(match.args.rawText);
             const title = extractTitle(match.args.rawText, match.toolId);
             return inspectCalendarMatch({
@@ -1271,6 +1313,8 @@
                 args: {
                     ...match.args,
                     title,
+                    ...(match.toolId === 'reminder.schedule' ? { reminderTimeKind: resolved?.kind || null,
+                        ownerId: reminderOwner } : {}),
                     ...(match.toolId === 'calendar.create' ? { ownerId: runtime.GunterAuth ? taskOwnerId() : 'local-user' } : {}),
                     ...(['tasks.create', 'reminder.schedule', 'follow_up.schedule'].includes(match.toolId) ? {
                         ...(match.toolId === 'tasks.create' ? { dueAt: resolved?.iso || null } : { runAt: resolved?.iso || null })
@@ -1291,6 +1335,9 @@
             if (!tool) return { handled: false };
             const validation = tool.validate ? await tool.validate(match.args) : { ok: true };
             if (!validation?.ok) {
+                if (tool.id === 'reminder.schedule' && validation.collect && match.args.ownerId && continuityEnabled()) {
+                    savePending({ toolId: tool.id, stage: 'collecting', args: { ...match.args, missingReminderField: validation.collect }, prompt: validation.reply });
+                }
                 if (['calendar.update', 'calendar.cancel', 'calendar.create', 'reminder.update', 'reminder.retry', 'reminder.inspect'].includes(tool.id) || match.args.eventReminderRequest) {
                     savePending(null);
                     pendingEventSelection = match.args.ambiguous && match.args.ownerId ? {
@@ -1410,6 +1457,10 @@
             try { await runtime.GunterContextProvider?.enrich?.(text, { channel: 'tool' }); } catch { /* local-first */ }
             const normalized = normalize(text);
             const pending = getPending();
+            if (continuesReminderDraft(pending, text) && !isNegative(normalized)) {
+                if (pending.args.ownerId !== ownerId) { savePending(null); return { handled: true, status: 'needs_input', reply: 'La cuenta cambió. Solicita el recordatorio desde tu sesión.' }; }
+                return completeReminderDraft(pending, text, options.inputSource);
+            }
             const slotChoice = calendarSuggestionChoice(text);
             if (usesCalendarSchedule(pending) && pending.args?.scheduleCheck?.suggestions?.length && slotChoice !== null) {
                 const slot = pending.args.scheduleCheck.suggestions[slotChoice - 1];
@@ -2244,12 +2295,19 @@
                     if (!Number.isFinite(fireAt) || !Number.isFinite(startAt) || fireAt <= referenceNow() || fireAt > startAt)
                         return { ok: false, reply: 'El aviso debe ser futuro y anterior o igual al inicio de la reunión. No programé nada.' };
                 }
-                if (!args.title || args.title.length < 2) return { ok: false, reply: '¿Qué quieres que te recuerde?' };
-                if (!args.runAt) return { ok: false, reply: '¿Cuándo quieres que te lo recuerde?' };
+                if (!args.eventLink && runtime.GunterAuth && (!args.ownerId || taskOwnerId() !== args.ownerId))
+                    return { ok: false, reply: 'Verifica tu sesión antes de programar un recordatorio de tu cuenta.' };
+                if (!args.title || args.title.length < 2) return { ok: false, collect: 'title', reply: '¿Qué quieres que te recuerde?' };
+                if (!args.runAt || args.reminderTimeKind === 'allDay') return { ok: false, collect: 'time', reply: args.runAt
+                    ? `¿A qué hora quieres el recordatorio “${args.title}” el ${dateKey(args.runAt, timezone())}? No lo programé todavía.`
+                    : `¿Qué día y a qué hora quieres que te recuerde “${args.title}”?` };
+                if (args.temporalAmbiguity) return { ok: false, collect: 'time', reply: `${args.temporalAmbiguity.reason || 'El horario es ambiguo.'} Dime el día y la hora exactos; no programé nada.` };
+                if (!Number.isFinite(Date.parse(args.runAt)) || Date.parse(args.runAt) <= referenceNow())
+                    return { ok: false, collect: 'day', reply: `Ese horario ya pasó o no es válido. ¿Para qué día y hora quieres el recordatorio “${args.title}”? No programé nada.` };
                 return { ok: true };
             },
             confirmation(args) {
-                if (!args.eventLink) return `¿Confirmas el recordatorio “${args.title}”?`;
+                if (!args.eventLink) return `¿Confirmas el recordatorio “${args.title}”, ${formatDateTime(args.runAt, timezone())}? Es un aviso de Gunter, no una alarma nativa del dispositivo.`;
                 const minutes = Math.round((Date.parse(args.eventLink.expected.startAt) - Date.parse(args.runAt)) / 60000);
                 return `¿Confirmas vincular un aviso a “${args.title}”, ${minutes} minutos antes (${formatDateTime(args.runAt, timezone())})? Se ajustará al reprogramarla y se cancelará si la cancelas. Requiere Gunter abierto en este navegador; no es un aviso con la app cerrada.`;
             },
@@ -2261,6 +2319,7 @@
                         meta: { eventLink: args.eventLink } });
                 }
                 const service = options.jobsService || runtime.GunterJobs;
+                if (runtime.GunterAuth && taskOwnerId() !== args.ownerId) throw new Error('La cuenta cambió; no programé el recordatorio.');
                 if (!service?.scheduleReminder) throw new Error('El servicio de procesos durables no está disponible.');
                 return service.scheduleReminder({ title: args.title, runAt: args.runAt, priority: args.priority || 'normal' });
             },
@@ -2274,12 +2333,13 @@
                         && Date.parse(persisted.fireAt) === Date.parse(args.runAt);
                 }
                 const service = options.jobsService || runtime.GunterJobs;
+                if (runtime.GunterAuth && taskOwnerId() !== args.ownerId) return false;
                 const persisted = await service.get(result.id);
                 return persisted?.status === 'scheduled' || persisted?.status === 'retry_wait';
             },
             formatResult(result) {
                 if (result.meta?.eventLink) return `Aviso vinculado y verificado: “${result.title}”, ${withoutFinalPeriod(formatDateTime(result.fireAt, timezone()))}. Mantendrá la antelación si reprogramas la reunión; requiere Gunter abierto en este navegador.`;
-                return `Recordatorio persistente programado y verificado: “${result.title}”, ${withoutFinalPeriod(formatDateTime(result.runAt, timezone()))}. Funcionará aunque cierres esta página.`;
+                return `Recordatorio persistente programado y verificado: “${result.title}”, ${withoutFinalPeriod(formatDateTime(result.runAt, timezone()))}. Es un aviso de Gunter, no una alarma nativa del dispositivo. El servidor debe seguir activo; verlo u oírlo requiere el canal de notificación disponible y sus permisos.`;
             }
         });
 
@@ -2775,6 +2835,10 @@
     }
 
     function extractTitle(text, toolId) {
+        if (toolId === 'reminder.schedule') {
+            const request = parseReminderCreation(text);
+            if (request) return extractReminderTitle(request.body);
+        }
         let title = String(text || '').trim();
         title = title.replace(
             /^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*[,;:!\-]*\s*/i,
@@ -2795,6 +2859,32 @@
         title = title.replace(/\s+\b(?:a\s+las?|a\s+la|en)\s+(?:\d{1,2}|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce).*/i, '').trim();
         title = title.replace(/^[,;:\-]+|[,;:\-]+$/g, '').trim();
         return toolId === 'calendar.create' ? title.replace(/^[“"']|[”"']$/g, '').trim() : title;
+    }
+
+    function parseReminderCreation(text) {
+        const raw = String(text || '').trim().replace(/^[¿¡]+/, '').replace(
+            /^(?:(?:hi|hey|hola|oye|ok|okay)\s+)?(?:gunter|gonter|gunder)\s*[,;:!\-]*\s*/i, '')
+            .replace(/^por favor\s+/i, '').replace(/^(?:(?:me\s+)?puedes|(?:me\s+)?podr[ií]as)\s+/i, '');
+        const direct = raw.match(/^(?:recu[eé]rdame|recordarme|recordar|av[ií]same|avisarme|(?:quiero|necesito)\s+que\s+me\s+(?:recuerdes|avises))\s+(.+)$/i);
+        if (direct) return { body: direct[1], alarm: false };
+        const command = raw.match(/^(?:act[ií]va(?:me|r)?|pon(?:me)?|poner|crea(?:r)?|progr[aá]ma(?:me|r)?|establece|a[ñn]ade|agrega|configura)\s+(?:(?:un|una|el|la)\s+)?(alarma|recordatorio|aviso)\b\s*(.*)$/i)
+            || raw.match(/^(?:quiero|necesito|quisiera|me gustar[ií]a)\s+(?:(?:poner|crear|programar|activar)\s+)?(?:(?:un|una)\s+)?(alarma|recordatorio|aviso)\b\s*(.*)$/i);
+        return command ? { body: command[2], alarm: normalize(command[1]) === 'alarma' } : null;
+    }
+
+    function extractReminderTitle(body) {
+        const quoted = body.match(/[“"]([^“”"]+)[”"]/);
+        if (quoted) return quoted[1].trim();
+        let title = body.replace(/\b(?:a las?|hacia las?|sobre las?)\s+(?:\d{1,2}(?:[:.]\d{2})?|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)(?:\s+y\s+(?:media|cuarto))?\s*(?:am|pm|a\.?\s*m\.?|p\.?\s*m\.?|de la (?:ma[ñn]ana|tarde|noche|madrugada))?/gi, ' ')
+            .replace(/\b\d{1,2}[:.]\d{2}(?:\s*(?:am|pm))?\b/gi, ' ')
+            .replace(/\b(?:en|dentro de)\s+\d+\s+(?:minutos?|horas?|d[ií]as?|semanas?)\b/gi, ' ')
+            .replace(/\b(?:pasado\s+)?ma[ñn]ana\b|\bhoy\b/gi, ' ')
+            .replace(/\b(?:el\s+)?(?:(?:pr[oó]ximo|este)\s+)?(?:lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b/gi, ' ')
+            .replace(/\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b|\b\d{1,2}\s+de\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)(?:\s+de\s+\d{4})?\b/gi, ' ')
+            .replace(/\s+(?:un|una)\s+(?:recordatorio|alarma|aviso)\s*[.!?]*$/i, ' ')
+            .replace(/\s+/g, ' ').trim();
+        title = title.replace(/^(?:(?:para|de|sobre|que|el)\s+)+/i, '').replace(/\s+(?:para|de|el|por favor)$/i, '').replace(/^[,;:\-\s]+|[,;:.!?\-\s]+$/g, '').trim();
+        return title;
     }
 
     function parseCommitmentRequest(text) {
