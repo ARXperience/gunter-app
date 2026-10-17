@@ -724,6 +724,22 @@ check('Transport is transient per host, uses the same compositor and never chang
     assert.equal(e.api.setTransport(e.art, null), true); e.step();
     assert.equal(e.renders.findLast(render => render.canvas === e.canvas()).config.transport, undefined);
 });
+check('Pointer input in a travel corridor uses the renderer inverse and ignores empty space, without moving the host', () => {
+    const e = environment(), seen = [];
+    let target = { x:.25, y:-.3 };
+    e.window.GunterIdleCore.unprojectPointer = (...args) => { seen.push(args); return target; };
+    const flow = { progress:.5, from:[0,0], to:[-.8,-.8], fromScale:1, toScale:.2 };
+    e.api.setTransport(e.art,flow);
+    pointerAt(e,200,200); assert.equal(seen.length,1);
+    assert.equal(seen[0][0],0); assert.equal(seen[0][1],0);
+    assert.equal(seen[0][2],400); assert.equal(seen[0][4].progress,.5);
+    assert.deepEqual(lastPointer(e),{x:.25,y:-.3,active:true});
+    target = { x:3, y:0 }; pointerAt(e,200,200);
+    assert.equal(lastPointer(e).active,false);
+    e.api.setTransport(e.art,null); const count=seen.length;
+    pointerAt(e,200,200); assert.equal(seen.length,count);
+    assert.equal(e.art.style.transform,undefined); assert.equal(e.writes.length,0);
+});
 check('Unavailable, static and invalid transports cannot retain navigation or create animation loops', () => {
     const valid = { progress: .5, from: [0, 0], to: [-1, -1], fromScale: 1, toScale: .2 };
     for (const options of [{ webgl: false }, { reducedOS: true }, { prefs: { coreIdleSpeed: 0 } }]) {

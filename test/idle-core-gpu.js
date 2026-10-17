@@ -5,7 +5,8 @@ const source=fs.readFileSync(require('node:path').join(__dirname,'../js/componen
 const defaults={particleColor:'#b8bec9',energyColor:'#ff452b',glowColor:'#ff6d35',brightness:1,density:1,speed:1,size:1};
 const STEP=1/45;
 let checks=0;
-const check=(name,fn)=>{fn();console.log('ok '+(++checks)+' - '+name);};
+const filter=process.argv[2]?new RegExp(process.argv[2]):null;
+const check=(name,fn)=>{if(filter&&!filter.test(name))return;fn();console.log('ok '+(++checks)+' - '+name);};
 function environment(options={}) {
     const gl={},names=['VERTEX_SHADER','FRAGMENT_SHADER','COMPILE_STATUS','LINK_STATUS','TEXTURE_2D',
         'TEXTURE_MIN_FILTER','TEXTURE_MAG_FILTER','TEXTURE_WRAP_S','TEXTURE_WRAP_T','NEAREST','LINEAR',
@@ -46,7 +47,8 @@ function environment(options={}) {
     function record(mode,count,instances=0) {
         assert.equal(mode,gl.TRIANGLES);assert.ok(count===3||count===6);
         const samplers={};
-        for(const name of ['u_history','u_image','u_bloom','u_volume','u_field'])if(program[name]) {
+        const pathSamplers=['u_pathsFrom','u_rowsFrom','u_pathsTo','u_rowsTo'].filter(name=>program.u_pathMode?.[name.endsWith('From')?0:1]>0);
+        for(const name of ['u_history','u_image','u_bloom','u_volume','u_field','u_bio','u_velocity',...pathSamplers])if(program[name]) {
             const samplerUnit=program[name][0],texture=textures.get(samplerUnit);
             assert.ok(Number.isInteger(samplerUnit)&&samplerUnit>=0,'valid sampler unit');
             assert.ok(live.Texture.has(texture),'sampler reads a live texture');
@@ -130,7 +132,7 @@ check('presentation resize retains advected material and allocates only presenta
     e.render(8,defaults,510,320);
     assert.equal(e.core.steps,steps);assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);
     assert.equal(e.core.field,field);assert.equal(e.core.fieldBuilds,builds);
-    assert.equal(e.live.Framebuffer.size,7);assert.equal(e.live.Texture.size,7);
+    assert.equal(e.live.Framebuffer.size,10);assert.equal(e.live.Texture.size,10);
     e.core.dispose();released(e);
 });
 check('particle, energy and emissive colors independently reach both matter and filament shaders',()=>{
@@ -153,7 +155,7 @@ check('one fixed floating atlas supplies density, energy, irradiance and facing 
     const build=e.draws.find(d=>d.program===e.core.programs.field.program);
     assert.equal(build.texture,field.texture);assert.deepEqual(build.viewport,[0,0,384,288]);
     assert.equal(build.time,e.core.displayTime);assert.equal(build.density,1);
-    assert.deepEqual(Object.keys(build.samplers),[],'atlas construction does not sample its destination');
+    assert.deepEqual(Object.keys(build.samplers),['u_bio','u_velocity'],'all conservatively bound shared samplers avoid the matter atlas destination');
     const shader=e.core.programs.field.program.shaders.find(s=>s.source.includes('out vec4 result')).source;
     assert.match(shader,/result\s*=\s*vec4\(density,heat,light,facing\)/);
     const volume=e.draws.find(d=>d.program===e.core.programs.volume.program),strands=e.draws.find(d=>d.instances);
@@ -163,7 +165,7 @@ check('one fixed floating atlas supplies density, energy, irradiance and facing 
     assert.equal(strands.samplers.u_history.texture,e.core.histories[e.core.historyIndex].texture);
     assert.equal(strands.samplers.u_volume.unit,1);assert.equal(strands.samplers.u_volume.texture,e.core.targets.energy.texture);
     assert.equal(e.core.targets.energy.texture.internal,e.gl.RGBA16F);
-    assert.equal(e.live.Framebuffer.size,7);assert.equal(e.live.Texture.size,7);
+    assert.equal(e.live.Framebuffer.size,10);assert.equal(e.live.Texture.size,10);
     const fragment=e.core.programs.strands.program.shaders.find(s=>s.source.includes('uniform sampler2D u_volume')).source;
     assert.match(fragment,/texture\(u_volume,gl_FragCoord.xy\/u_resolution\)/);
     for(const name of ['strands','volume']) {
@@ -172,16 +174,18 @@ check('one fixed floating atlas supplies density, energy, irradiance and facing 
     }
     e.core.dispose();released(e);
 });
-check('the connected energy support stays anchored inside material and is buried by actual depth density',()=>{
+check('real advected biomass supplies composite heat, irradiance and thermal coupling without an analytic tube',()=>{
     const e=environment();
     const field=e.core.programs.field.program.shaders.find(s=>s.source.includes('out vec4 result')).source;
     const center=field.match(/vec3 energyCenter\(float t\)\s*\{([\s\S]*?)\n        \}/)[1];
     assert.match(center,/idleCenter\(t\)\*\.25\+worldPoint\(vec3\(u_pointer\.xy\*\.14,0\)\)/,
         'the current follows the material center with a bounded internal excursion');
-    assert.match(field,/energyCurve\(clamp\(energyFrame\(p,t\)\.x,-\.27,\.27\),t\)/,
-        'incident light and matter transport share the shortened connected source');
-    assert.match(field,/float support=exp\(-pow\(radial,2\.2\)\)\*\(1\.0-smoothstep\(\.9,1\.45,radial\)\)/,
-        'the emitting tube has finite 3D support rather than a luminous tail outside the body');
+    assert.match(field,/vec4 gas=bioAt\(p\);\s*float density=matterDensity\(p,u_time\),heat=max\(0\.0,gas\.r\*gas\.g-\.035\)/,
+        'the compositor samples the independent carried density and temperature');
+    assert.match(field,/light=bioRadiance\(p\)\*exp\(-obstruction\*\.17\*u_density\)/,
+        'local irradiance comes from neighbouring gas with density absorption');
+    assert.match(field,/vec3 gradient=bioGradient\(p\)/,'the energy gradient participates in the shared velocity field');
+    assert.doesNotMatch(field,/energyCurve|energyHeat|energySource/,'no analytic bent emitter remains');
     assert.match(field,/if\(heat>\.0001\)\s*\{\s*vec3 depth=worldPoint\(vec3\(0,0,\.18\)\);\s*float cover=density\+matterDensity\(p\+depth,u_time\)\+matterDensity\(p-depth,u_time\);\s*heat\*=smoothstep\(\.025,\.18,cover\);/,
         'only the emitter neighbourhood pays for actual front/back material containment');
     assert.match(field,/result=vec4\(density,heat,light,facing\)/,'both visible passes receive the contained heat');
@@ -197,9 +201,8 @@ check('buried gas emits within the depth march while only matter extinguishes it
         'emission passes through the opacity already accumulated in front of its 3D sample');
     assert.match(volume,/opacity\+=\(1\.0-opacity\)\*density/);
     const strands=e.core.programs.strands.program.shaders.find(s=>s.source.includes('uniform sampler2D u_volume')).source;
-    assert.match(strands,/vec3 source=flowWind\(energySource\(flowUnwind\(v_world,u_flow\),u_time\),u_flow\)/);
-    assert.match(strands,/viewPoint\(v_world-source\)\.z/,
-        'a filament covers the energy according to its 3D position relative to the current');
+    assert.match(strands,/buried=bioEnergy\(rest-worldPoint\(vec3\(0,0,\.16\)\)\)/,
+        'a filament covers actual luminous gas lying behind its 3D location');
     assert.match(strands,/color=mix\(color,coat,frontCover\*\.88\)/,'front microfibres keep their shaded material color');
     assert.match(strands,/transmission=mix\(transmission,1\.0,frontCover\*\.85\)/,
         'the full column must not erase fibres lying in front of the energy');
@@ -322,7 +325,7 @@ check('all four GPU material passes share pointer uniforms and avatars never adv
     for(const name of ['simulation','field','volume','strands'])assertPointerDraw(e.draws.filter(d=>d.program===e.core.programs[name].program).at(-1),next);
     assert.equal(e.created.Texture.length,created);assert.equal(e.created.Framebuffer.length,framebuffers);
     assert.equal(e.created.Program.length,programs);assert.equal(e.core.stats().filaments,2560);
-    assert.equal(e.live.Framebuffer.size,7);assert.equal(e.live.Texture.size,7);
+    assert.equal(e.live.Framebuffer.size,10);assert.equal(e.live.Texture.size,10);
     e.core.dispose();released(e);
 });
 check('resetPointer clears inertia immediately and invalidates a same-phase atlas exactly once',()=>{
@@ -362,13 +365,14 @@ check('missing WebGL2 or floating target capability reports the requirement with
 });
 check('shader/link and framebuffer failures release partial allocations with truthful diagnostics',()=>{
     for(const [options,message] of [[{failShader:true},/compile diagnostic/],[{failLink:true},/link diagnostic/],
-        [{failFramebufferAt:2},/buffer GPU/],[{failFramebufferAt:3},/buffer GPU/]]) {
+        [{failFramebufferAt:2},/buffer GPU/],[{failFramebufferAt:3},/buffer GPU/],[{failFramebufferAt:4},/buffer GPU/],
+        [{failFramebufferAt:5},/buffer GPU/],[{failFramebufferAt:6},/buffer GPU/]]) {
         const e=environment(options);assert.equal(e.core.available,false);assert.match(e.core.error,message);released(e);
         assert.equal(e.core.field,null);
     }
-    const e=environment();e.options.failFramebufferAt=4;
+    const e=environment();e.options.failFramebufferAt=7;
     const field=e.core.field;
-    assert.throws(()=>e.render(),/buffer GPU/);assert.equal(e.live.Framebuffer.size,3);assert.equal(e.core.field,field);
+    assert.throws(()=>e.render(),/buffer GPU/);assert.equal(e.live.Framebuffer.size,6);assert.equal(e.core.field,field);
     e.options.failFramebufferAt=0;assert.doesNotThrow(()=>e.render());e.core.dispose();released(e);
 });
 check('context loss recreates the atlas, invalidates its cache and releases all resources on disposal',()=>{
@@ -383,7 +387,7 @@ check('context loss recreates the atlas, invalidates its cache and releases all 
     assert.equal(e.core.fieldTime,null);assert.equal(e.core.fieldDensity,null);
     e.render(8);assert.equal(e.core.fieldBuilds,builds+1);assert.equal(e.core.fieldTime,8);
     advanceSteps(e,1);neutral(e.core);
-    assert.equal(e.live.Framebuffer.size,7);assert.equal(e.live.Texture.size,7);
+    assert.equal(e.live.Framebuffer.size,10);assert.equal(e.live.Texture.size,10);
     const restoredField=e.core.field;
     e.core.dispose();e.core.dispose();assert.equal(e.losses(),1);released(e);
     assert.equal(e.live.Texture.has(restoredField.texture),false);assert.equal(e.live.Framebuffer.has(restoredField.framebuffer),false);
@@ -402,7 +406,7 @@ check('Measured RMS reaches all GPU passes, scales mildly, reuses resources and 
     e.core.setAudioLevel(.25,true);e.render(8);assert.equal(e.core.fieldBuilds,builds);
     e.render(8.1);assert.equal(e.core.programs.simulation.program.u_audio[0],amplitude);
     assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);assert.equal(e.core.field,field);
-    assert.equal(e.live.Framebuffer.size,7);assert.ok(e.core.steps>steps);
+    assert.equal(e.live.Framebuffer.size,10);assert.ok(e.core.steps>steps);
     e.core.setAudioLevel(0,false);e.render(8.1);assert.equal(e.core.programs.volume.program.u_audio[0],0);
     assert.equal(e.core.programs.strands.program.u_size[0],1);e.core.dispose();released(e);
 });
@@ -422,7 +426,7 @@ check('combined inertial pointer and measured audio retain one contained medium 
         assert.equal(e.core.fieldBuilds,builds,'color changes reuse the same contained medium at the same phase');
     }
     assert.equal(e.core.field,field);assert.equal(e.created.Texture.length,created);
-    assert.equal(e.live.Framebuffer.size,7);assert.equal(e.live.Texture.size,7);
+    assert.equal(e.live.Framebuffer.size,10);assert.equal(e.live.Texture.size,10);
     assert.equal(e.core.stats().volumeGrid,48);assert.equal(e.core.stats().volumeSamples,40);
     e.core.dispose();released(e);
 });
@@ -438,7 +442,7 @@ check('voice radiance modulates the buried energy and illuminated fibres, not a 
         assert.equal(e.core.programs.volume.program.u_audio[0],1-Math.exp(-level*5));
     }
     assert.equal(e.core.programs.volume.program.u_audio[0],0,'silence restores idle radiance');
-    assert.equal(e.live.Framebuffer.size,7);e.core.dispose();released(e);
+    assert.equal(e.live.Framebuffer.size,10);e.core.dispose();released(e);
 });
 check('Invalid, absent or muted samples cannot leave invented audio amplitude across restore/dispose',()=>{
     const e=environment();e.render(8);
@@ -481,8 +485,9 @@ check('depth-delayed smoke packets share coherent per-depth volume and filament 
     assert.match(simulation,/vec3 rest=flowUnwind\(p,u_previousFlow\)/,'GPU history retains its previous roll coordinates');
     assert.match(simulation,/p=flowWind\(rest,u_flow\)/,'the new deformed coordinates are stored in the existing history texture');
     assert.match(simulation,/potential\(rest\*3\.7/,'the current locally advects through multi-scale curl');
-    assert.match(simulation,/vec3 eddies=\(curl\*\(\.16\+pocket\*\.12\)\+fine\*\.105\+slip\)\*u_flow\.z/);
-    assert.match(simulation,/rest\+=\(velocity\(rest\+v\*u_dt\*\.5,u_time\+u_dt\*\.5,row,1\.0\)\+eddies\)\*u_dt/,
+    assert.match(simulation,/if\(u_flow\.z>\.0001\)\s*\{\s*vec3 curl,fine/,'idle skips both zero-weight travel curls');
+    assert.match(simulation,/eddies=\(curl\*\(\.16\+pocket\*\.12\)\+fine\*\.105\+slip\)\*u_flow\.z/);
+    assert.match(simulation,/rest\+=\(velocity\(rest\+v\*u_dt\*\.5,u_time\+u_dt\*\.5,row,1\.0,along\)\+eddies\)\*u_dt/,
         'small counter-currents are integrated, not rendered as duplicate trails');
     assert.match(volume,/p\/=flowExtent\(\)/,'the volume atlas samples the same compact rolled matter bounds');
     assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);
@@ -544,11 +549,11 @@ check('packet trajectories have independent timing, exact endpoints and a finite
     const route={from:[.4,.5],to:[-.85,-.7],fromScale:1,toScale:.2,bend:.18};
     function packet(progress,depth) {
         const delta=route.to.map((v,i)=>v-route.from[i]),distance=Math.hypot(...delta),normal=[-delta[1]/distance,delta[0]/distance];
-        const envelope=Math.sin(progress*Math.PI)**2,lane=.66*Math.sin(depth*4.3+.7)+.34*Math.sin(depth*8.1-1.1);
-        const t=smooth(progress+envelope*lane*.19),orbit=Math.sin(depth*11.1-progress*4.4)*.080+Math.sin(depth*17.3+progress*3)*.035;
+        const envelope=Math.sin(progress*Math.PI)**2,lane=.66*Math.sin(depth*2.6+.7)+.34*Math.sin(depth*4.1-1.1);
+        const t=smooth(progress+envelope*lane*.19),orbit=Math.sin(depth*4.7-progress*4.4)*.080+Math.sin(depth*7.3+progress*3)*.035;
         const center=route.from.map((v,i)=>v+delta[i]*t+normal[i]*distance*(4*route.bend*t*(1-t)+envelope*orbit));
         return {center,scale:route.fromScale+(route.toScale-route.fromScale)*t,
-            turn:Math.sin(progress*Math.PI)*Math.sin(depth*5.1-progress*3.6)*.78,t};
+            turn:Math.sin(progress*Math.PI)*Math.sin(depth*3.1-progress*3.6)*.78,t};
     }
     const phases=[];
     for(const progress of [0,.00001,.17,.5,.83,.99999,1])for(let i=0;i<30;i++) {
@@ -563,7 +568,7 @@ check('packet trajectories have independent timing, exact endpoints and a finite
         }
         if(progress===.5)phases.push(state.t);
     }
-    assert.ok(Math.max(...phases)-Math.min(...phases)>.35,'material packets are not attached to one shared center');
+    assert.ok(Math.max(...phases)-Math.min(...phases)>.28,'material packets are not attached to one shared center, without dense high-frequency layers');
     assert.ok(packet(.00001,.4).t/.00001<.001,'departure velocity tends to zero');
     assert.ok((1-packet(.99999,.4).t)/.00001<.001,'arrival velocity tends to zero');
 });
@@ -597,7 +602,7 @@ check('shape attractors morph retained material and the shared volume without re
     assert.equal(e.core.field,field);assert.equal(e.created.Texture.length,created);
     assert.equal(e.draws.filter(d=>d.program===e.core.programs.simulation.program&&d.initialize===1).length,1);
     const shader=e.core.programs.simulation.program.shaders.find(s=>s.source.includes('uniform float u_dt')).source;
-    assert.match(shader,/v\+=\(morphGuide\(p,row,t\)-p\)\*3\.4\*morph/,'silhouettes are material velocity attractors');
+    assert.match(shader,/v\+=\(morphGuide\(p,row,t,along\)-p\)\*4\.2\*morph/,'silhouettes are per-segment material velocity attractors');
     assert.match(shader,/starPoint\(k\*2\.0,5\.0,\.77,-1\.5707963\)/,'pentagram extreme points start downwards');
     e.core.dispose();released(e);
 });
@@ -689,6 +694,84 @@ check('the real catalog reaches the renderer as selected material guides, not te
     assert.doesNotMatch(shader,/butterfly|hourglass/,'the new catalog does not enlarge the shader branch tree');
     assert.equal(e.core.stats().filaments,2560);e.core.dispose();released(e);
 });
+check('authored paths assign one stable stroke to each fibre with constant-time GPU lookup and bounded storage',()=>{
+    const e=environment({realCatalog:true});e.render(8);
+    const histories=e.core.histories.slice();
+    e.render(8,{...defaults,shape:'jellyfish'});
+    const paths=e.core.guideTo.paths,slots=e.core.pathTextures.to;
+    assert.equal(paths.width,128);assert.ok(paths.height>1&&paths.height<=128);
+    assert.equal(slots.paths.w,128);assert.equal(slots.paths.h,paths.height);
+    assert.equal(slots.rows.w,1280);assert.equal(slots.rows.h,1);
+    const assignments=e.uploads.find(upload=>upload.texture===slots.rows).data;
+    const seen=new Set();
+    for(let row=0;row<1280;row++) {
+        const id=assignments[row*4];seen.add(id);
+        assert.ok(Number.isInteger(id)&&id>=0&&id<paths.height);
+        assert.equal(assignments[row*4+1],paths.strokes[id].closed?1:0);
+    }
+    assert.equal(seen.size,paths.height,'the row assignments cover the independent authored strokes');
+    const simulation=e.core.programs.simulation.program.shaders.find(s=>s.source.includes('uniform float u_dt')).source;
+    const sampling=simulation.slice(simulation.indexOf('vec4 pathSample'),simulation.indexOf('vec3 guidedPoint'));
+    assert.match(sampling,/texelFetch\(u_rowsTo,ivec2\(index,0\),0\)/);
+    assert.match(sampling,/route\.y>\.5\?fract\(phase\):1\.0-abs\(mod\(phase,2\.0\)-1\.0\)/,
+        'only closed strokes wrap; open limbs reflect without artificial closing segments');
+    assert.doesNotMatch(sampling,/for\s*\(|while\s*\(|materialGuide/,'no scan or nearest-neighbour crossing per GPU sample');
+    assert.match(sampling,/tangent=normalize\(end-start\+vec2/,'normal follows the authored increasing parameter even during a reflected return');
+    assert.match(sampling,/max\(0\.0,phase-\.006\)/);assert.match(sampling,/min\(1\.0,phase\+\.006\)/);
+    assert.doesNotMatch(simulation,/pathSample\(row,along\+\.008/,'return direction never flips the strand offset normal');
+    const created=e.created.Texture.length;e.render(8.1,{...defaults,shape:'jellyfish'});
+    assert.equal(e.created.Texture.length,created,'path textures are not uploaded per frame');
+    const oldTo=e.core.pathTextures.to;e.render(8.1,{...defaults,shape:'hand'});
+    const max=e.created.Texture.length;e.render(8.2,{...defaults,shape:'eye'});
+    assert.equal(e.core.pathTextures.to,oldTo);assert.equal(e.created.Texture.length,max,'interruptions reuse both path/assignment slots');
+    assert.equal(e.core.histories[0],histories[0]);
+    e.lost();e.restored();e.render(8.2,{...defaults,shape:'eye'});
+    assert.ok(e.live.Texture.has(e.core.pathTextures.to.paths));assert.ok(e.live.Texture.has(e.core.pathTextures.to.rows));
+    e.core.dispose();released(e);
+});
+check('gas and material read the same previous energy field and a size-correct local pointer obstacle',()=>{
+    const e=environment();e.render(8);e.core.setPointer(.3,-.2);e.render(8.1,{...defaults,size:.7});
+    const material=e.draws.filter(d=>d.program===e.core.programs.simulation.program);
+    const energy=e.draws.filter(d=>d.program===e.core.programs.bio.program);
+    assert.equal(material.length,energy.length);
+    for(let i=0;i<material.length;i++)assert.equal(material[i].samplers.u_bio.texture,energy[i].samplers.u_bio.texture,
+        'the two independent integrators read exactly the same prior luminous medium');
+    for(const name of ['simulation','bio','field','volume','strands'])assert.equal(e.core.programs[name].program.u_visualSize[0],.7);
+    const shader=e.core.programs.simulation.program.shaders.find(s=>s.source.includes('uniform float u_dt')).source;
+    assert.match(shader,/u_pointer\.xy\/max\(\.01,u_visualSize\*\.80\)/,'cursor position is not the tiny energy-centre offset');
+    assert.match(shader,/away=p-cursor/);assert.match(shader,/obstacle=u_pointer\.z\*exp/,'repulsion has compact smooth falloff');
+    assert.match(shader,/cross\(away,worldPoint\(vec3\(0,0,1\)\)\)/,'flow slips around the pointer rather than translating the object');
+    e.core.dispose();released(e);
+});
+check('one shared velocity atlas is built per fixed step and both RK2 integrators reuse it without feedback',()=>{
+    const e=environment();e.render(8);const cache=e.core.velocityField,created=e.created.Texture.length;
+    assert.equal(cache.width,384);assert.equal(cache.height,288);assert.equal(cache.texture.internal,e.gl.RGBA16F);
+    e.core.setPointer(.25,-.2);e.render(8.1);
+    const builds=e.draws.filter(d=>d.program===e.core.programs.velocity.program);
+    const material=e.draws.filter(d=>d.program===e.core.programs.simulation.program);
+    const gas=e.draws.filter(d=>d.program===e.core.programs.bio.program);
+    assert.equal(builds.length,e.core.steps);assert.equal(builds.length,material.length);assert.equal(builds.length,gas.length);
+    for(let i=0;i<builds.length;i++) {
+        assert.equal(builds[i].texture,cache.texture);
+        assert.notEqual(builds[i].samplers.u_velocity.texture,cache.texture,'builder never samples its own destination even with conservative bindings');
+        assert.equal(material[i].samplers.u_velocity.texture,cache.texture);
+        assert.equal(gas[i].samplers.u_velocity.texture,cache.texture);
+        assert.equal(material[i].samplers.u_velocity.unit,11);assert.equal(gas[i].samplers.u_velocity.unit,11);
+        assert.equal(builds[i].samplers.u_bio.texture,material[i].samplers.u_bio.texture,'common flow uses the same previous biomass');
+        assert.ok(e.draws.indexOf(builds[i])<e.draws.indexOf(material[i])&&e.draws.indexOf(material[i])<e.draws.indexOf(gas[i]));
+    }
+    const simulation=e.core.programs.simulation.program.shaders.find(s=>s.source.includes('uniform float u_dt')).source;
+    const velocity=simulation.slice(simulation.indexOf('vec3 velocity('),simulation.indexOf('vec3 seedPosition'));
+    assert.match(velocity,/vec3 v=cachedVelocity\(p\)/);assert.doesNotMatch(velocity,/potential\(|energyTransport\(|bioGradient\(/,
+        'individual RK stages no longer recompute the expensive common flow');
+    const builder=e.core.programs.velocity.program.shaders.find(s=>s.source.includes('result=vec4(organicVelocity')).source;
+    assert.match(builder,/result=vec4\(organicVelocity\(p,u_time\),1\)/);
+    assert.equal(e.core.stats().velocityCache,'shared-48cubed-per-step');assert.equal(e.created.Texture.length,created);
+    const count=builds.length;e.render(e.core.displayTime);assert.equal(e.draws.filter(d=>d.program===e.core.programs.velocity.program).length,count,
+        'other views of the same state never build an extra velocity cache');
+    e.lost();e.restored();e.render(8.1);assert.notEqual(e.core.velocityField,cache);assert.ok(e.live.Texture.has(e.core.velocityField.texture));
+    e.core.dispose();released(e);
+});
 check('river state is per presentation, resets for other avatars and rejects nonfinite geometry',()=>{
     const e=environment(),valid={progress:.5,from:[.2,.4],to:[-.8,-.7],fromScale:1.1,toScale:.2};
     e.render(8,{...defaults,transport:valid});
@@ -716,5 +799,94 @@ check('river state is per presentation, resets for other avatars and rejects non
 check('the core does not subscribe to input/media or fetch original footage',()=>{
     assert.doesNotMatch(source,/getUserMedia|AudioContext|pointermove|mousemove|gunter-audio-level|\bfetch\s*\(|gl\.POINTS|createElement\(['"]video/);
     const e=environment();assert.deepEqual([...e.listeners.keys()],['webglcontextlost','webglcontextrestored']);e.core.dispose();released(e);
+});
+check('the independent energy volume ping-pongs a bounded 48 cubed state through the shared velocity field',()=>{
+    const e=environment();e.render(8);const initial=e.core.bioHistories.slice(),created=e.created.Texture.length;
+    assert.equal(initial.length,2);assert.notEqual(initial[0],e.core.field);
+    for(const target of initial) {
+        assert.equal(target.width,384);assert.equal(target.height,288);assert.equal(target.texture.internal,e.gl.RGBA16F);
+    }
+    const before=e.core.bioSteps;e.render(8.1);
+    assert.ok(e.core.bioSteps>before);assert.equal(e.core.bioSteps,e.core.steps);
+    const builds=e.draws.filter(d=>d.program===e.core.programs.bio.program);
+    assert.equal(builds[0].initialize,1);assert.ok(builds.slice(1).every(d=>d.initialize===0));
+    assert.notEqual(builds[1].samplers.u_bio.texture,builds[1].texture,'advection reads the prior target');
+    assert.notEqual(builds[1].texture,builds[2].texture,'energy storage alternates');
+    assert.equal(e.created.Texture.length,created,'no per-frame energy allocation');
+    const fragment=e.core.programs.bio.program.shaders.find(s=>s.source.includes('vec2 bioSource')).source;
+    assert.match(fragment,/back=p-velocity\(p-v\*u_dt\*\.5/,'RK2 follows the same velocity() as matter');
+    assert.match(fragment,/previous=bioAt\(back\)/,'energy is advected from actual prior density and temperature');
+    assert.match(fragment,/mass=mix\(carried\.r,restMass,1\.0-exp\(-u_dt\*\.62\)\)\*exp\(-u_dt\*\.06\)/,'bounded local relaxation/cooling retain history');
+    assert.match(fragment,/coarse\.y\+folds\.x/,'multi-scale scalar saddles form lobes, not separate point emitters');
+    assert.match(fragment,/tracer=mix\(previous\.b,grainSeed/,'material detail carries an advected tracer, not a screen texture');
+    const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('u_debugView')).source;
+    assert.match(volume,/rest\*vec3\(48\.0,57\.0,53\.0\)\+gas\.b/,'fine grain uses material coordinates warped by the transported tracer');
+    assert.match(volume,/lobes=heat\/\(\.28\+heat\)/,'local thermal transfer remains continuous instead of saturating into uniform fog');
+    assert.match(volume,/emission=absorption\*lobes\*\(1\.45\+gas\.g\*\.55\)/,'isolated energy shares optical depth for emission and extinction');
+    assert.equal(e.core.stats().energySimulation,'gpu-semilagrangian-48cubed');
+    e.core.dispose();released(e);
+});
+check('the biomass substrate connects lobes and absorbs boundary gas by seconds, not by frame count',()=>{
+    const e=environment();e.render(8);
+    const shader=e.core.programs.bio.program.shaders.find(s=>s.source.includes('vec2 bioSource')).source;
+    assert.match(shader,/density=body\*\(substrate\+lobes\*cavities/,'a finite porous substrate survives between the hot lobes');
+    assert.match(shader,/boundaryTransmission=exp\(-u_dt\*\(1\.0-support\)\*6\.0\)/);
+    assert.match(shader,/mass\*boundaryTransmission/);assert.doesNotMatch(shader,/clamp\(mass\*support/);
+    assert.match(shader,/shapedDensity\(p,false,t\)\*texturePacking/);
+    assert.match(shader,/shapedDensity\(p,true,t\)\*texturePacking/);
+    assert.match(shader,/density=mix\(a,b,u_shape\.z\)/,'morph redistributes the fractional renewal source instead of painting emissive contour lines');
+    assert.match(shader,/else if\(morph>\.0001\)/,'Eulerian energy receives support attraction without requiring a fibre row');
+    assert.match(shader,/materialGuide\(view\.xy,false\)\.xy,clamp\(view\.z,-\.13,\.13\)/);
+    assert.match(shader,/materialGuide\(view\.xy,true\)\.xy,clamp\(view\.z,-\.13,\.13\)/);
+    assert.match(shader,/v\*=1\.0-morph\*\.70;\s*v\+=\(mix\(a,b,u_shape\.z\)-p\)\*2\.4\*morph/,
+        'the gas remains near thin authored supports while retaining tangential flow');
+    assert.match(shader,/restMass=min\(1\.45,source\.r\*1\.8\)/,'source restoration has a finite calibrated target rather than accumulating each step');
+    for(const sourceMass of [.05,.3,.7,1.1]) {
+        const target=Math.min(1.45,sourceMass*1.8);let mass=sourceMass;
+        for(let step=0;step<45*120;step++)mass=(mass+(target-mass)*(1-Math.exp(-STEP*.62)))*Math.exp(-STEP*.06);
+        assert.ok(mass<=target&&mass>=0,'two-minute density stays bounded by the local target');
+        assert.ok(mass<sourceMass*1.8,'the former ~2.5x source/cooling accumulation is impossible');
+    }
+    // Exact exponential absorption has identical one-second survival at any
+    // integrator subdivision. In contrast, the previous .8^step mask erased it.
+    for(const support of [.2,.5,.8,1]) {
+        const expected=Math.exp(-(1-support)*6);
+        for(const steps of [15,30,45,90])near(Math.exp(-(1-support)*6/steps)**steps,expected,'boundary survival independent of subdivision',1e-12);
+    }
+    assert.ok(Math.exp(-.2*6)>.25&&.8**45<.00005,'the outer connecting gas has a finite lifetime rather than disappearing per step');
+    e.core.dispose();released(e);
+});
+check('four isolated debug views filter presentation only and never save preferences or reset simulation',()=>{
+    const e=environment();e.render(8);const histories=e.core.histories.slice(),bio=e.core.bioHistories.slice(),created=e.created.Texture.length;
+    for(const [debugView,value,filaments] of [['energy',1,false],['matter',2,false],['filaments',3,true],['composite',0,true],['invalid',0,true]]) {
+        const count=e.draws.filter(d=>d.instances).length;
+        e.render(8,{...defaults,debugView});
+        assert.equal(e.core.programs.volume.program.u_debugView[0],value);
+        assert.equal(e.draws.filter(d=>d.instances).length,count+(filaments?1:0));
+    }
+    assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.bioHistories[0],bio[0]);
+    assert.equal(e.created.Texture.length,created);assert.equal(e.core.steps,1);
+    e.core.dispose();released(e);
+});
+check('cursor inverse matches the travelling centre plane without a second model in the input owner',()=>{
+    const e=environment(),Core=e.core.constructor;
+    const route={from:[.1,.2],to:[-.8,-.6],fromScale:1.2,toScale:.22,bend:.16};
+    for(const [width,height] of [[600,320],[320,600],[400,400]])for(const p of [0,.17,.5,.83,1]) {
+        const aspect=[Math.min(width,height)/width,Math.min(width,height)/height];
+        const envelope=Math.sin(p*Math.PI)**2,lane=.66*Math.sin(.7)+.34*Math.sin(-1.1);
+        const phase=Math.max(0,Math.min(1,p+envelope*lane*.19)),t=phase*phase*(3-2*phase);
+        const delta=route.to.map((v,i)=>(v-route.from[i])/aspect[i]),distance=Math.hypot(...delta);
+        const orbit=Math.sin(-p*4.4)*.080+Math.sin(p*3)*.035;
+        const lift=4*distance*route.bend*t*(1-t)+distance*envelope*orbit;
+        const center=route.from.map((v,i)=>v/aspect[i]+delta[i]*t+(i===0?-delta[1]:delta[0])/distance*lift);
+        const angle=Math.sin(p*Math.PI)*Math.sin(-p*3.6)*.78,scale=route.fromScale+(route.toScale-route.fromScale)*t;
+        const local=[.24,-.31],screen=[center[0]+(Math.cos(angle)*local[0]-Math.sin(angle)*local[1])*scale,
+            center[1]+(Math.sin(angle)*local[0]+Math.cos(angle)*local[1])*scale].map((v,i)=>v*aspect[i]);
+        const point=Core.unprojectPointer(...screen,width,height,{...route,progress:p});
+        near(point.x,local[0],'x inverse');near(point.y,local[1],'y inverse');
+    }
+    assert.deepEqual({...Core.unprojectPointer(NaN,0,400,400,route)},{x:0,y:0});
+    assert.deepEqual({...Core.unprojectPointer(.25,-.25,600,300,null)},{x:.5,y:-.25});
+    e.core.dispose();released(e);
 });
 console.log(checks+' GPU material filament checks passed.');

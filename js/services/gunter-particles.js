@@ -161,9 +161,17 @@
         if (!hovered) { clearPointer(); return; }
         const { record, box } = hovered, radius = Math.min(box.width, box.height) * .5;
         if (!radius) { clearPointer(); return; }
+        const project = window.GunterIdleCore?.unprojectPointer;
+        const point = record.transport && typeof project === 'function'
+            ? project((event.clientX-box.left)/box.width*2-1, 1-(event.clientY-box.top)/box.height*2,
+                box.width, box.height, record.transport)
+            : { x:(event.clientX-box.left-box.width*.5)/radius, y:(box.top+box.height*.5-event.clientY)/radius };
+        // During a journey the canvas is the whole corridor, not the core's
+        // current body. Do not attract/repel it from an unrelated empty region.
+        if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)
+            || (record.transport && Math.hypot(point.x,point.y)>1.35)) { clearPointer(); return; }
         pointerOwner = record;
-        engine.setPointer?.((event.clientX - box.left - box.width * .5) / radius,
-            (box.top + box.height * .5 - event.clientY) / radius, true);
+        engine.setPointer?.(point.x,point.y,true);
     }
     function ensureEngine() {
         if (drawBlocked && !engine) return null;

@@ -17,10 +17,35 @@
         uniform float u_audio;
         uniform vec3 u_pointer,u_pointerFlow,u_shape,u_flow,u_previousFlow;
         uniform sampler2D u_shapeGuideFrom,u_shapeGuideTo;
+        uniform sampler2D u_bio;
+        uniform sampler2D u_velocity;
+        uniform float u_bioReady,u_visualSize;
+        uniform sampler2D u_pathsFrom,u_pathsTo,u_rowsFrom,u_rowsTo;
+        uniform vec3 u_pathMode;
         uniform vec3 u_guideMode,u_guideWeights;
         uniform float u_static;
         vec3 worldPoint(vec3 p);
         vec3 viewPoint(vec3 p);
+        // The energy is an independently advected 48^3 scalar medium. Sampling
+        // stays inside a slice (no atlas seam interpolation), with explicit z
+        // interpolation. Its coordinates are material coordinates, not screen
+        // pixels, so every view can share this same finite GPU state.
+        vec2 bioUV(vec2 xy,float slice) {
+            return (vec2(mod(slice,8.0),floor(slice/8.0))*48.0+xy+.5)/vec2(384,288);
+        }
+        vec4 bioAt(vec3 p) {
+            if(u_bioReady<.5||any(greaterThan(abs(p),vec3(.96))))return vec4(0);
+            vec3 cell=clamp((p/.96*.5+.5)*47.0,vec3(0),vec3(47));
+            float z=floor(cell.z);
+            return mix(texture(u_bio,bioUV(cell.xy,z)),texture(u_bio,bioUV(cell.xy,min(47.0,z+1.0))),fract(cell.z));
+        }
+        vec3 cachedVelocity(vec3 p) {
+            if(any(greaterThan(abs(p),vec3(.96))))return vec3(0);
+            vec3 cell=clamp((p/.96*.5+.5)*47.0,vec3(0),vec3(47));
+            float z=floor(cell.z);
+            return mix(texture(u_velocity,bioUV(cell.xy,z)).xyz,
+                texture(u_velocity,bioUV(cell.xy,min(47.0,z+1.0))).xyz,fract(cell.z));
+        }
         // Compact smoke-roll coordinates. Two local rotations preserve volume;
         // the final bounded shear lets neighbouring puffs lag by different
         // amounts, instead of elongating every particle along the travel axis.
@@ -123,7 +148,41 @@
             guide.z=max(guide.z,length(p-guide.xy));
             return guide;
         }
-        vec3 guidedPoint(vec3 p,float row,bool target,float t) {
+        vec4 pathSample(float row,float along,bool target,float t,out vec2 tangent) {
+            // One CPU-selected authored stroke per simulation row. Sampling
+            // this constant-time assignment never crosses a nearest-guide
+            // boundary between separate fingers, tentacles or orbital paths.
+            int index=clamp(int(floor(row)),0,1279);
+            vec4 route=target?texelFetch(u_rowsTo,ivec2(index,0),0):texelFetch(u_rowsFrom,ivec2(index,0),0);
+            float seed=fract(row*.6180339),span=.18+.64*fract(row*.23971);
+            float phase=seed+along*span+t*.020;
+            phase=route.y>.5?fract(phase):1.0-abs(mod(phase,2.0)-1.0);
+            float height=target?u_pathMode.y:u_pathMode.x;
+            vec2 uv=vec2((phase*127.0+.5)/128.0,(route.x+.5)/height);
+            vec4 path=target?texture(u_pathsTo,uv):texture(u_pathsFrom,uv);
+            // Derivative of the authored parameter, NOT the direction of the
+            // reflected moving phase: open endpoints cannot flip the offset
+            // normal and throw a fibre to the opposite side of a finger.
+            float before=route.y>.5?fract(phase-.006):max(0.0,phase-.006);
+            float after=route.y>.5?fract(phase+.006):min(1.0,phase+.006);
+            vec2 a=vec2((before*127.0+.5)/128.0,uv.y),b=vec2((after*127.0+.5)/128.0,uv.y);
+            vec2 start=target?texture(u_pathsTo,a).xy:texture(u_pathsFrom,a).xy;
+            vec2 end=target?texture(u_pathsTo,b).xy:texture(u_pathsFrom,b).xy;
+            tangent=normalize(end-start+vec2(.00001,.00002));
+            return path;
+        }
+        vec3 guidedPoint(vec3 p,float row,bool target,float t,float along) {
+            if(along>=0.0&&(target?u_pathMode.y:u_pathMode.x)>.5) {
+                vec2 tangent;vec4 path=pathSample(row,along,target,t,tangent);
+                vec2 normal=vec2(-tangent.y,tangent.x);
+                float grain=fract(row*.56984)*2.0-1.0;
+                // Keep the recognizable contour porous and alive, rather than
+                // extruding it into a uniformly thick luminous tube.
+                vec3 q=vec3(path.xy+normal*path.z*grain*.82,
+                    sin(row*2.71)*.035+sin(along*13.0+t*.31+row)*.012);
+                q.xy+=normal*sin(along*25.0+row+t*.27)*.006;
+                return worldPoint(q);
+            }
             vec3 q=viewPoint(p);vec4 guide=materialGuide(q.xy,target);
             vec2 normal=normalize(q.xy-guide.xy+vec2(.0001,.0002));
             float grain=fract(row*.6180339)*2.0-1.0;
@@ -132,9 +191,9 @@
             q+=vec3(sin(q.y*23.0+t*.41+row),cos(q.x*19.0-t*.37+row),sin(row+t*.2))*.014;
             return worldPoint(q);
         }
-        vec3 morphGuide(vec3 p,float row,float t) {
-            vec3 a=u_guideWeights.x<.0001?p:mix(p,guidedPoint(p,row,false,t),u_guideWeights.x);
-            vec3 b=u_guideWeights.y<.0001?p:mix(p,guidedPoint(p,row,true,t),u_guideWeights.y);
+        vec3 morphGuide(vec3 p,float row,float t,float along) {
+            vec3 a=u_guideWeights.x<.0001?p:mix(p,guidedPoint(p,row,false,t,along),u_guideWeights.x);
+            vec3 b=u_guideWeights.y<.0001?p:mix(p,guidedPoint(p,row,true,t,along),u_guideWeights.y);
             return mix(a,b,u_shape.z);
         }
         float morphWeight() {return mix(u_guideWeights.x,u_guideWeights.y,u_shape.z);}
@@ -181,64 +240,45 @@
             // of light out in front of the filaments.
             return idleCenter(t)*.25+worldPoint(vec3(u_pointer.xy*.14,0));
         }
-        vec3 energyFrame(vec3 p,float t) {
-            vec3 q=p-energyCenter(t);
-            float a=.62+.24*sin(t*.17),c=cos(a),s=sin(a);
-            q.xy=mat2(c,-s,s,c)*q.xy;
-            return q;
+        float bioEnergy(vec3 p) {
+            vec4 gas=bioAt(p);
+            return gas.r*gas.g;
         }
-        vec3 energyWorld(vec3 q,float t) {
-            float a=.62+.24*sin(t*.17),c=cos(a),s=sin(a);
-            q.xy=mat2(c,s,-s,c)*q.xy;
-            return q+energyCenter(t);
+        vec3 bioGradient(vec3 p) {
+            // Read the PREVIOUS energy target. Both independent integrators
+            // receive this exact field, never a texture currently being written.
+            const float h=.041;
+            return vec3(bioEnergy(p+vec3(h,0,0))-bioEnergy(p-vec3(h,0,0)),
+                bioEnergy(p+vec3(0,h,0))-bioEnergy(p-vec3(0,h,0)),
+                bioEnergy(p+vec3(0,0,h))-bioEnergy(p-vec3(0,0,h)))/(2.0*h);
         }
-        vec3 energyCurve(float along,float t) {
-            // Deform one connected current. Audio changes its material flow,
-            // never spawns separate emitters or starts a synthetic pulse clock.
-            return vec3(along,(.15*sin(along*5.0-t*.45)+.06*sin(along*9.0+t*.18))*(1.0+u_audio*.18),
-                .10*sin(along*4.5+t*.23)*(1.0+u_audio*.12));
-        }
-        vec3 energySource(vec3 p,float t) {
-            vec3 original=energyWorld(energyCurve(clamp(energyFrame(p,t).x,-.27,.27),t),t);
-            vec2 q=viewPoint(p).xy;
-            vec3 a=u_guideWeights.x<.0001?original:mix(original,worldPoint(vec3(materialGuide(q,false).xy,0)),u_guideWeights.x);
-            vec3 b=u_guideWeights.y<.0001?original:mix(original,worldPoint(vec3(materialGuide(q,true).xy,0)),u_guideWeights.y);
-            return mix(a,b,u_shape.z);
-        }
-        // A single thick, bent support carries a travelling pulse. Its floor
-        // never switches off into isolated spots; the same current drives matter.
-        float energyHeat(vec3 p,float t) {
-            vec3 q=energyFrame(p,t);
-            float along=clamp(q.x,-.27,.27);
-            vec3 d=q-energyCurve(along,t);
-            d.y+=.035*sin(q.z*8.3+t*.31);
-            d.z+=.030*sin(q.y*7.1-t*.27);
-            float radius=(.145+.018*sin(along*6.8-t*.48))*(1.0+u_audio*.06);
-            float radial=length(d*vec3(1.0,1.05,1.12))/radius;
-            // A finite support leaves a material coat on every side of the
-            // current, including at the limits of inertial pointer/audio input.
-            float support=exp(-pow(radial,2.2))*(1.0-smoothstep(.9,1.45,radial));
-            float pulse=.67+.33*sin(along*5.4-t*.82);
-            float original=support*pulse*(1.0+u_audio*.12);
-            float a=u_guideWeights.x<.0001?original:mix(original,shapedHeat(p,false,t),u_guideWeights.x);
-            float b=u_guideWeights.y<.0001?original:mix(original,shapedHeat(p,true,t),u_guideWeights.y);
-            return mix(a,b,u_shape.z);
+        float bioRadiance(vec3 p) {
+            // A finite local gather of the actual carried gas: no fictitious
+            // central light or independent point emitters. Matter between the
+            // receiving fold and this neighbourhood attenuates the gather.
+            const float h=.145;
+            return bioEnergy(p)*.44+(bioEnergy(p+vec3(h,0,0))+bioEnergy(p-vec3(h,0,0))
+                +bioEnergy(p+vec3(0,h,0))+bioEnergy(p-vec3(0,h,0))
+                +bioEnergy(p+vec3(0,0,h))+bioEnergy(p-vec3(0,0,h)))*.16;
         }
         vec3 energyTransport(vec3 p,float t) {
-            float along=clamp(energyFrame(p,t).x,-.27,.27);
-            vec3 tangent=normalize(vec3(1.0,(.75*cos(along*5.0-t*.45)+.54*cos(along*9.0+t*.18))*(1.0+u_audio*.18),
-                .45*cos(along*4.5+t*.23)*(1.0+u_audio*.12)));
-            vec3 direction=energyWorld(tangent,t)-energyCenter(t);
-            vec3 offset=p-energySource(p,t);
-            vec3 drift=vec3(.0336*cos(t*.24),-.0324*sin(t*.27+1.3),.0171*cos(t*.19));
-            drift+=worldPoint(u_pointerFlow)*.45;
-            return energyHeat(p,t)*(drift+direction*(.12+u_audio*.05)+cross(direction,offset)*.18);
+            vec3 gradient=bioGradient(p);
+            float heat=bioEnergy(p);
+            vec3 drift=worldPoint(u_pointerFlow)*.10+vec3(0,heat*.025,0);
+            // Bounded thermal pressure plus rolling along its gradient bends
+            // the nearby fibres as the luminous biomass stretches and folds.
+            return gradient/max(1.0,length(gradient))*.055
+                +cross(gradient,vec3(.13,.21,.17))*.032+drift*heat;
         }
         float matterDensity(vec3 p,float t) {
             vec3 unused;
+            vec4 gas=bioAt(p);
             vec3 q=p-idleCenter(t)*.25;
             vec3 warp=potential(q*1.85+vec3(t*.045,2.1-t*.035,-1.3+t*.025),unused);
             q+=warp*.18;
+            // Carried biomass, including its advected tracer, corrugates the
+            // intermediate granular coat. It is not a second spherical fog.
+            q+=vec3(sin(gas.b*6.1+q.y*4.0),cos(gas.b*5.7+q.z*4.0),sin(gas.b*4.3+q.x*4.0))*gas.r*.026;
             vec3 coarse=potential(q*3.1+vec3(1.7+t*.04,-2.3-t*.03,t*.035),unused);
             float radius=length(q*vec3(.96,1.03,1.10))+coarse.x*.12;
             float envelope=1.0-smoothstep(.60,.81,radius);
@@ -255,12 +295,12 @@
             hole.x+=.06*sin(q.z*6.0+t*.11);
             float cavity=1.0-.66*exp(-dot(hole/vec2(.13,.19),hole/vec2(.13,.19)));
             float fine=potential(q*7.8+vec3(-3.1+t*.08,4.2-t*.055,t*.065),unused).x*.5+.5;
-            float original=envelope*packing*cavity*(.15+fine*fine*1.50);
+            float original=envelope*packing*cavity*(.15+fine*fine*1.50)*(.82+gas.r*.45);
             float a=u_guideWeights.x<.0001?original:mix(original,shapedDensity(p,false,t),u_guideWeights.x);
             float b=u_guideWeights.y<.0001?original:mix(original,shapedDensity(p,true,t),u_guideWeights.y);
             return mix(a,b,u_shape.z);
         }
-        vec3 velocity(vec3 p,float t,float row,float boundary) {
+        vec3 organicVelocity(vec3 p,float t) {
             vec3 q=p-idleCenter(t)*.55,curl,fine,micro;
             potential(q*2.05+vec3(t*.055,-t*.045,t*.035),curl);
             potential(q*5.8+vec3(4.3-t*.23,-2.1+t*.19,t*.21),fine);
@@ -281,13 +321,42 @@
             float influence=u_pointer.z*exp(-dot(local,local)/.16);
             v+=(fine*.12+micro*.055)*influence;
             v+=(fine*.18+micro*.07)*u_audio*exp(-dot(local,local)/.18);
+            // The cursor is a local obstacle in real material coordinates,
+            // separate from the bounded inertial energy-centre displacement.
+            // Repel and curl around it softly; never translate the container.
+            vec3 cursor=worldPoint(vec3(u_pointer.xy/max(.01,u_visualSize*.80),0));
+            vec3 away=p-cursor;
+            float obstacle=u_pointer.z*exp(-dot(away*vec3(1,1,1.6),away*vec3(1,1,1.6))/.032);
+            v+=(away/max(.055,length(away))*.085+cross(away,worldPoint(vec3(0,0,1)))*.12)*obstacle;
+            return v;
+        }
+        vec3 velocity(vec3 p,float t,float row,float boundary,float along) {
+            // Both independent RK2 integrators sample the same once-per-step
+            // 48^3 velocity cache. Expensive curls, thermal gradients and the
+            // pointer obstacle are not recomputed per material point/RK stage.
+            vec3 v=cachedVelocity(p),q=p-idleCenter(t)*.55;
             float outside=max(0.0,length(p*vec3(.94,1.02,1.13))-.87);
             v-=p*outside*3.2*boundary;
             float morph=morphWeight();
             // An attraction field bends existing material trajectories into
             // each silhouette. Tangential/curl flow remains alive inside it.
-            v*=1.0-morph*.74;
-            v+=(morphGuide(p,row,t)-p)*3.4*morph;
+            if(along>=0.0) {
+                v*=1.0-morph*.85;
+                v+=(morphGuide(p,row,t,along)-p)*4.2*morph;
+            } else if(morph>.0001) {
+                // The Eulerian gas has no fibre row/along coordinate, but it
+                // must remain in the SAME authored material support. Without
+                // this force its renewal drifted out of thin fingers before
+                // warming them. Keep tangential curl alive; attract only the
+                // nearest-support offset, never paint a luminous contour.
+                vec3 view=viewPoint(p);
+                vec3 a=u_guideWeights.x<.0001?p:mix(p,worldPoint(vec3(
+                    materialGuide(view.xy,false).xy,clamp(view.z,-.13,.13))),u_guideWeights.x);
+                vec3 b=u_guideWeights.y<.0001?p:mix(p,worldPoint(vec3(
+                    materialGuide(view.xy,true).xy,clamp(view.z,-.13,.13))),u_guideWeights.y);
+                v*=1.0-morph*.70;
+                v+=(mix(a,b,u_shape.z)-p)*2.4*morph;
+            }
             float core=step(.19,fract(row*.56984));
             v+=q/max(.07,length(q))*max(0.0,.19-length(q))*.9*core;
             return v;
@@ -329,18 +398,18 @@
         float packetProgress(float depth) {
             float p=u_transport.y;
             float envelope=pow(sin(p*3.14159265),2.0);
-            float lane=.66*sin(depth*4.3+.7)+.34*sin(depth*8.1-1.1);
+            float lane=.66*sin(depth*2.6+.7)+.34*sin(depth*4.1-1.1);
             return smoothstep(0.0,1.0,clamp(p+envelope*lane*.19,0.0,1.0));
         }
         vec2 packetCenter(float depth,vec2 from,vec2 delta,vec2 normal) {
             float p=u_transport.y,t=packetProgress(depth);
             float envelope=pow(sin(p*3.14159265),2.0);
-            float orbit=sin(depth*11.1-p*4.4)*.080+sin(depth*17.3+p*3.0)*.035;
+            float orbit=sin(depth*4.7-p*4.4)*.080+sin(depth*7.3+p*3.0)*.035;
             return riverCurve(t,from,delta,normal,u_transport.z)
                 +normal*length(delta)*envelope*orbit;
         }
         float packetTurn(float depth) {
-            return sin(u_transport.y*3.14159265)*sin(depth*5.1-u_transport.y*3.6)*.78;
+            return sin(u_transport.y*3.14159265)*sin(depth*3.1-u_transport.y*3.6)*.78;
         }
         vec2 packetRotate(vec2 p,float a) {
             float c=cos(a),s=sin(a);return vec2(c*p.x-s*p.y,s*p.x+c*p.y);
@@ -399,6 +468,15 @@
                 texture(u_field,mediumUV(grid.xy,min(47.0,slice+1.0))),fract(grid.z));
         }
     `;
+    const VELOCITY_CACHE=HEADER+FIELD+`
+        out vec4 result;
+        void main() {
+            vec2 cell=floor(gl_FragCoord.xy),tile=floor(cell/48.0);
+            vec3 grid=vec3(mod(cell,48.0),tile.x+tile.y*8.0);
+            vec3 p=(grid/47.0*2.0-1.0)*.96;
+            result=vec4(organicVelocity(p,u_time),1);
+        }
+    `;
     const FIELD_CACHE=HEADER+FIELD+`
         uniform float u_density;
         uniform sampler2D u_shapeSnapshot;
@@ -412,7 +490,8 @@
             // cached volume approximates its density; filaments retain their
             // actual, non-reversible curl trajectory in the history textures.
             p=flowUnwind(p,u_flow);
-            float density=matterDensity(p,u_time),heat=energyHeat(p,u_time);
+            vec4 gas=bioAt(p);
+            float density=matterDensity(p,u_time),heat=max(0.0,gas.r*gas.g-.035);
             // The gas occupies cavities inside the folded matter. Test a
             // short depth neighbourhood only inside its finite support, so
             // sparse material does not turn into an exposed luminous coating.
@@ -421,9 +500,8 @@
                 float cover=density+matterDensity(p+depth,u_time)+matterDensity(p-depth,u_time);
                 heat*=smoothstep(.025,.18,cover);
             }
-            vec3 source=energySource(p,u_time),delta=source-p;
-            float distance=length(delta);
-            vec3 direction=delta/max(.001,distance);
+            vec3 thermalGradient=bioGradient(p);
+            vec3 direction=thermalGradient/max(.001,length(thermalGradient));
             vec3 gradient=vec3(density-matterDensity(p+vec3(.055,0,0),u_time),
                 density-matterDensity(p+vec3(0,.055,0),u_time),
                 density-matterDensity(p+vec3(0,0,.055),u_time));
@@ -431,15 +509,90 @@
             float surface=smoothstep(.025,.22,length(gradient));
             float facing=mix(.15,.20+.65*abs(dot(normal,direction))
                 +.15*max(0.0,dot(normal,worldPoint(vec3(0,0,1)))),surface);
-            float obstruction=density*.5+matterDensity(mix(p,source,.35),u_time)
-                +matterDensity(mix(p,source,.70),u_time);
-            // Three-tap single-scattering approximation towards the connected
-            // emitter, cached once per phase; no uniform ambient light source.
-            float light=energyHeat(source,u_time)*exp(-obstruction*distance*1.25*u_density)
-                /(1.0+distance*distance*8.0);
+            float obstruction=density*.5+matterDensity(p+direction*.055,u_time)
+                +matterDensity(p+direction*.115,u_time);
+            // Single scattering gathered from the real advected luminous gas.
+            // Its moving lobes determine which folds are lit, including their
+            // depth/density absorption. There is no old analytic glowing tube.
+            float light=bioRadiance(p)*exp(-obstruction*.17*u_density)*1.55;
             result=vec4(density,heat,light,facing);
             if(u_snapshotWeight>.0001)result=mix(result,
                 texture(u_shapeSnapshot,gl_FragCoord.xy/vec2(384,288)),u_snapshotWeight);
+        }
+    `;
+    const BIO_SIM=HEADER+FIELD+`
+        uniform float u_dt;
+        uniform int u_initialize;
+        out vec4 result;
+        vec2 bioSource(vec3 p,float t) {
+            vec3 unused,q=p-energyCenter(t);
+            vec3 warp=potential(q*2.7+vec3(1.8+t*.045,-2.9-t*.035,4.1+t*.04),unused);
+            q+=warp*.20;
+            vec3 coarse=potential(q*3.7+vec3(-2.6+t*.10,1.4-t*.07,t*.08),unused);
+            vec3 folds=potential(q*7.6+vec3(4.2-t*.16,-1.3+t*.11,2.1+t*.13),unused);
+            float radius=length(q*vec3(.93,1.04,1.08))+coarse.x*.16;
+            float body=1.0-smoothstep(.49,.73,radius);
+            // Connected lobes are carved by coherent low/mid-frequency fields,
+            // not a collection of round emitters. Their saddle points open and
+            // close into channels, leaving real dark cavities through the gas.
+            float lobes=smoothstep(-.32,.21,coarse.y+folds.x*.44);
+            float cavities=smoothstep(-.34,.14,coarse.z+folds.y*.48);
+            // A broad irregular substrate connects the hot lobes. Previously
+            // multiplying two zero-valued masks severed that gas into spots;
+            // advection/cooling then erased their thin connecting saddles.
+            // Cavities still thin the substrate rather than filling a sphere.
+            float substrate=(.19+.13*smoothstep(-.35,.25,coarse.z))
+                *(1.0-.58*(1.0-cavities)*(1.0-lobes));
+            float density=body*(substrate+lobes*cavities*(.58+coarse.x*.22));
+            float front=smoothstep(-.28,.32,coarse.x+folds.z*.52);
+            float thermal=(.28+.72*front)*(.78+folds.y*.22);
+            // During a requested transformation the SAME renewal source is
+            // redistributed gradually over authored supports. Its temperature
+            // and porous folds remain material fields, not an emissive line.
+            // Local history still arrives through RK2 and only a fractional
+            // source renewal is added per step below; no gas state is reset.
+            float texturePacking=.38+.62*lobes*(.45+.55*cavities);
+            float a=u_guideWeights.x<.0001?density:mix(density,
+                shapedDensity(p,false,t)*texturePacking*.72,u_guideWeights.x);
+            float b=u_guideWeights.y<.0001?density:mix(density,
+                shapedDensity(p,true,t)*texturePacking*.72,u_guideWeights.y);
+            density=mix(a,b,u_shape.z);
+            return vec2(density,thermal);
+        }
+        void main() {
+            vec2 cell=floor(gl_FragCoord.xy),tile=floor(cell/48.0);
+            vec3 grid=vec3(mod(cell,48.0),tile.x+tile.y*8.0);
+            vec3 p=(grid/47.0*2.0-1.0)*.96;
+            vec2 source=bioSource(p,u_time);
+            vec3 unused;
+            float grainSeed=potential(p*15.0+vec3(2.7,-4.2,1.6),unused).x*.5+.5;
+            if(u_initialize==1){result=vec4(source,grainSeed,1);return;}
+            // RK2 backtrace through exactly the velocity field used by the
+            // material integrator. The previous ping-pong target is read-only.
+            vec3 v=velocity(p,u_time,0.0,1.0,-1.0);
+            vec3 back=p-velocity(p-v*u_dt*.5,u_time-u_dt*.5,0.0,1.0,-1.0)*u_dt;
+            vec4 previous=bioAt(back);
+            float h=1.92/47.0;
+            vec2 neighbours=(bioAt(back+vec3(h,0,0)).rg+bioAt(back-vec3(h,0,0)).rg
+                +bioAt(back+vec3(0,h,0)).rg+bioAt(back-vec3(0,h,0)).rg
+                +bioAt(back+vec3(0,0,h)).rg+bioAt(back-vec3(0,0,h)).rg)/6.0;
+            vec2 carried=mix(previous.rg,neighbours,.055);
+            // Local renewal and cooling replace only a fraction of the carried
+            // gas per second. Regions stretch, split, cool and reconnect rather
+            // than being reconstructed as a sine wave on every frame.
+            // Relax towards a finite local rest density instead of adding a
+            // source every step against an unrelated slower decay. The old
+            // .62/.25 ratio accumulated ~2.5x substrate and filled its saddles.
+            float restMass=min(1.45,source.r*1.8);
+            float mass=mix(carried.r,restMass,1.0-exp(-u_dt*.62))*exp(-u_dt*.06);
+            float heat=mix(carried.g,source.g,1.0-exp(-u_dt*(.35+source.r*.65)));
+            float support=1.0-smoothstep(.72,.91,length(p*vec3(.94,1.01,1.10)));
+            float tracer=mix(previous.b,grainSeed,1.0-exp(-u_dt*.08));
+            // A support is an absorption RATE, not an opacity multiplier per
+            // simulation step. Multiplying by .8 every 1/45s used to erase a
+            // broad outer lobe in a fraction of a second and sever its bridges.
+            float boundaryTransmission=exp(-u_dt*(1.0-support)*6.0);
+            result=vec4(clamp(mass*boundaryTransmission,0.0,1.8),clamp(heat,0.0,1.0),tracer,1);
         }
     `;
     const SIM=HEADER+FIELD+`
@@ -450,16 +603,16 @@
         void main() {
             ivec2 cell=ivec2(gl_FragCoord.xy);
             float row=float(cell.y)+.5;
+            float along=float(cell.x)/float(textureSize(u_history,0).x-1);
             vec3 p;
             if(u_initialize==1) {
-                float along=float(cell.x)/float(textureSize(u_history,0).x-1);
                 p=seedPosition(row,along,u_time);
                 float h=.025;
                 // Warm a folded material filament, not a cloud or a comet tail.
                 for(int k=0;k<6;k++) {
                     float t=u_time+float(k)*h;
-                    vec3 v=velocity(p,t,row,0.0);
-                    p+=velocity(p+v*h*.5,t+h*.5,row,0.0)*h;
+                    vec3 v=velocity(p,t,row,0.0,along);
+                    p+=velocity(p+v*h*.5,t+h*.5,row,0.0,along)*h;
                 }
                 p=flowWind(p,u_flow);
             } else {
@@ -468,15 +621,18 @@
                 // small curls and counter-currents with their own filament
                 // phase. This sheds local wisps, not a uniform rubber stretch.
                 vec3 rest=flowUnwind(p,u_previousFlow);
-                vec3 v=velocity(rest,u_time,row,1.0);
-                vec3 curl,fine;
-                potential(rest*3.7+vec3(u_time*.27,-u_time*.21,row*.013),curl);
-                potential(rest*10.1+vec3(-u_time*.31,row*.017,u_time*.23),fine);
-                float pocket=.45+.55*sin(row*.57+rest.y*7.0+u_time*.63);
-                vec3 slip=worldPoint(vec3(u_flow.xy,0))*sin(row*.37+rest.z*6.0-u_time*.41)*.095;
-                vec3 eddies=(curl*(.16+pocket*.12)+fine*.105+slip)*u_flow.z;
+                vec3 v=velocity(rest,u_time,row,1.0,along);
+                vec3 eddies=vec3(0);
+                if(u_flow.z>.0001) {
+                    vec3 curl,fine;
+                    potential(rest*3.7+vec3(u_time*.27,-u_time*.21,row*.013),curl);
+                    potential(rest*10.1+vec3(-u_time*.31,row*.017,u_time*.23),fine);
+                    float pocket=.45+.55*sin(row*.57+rest.y*7.0+u_time*.63);
+                    vec3 slip=worldPoint(vec3(u_flow.xy,0))*sin(row*.37+rest.z*6.0-u_time*.41)*.095;
+                    eddies=(curl*(.16+pocket*.12)+fine*.105+slip)*u_flow.z;
+                }
                 v+=eddies;
-                rest+=(velocity(rest+v*u_dt*.5,u_time+u_dt*.5,row,1.0)+eddies)*u_dt;
+                rest+=(velocity(rest+v*u_dt*.5,u_time+u_dt*.5,row,1.0,along)+eddies)*u_dt;
                 p=flowWind(rest,u_flow);
                 // Neighbour constraints keep material strands continuous as
                 // the velocity field stretches and folds them. No history shift.
@@ -503,9 +659,9 @@
             vec3 view=viewPoint(p);
             return transported(view.xy*u_size*.80,aspect,view.z);
         }
-        vec3 presentationPoint(vec3 p,float row) {
+        vec3 presentationPoint(vec3 p,float row,float along) {
             p=flowUnwind(p,u_previousFlow);
-            if(u_static>.5&&morphWeight()>.001)p=morphGuide(p,row,u_time);
+            if(u_static>.5&&morphWeight()>.001)p=morphGuide(p,row,u_time,along);
             return flowWind(p,u_flow);
         }
         void main() {
@@ -519,7 +675,9 @@
             vec3 p=texelFetch(u_history,ivec2(x,row),0).xyz;
             vec3 before=texelFetch(u_history,ivec2(max(0,x-1),row),0).xyz;
             vec3 after=texelFetch(u_history,ivec2(min(historyLength-1,x+1),row),0).xyz;
-            p=presentationPoint(p,float(row));before=presentationPoint(before,float(row));after=presentationPoint(after,float(row));
+            p=presentationPoint(p,float(row),float(x)/float(historyLength-1));
+            before=presentationPoint(before,float(row),float(max(0,x-1))/float(historyLength-1));
+            after=presentationPoint(after,float(row),float(min(historyLength-1,x+1))/float(historyLength-1));
             // Microstructure follows material coordinates: it travels with the
             // curve, rather than flickering as unrelated screen-space noise.
             float seed=float(row)+float(filament%4)*37.71;
@@ -552,8 +710,9 @@
             vec4 material=mediumAt(v_world);
             float emission=material.g;
             float incident=clamp(emission*1.7+material.b*.65,0.0,1.0);
-            vec3 source=flowWind(energySource(flowUnwind(v_world,u_flow),u_time),u_flow);
-            float frontCover=smoothstep(.06,.23,viewPoint(v_world-source).z)
+            vec3 rest=flowUnwind(v_world,u_flow);
+            float buried=bioEnergy(rest-worldPoint(vec3(0,0,.16)));
+            float frontCover=smoothstep(.06,.35,buried)
                 *(1.0-smoothstep(.015,.20,emission));
             // Reuse the ray-marched column extinction, instead of tracing
             // procedural density again for every subpixel fibre fragment.
@@ -587,9 +746,11 @@
         uniform vec2 u_resolution;
         uniform vec3 u_particle,u_energy,u_glow,u_shadow;
         uniform float u_size,u_brightness,u_density;
+        uniform float u_debugView;
         in vec2 v_uv;
         out vec4 result;
         void main() {
+            if(u_debugView>2.5){result=vec4(0);return;}
             vec2 aspect=min(u_resolution.x,u_resolution.y)/u_resolution;
             vec2 screen=v_uv*2.0-1.0;
             vec2 centerPlane=untransported(screen,aspect,0.0)/(u_size*.80);
@@ -604,16 +765,49 @@
                 float z=(.5-(float(i)+.5+jitter)/40.0)*marchDepth;
                 vec2 xy=untransported(screen,aspect,z)/(u_size*.80);
                 vec3 p=worldPoint(vec3(xy,z));
+                if(u_debugView>0.5&&u_debugView<1.5) {
+                    vec3 rest=flowUnwind(p,u_flow);
+                    vec4 gas=bioAt(rest);vec3 unused;
+                    float heat=gas.r*gas.g;
+                    if(heat<=.015)continue;
+                    // The small-grid gas supplies large moving lobes. Fine
+                    // erosion is evaluated in its material coordinates and
+                    // warped by a tracer actually carried by advection. This
+                    // restores granular folds without a video/noise overlay,
+                    // screen-space shimmer or a larger simulation texture.
+                    vec3 detail=rest*vec3(48.0,57.0,53.0)+gas.b*vec3(2.2,-1.8,1.6);
+                    float fine=potential(detail,unused).x*.5+.5;
+                    float micro=potential(detail*2.4+vec3(3.7,-1.9,4.1),unused).y*.5+.5;
+                    // Continuous thermal response retains variation after the
+                    // gas reaches equilibrium. A saturated smoothstep turned
+                    // almost every warm sample into the same solid red lobe.
+                    float lobes=heat/(.28+heat);
+                    float erosion=smoothstep(.18,.76,fine)*(.22+1.35*smoothstep(.28,.72,micro));
+                    float mass=gas.r*erosion,stepLength=marchDepth/40.0;
+                    float absorption=1.0-exp(-mass*1.20*stepLength);
+                    // Emission and extinction share one finite optical depth.
+                    // Longer columns self-attenuate instead of adding six
+                    // units per ray and clipping all interior microstructure.
+                    float emission=absorption*lobes*(1.45+gas.g*.55);
+                    vec3 light=u_energy*(1.25+heat*.75+u_audio*.65)
+                        +u_glow*heat*(.20+u_audio*.65);
+                    color+=(1.0-opacity)*light*emission;
+                    opacity+=(1.0-opacity)*absorption;
+                    if(opacity>.985)break;
+                    continue;
+                }
                 vec4 material=mediumAt(p);
-                vec3 detail=flowUnwind(p,u_flow)-idleCenter(u_time)*.25;
+                vec3 rest=flowUnwind(p,u_flow);
+                vec4 gas=bioAt(rest);
+                vec3 detail=rest-idleCenter(u_time)*.25;
                 vec3 unused;
-                float grains=potential(detail*83.0+vec3(u_time*.14,-u_time*.10,0),unused).x*.5+.5;
+                float grains=potential(detail*vec3(48.0,57.0,53.0)+gas.b*vec3(2.2,-1.8,1.6),unused).x*.5+.5;
                 float grain=.08+1.85*smoothstep(.35,.65,grains);
                 float mass=max(0.0,material.r-.12);
                 // Beer-Lambert extinction separates porous matter from the
                 // emitting gas; front coats partially obscure deeper folds.
                 float density=1.0-exp(-mass*mass*grain*18.0*(marchDepth/40.0)*u_density);
-                float heat=material.g,incident=material.b;
+                float heat=u_debugView>1.5?0.0:material.g*(.30+1.10*smoothstep(.18,.76,grains)),incident=material.b;
                 float face=material.a*material.a;
                 vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,heat+incident*.45));
                 vec3 scattered=u_shadow*(.34+face*.12)*(1.0-clamp(incident,0.0,1.0))
@@ -694,14 +888,39 @@
             startStrength:number(value.startStrength,0,1,0)};
     };
     class GunterIdleCore {
+        // Pure inverse of TRANSPORT at the cursor's centre plane. The owner
+        // supplies NDC for the actual output canvas, not its CSS container.
+        // Keeping this beside the shader prevents a second travel model in
+        // the input adapter, especially while the core crosses a wide canvas.
+        static unprojectPointer(x,y,width,height,transport) {
+            if(![x,y,width,height].every(Number.isFinite)||width<=0||height<=0)return {x:0,y:0};
+            const side=Math.min(width,height),ax=side/width,ay=side/height;
+            const route=transportConfig(transport);
+            if(!route)return {x:x/ax,y:y/ay};
+            const p=route.progress,envelope=Math.sin(p*Math.PI)**2;
+            const lane=.66*Math.sin(.7)+.34*Math.sin(-1.1);
+            const phase=number(p+envelope*lane*.19,0,1,0),t=phase*phase*(3-2*phase);
+            const fx=route.from[0]/ax,fy=route.from[1]/ay;
+            const dx=(route.to[0]-route.from[0])/ax,dy=(route.to[1]-route.from[1])/ay;
+            const distance=Math.hypot(dx,dy),scale=route.fromScale+(route.toScale-route.fromScale)*t;
+            let cx=fx+dx*t,cy=fy+dy*t;
+            if(distance>=.0001) {
+                const orbit=Math.sin(-p*4.4)*.080+Math.sin(p*3.0)*.035;
+                const lift=4*distance*route.bend*t*(1-t)+distance*envelope*orbit;
+                cx-=dy/distance*lift;cy+=dx/distance*lift;
+            }
+            const px=(x/ax-cx)/scale,py=(y/ay-cy)/scale;
+            const angle=distance<.0001?0:-Math.sin(p*Math.PI)*Math.sin(-p*3.6)*.78;
+            return {x:Math.cos(angle)*px-Math.sin(angle)*py,y:Math.sin(angle)*px+Math.cos(angle)*py};
+        }
         constructor() {
             this.canvas=document.createElement('canvas');
-            this.available=false;this.error='';this.frames=0;this.steps=0;this.fieldBuilds=0;this.resources=[];
+            this.available=false;this.error='';this.frames=0;this.steps=0;this.fieldBuilds=0;this.bioSteps=0;this.resources=[];
             this.pointerRevision=0;this.resetPointer();
             this.audioRevision=0;this.setAudioLevel(0,false);
             this.shapeState={from:0,to:0,start:0};this.shapeName='organic';
             this.guideFrom={name:'organic',id:0,weight:0,data:null};this.guideTo=this.guideFrom;
-            this.guideTextures={};this.guideRevision=0;this.snapshotActive=false;this.shapeSnapshot=null;
+            this.guideTextures={};this.pathTextures={};this.guideRevision=0;this.snapshotActive=false;this.shapeSnapshot=null;
             this.currentFlow=[1,0,0];this.historyFlow=[1,0,0];this.flowTime=-1;this.staticPresentation=false;
             this.canvas.addEventListener('webglcontextlost',event=>{
                 event.preventDefault();this.available=false;this.error='Se perdió el contexto WebGL2.';
@@ -709,8 +928,8 @@
             });
             this.canvas.addEventListener('webglcontextrestored',()=>{
                 if(this.disposed)return;
-                this.resources=[];this.targets=null;this.histories=null;this.field=null;this.fieldTime=null;this.fieldDensity=null;
-                this.guideTextures={};this.shapeSnapshot=null;this.snapshotActive=false;
+                this.resources=[];this.targets=null;this.histories=null;this.bioHistories=null;this.velocityField=null;this.field=null;this.fieldTime=null;this.fieldDensity=null;
+                this.guideTextures={};this.pathTextures={};this.shapeSnapshot=null;this.snapshotActive=false;
                 this.simulationTime=null;this.displayTime=null;
                 this.flowTime=-1;
                 this.historyFlow=[...this.currentFlow];this.fieldShapeKey=null;this.fieldFlowKey=null;
@@ -730,14 +949,18 @@
                 if(!gl||!gl.getExtension('EXT_color_buffer_float'))
                     throw new Error('El núcleo requiere WebGL2 y texturas flotantes renderizables (EXT_color_buffer_float).');
                 this.programs={
-                    simulation:this.program(QUAD,SIM),field:this.program(QUAD,FIELD_CACHE),strands:this.program(STRAND_VERTEX,STRAND_FRAGMENT),
+                    simulation:this.program(QUAD,SIM),bio:this.program(QUAD,BIO_SIM),velocity:this.program(QUAD,VELOCITY_CACHE),field:this.program(QUAD,FIELD_CACHE),strands:this.program(STRAND_VERTEX,STRAND_FRAGMENT),
                     volume:this.program(QUAD,VOLUME),copy:this.program(QUAD,COPY),
                     extract:this.program(QUAD,EXTRACT),blur:this.program(QUAD,BLUR),composite:this.program(QUAD,COMPOSITE)
                 };
                 this.histories=[];this.histories.push(this.target(HISTORY,SIM_HEADS,true));
                 this.histories.push(this.target(HISTORY,SIM_HEADS,true));
+                this.bioHistories=[];this.bioHistories.push(this.target(384,288));this.bioHistories.push(this.target(384,288));
+                this.bioIndex=0;this.bioReady=false;
                 this.field=this.target(384,288);this.fieldTime=null;this.fieldDensity=null;
+                this.velocityField=this.target(384,288);
                 this.uploadGuide('from',this.guideFrom.data);this.uploadGuide('to',this.guideTo.data);
+                this.uploadPaths('from',this.guideFrom.paths);this.uploadPaths('to',this.guideTo.paths);
                 this.historyIndex=0;this.simulationTime=null;this.displayTime=null;
                 this.historyFlow=[...this.currentFlow];this.fieldShapeKey=null;this.fieldFlowKey=null;
                 this.available=true;this.error='';
@@ -806,6 +1029,7 @@
             this.vector(program,'u_pointer',[p.x,p.y,p.activity]);
             this.vector(program,'u_pointerFlow',[p.vx*.24,p.vy*.24,0]);
             this.scalar(program,'u_audio',this.audio.available?1-Math.exp(-this.audio.level*5):0);
+            this.scalar(program,'u_visualSize',this.visualSize||1);
         }
         selectShape(name,time,still) {
             const target=shapeId(name),state=this.shapeState;
@@ -818,6 +1042,7 @@
                     this.guideTo=this.catalogGuide(name);
                     this.captureShapeSnapshot(progress,still);
                     this.uploadGuide('from',this.guideFrom.data);this.uploadGuide('to',this.guideTo.data);
+                    this.uploadPaths('from',this.guideFrom.paths);this.uploadPaths('to',this.guideTo.paths);
                     this.shapeState={from:this.guideFrom.id,to:target,start:time};this.guideRevision++;
                 } else {
                     // Minimal six-form fallback for an older/offline document.
@@ -830,6 +1055,7 @@
                 this.shapeState={from:target,to:target,start:time};this.snapshotActive=false;
                 if(this.guideFrom!==this.guideTo){
                     this.guideFrom=this.guideTo;this.uploadGuide('from',this.guideFrom.data);this.guideRevision++;
+                    this.uploadPaths('from',this.guideFrom.paths);
                 }
             }
             this.shapeName=name;this.staticPresentation=still;
@@ -837,7 +1063,8 @@
         catalogGuide(name) {
             const data=name==='organic'?null:window.GunterCoreForms?.guide?.(name,128);
             if(name!=='organic'&&(!data||data.length!==128*128*4))throw new Error('Guía de forma no disponible: '+name);
-            return {name,id:shapeId(name),weight:name==='organic'?0:1,data};
+            const paths=name==='organic'?null:window.GunterCoreForms?.trajectories?.(name,128);
+            return {name,id:shapeId(name),weight:name==='organic'?0:1,data,paths};
         }
         blendedGuide(progress) {
             const a=this.guideFrom,b=this.guideTo;
@@ -847,7 +1074,10 @@
             if(!wa)return {...b,weight};if(!wb)return {...a,weight};
             const data=new Float32Array(128*128*4),mix=wb/weight;
             for(let i=0;i<data.length;i++)data[i]=a.data[i]+(b.data[i]-a.data[i])*mix;
-            return {name:'blended',id:-1,weight,data};
+            // History carries the exact in-flight matter; the dominant source
+            // path only guides its subsequent velocity, without a reseed or
+            // instantaneous projection when a command interrupts a morph.
+            return {name:'blended',id:-1,weight,data,paths:mix<.5?a.paths:b.paths};
         }
         uploadGuide(side,data) {
             if(!data||!this.gl)return;
@@ -858,6 +1088,27 @@
             for(const name of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,name,gl.LINEAR);
             for(const name of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,name,gl.CLAMP_TO_EDGE);
             gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,128,128,0,gl.RGBA,gl.FLOAT,data);
+        }
+        uploadPaths(side,paths) {
+            if(!paths||!this.gl)return;
+            if(paths.width!==128||!Number.isInteger(paths.height)||paths.height<1||paths.height>128
+                ||paths.data.length!==128*paths.height*4||paths.strokes.length!==paths.height)
+                throw new Error('Trayectoria de forma no válida.');
+            const gl=this.gl,slots=this.pathTextures[side]||(this.pathTextures[side]={});
+            const rows=new Float32Array(SIM_HEADS*4);
+            for(let i=0;i<SIM_HEADS;i++) {
+                const fraction=((i+.5)*.61803398875)%1;
+                let lo=0,hi=paths.strokes.length-1;
+                while(lo<hi){const middle=(lo+hi)>>1;if(fraction<=paths.strokes[middle].cdf)hi=middle;else lo=middle+1;}
+                rows[i*4]=lo;rows[i*4+1]=paths.strokes[lo].closed?1:0;
+            }
+            for(const [key,data,width,height,filter] of [['paths',paths.data,128,paths.height,gl.LINEAR],['rows',rows,SIM_HEADS,1,gl.NEAREST]]) {
+                const texture=slots[key]||(slots[key]=gl.createTexture());
+                gl.bindTexture(gl.TEXTURE_2D,texture);
+                for(const name of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,name,filter);
+                for(const name of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,name,gl.CLAMP_TO_EDGE);
+                gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,width,height,0,gl.RGBA,gl.FLOAT,data);
+            }
         }
         captureShapeSnapshot(progress,still) {
             this.snapshotActive=false;
@@ -879,9 +1130,19 @@
             const fallback=this.histories[this.historyIndex].texture;
             this.texture(program,'u_shapeGuideFrom',this.guideFrom.data?this.guideTextures.from:fallback,3);
             this.texture(program,'u_shapeGuideTo',this.guideTo.data?this.guideTextures.to:fallback,4);
+            this.vector(program,'u_pathMode',[this.guideFrom.paths?.height||0,this.guideTo.paths?.height||0,0]);
+            this.texture(program,'u_pathsFrom',this.guideFrom.paths?this.pathTextures.from.paths:fallback,7);
+            this.texture(program,'u_pathsTo',this.guideTo.paths?this.pathTextures.to.paths:fallback,8);
+            this.texture(program,'u_rowsFrom',this.guideFrom.paths?this.pathTextures.from.rows:fallback,9);
+            this.texture(program,'u_rowsTo',this.guideTo.paths?this.pathTextures.to.rows:fallback,10);
             this.vector(program,'u_flow',this.currentFlow);
             this.vector(program,'u_previousFlow',this.historyFlow);
             this.scalar(program,'u_static',this.staticPresentation?1:0);
+            this.texture(program,'u_bio',this.bioHistories[this.bioIndex].texture,6);
+            this.scalar(program,'u_bioReady',this.bioReady?1:0);
+            // The cache builder never binds its own destination as a sampler,
+            // even on drivers that retain inactive uniforms during validation.
+            this.texture(program,'u_velocity',program===this.programs.velocity?fallback:this.velocityField.texture,11);
         }
         selectFlow(transport,width,height,time) {
             // Same-phase/older avatars present the same material: they must
@@ -946,6 +1207,10 @@
         simulate(time,initialize=false) {
             const gl=this.gl,p=this.programs.simulation,next=1-this.historyIndex;
             if(!initialize)this.advancePointer();
+            const velocity=this.programs.velocity;
+            this.use(velocity);this.scalar(velocity,'u_time',time);
+            this.interactionUniforms(velocity);this.materialUniforms(velocity,time);
+            gl.disable(gl.BLEND);this.quad(this.velocityField);
             this.use(p);this.scalar(p,'u_time',time);this.scalar(p,'u_dt',STEP);
             this.interactionUniforms(p);
             this.materialUniforms(p,time);
@@ -954,6 +1219,11 @@
             gl.disable(gl.BLEND);this.quad(this.histories[next]);
             this.historyIndex=next;this.steps++;
             this.historyFlow=[...this.currentFlow];
+            const bio=this.programs.bio,bioNext=1-this.bioIndex;
+            this.use(bio);this.scalar(bio,'u_time',time);this.scalar(bio,'u_dt',STEP);
+            this.interactionUniforms(bio);this.materialUniforms(bio,time);
+            gl.uniform1i(this.uniform(bio,'u_initialize'),initialize?1:0);
+            this.quad(this.bioHistories[bioNext]);this.bioIndex=bioNext;this.bioReady=true;this.bioSteps++;
         }
         advance(time) {
             if(this.simulationTime===null||time-this.simulationTime>4){
@@ -991,6 +1261,7 @@
             gl.uniform2f(this.uniform(volume,'u_resolution'),this.width,this.height);
             this.scalar(volume,'u_time',t);this.scalar(volume,'u_size',size);this.scalar(volume,'u_brightness',config.brightness);
             this.scalar(volume,'u_density',density);this.vector(volume,'u_particle',rgb(config.particleColor));
+            this.scalar(volume,'u_debugView',config.debugView==='energy'?1:config.debugView==='matter'?2:config.debugView==='filaments'?3:0);
             this.vector(volume,'u_energy',rgb(config.energyColor));this.vector(volume,'u_glow',rgb(config.glowColor));
             this.vector(volume,'u_shadow',rgb(config.shadowColor));
             this.quad(this.targets.energy);
@@ -1011,7 +1282,9 @@
             this.activeFilaments=Math.round(BASE_FILAMENTS*config.density);
             gl.enable(gl.BLEND);gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
             this.destination(this.targets.scene);
-            gl.drawArraysInstanced(gl.TRIANGLES,0,6,this.activeFilaments*(HISTORY-1));gl.disable(gl.BLEND);
+            if(config.debugView==='composite'||config.debugView==='filaments')
+                gl.drawArraysInstanced(gl.TRIANGLES,0,6,this.activeFilaments*(HISTORY-1));
+            gl.disable(gl.BLEND);
             const extract=this.programs.extract;this.use(extract);this.texture(extract,'u_image',this.targets.scene.texture);this.quad(this.targets.a);
             const blur=this.programs.blur;this.use(blur);this.texture(blur,'u_image',this.targets.a.texture);
             gl.uniform2f(this.uniform(blur,'u_step'),1.7/this.targets.a.width,0);this.quad(this.targets.b);
@@ -1028,6 +1301,7 @@
                 glowColor:color(config?.glowColor,'#ff6d35'),
                 shadowColor:color(config?.shadowColor,'#071423'),
                 shape:knownShape(config?.shape)?config.shape:'organic',
+                debugView:['energy','matter','filaments'].includes(config?.debugView)?config.debugView:'composite',
                 static:config?.static===true||config?.speed===0,
                 brightness:number(config?.brightness,.2,2.5,1),density:number(config?.density,.25,2,1),
                 speed:number(config?.speed,0,2,1),size:number(config?.size,.7,1.3,1),
@@ -1035,6 +1309,7 @@
             };
             width=Math.round(number(width,1,720,512));height=Math.round(number(height,1,720,512));
             const phase=number(seconds,0,1e8,0)*config.speed;
+            this.visualSize=config.size*(1+(this.audio.available?1-Math.exp(-this.audio.level*5):0)*.04);
             this.selectShape(config.shape,Math.max(this.displayTime||0,phase),config.static);
             this.selectFlow(config.transport,width,height,phase);
             this.resize(width,height);this.advance(phase);this.draw(config);
@@ -1046,16 +1321,21 @@
             return {renderer:'webgl-filaments',simulation:'gpu-advected-material-filaments',available:this.available,frames:this.frames,
                 steps:this.steps,filaments:this.activeFilaments||0,segmentsPerFilament:HISTORY-1,
                 time:this.simulationTime,width:this.width,height:this.height,error:this.error,
-                volumeGrid:48,volumeSamples:40,fieldBuilds:this.fieldBuilds,interaction:{...this.pointer},audio:{...this.audio},
+                volumeGrid:48,volumeSamples:40,fieldBuilds:this.fieldBuilds,bioSteps:this.bioSteps,
+                energySimulation:'gpu-semilagrangian-48cubed',interaction:{...this.pointer},audio:{...this.audio},
+                velocityCache:'shared-48cubed-per-step',
                 shape:this.shapeName,morph:this.shapeCoefficients(this.displayTime||0)[2],flow:[...this.currentFlow],
                 transportFlow:'depth-delayed-smoke-packets'};
         }
         release() {
             if(!this.gl)return;
             this.deleteTargets(this.targets);this.targets=null;this.deleteTargets(this.histories);this.histories=null;
+            this.deleteTargets(this.bioHistories);this.bioHistories=null;this.bioReady=false;
+            this.deleteTargets(this.velocityField?[this.velocityField]:null);this.velocityField=null;
             this.deleteTargets(this.field?[this.field]:null);this.field=null;this.fieldTime=null;this.fieldDensity=null;
             this.deleteTargets(this.shapeSnapshot?[this.shapeSnapshot]:null);this.shapeSnapshot=null;this.snapshotActive=false;
             Object.values(this.guideTextures||{}).forEach(texture=>this.gl.deleteTexture(texture));this.guideTextures={};
+            Object.values(this.pathTextures||{}).forEach(slots=>Object.values(slots).forEach(texture=>this.gl.deleteTexture(texture)));this.pathTextures={};
             this.resources.forEach(program=>this.gl.deleteProgram(program));this.resources=[];
         }
         dispose() {

@@ -82,6 +82,85 @@ check('organic and unknown forms have no imposed guide; resolution is bounded', 
     assert.equal(forms.guide('organic'), null); assert.equal(forms.guide('missing'), null);
     [0, 15, 257, 32.5, NaN, Infinity].forEach(size => assert.throws(() => forms.guide('eye', size), RangeError));
 });
+check('trajectory rows preserve stroke identity and a bounded length CDF for every form', () => {
+    forms.list().filter(f=>f.id!=='organic').forEach(({id})=>{
+        const entry=forms.get(id),field=forms.trajectories(id,32);
+        assert.equal(field.width,32,id);assert.equal(field.height,entry.strokes.length,id);
+        assert.equal(field.data.length,32*field.height*4,id);
+        assert.equal(field.strokes.at(-1).cdf,1,id);
+        let previous=0;
+        field.strokes.forEach((metadata,row)=>{
+            assert.ok(metadata.length>0 && metadata.cdf>previous && metadata.cdf<=1,id);
+            previous=metadata.cdf;assert.equal(metadata.width,entry.strokes[row].width,id);
+            for(let col=0;col<32;col++){
+                const at=(row*32+col)*4;
+                assert.ok(Math.abs(field.data[at])<=.821 && Math.abs(field.data[at+1])<=.821,id);
+                assert.ok(field.data[at+2]>0 && field.data[at+2]<=metadata.width+1e-7,id);
+                assert.equal(field.data[at+3],metadata.closed?1:0,id);
+                if(col){
+                    const step=Math.hypot(field.data[at]-field.data[at-4],field.data[at+1]-field.data[at-3]);
+                    assert.ok(step<=metadata.length/31+1e-6,`${id} row ${row}: no jumps between authored strokes`);
+                }
+            }
+        });
+    });
+});
+check('open trajectories include both endpoints and do not connect fingers or tentacles', () => {
+    ['hand','jellyfish','dragon','wolf','eye'].forEach(id=>{
+        const entry=forms.get(id),field=forms.trajectories(id,128);
+        field.strokes.forEach((metadata,row)=>{
+            const stroke=entry.strokes[row],first=stroke.points[0],last=stroke.points.at(-1);
+            const a=row*128*4,b=(row*128+127)*4;
+            assert.ok(Math.abs(field.data[a]-first[0])<1e-7 && Math.abs(field.data[a+1]-first[1])<1e-7,id);
+            assert.ok(Math.abs(field.data[b]-last[0])<1e-7 && Math.abs(field.data[b+1]-last[1])<1e-7,id);
+            assert.equal(metadata.closed,Math.hypot(first[0]-last[0],first[1]-last[1])<1e-6,id);
+        });
+    });
+    const tentacles=forms.trajectories('jellyfish');
+    assert.ok(tentacles.strokes.slice(2,9).every(s=>!s.closed),'seven separate tentacles stay open');
+});
+check('closed rows have matching seams while open rows taper without wrapping', () => {
+    const star=forms.trajectories('pentagram',64);
+    star.strokes.forEach((s,row)=>{
+        assert.equal(s.closed,true);
+        const a=row*64*4,b=(row*64+63)*4;
+        [0,1,2,3].forEach(channel=>assert.ok(Math.abs(star.data[a+channel]-star.data[b+channel])<1e-6));
+        assert.ok(star.data[a+2]>star.data[(row*64+32)*4+2],'closed width varies continuously');
+    });
+    const sword=forms.trajectories('sword',65),row=1;
+    assert.equal(sword.strokes[row].closed,false);
+    assert.ok(sword.data[(row*65)*4+2]<sword.data[(row*65+32)*4+2],'open width tapers at endpoint');
+});
+check('trajectories sample by arc length, not by the uneven number of contour vertices', () => {
+    const samples=65,field=forms.trajectories('sword',samples),stroke=forms.get('sword').strokes[1];
+    const [first,last]=stroke.points;
+    for(let col=0;col<samples;col++){
+        const at=(samples+col)*4,t=col/(samples-1);
+        assert.ok(Math.abs(field.data[at]-(first[0]+(last[0]-first[0])*t))<1e-7);
+        assert.ok(Math.abs(field.data[at+1]-(first[1]+(last[1]-first[1])*t))<1e-7);
+    }
+    // The hand has closely spaced fingertip vertices and long wrist segments;
+    // all samples still lie on one original segment in order of walked length.
+    const hand=forms.get('hand').strokes[0],trail=forms.trajectories('hand',128);
+    const lengths=hand.points.slice(1).map((p,i)=>Math.hypot(p[0]-hand.points[i][0],p[1]-hand.points[i][1]));
+    let segment=0,start=0;
+    for(let col=0;col<128;col++){
+        const distance=trail.strokes[0].length*col/127;
+        while(segment<lengths.length-1 && distance>start+lengths[segment])start+=lengths[segment++];
+        const t=(distance-start)/lengths[segment],a=hand.points[segment],b=hand.points[segment+1];
+        assert.ok(Math.hypot(trail.data[col*4]-(a[0]+(b[0]-a[0])*t),trail.data[col*4+1]-(a[1]+(b[1]-a[1])*t))<1e-6);
+    }
+});
+check('trajectory snapshots and cache eviction cannot corrupt guides or authored strokes', () => {
+    const original=forms.trajectories('hand',32),sample=original.data.slice(),length=original.strokes[0].length;
+    original.data.fill(99);original.strokes[0].length=99;original.strokes.push({length:99});
+    assert.deepEqual(forms.trajectories('hand',32).data,sample);
+    assert.equal(forms.trajectories('hand',32).strokes[0].length,length);
+    ['eye','dragon','wolf','lotus','sword'].forEach(id=>{forms.trajectories(id,32);forms.guide(id,16);});
+    assert.deepEqual(forms.trajectories('hand',32).data,sample);
+    assert.equal(forms.trajectories('organic'),null);assert.equal(forms.trajectories('missing'),null);
+    [0,15,257,32.5,NaN,Infinity].forEach(samples=>assert.throws(()=>forms.trajectories('eye',samples),RangeError));
+});
 check('loading twice preserves the same catalog; no DOM, network or new storage', () => {
     vm.runInNewContext(source, { window }); assert.equal(window.GunterCoreForms, forms);
     assert.ok(!/fetch\(|localStorage|indexedDB|document\.|setInterval|requestAnimationFrame/.test(source));

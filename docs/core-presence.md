@@ -108,3 +108,58 @@ de las ilustraciones. Una inversión de ruta antes de terminar el viaje aún
 reancora el conjunto desde su centro actual, no desde cada paquete individual.
 La versión anterior queda recuperable en Git (`293f9e9`),
 sin copias paralelas.
+
+## Biomasa y filamentos acoplados
+
+La energía tiene ahora un estado GPU propio: dos atlas RGBA16F de 48³ celdas,
+con advección semilagrangiana RK2, difusión, renovación local y enfriamiento.
+No se reproduce ninguno de los videos de referencia. La energía y la materia
+leen el mismo campo de velocidad y el atlas energético del paso anterior;
+su gradiente curva las fibras cercanas. El calor y la irradiancia del composite
+proceden de ese gas, con absorción por materia y profundidad, no del antiguo
+emisor tubular analítico. Se conservan colores, densidad real, audio medido,
+preferencias, movimiento reducido y el ciclo de vida del compositor existente.
+Un atlas reutilizable adicional de velocidad (48³, aproximadamente 0,84 MiB)
+evita recalcular curls y gradientes en cada muestra de ambos RK2. No hay una
+simulación paralela: los dos sistemas consultan exactamente ese mismo campo.
+El borde absorbe por segundo, no por número de pasos, y la masa relaja hacia
+una fuente acotada para no desaparecer ni saturar la energía con el tiempo.
+
+El puntero es además un obstáculo local suave para las partículas. Durante
+el recorrido se invierte la proyección del paquete central para no interpretar
+todo el corredor como si fuera el núcleo. El contenedor no sigue al mouse.
+Las formas asignan cada corriente a un trazo autorado estable, muestreado por
+longitud de arco: no se conectan arbitrariamente dedos, tentáculos o contornos
+independientes. Las guías se generan bajo demanda y sus texturas se reutilizan.
+
+`/js/dev/core-bio-lab.html` permite revisar energía, materia, filamentos y
+composición por separado, sobre fondo oscuro, claro o ajedrezado. Utiliza
+`GunterIdleCore`, no otro renderizador. No lee/escribe preferencias, llama APIs,
+solicita micrófono ni introduce controles en el dashboard. Su captura de canvas
+usa 19 segundos de tiempo real para dejar margen al codificador; la duración
+útil del archivo se comprueba después, sin rellenarlo ni simular fotogramas.
+
+Las capas del ZIP son referencias cromáticas aproximadas, no datos volumétricos
+ni un campo de velocidades de TouchDesigner. Esta reconstrucción sigue siendo
+una aproximación procedural de resolución acotada, no una recuperación exacta
+de la simulación original. Punto de reversión previo: `0e1db872d4f813725d490d7b186dce6da3b9f99a`.
+
+Validación focalizada en Chrome local: cuatro fotogramas originales (5, 20,
+35 y 50 s), cuatro poses de cada revisión y segmentos continuos de energía
+(18,79 s) y composición (18,94 s), sin interpolación de movimiento. Se
+comprobaron las cuatro capas, fondo ajedrezado con alfa de esquina cero,
+Inicio ↔ Tareas, mano/medusa por el chat existente y vista de 390 × 844 sin
+desbordamiento horizontal. Las preferencias originales permanecieron intactas.
+Los contratos Node cubren guías/trayectorias, preferencias, recursos/feedback,
+restauración, advección, absorción temporal y captura/limpieza del laboratorio.
+`npm run test:bio-core` reúne únicamente esas pruebas.
+
+No se cierra la fidelidad de fase 2: la materia sigue más suave y menos
+microgranulada que la referencia; algunas siluetas conservan contornos oscuros
+con iluminación débil. La captura de composición pasó de aproximadamente 6
+a 12,5 fotogramas guardados/s tras reutilizar el campo, pero incluye el coste
+del codificador y no certifica 30 FPS ni fluidez equivalente al original.
+La compilación inicial de shaders también puede demorar en este equipo.
+No se validaron visualmente las 79 siluetas ni hardware móvil físico; el tamaño
+móvil se comprobó mediante viewport de Chrome. No se alteraron permisos,
+modelos, rutas de voz ni se repitieron sus pruebas.

@@ -1,7 +1,7 @@
 /* Procedural, local silhouette guides for Gunter's existing GPU material.
  * Coordinates are x/right, y/up in [-.84,.84]; guide texture row zero is y=-1.
  * These are deliberately basic silhouettes, not reproductions of the supplied art.
- * Only a requested guide is rasterised. Four CPU fields are retained, never all forms.
+ * Only requested fields are built. Four guide/trajectory fields are retained in total.
  */
 (function () {
     'use strict';
@@ -45,9 +45,13 @@
     }
     add('organic', 'Núcleo orgánico', ['organica', 'organico', 'nucleo', 'forma original', 'forma normal'], 'Materia y energía sin silueta impuesta.', []);
     add('pentagram', 'Estrella invertida', ['pentagrama', 'pentagrama invertido', 'estrella invertida', 'estrella de cinco puntas', 'cinco puntas'], 'Estrella de cinco puntas con una punta hacia abajo.', [star(5, 2, true), oval(0, 0, .8, .8, .025)]);
-    const eye = [path('-.8,0 -.5,.28 0,.36 .5,.28 .8,0 .5,-.26 0,-.34 -.5,-.26 -.8,0'), oval(0, 0, .25, .29, .048), oval(0, 0, .08, .15, .04)];
+    const eyeLid = Array.from({ length: 65 }, (_, i) => {
+        const upper = i <= 32, t = upper ? i / 32 : (64 - i) / 32;
+        return [-.8 + 1.6 * t, (upper ? .32 : -.29) * Math.pow(Math.sin(Math.PI * t), .86)];
+    });
+    const eye = [path(eyeLid, .027), oval(0, 0, .225, .265, .031), oval(0, 0, .065, .14, .025)];
     add('eye', 'Ojo', ['ojo', 'ojo abierto'], 'Párpados almendrados, iris y pupila.', eye);
-    add('hand', 'Mano', ['mano', 'palma', 'mano abierta'], 'Palma abierta y cinco dedos diferenciados.', [path('-.32,-.78 -.4,-.36 -.7,-.02 -.74,.22 -.63,.3 -.41,.02 -.36,.04 -.4,.55 -.32,.63 -.24,.57 -.2,.17 -.17,.72 -.08,.8 .01,.72 .02,.17 .09,.62 .18,.69 .25,.61 .23,.08 .32,.46 .42,.49 .48,.4 .4,-.14 .3,-.45 .25,-.78', .065), path('-.31,-.18 -.1,-.3 .2,-.14', .035)]);
+    add('hand', 'Mano', ['mano', 'palma', 'mano abierta'], 'Palma abierta y cinco dedos diferenciados.', [path('-.28,-.78 -.36,-.3 -.62,-.03 -.74,.2 -.7,.29 -.63,.31 -.57,.23 -.4,.02 -.36,.1 -.4,.57 -.35,.68 -.28,.68 -.22,.59 -.19,.15 -.17,.75 -.12,.85 -.04,.85 .02,.75 .04,.17 .09,.68 .15,.77 .22,.75 .26,.66 .25,.11 .34,.5 .4,.58 .47,.54 .49,.46 .42,-.17 .3,-.43 .24,-.78 -.28,-.78', .027), path('-.28,-.15 -.12,-.27 .12,-.17', .016), path('-.21,-.43 -.05,-.47 .14,-.39', .014)]);
     add('sword', 'Espada', ['espada', 'espada de energia'], 'Hoja larga, punta, guarda y empuñadura.', [path('0,.85 -.13,.58 -.08,-.24 -.4,-.26 -.42,-.36 -.09,-.34 -.07,-.68 0,-.81 .07,-.68 .09,-.34 .42,-.36 .4,-.26 .08,-.24 .13,.58 0,.85', .045), path('0,.65 0,-.22', .026)]);
     add('octagram', 'Estrella de ocho puntas', ['octagrama', 'ocho puntas', 'estrella de ocho puntas'], 'Dos cuadrados entrelazados dentro de un círculo.', [star(8, 3, false), oval(0, 0, .8, .8, .025)]);
     // Technological / cosmic objects, one distinct contour per reference tile.
@@ -66,8 +70,8 @@
     // Creatures. Contours and anatomical landmarks remain distinct at thumbnail scale.
     const butterflyWing = path('-.04,.08 -.26,.55 -.62,.79 -.8,.49 -.69,.13 -.31,-.05 -.56,-.2 -.64,-.57 -.39,-.72 -.14,-.39 -.04,.08', .055);
     add('butterfly', 'Mariposa', ['mariposa'], 'Cuatro alas simétricas y antenas.', [...pair(butterflyWing), path('0,-.57 0,.36 -.13,.55 0,.36 .13,.55', .035), ...pair(path('-.08,.06 -.51,.39 -.72,.48', .025))]);
-    const wolfBody = path('-.8,-.25 -.61,-.13 -.37,.07 -.2,.36 .07,.49 .21,.79 .34,.58 .48,.57 .6,.41 .42,.3 .26,.12 .25,-.3 .17,-.7 .05,-.73 .03,-.28 -.23,-.3 -.4,-.67 -.53,-.7 -.48,-.21 -.7,-.39 -.8,-.25', .065);
-    add('wolf', 'Lobo', ['lobo', 'lobo aullando'], 'Lobo de perfil con hocico elevado y cola.', [wolfBody, path('-.39,.01 -.23,-.3 .04,-.31 .26,.12', .035)]);
+    const wolfBody = path('-.8,-.41 -.74,-.12 -.59,-.02 -.34,.08 -.06,.1 .04,.36 .19,.58 .16,.74 .3,.65 .46,.8 .52,.71 .4,.57 .26,.48 .24,.2 .25,-.68 .13,-.7 .1,-.12 -.06,-.26 -.34,-.22 -.37,-.6 -.52,-.68 -.62,-.65 -.5,-.52 -.5,-.17 -.68,-.34 -.8,-.41', .035);
+    add('wolf', 'Lobo', ['lobo', 'lobo aullando'], 'Lobo de perfil con hocico elevado y cola.', [wolfBody, path('-.34,-.22 -.27,-.57 -.18,-.64 -.28,-.64', .021), path('.24,.22 .34,-.54 .42,-.59 .31,-.62', .022), path('.31,.6 .38,.64', .014)]);
     add('owl', 'Búho', ['buho', 'lechuza'], 'Ave frontal de ojos grandes y alas extendidas.', [oval(0, .1, .3, .47, .055), oval(-.14, .32, .13, .16, .04), oval(.14, .32, .13, .16, .04), path('-.1,.18 0,.03 .1,.18', .035), ...pair(path('-.25,.14 -.58,.47 -.82,.72 -.71,.11 -.48,-.18 -.26,-.23', .055)), path('-.11,-.38 -.16,-.65 0,-.51 .16,-.65 .11,-.38', .04)]);
     add('serpent', 'Serpiente', ['serpiente', 'culebra'], 'Cuerpo sinuoso en S y cabeza de perfil.', [path('-.37,-.79 .04,-.64 .4,-.37 .46,-.08 .3,.09 -.28,.25 -.39,.48 -.17,.71 .18,.76 .41,.56 .22,.43 .02,.56 -.15,.46 -.07,.33 .36,.16 .6,-.12 .47,-.48 .1,-.74 -.37,-.79', .055), path('.31,.52 .48,.49 .55,.56', .018)]);
     add('deer', 'Ciervo', ['ciervo', 'venado'], 'Ciervo de pie con cornamenta ramificada.', [path('-.67,-.04 -.42,.2 .03,.15 .25,.42 .25,.6 .44,.68 .57,.5 .39,.32 .32,-.15 .21,-.7 .13,-.7 .09,-.23 -.28,-.18 -.38,-.7 -.47,-.7 -.42,-.17 -.7,-.2', .055), path('.28,.59 .12,.79 .03,.72', .028), path('.4,.66 .55,.84 .63,.76', .028)]);
@@ -75,9 +79,9 @@
     const flyingWing = path('-.12,.02 -.4,.22 -.82,.73 -.78,.35 -.59,.06 -.36,-.16 -.15,-.13', .06);
     add('raven', 'Cuervo', ['cuervo', 'corvido'], 'Cuervo en vuelo con pico largo, alas y cola.', [...pair(flyingWing), path('-.13,.08 -.13,.28 .02,.38 .19,.29 .34,.16 .12,.16 .12,-.19 .26,-.57 0,-.42 -.28,-.58 -.12,-.15 -.13,.08', .05)]);
     add('fox', 'Zorro', ['zorro'], 'Zorro sentado de orejas agudas y cola grande.', [path('-.15,.38 -.21,.8 .03,.61 .31,.78 .31,.31 .15,.1 .28,-.32 .11,-.68 -.27,-.69 -.41,-.46 -.33,-.02 -.15,.38', .055), path('-.32,-.15 -.62,-.23 -.8,-.51 -.6,-.68 -.27,-.69', .08), path('-.12,.35 .06,.19 .24,.34', .035)]);
-    add('jellyfish', 'Medusa', ['medusa'], 'Campana amplia y tentáculos sinuosos descendentes.', [oval(0, .27, .63, .42, .065, 0, Math.PI), path('-.63,.27 -.42,.14 -.2,.25 0,.13 .2,.25 .42,.14 .63,.27', .045), ...[-.42,-.2,0,.2,.42].map((x,i) => path([[x,.17],[x-.09,-.1],[x+.04,-.35],[x-.07,-.59],[x+.02,-.82+i*.03]], .026))]);
+    add('jellyfish', 'Medusa', ['medusa'], 'Campana amplia y tentáculos sinuosos descendentes.', [oval(0, .25, .64, .43, .032, 0, Math.PI), path(Array.from({length:49},(_,i)=>{const x=-.64+i/48*1.28;return [x,.19+.055*Math.cos(x*TAU*2.3)+.025*(x/.64)**2];}),.022), ...[-.46,-.3,-.15,0,.16,.31,.46].map((x,i) => path(Array.from({length:49},(_,j)=>{const t=j/48;return [x+Math.sin(t*TAU*(1.05+i*.035)+i*.67)*(.025+.055*t)-Math.sin(i*.67)*.025,.19-t*(.78+(i%3)*.11)];}), .014+(i%3)*.002)), ...[-.37,0,.37].map(x=>path([[0,.67],[x*.55,.53],[x,.24]],.014))]);
     add('whale', 'Ballena', ['ballena'], 'Ballena curva con aletas y cola elevada.', [path('-.64,.01 -.36,.31 .03,.4 .49,.35 .75,.12 .57,-.12 .17,-.17 -.03,-.35 -.14,-.16 -.42,-.12 -.58,-.31 -.78,-.19 -.64,.01', .065), path('-.64,.01 -.69,.3 -.86,.48 -.54,.43 -.4,.65 -.4,.31 -.64,.01', .045), path('.34,.3 .43,.28', .022)]);
-    add('dragon', 'Dragón', ['dragon'], 'Dragón alado con cuello curvo y cola enrollada.', [path('0,-.28 -.33,-.56 -.27,-.76 .08,-.75 .3,-.55 .24,-.34 .03,-.14 .22,.15 .33,.39 .17,.65 .32,.79 .09,.71 -.1,.47 -.14,.19 -.02,-.04 0,-.28', .065), ...pair(path('-.08,.16 -.45,.63 -.83,.79 -.68,.29 -.43,-.03 -.08,.16', .055)), path('.17,.65 .43,.58 .28,.48', .035)]);
+    add('dragon', 'Dragón', ['dragon'], 'Dragón alado con cuello curvo y cola enrollada.', [path('.1,-.31 .27,-.1 .23,.15 .38,.36 .44,.43 .65,.4 .76,.5 .62,.57 .41,.56 .28,.76 .25,.53 .1,.37 -.02,.12 -.07,-.12 -.15,-.32 .1,-.31',.033),path('-.07,.13 -.41,.65 -.8,.78 -.74,.45 -.61,.19 -.5,-.06 -.32,.06 -.07,.13',.031),path('.2,.08 .45,.2 .63,.65 .39,.42 .25,.19',.028),path('-.11,-.25 -.3,-.4 -.55,-.49 -.64,-.65 -.53,-.78 -.32,-.76 -.19,-.62 -.28,-.55 -.4,-.6',.03),path('-.1,.12 -.43,.28 -.61,.19',.015),path('.04,-.21 .26,-.33 .3,-.49 .45,-.51',.023),path('.45,.48 .5,.5',.013)]);
     add('hummingbird', 'Colibrí', ['colibri'], 'Pájaro pequeño con pico fino y alas ascendentes.', [path('-.28,-.18 -.03,.04 .15,.23 .36,.25 .73,.4 .38,.16 .3,-.04 .08,-.13 -.25,-.46 -.28,-.18', .045), path('0,.04 -.3,.64 -.65,.8 -.5,.32 -.19,-.04', .06), path('.07,.1 -.03,.57 .13,.72 .26,.4 .21,.21', .045)]);
     // Egyptian silhouettes.
     add('ankh', 'Ankh', ['ankh', 'cruz egipcia', 'cruz ansada'], 'Lazo superior, travesaño y eje vertical.', [oval(0, .45, .27, .34, .065), path('0,.11 0,-.81', .08), path('-.51,.05 .51,.05', .075)]);
@@ -166,8 +170,49 @@
         }
         cache.set(key,data);if(cache.size>4)cache.delete(cache.keys().next().value);return data.slice();
     }
+    function trajectories(id,samples=128) {
+        const entry=entries.get(id);if(!entry || !entry.strokes.length)return null;
+        const size=Number(samples);if(!Number.isInteger(size)||size<16||size>256)throw new RangeError('Trajectory samples must be an integer from 16 to 256.');
+        const key=`${id}:paths:${size}`;
+        const copy=field=>({width:field.width,height:field.height,data:field.data.slice(),strokes:field.strokes.map(s=>({...s}))});
+        if(cache.has(key)){const found=cache.get(key);cache.delete(key);cache.set(key,found);return copy(found);}
+        // A row is exactly one authored stroke. Assign it once per fibre using
+        // the length CDF, then keep that row for every segment of that fibre.
+        // Nearest-field sampling must not join separate eyelids/tentacles/limbs.
+        const paths=entry.strokes.map(stroke=>{
+            let length=0;
+            const segments=stroke.points.slice(1).map((b,i)=>{
+                const a=stroke.points[i],span=Math.hypot(b[0]-a[0],b[1]-a[1]);
+                const start=length;length+=span;return {a,b,span,start,end:length};
+            }).filter(s=>s.span>1e-8);
+            const first=stroke.points[0],last=stroke.points[stroke.points.length-1];
+            return {stroke,segments,length,closed:Math.hypot(first[0]-last[0],first[1]-last[1])<1e-6};
+        });
+        const total=paths.reduce((sum,p)=>sum+p.length,0),data=new Float32Array(size*paths.length*4),strokes=[];
+        let accumulated=0;
+        paths.forEach((p,row)=>{
+            accumulated+=p.length;
+            strokes.push({length:p.length,closed:p.closed,cdf:row===paths.length-1?1:accumulated/total,width:p.stroke.width});
+            let segment=0;
+            for(let col=0;col<size;col++){
+                // Include both endpoints. Wrap phase only for closed rows;
+                // open rows clamp/reflect at the end, never close by accident.
+                const phase=col/(size-1),distance=phase*p.length;
+                while(segment<p.segments.length-1 && distance>p.segments[segment].end)segment++;
+                const s=p.segments[segment],t=s?Math.max(0,Math.min(1,(distance-s.start)/s.span)):0;
+                const a=s?.a||p.stroke.points[0],b=s?.b||a,offset=(row*size+col)*4;
+                data[offset]=a[0]+(b[0]-a[0])*t;data[offset+1]=a[1]+(b[1]-a[1])*t;
+                // Thin local width variations/taper preserve grain and space
+                // between features, rather than extruding uniform bright tubes.
+                const taper=p.closed ? .9+.1*Math.cos(phase*TAU) : .35+.65*Math.pow(Math.max(0,Math.sin(phase*Math.PI)),.35);
+                data[offset+2]=p.stroke.width*taper;data[offset+3]=p.closed?1:0;
+            }
+        });
+        const field={width:size,height:paths.length,data,strokes};
+        cache.set(key,field);if(cache.size>4)cache.delete(cache.keys().next().value);return copy(field);
+    }
     window.GunterCoreForms=Object.freeze({
         list:()=>[...entries.values()].map(({id,label,aliases,description})=>({id,label,aliases:[...aliases],description})),
-        get:id=>entries.get(id)||null,resolve,guide
+        get:id=>entries.get(id)||null,resolve,guide,trajectories
     });
 })();
