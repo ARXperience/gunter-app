@@ -163,3 +163,54 @@ La compilación inicial de shaders también puede demorar en este equipo.
 No se validaron visualmente las 79 siluetas ni hardware móvil físico; el tamaño
 móvil se comprobó mediante viewport de Chrome. No se alteraron permisos,
 modelos, rutas de voz ni se repitieron sus pruebas.
+
+## Material interior de las transformaciones — 19 de octubre de 2026
+
+Las formas ya no se apoyan únicamente en la distancia a sus contornos. El
+catálogo distingue regiones de materia autoradas y huecos explícitos: palma,
+alas, campana de medusa, hoja de espada y cuerpos de las familias animales y
+cósmicas. No se rellena indiscriminadamente todo trazo cerrado; pupilas,
+portales y anillos conservan espacio negativo. Se añaden pliegues de palma,
+radios del iris, nervaduras y facetas a las mismas trayectorias existentes.
+
+La guía RGBA conserva en RG el trazo más cercano, en B la distancia firmada
+a la materia y en A el ancho del trazo. W de las trayectorias transporta el
+alcance interior firmado sobre la normal izquierda, limitado por la primera
+salida del cuerpo o entrada en un hueco. La condición de cierre permanece en
+los metadatos de cada fila. Así se distribuyen fibras por el interior sin unir
+dedos, alas o tentáculos a través del aire. Los detalles anatómicos conservan
+su trayectoria en lugar de redistribuirse como si fueran bordes exteriores.
+
+El volumen gana espesor y pliegues internos, reutilizando los campos de pliegues,
+cavidades y grano del material orgánico ya calculados. El soporte del gas conserva las
+celdas que ya están dentro del cuerpo; no las evacua hacia el borde. Su fuente
+de renovación usa canales coherentes independientes de los pliegues más opacos
+de la materia. La porosidad óptica y el contraste granular se interpolan solo
+durante la transformación; con peso cero la respuesta orgánica anterior se
+conserva. La cobertura de salida de las fibras transformadas se refuerza sobre
+fondos claros sin multiplicar el RGB emitido ni cambiar la extinción del gas.
+Gas y fibras siguen compartiendo el campo de velocidades y la energía
+transportada, sin nuevas texturas de simulación, emisores puntuales, imágenes
+superpuestas ni incremento del número de partículas predeterminado.
+
+Las formas no guardan paletas o densidades propias. Las cuatro capas cromáticas,
+densidad, brillo, velocidad y tamaño siguen llegando desde `GunterParticles`.
+Editar preferencias durante una forma activa no cancela su duración, no recrea
+el compositor ni guarda esa forma como preferencia fija. El laboratorio añade
+solo controles efímeros para comprobarlo; no introduce un selector de formas
+en Inicio ni lee/escribe las preferencias reales.
+
+Pruebas focalizadas: catálogo/regiones/trayectorias, laboratorio, preferencias
+en una forma activa y contratos GPU de advección, energía enterrada, porosidad,
+restauración y recursos. Los dobles WebGL no certifican por sí solos fidelidad
+visual. En Chrome local se compararon mano, ojo, medusa y mariposa sobre fondo
+claro, energía aislada y composición. La misma mano respondió al cambio de los
+cuatro HEX sin cambiar de forma; la prueba no modificó preferencias guardadas.
+La última revisión de cobertura se comprobó en mano y mariposa, sin errores de
+consola observados y conservando alfa cero en la esquina. No se repitió el
+benchmark ni se certifica una nueva tasa de fotogramas.
+
+Las referencias siguen siendo ilustraciones de mucho mayor detalle
+que esta reconstrucción procedural acotada; no se declara equivalencia exacta
+ni validación individual de las 79 formas. Punto de reversión previo:
+`2a518ee2e43c01fba7f5fda88de24d55a5bcb8d2`.

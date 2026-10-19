@@ -11,7 +11,7 @@
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = "v179-bio-coupled-20261016";
+const SW_VERSION = "v184-shape-material-20261019";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;
@@ -45,15 +45,15 @@ const PRECACHE_URLS = [
     '/styles/gunter-idle-core.css?v142b-idle-core',
     '/styles/gunter-core-presence.css?v173-material-navigation',
     '/js/services/gunter-core-presence.js?v173-material-navigation',
-    '/js/components/gunter-core-forms.js?v179-bio-coupled',
-    '/js/components/gunter-idle-core.js?v179-bio-coupled',
+    '/js/components/gunter-core-forms.js?v184-shape-material',
+    '/js/components/gunter-idle-core.js?v184-shape-material',
     '/js/services/voice-service.js?v163-core-motion',
     '/js/services/voice-activity-service.js?v141-video-core',
     '/js/config-settings.js?v170-smoke-play',
     '/styles/gunter-orbit-home.css?v173-material-navigation',
     '/styles/gunter-hologram.css?v135-orbit-home',
     '/js/services/gunter-orbit-home.js?v173-material-navigation',
-    '/js/services/gunter-particles.js?v179-bio-coupled',
+    '/js/services/gunter-particles.js?v184-shape-material',
     '/styles/gunter-workspace.css?v139-orbital-workspaces',
     '/styles/gunter-interior.css?v173-material-navigation',
     '/styles/gunter-workspace-layout.css?v158-structured-workspaces',

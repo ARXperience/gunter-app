@@ -6,7 +6,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../js/services/gunter-particles.js'), 'utf8');
 let checks = 0;
-function check(description, fn) { fn(); checks++; console.log(`ok ${checks} - ${description}`); }
+const filter = process.argv[2] ? new RegExp(process.argv[2]) : null;
+function check(description, fn) { if (filter && !filter.test(description)) return; fn(); checks++; console.log(`ok ${checks} - ${description}`); }
 function plain(value) { return JSON.parse(JSON.stringify(value)); }
 function emitter(object = {}) {
     const listeners = new Map();
@@ -754,5 +755,28 @@ check('Unavailable, static and invalid transports cannot retain navigation or cr
     assert.equal(e.api.setTransport({}, valid), false);
     e.window.fire('pagehide', { persisted: true });
     assert.equal(e.api.setTransport(e.art, valid), false); assert.equal(e.frames.size, 0);
+});
+check('An active named form immediately inherits every saved material preference without cancelling its duration', () => {
+    const e = environment({ prefs: { voice: { enabled: false }, coreVisual: { themeAdaptive: false, legacy: 'keep' } } });
+    const engine = e.engines[0];
+    assert.equal(e.api.showShape('hand', { durationSeconds: 60 }), true);
+    const expires = e.art.dataset.coreFormUntil, timer = [...e.timers.keys()][0];
+    const next = { particleColor:'#315bd2', energyColor:'#42dfff', glowColor:'#9a50f2', shadowColor:'#15284f',
+        density:1.7, brightness:1.3, speed:.8, size:1.1, themeAdaptive:false };
+    e.api.configure(next, { persist:true });
+    for (const [key,value] of Object.entries(next)) {
+        assert.equal(e.api.getConfig()[key], value, key);
+        // The existing owner scales its phase clock; the GPU must not apply
+        // the configured speed a second time.
+        assert.equal(e.renders.at(-1).config[key], key === 'speed' ? 1 : value, key);
+    }
+    assert.equal(e.renders.at(-1).config.shape, 'hand');
+    assert.equal(e.art.dataset.coreFormUntil, expires); assert.equal([...e.timers.keys()][0], timer);
+    assert.equal(e.api.getShapeState().active, true); assert.equal(e.engines[0], engine);
+    assert.equal(e.prefs().coreVisual.legacy, 'keep'); assert.deepEqual(e.prefs().voice, { enabled:false });
+    for (const [key,value] of Object.entries(next)) assert.equal(e.prefs().coreVisual[key], value);
+    const restored = environment({ prefs:e.prefs() });
+    for (const [key,value] of Object.entries(next)) assert.equal(restored.api.getConfig()[key], value);
+    assert.equal(restored.api.getShapeState().active, false, 'the ephemeral silhouette is not made into a saved setting');
 });
 console.log(`${checks} core renderer checks passed.`);

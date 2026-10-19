@@ -42,6 +42,12 @@ function harness(options = {}) {
             removeAttribute(name) { delete this.attributes[name]; delete this[name]; } });
         nodes.set(id || `view:${view}`, node);
     }
+    for (const select of html.matchAll(/<select\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/select>/g)) {
+        const node = nodes.get(select[1]);
+        node.options = [...select[2].matchAll(/<option\b[^>]*\bvalue="([^"]+)"[^>]*>([^<]*)<\/option>/g)]
+            .map(match => ({ value: match[1], textContent: match[2] }));
+        node.value = node.options[0]?.value || '';
+    }
     const canvas = nodes.get('core'), views = [...nodes.values()].filter(node => node.dataset.view);
     const controls = [...nodes.values()].filter(node => ['button', 'select', 'input'].includes(node.tagName));
     canvas.getContext = type => {
@@ -149,6 +155,67 @@ check('density reaches the renderer and pause freezes simulation phase', () => {
     assert.deepEqual(h.forbidden, []);
 });
 
+check('representative shapes apply on the next frame with continuous phase and immediate DOM verification', () => {
+    const h = harness(); h.frame(); h.frame();
+    const shape = h.nodes.get('shape');
+    assert.deepEqual(shape.options.map(option => option.value), ['organic', 'hand', 'eye', 'sword', 'jellyfish', 'butterfly', 'pentagram', 'dragon']);
+    for (const option of shape.options) {
+        const phase = h.renders.at(-1).phase;
+        shape.value = option.value; shape.fire('change');
+        assert.equal(h.canvas.dataset.shape, option.value);
+        assert.ok(h.nodes.get('verification').textContent.includes(`Forma ${option.value}`));
+        h.frame();
+        assert.equal(h.renders.at(-1).config.shape, option.value);
+        assert.ok(Math.abs(h.renders.at(-1).phase - phase - .04) < .000001, 'shape changes preserve simulation phase');
+    }
+    shape.value = 'unknown-shape'; shape.fire('change'); h.frame();
+    assert.equal(h.renders.at(-1).config.shape, 'dragon', 'only known renderer IDs are accepted');
+    assert.equal(h.engine.resets, 0);
+    assert.deepEqual(h.forbidden, []);
+});
+
+check('HEX material controls validate before applying and retain changes while paused without persistence', () => {
+    const h = harness(); h.frame(); h.frame(); h.click('pause');
+    const phase = h.renders.at(-1).phase;
+    for (const [index, name] of ['particleColor', 'shadowColor', 'energyColor', 'glowColor'].entries()) {
+        const node = h.nodes.get(name);
+        assert.equal(h.renders.at(-1).config[name], node.value, 'markup and renderer defaults agree');
+        const color = ['#A1b2C3', '#123456', '#abcdef', '#012345'][index];
+        node.value = color; node.fire('input'); h.frame();
+        assert.equal(h.renders.at(-1).config[name], color);
+        assert.equal(node.getAttribute('aria-invalid'), 'false');
+        for (const invalid of ['#fff', '#gg0011', 'red', '#1234567', '']) {
+            node.value = invalid; node.fire('input'); h.frame();
+            assert.equal(h.renders.at(-1).config[name], color, 'invalid input retains the last valid color');
+            assert.equal(node.getAttribute('aria-invalid'), 'true');
+        }
+        node.value = color; node.fire('input');
+        assert.equal(node.getAttribute('aria-invalid'), 'false');
+    }
+    const shape = h.nodes.get('shape'); shape.value = 'eye'; shape.fire('change'); h.frame();
+    assert.equal(h.renders.at(-1).config.shape, 'eye');
+    assert.equal(h.renders.at(-1).phase, phase);
+    assert.equal(h.engine.resets, 0);
+    assert.deepEqual(h.forbidden, []);
+});
+
+check('brightness, speed and size reuse renderer config with bounded numeric values', () => {
+    const h = harness(); h.frame();
+    for (const [name, values] of [['brightness', [.2, 2.5]], ['speed', [0, 2]], ['size', [.7, 1.3]]]) {
+        const node = h.nodes.get(name);
+        for (const value of values) {
+            node.value = String(value); node.fire('input'); h.frame();
+            assert.equal(h.renders.at(-1).config[name], value);
+        }
+        for (const invalid of ['NaN', '-1', '100']) {
+            node.value = invalid; node.fire('input'); h.frame();
+            assert.equal(h.renders.at(-1).config[name], values.at(-1));
+        }
+    }
+    assert.equal(h.engine.resets, 0);
+    assert.deepEqual(h.forbidden, []);
+});
+
 check('recording captures 30 fps for 19 seconds and publishes actual elapsed duration', () => {
     const h = harness(); h.click('pause'); h.click('record');
     const recorder = h.recordings[0];
@@ -166,7 +233,7 @@ check('recording captures 30 fps for 19 seconds and publishes actual elapsed dur
     assert.equal(h.streams[0].track.stops, 1);
     assert.equal(h.blobs[0].type, recorder.config.mimeType);
     assert.equal(h.blobs[0].chunks.length, 1, 'include final dataavailable chunk');
-    assert.equal(h.nodes.get('download').download, 'gunter-bio-energy-19.0s.webm');
+    assert.equal(h.nodes.get('download').download, 'gunter-bio-organic-energy-19.0s.webm');
     assert.match(h.nodes.get('status').textContent, /19\.0 segundos/);
     assert.equal(h.nodes.get('recording').src, h.nodes.get('download').href);
     assert.equal(h.nodes.get('recording').hidden, false);
@@ -178,6 +245,15 @@ check('recording captures 30 fps for 19 seconds and publishes actual elapsed dur
     assert.equal(h.nodes.get('recording').hidden, true);
     assert.equal(h.nodes.get('download').hidden, true);
     h.window.fire('pagehide'); h.flushStops();
+    assert.deepEqual(h.forbidden, []);
+});
+
+check('recording filenames identify the selected shape and layer', () => {
+    const h = harness();
+    const shape = h.nodes.get('shape'); shape.value = 'jellyfish'; shape.fire('change');
+    h.views.find(node => node.dataset.view === 'composite').fire('click');
+    h.click('record'); h.advance(19000); h.flushStops();
+    assert.equal(h.nodes.get('download').download, 'gunter-bio-jellyfish-composite-19.0s.webm');
     assert.deepEqual(h.forbidden, []);
 });
 

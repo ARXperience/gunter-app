@@ -57,12 +57,12 @@ check('catalog metadata cannot mutate the renderer source of truth', () => {
     assert.equal(forms.get('__proto__'), null);
     assert.equal(forms.get('missing'), null);
 });
-check('guide is a finite nearest-material field with positive widths', () => {
+check('guide is a finite signed material field with positive widths', () => {
     const data = forms.guide('sword', 32);
     assert.ok(data instanceof Float32Array); assert.equal(data.length, 32 * 32 * 4);
     for (let i = 0; i < data.length; i += 4) {
         assert.ok(Math.abs(data[i]) <= .821 && Math.abs(data[i + 1]) <= .821);
-        assert.ok(Number.isFinite(data[i + 2]) && data[i + 2] >= 0 && data[i + 2] < 3);
+        assert.ok(Number.isFinite(data[i + 2]) && Math.abs(data[i + 2]) < 3);
         assert.ok(data[i + 3] > 0 && data[i + 3] < .2);
     }
 });
@@ -96,7 +96,7 @@ check('trajectory rows preserve stroke identity and a bounded length CDF for eve
                 const at=(row*32+col)*4;
                 assert.ok(Math.abs(field.data[at])<=.821 && Math.abs(field.data[at+1])<=.821,id);
                 assert.ok(field.data[at+2]>0 && field.data[at+2]<=metadata.width+1e-7,id);
-                assert.equal(field.data[at+3],metadata.closed?1:0,id);
+                assert.ok(Number.isFinite(field.data[at+3]) && Math.abs(field.data[at+3])<1.65,id);
                 if(col){
                     const step=Math.hypot(field.data[at]-field.data[at-4],field.data[at+1]-field.data[at-3]);
                     assert.ok(step<=metadata.length/31+1e-6,`${id} row ${row}: no jumps between authored strokes`);
@@ -160,6 +160,67 @@ check('trajectory snapshots and cache eviction cannot corrupt guides or authored
     assert.deepEqual(forms.trajectories('hand',32).data,sample);
     assert.equal(forms.trajectories('organic'),null);assert.equal(forms.trajectories('missing'),null);
     [0,15,257,32.5,NaN,Infinity].forEach(samples=>assert.throws(()=>forms.trajectories('eye',samples),RangeError));
+});
+const materialAt=(id,x,y,resolution=128)=>{
+    const data=forms.guide(id,resolution),col=Math.min(resolution-1,Math.max(0,Math.floor((x+1)*.5*resolution))),row=Math.min(resolution-1,Math.max(0,Math.floor((y+1)*.5*resolution)));
+    return data[(row*resolution+col)*4+2];
+};
+check('authored bodies contain matter, while eye pupils and ring centres stay open', () => {
+    [['hand',0,-.12],['hand',-.1,.52],['sword',0,.35],['jellyfish',0,.43],['butterfly',-.42,.4],['wolf',-.29,-.03],['dragon',-.4,.38]].forEach(([id,x,y])=>assert.ok(materialAt(id,x,y)<0,`${id} has interior matter`));
+    [['hand',.7,.5],['sword',.5,.45],['jellyfish',.72,.43],['eye',0,0],['horus_eye',0,0],['torus',0,0],['portal',0,0],['pentagram',0,0],['octagram',0,0],['triangle',0,0]].forEach(([id,x,y])=>assert.ok(materialAt(id,x,y)>=0,`${id} preserves negative space`));
+    assert.ok(materialAt('eye',.15,.04)<0,'iris belongs to the same eye matter, not a detached light');
+    assert.ok(materialAt('eye',0,.2)<0,'pupil hole does not remove the eyelid');
+});
+check('material regions are explicit frozen metadata, not arbitrary closed-stroke filling', () => {
+    assert.equal(forms.get('pentagram').regions.length,0);
+    assert.equal(forms.get('octagram').regions.length,0);
+    assert.ok(forms.get('eye').regions[0].holes.length===1);
+    assert.ok(forms.get('torus').regions[0].holes.length===1);
+    assert.ok(Object.isFrozen(forms.get('hand').regions));
+    assert.ok(Object.isFrozen(forms.get('eye').regions[0].holes[0][0]));
+    forms.list().forEach(({id})=>forms.get(id).regions.forEach(r=>[r.outer,...r.holes].forEach(points=>{
+        assert.ok(points.length>=3,id);
+        points.forEach(p=>p.forEach(n=>assert.ok(Number.isFinite(n) && Math.abs(n)<=.821,id)));
+    })));
+});
+check('trajectory W reaches inward into matter and stops before holes or unrelated shapes', () => {
+    for(const id of ['hand','sword','eye','jellyfish','butterfly','wolf','dragon']){
+        const field=forms.trajectories(id,128),entry=forms.get(id);
+        let matterSamples=0;
+        field.strokes.forEach((metadata,row)=>{
+            for(let col=1;col<127;col++){
+                const at=(row*128+col)*4,w=field.data[at+3];
+                if(Math.abs(w)<.015)continue;
+                matterSamples++;
+                const dx=field.data[at+4]-field.data[at-4],dy=field.data[at+5]-field.data[at-3],span=Math.hypot(dx,dy);
+                // GPU may use an interpolated tangent. A small range on either
+                // side of a sharp authored corner is not an independent body.
+                assert.ok(Math.abs(w)<=1.65,`${id} bounded interior reach`);
+                if(span && col%11===0){
+                    const x=field.data[at]-dy/span*w*.45,y=field.data[at+1]+dx/span*w*.45;
+                    assert.ok(x>=-.85 && x<=.85 && y>=-.85 && y<=.85,`${id} stays in its material domain`);
+                }
+            }
+        });
+        assert.ok(matterSamples>12,`${id} supports interior distribution`);
+        assert.ok(entry.regions.length>0);
+    }
+    const star=forms.trajectories('pentagram',32);
+    assert.ok(star.strokes.every((s,row)=>Array.from({length:32},(_,col)=>star.data[(row*32+col)*4+3]).every(w=>w===0)),'pentagram does not fill its surrounding circle');
+    const eye=forms.trajectories('eye',128),pupil=forms.get('eye').strokes[2];
+    assert.ok(Math.abs(pupil.points[0][0]-.105*.82/.84)<1e-6,'pupil is round, not a vertical slit');
+    assert.ok(Math.max(...pupil.points.map(p=>Math.abs(p[1])))/Math.max(...pupil.points.map(p=>Math.abs(p[0])))<1.1);
+    [1,...Array.from({length:18},(_,i)=>i+3)].forEach(row=>{
+        for(let col=0;col<128;col++)assert.equal(eye.data[(row*128+col)*4+3],0,'iris and its radial landmarks do not drift into the body');
+    });
+    const hand=forms.trajectories('hand',128);
+    for(let row=1;row<hand.height;row++)for(let col=0;col<128;col++)assert.equal(hand.data[(row*128+col)*4+3],0,'palm creases stay authored');
+    assert.ok(Array.from({length:128},(_,col)=>eye.data[col*4+3]).some(w=>Math.abs(w)>.1),'eyelid boundaries still distribute interior matter');
+    assert.ok(Array.from({length:128},(_,col)=>eye.data[(2*128+col)*4+3]).some(w=>Math.abs(w)>.1),'pupil boundary still illuminates surrounding matter');
+    // The top eyelid's downward inward reach meets the pupil near y=.107,
+    // instead of travelling through its empty centre to the opposite eyelid.
+    const top=Array.from({length:128},(_,col)=>col).reduce((best,col)=>eye.data[col*4+1]>eye.data[best*4+1]?col:best,0);
+    assert.ok(Math.abs(eye.data[top*4+3])>.12 && Math.abs(eye.data[top*4+3])<.23,'first exit at pupil prevents bridging its cavity');
 });
 check('loading twice preserves the same catalog; no DOM, network or new storage', () => {
     vm.runInNewContext(source, { window }); assert.equal(window.GunterCoreForms, forms);

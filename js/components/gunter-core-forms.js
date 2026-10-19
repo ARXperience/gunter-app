@@ -1,6 +1,7 @@
-/* Procedural, local silhouette guides for Gunter's existing GPU material.
+/* Procedural, local material guides for Gunter's existing GPU material.
  * Coordinates are x/right, y/up in [-.84,.84]; guide texture row zero is y=-1.
- * These are deliberately basic silhouettes, not reproductions of the supplied art.
+ * Authored regions distinguish matter from negative space; closed strokes alone
+ * never imply a filled disc. Colours/density remain the renderer's preferences.
  * Only requested fields are built. Four guide/trajectory fields are retained in total.
  */
 (function () {
@@ -36,12 +37,55 @@
         return line([[.04, 0], [radius * .5, slender], [radius, 0], [radius * .5, -slender], [.04, 0]].map(rotate), width);
     };
     const flowers = (n, radius = .79, width = .045, phase = Math.PI / 2) => Array.from({ length: n }, (_, i) => petal(phase + i * TAU / n, radius, width));
+    const bodyStrokes = {
+        hand:[0],sword:[0],crystal:[0,3],orbits:[0],diamond_ring:[0],drone:[0,2,3],
+        energy_column:[0],hourglass:[0],feather:[0],shield:[0],armillary:[0],
+        butterfly:[0,1],wolf:[0],owl:[0,4,5,6],serpent:[0],deer:[0],lion:[0,2],
+        raven:[0,1,2],fox:[0,1],whale:[0,1],dragon:[0,1,2],hummingbird:[0,1,2],
+        scarab:[0,1,3,4],lotus:[0,1,2,3,4],horus_falcon:[1,2,3],cobra:[0],
+        pyramids:[0,1,2],djed:[0],was_sceptre:[0],papyrus:[0,1,2],maat_feather:[0,1],
+        winged_orb:[0,1,2],ziggurat:[0],cuneiform:[0,1,2],rosette:[0,1,2,3,4,5,6,7,8],
+        winged_sun:[0,1,2],palm_tree:[1,2,3,4,5,6],solar_cross:[2,3,4,5],temple:[0],
+        mesopotamian_sun:[0,1,2,3,4,5,6,7,8],cosmic_flower:[0,1,2,3,4,5],
+        flame_drop:[0],flame:[0],phoenix:[0,1,2],dragon_head:[0],wolf_head:[0],
+        deer_head:[0,7,8],crystal_cluster:[0,1,2,3,4],planet:[0],triple_moon:[0,1,2]
+    };
+    function materialRegions(id, strokes) {
+        const polygon = (outer, holes=[]) => ({kind:'body',outer,holes});
+        if(['eye','horus_eye','ra_eye','wedjat_eye'].includes(id))
+            return [polygon(strokes[0].points,[strokes[2].points])];
+        if(id==='star_eye')return [polygon(strokes[1].points,[strokes[3].points])];
+        if(id==='jellyfish')return [polygon([...strokes[0].points,...strokes[1].points])];
+        if(id==='torus')return [polygon(strokes[0].points,[strokes[1].points])];
+        if(id==='portal')return [polygon(oval(0,0,.735).points,[oval(0,0,.54).points])];
+        if(id==='capsule')return [polygon([...strokes[0].points,...strokes[1].points,...strokes[3].points,...strokes[2].points.slice().reverse()])];
+        if(id==='crescent')return [polygon([...strokes[0].points,...strokes[1].points.slice().reverse()])];
+        // This list is intentional: an open animal wing can define real matter,
+        // whereas a closed pentagram, orbit or iris must not become a solid disc.
+        return (bodyStrokes[id]||[]).filter(index=>strokes[index]).map(index=>polygon(strokes[index].points));
+    }
+    function interiorDetails(id) {
+        if(id==='hand')return [path('-.3,-.06 -.19,.04 -.04,.06 .14,.02 .27,-.08',.009),path('-.28,-.28 -.33,-.12 -.31,.02',.009),...[-.12,.1,.32].map((x,i)=>path([[x,.22+i*.015],[x+.055,.23+i*.015]],.008))];
+        if(['eye','horus_eye','ra_eye','wedjat_eye'].includes(id))return Array.from({length:18},(_,i)=>{
+            const a=i*TAU/18;return path([[Math.cos(a)*.125,Math.sin(a)*.13],[Math.cos(a+.035)*.208,Math.sin(a+.035)*.246]],.008);
+        });
+        if(id==='sword')return [path('-.105,.54 -.046,-.2',.011),path('.105,.54 .046,-.2',.011),...[-.43,-.51,-.59].map(y=>path([[-.055,y],[.055,y+.035]],.01))];
+        if(id==='butterfly')return [...pair(path('-.06,.05 -.24,.25 -.47,.59 -.64,.61',.011)),...pair(path('-.1,-.03 -.34,-.26 -.45,-.54',.012)),...pair(path('-.24,.25 -.53,.2 -.66,.29',.009))];
+        if(id==='jellyfish')return [-.52,-.24,.24,.52].map(x=>path([[0,.675],[x*.45,.57],[x*.83,.41],[x,.245]],.009));
+        if(id==='wolf')return [path('.2,.43 .16,.22 .07,.11',.01),path('-.52,-.05 -.29,-.06 -.07,-.01',.01)];
+        if(id==='dragon')return [path('.39,.5 .26,.38 .14,.15 .1,-.12',.009),path('-.13,.13 -.39,.38 -.68,.62',.01),path('-.17,.13 -.44,.16 -.58,.29',.009)];
+        return [];
+    }
     function add(id, label, aliases, description, strokes) {
+        const regions=materialRegions(id,strokes);
+        strokes=[...strokes,...interiorDetails(id)];
         const extent = Math.max(.84, ...strokes.flatMap(s => s.points.flatMap(p => p.map(Math.abs))));
         const scale = .82 / extent;
+        const freezePoints=points=>Object.freeze(points.map(p=>Object.freeze([p[0]*scale,p[1]*scale])));
         const frozen = strokes.map(s => Object.freeze({ width: s.width * scale,
-            points: Object.freeze(s.points.map(p => Object.freeze([p[0] * scale, p[1] * scale]))) }));
-        entries.set(id, Object.freeze({ id, label, aliases: Object.freeze([...aliases]), description, strokes: Object.freeze(frozen) }));
+            points: freezePoints(s.points) }));
+        const material=regions.map(r=>Object.freeze({kind:r.kind,outer:freezePoints(r.outer),holes:Object.freeze(r.holes.map(freezePoints))}));
+        entries.set(id, Object.freeze({ id, label, aliases: Object.freeze([...aliases]), description, strokes: Object.freeze(frozen), regions:Object.freeze(material) }));
     }
     add('organic', 'Núcleo orgánico', ['organica', 'organico', 'nucleo', 'forma original', 'forma normal'], 'Materia y energía sin silueta impuesta.', []);
     add('pentagram', 'Estrella invertida', ['pentagrama', 'pentagrama invertido', 'estrella invertida', 'estrella de cinco puntas', 'cinco puntas'], 'Estrella de cinco puntas con una punta hacia abajo.', [star(5, 2, true), oval(0, 0, .8, .8, .025)]);
@@ -49,7 +93,7 @@
         const upper = i <= 32, t = upper ? i / 32 : (64 - i) / 32;
         return [-.8 + 1.6 * t, (upper ? .32 : -.29) * Math.pow(Math.sin(Math.PI * t), .86)];
     });
-    const eye = [path(eyeLid, .027), oval(0, 0, .225, .265, .031), oval(0, 0, .065, .14, .025)];
+    const eye = [path(eyeLid, .027), oval(0, 0, .225, .265, .031), oval(0, 0, .105, .11, .025)];
     add('eye', 'Ojo', ['ojo', 'ojo abierto'], 'Párpados almendrados, iris y pupila.', eye);
     add('hand', 'Mano', ['mano', 'palma', 'mano abierta'], 'Palma abierta y cinco dedos diferenciados.', [path('-.28,-.78 -.36,-.3 -.62,-.03 -.74,.2 -.7,.29 -.63,.31 -.57,.23 -.4,.02 -.36,.1 -.4,.57 -.35,.68 -.28,.68 -.22,.59 -.19,.15 -.17,.75 -.12,.85 -.04,.85 .02,.75 .04,.17 .09,.68 .15,.77 .22,.75 .26,.66 .25,.11 .34,.5 .4,.58 .47,.54 .49,.46 .42,-.17 .3,-.43 .24,-.78 -.28,-.78', .027), path('-.28,-.15 -.12,-.27 .12,-.17', .016), path('-.21,-.43 -.05,-.47 .14,-.39', .014)]);
     add('sword', 'Espada', ['espada', 'espada de energia'], 'Hoja larga, punta, guarda y empuñadura.', [path('0,.85 -.13,.58 -.08,-.24 -.4,-.26 -.42,-.36 -.09,-.34 -.07,-.68 0,-.81 .07,-.68 .09,-.34 .42,-.36 .4,-.26 .08,-.24 .13,.58 0,.85', .045), path('0,.65 0,-.22', .026)]);
@@ -149,14 +193,75 @@
         // cannot accidentally turn a compound instruction into a visual action.
         return aliases.get(value)||null;
     }
+    function insidePolygon(x,y,points) {
+        let inside=false;
+        for(let i=0,j=points.length-1;i<points.length;j=i++){
+            const a=points[i],b=points[j];
+            if((a[1]>y)!==(b[1]>y) && x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])inside=!inside;
+        }
+        return inside;
+    }
+    const inRegion=(x,y,r)=>insidePolygon(x,y,r.outer) && !r.holes.some(h=>insidePolygon(x,y,h));
+    const inMaterial=(x,y,regions)=>regions.some(r=>inRegion(x,y,r));
+    function edges(points,width=0) {
+        return points.slice(1).map((b,i)=>{
+            const a=points[i],dx=b[0]-a[0],dy=b[1]-a[1];return {a,b,dx,dy,length:dx*dx+dy*dy,width};
+        });
+    }
+    function polygonEdges(points) {
+        const first=points[0],last=points.at(-1);
+        return edges(Math.hypot(first[0]-last[0],first[1]-last[1])<1e-6?points:[...points,first]);
+    }
+    function closestSquared(x,y,segments) {
+        let distance=Infinity;
+        for(const s of segments){
+            const t=s.length?Math.max(0,Math.min(1,((x-s.a[0])*s.dx+(y-s.a[1])*s.dy)/s.length)):0;
+            distance=Math.min(distance,(x-s.a[0]-s.dx*t)**2+(y-s.a[1]-s.dy*t)**2);
+        }
+        return distance;
+    }
+    function materialDistance(x,y,regions) {
+        let distance=Infinity;
+        for(const r of regions){
+            const squared=closestSquared(x,y,r.boundary);
+            distance=Math.min(distance,(inRegion(x,y,r)?-1:1)*Math.sqrt(squared));
+        }
+        return distance;
+    }
+    const preparedRegions=entry=>entry.regions.map(r=>({...r,boundary:[polygonEdges(r.outer),...r.holes.map(polygonEdges)].flat()}));
+    function inwardReach(x,y,nx,ny,regions,boundary) {
+        // Signed travel along the LEFT normal of the arc-length tangent. Stop
+        // at the first exterior interval, including an eye's pupil or cavity;
+        // never connect two disconnected pieces of a silhouette through air.
+        const epsilon=.00015;
+        // Only actual body boundaries distribute fibres into the volume.
+        // Anatomical strokes (iris, creases and veins) must stay on their own
+        // trajectories rather than being spread sideways across the body.
+        if(closestSquared(x,y,boundary)>epsilon*epsilon)return 0;
+        function reach(sign){
+            const dx=nx*sign,dy=ny*sign;
+            if(!inMaterial(x+dx*epsilon,y+dy*epsilon,regions))return 0;
+            const hits=[];
+            for(const s of boundary){
+                const cross=dx*s.dy-dy*s.dx;
+                if(Math.abs(cross)<1e-10)continue;
+                const ax=s.a[0]-x,ay=s.a[1]-y;
+                const t=(ax*s.dy-ay*s.dx)/cross,u=(ax*dy-ay*dx)/cross;
+                if(t>epsilon && u>=-1e-6 && u<=1+1e-6)hits.push(t);
+            }
+            hits.sort((a,b)=>a-b);
+            for(const t of hits)if(!inMaterial(x+dx*(t+epsilon),y+dy*(t+epsilon),regions))return Math.max(0,t-epsilon*2);
+            return 0;
+        }
+        const positive=reach(1),negative=reach(-1);
+        return positive>=negative?positive:-negative;
+    }
     function guide(id,resolution=128) {
         const entry=entries.get(id);if(!entry || !entry.strokes.length)return null;
         const size=Number(resolution);if(!Number.isInteger(size)||size<16||size>256)throw new RangeError('Guide resolution must be an integer from 16 to 256.');
         const key=`${id}:${size}`;
         if(cache.has(key)){const found=cache.get(key);cache.delete(key);cache.set(key,found);return found.slice();}
-        const segments=entry.strokes.flatMap(s=>s.points.slice(1).map((b,i)=>{
-            const a=s.points[i],dx=b[0]-a[0],dy=b[1]-a[1];return {a,b,dx,dy,length:dx*dx+dy*dy,width:s.width};
-        }));
+        const segments=entry.strokes.flatMap(s=>edges(s.points,s.width)),regions=preparedRegions(entry);
         const data=new Float32Array(size*size*4);
         for(let row=0;row<size;row++)for(let col=0;col<size;col++){
             const x=(col+.5)/size*2-1,y=(row+.5)/size*2-1;
@@ -166,7 +271,11 @@
                 const px=s.a[0]+s.dx*t,py=s.a[1]+s.dy*t,d=(x-px)**2+(y-py)**2;
                 if(d<distance){distance=d;nx=px;ny=py;width=s.width;}
             }
-            const offset=(row*size+col)*4;data[offset]=nx;data[offset+1]=ny;data[offset+2]=Math.sqrt(distance);data[offset+3]=width;
+            // RG retains nearest authored stroke and A its width. B is now a
+            // signed material distance: negative only inside authored bodies.
+            // Open filaments and unfilled geometric rings remain nonnegative.
+            const material=materialDistance(x,y,regions),offset=(row*size+col)*4;
+            data[offset]=nx;data[offset+1]=ny;data[offset+2]=material<0?material:Math.min(Math.sqrt(distance),material);data[offset+3]=width;
         }
         cache.set(key,data);if(cache.size>4)cache.delete(cache.keys().next().value);return data.slice();
     }
@@ -188,6 +297,7 @@
             const first=stroke.points[0],last=stroke.points[stroke.points.length-1];
             return {stroke,segments,length,closed:Math.hypot(first[0]-last[0],first[1]-last[1])<1e-6};
         });
+        const regions=entry.regions,boundary=regions.flatMap(r=>[polygonEdges(r.outer),...r.holes.map(polygonEdges)].flat());
         const total=paths.reduce((sum,p)=>sum+p.length,0),data=new Float32Array(size*paths.length*4),strokes=[];
         let accumulated=0;
         paths.forEach((p,row)=>{
@@ -205,7 +315,17 @@
                 // Thin local width variations/taper preserve grain and space
                 // between features, rather than extruding uniform bright tubes.
                 const taper=p.closed ? .9+.1*Math.cos(phase*TAU) : .35+.65*Math.pow(Math.max(0,Math.sin(phase*Math.PI)),.35);
-                data[offset+2]=p.stroke.width*taper;data[offset+3]=p.closed?1:0;
+                data[offset+2]=p.stroke.width*taper;
+                const sampleAt=walk=>{
+                    const d=p.closed?((walk%p.length)+p.length)%p.length:Math.max(0,Math.min(p.length,walk));
+                    const edge=p.segments.find(e=>d<=e.end)||p.segments.at(-1);
+                    const v=(d-edge.start)/edge.span;
+                    return [edge.a[0]+(edge.b[0]-edge.a[0])*v,edge.a[1]+(edge.b[1]-edge.a[1])*v];
+                };
+                const before=sampleAt(distance-.0005),after=sampleAt(distance+.0005),dx=after[0]-before[0],dy=after[1]-before[1],span=Math.hypot(dx,dy);
+                // W is signed inward material reach, NOT a closed flag. Closure
+                // remains stable in strokes[row].closed (GPU row metadata).
+                data[offset+3]=span && regions.length?inwardReach(data[offset],data[offset+1],-dy/span,dx/span,regions,boundary):0;
             }
         });
         const field={width:size,height:paths.length,data,strokes};

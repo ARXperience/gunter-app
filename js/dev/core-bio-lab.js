@@ -5,15 +5,17 @@
     const verify = document.getElementById('verification'), recordButton = document.getElementById('record');
     const download = document.getElementById('download'), recording = document.getElementById('recording');
     const controls = [...document.querySelectorAll('button, select, input')];
-    const config = { particleColor:'#b8bec9', shadowColor:'#18202d', energyColor:'#ff452b', glowColor:'#ff6d35',
+    const shapes = new Set(['organic','hand','eye','sword','jellyfish','butterfly','pentagram','dragon']);
+    const config = { particleColor:'#c7e4f7', shadowColor:'#14273c', energyColor:'#5dcdff', glowColor:'#4f86ff',
         density:1, brightness:1, size:1, speed:1, shape:'organic', debugView:'energy' };
     const engine = new window.GunterIdleCore();
     let phase = 8, last = 0, frame = 0, paused = false, recorder = null, stream = null, timer = 0, blobUrl = '', lastVerify = 0, disposed = false;
-    function updateVerification(now) {
-        if (now - lastVerify < 1000) return;
+    function updateVerification(now, force = false) {
+        if (!force && now - lastVerify < 1000) return;
         lastVerify = now;
         const context = canvas.getContext('2d'), alpha = context.getImageData(0, 0, 1, 1).data[3];
-        verify.textContent = `Fondo del canvas: alfa ${alpha}/255 · Vista ${config.debugView} · Densidad ${Math.round(config.density*100)} %`;
+        verify.textContent = `Fondo del canvas: alfa ${alpha}/255 · Forma ${config.shape} · Vista ${config.debugView} · Densidad ${Math.round(config.density*100)} %`;
+        canvas.dataset.shape = config.shape;
         canvas.dataset.debugView = config.debugView; canvas.dataset.alphaCorner = String(alpha);
     }
     function tick(now) {
@@ -35,8 +37,28 @@
         document.querySelectorAll('[data-view]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
         lastVerify = 0;
     }));
+    document.getElementById('shape').addEventListener('change', event => {
+        if (!shapes.has(event.target.value)) return;
+        config.shape = event.target.value;
+        updateVerification(performance.now(), true);
+    });
     document.getElementById('backdrop').addEventListener('change', event => { document.getElementById('stage').dataset.backdrop = event.target.value; });
-    document.getElementById('density').addEventListener('input', event => { config.density = Number(event.target.value); });
+    for (const [name, min, max] of [['density',.25,2],['brightness',.2,2.5],['speed',0,2],['size',.7,1.3]]) {
+        document.getElementById(name).addEventListener('input', event => {
+            const value = Number(event.target.value);
+            if (!Number.isFinite(value) || value < min || value > max) return;
+            config[name] = value;
+            updateVerification(performance.now(), true);
+        });
+    }
+    for (const name of ['particleColor','shadowColor','energyColor','glowColor']) {
+        document.getElementById(name).addEventListener('input', event => {
+            const value = event.target.value.trim();
+            const valid = /^#[0-9a-f]{6}$/i.test(value);
+            event.target.setAttribute('aria-invalid', String(!valid));
+            if (valid) config[name] = value;
+        });
+    }
     document.getElementById('pause').addEventListener('click', event => {
         paused = !paused; event.target.setAttribute('aria-pressed', String(paused)); event.target.textContent = paused?'Reanudar':'Pausar';
     });
@@ -54,7 +76,7 @@
         if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = ''; }
         recording.hidden = true; recording.removeAttribute('src'); download.hidden = true;
         paused = false; document.getElementById('pause').textContent = 'Pausar'; document.getElementById('pause').setAttribute('aria-pressed','false');
-        engine.resetPointer(); const chunks = [], view = config.debugView, started = performance.now();
+        engine.resetPointer(); const chunks = [], view = config.debugView, shape = config.shape, started = performance.now();
         stream = canvas.captureStream(30);
         try { recorder = new MediaRecorder(stream,{mimeType,videoBitsPerSecond:4000000}); }
         catch(error) { stream.getTracks().forEach(track=>track.stop()); stream=null; status.textContent=error.message; return; }
@@ -65,7 +87,7 @@
             recorder=null; if(disposed)return;
             const seconds=(performance.now()-started)/1000;
             blobUrl=URL.createObjectURL(new Blob(chunks,{type:mimeType})); recorder=null;
-            download.href=blobUrl; download.download=`gunter-bio-${view}-${seconds.toFixed(1)}s.webm`; download.hidden=false;
+            download.href=blobUrl; download.download=`gunter-bio-${shape}-${view}-${seconds.toFixed(1)}s.webm`; download.hidden=false;
             recording.src=blobUrl; recording.hidden=false;
             controls.forEach(control=>{control.disabled=false;}); status.textContent=`Grabación lista: ${seconds.toFixed(1)} segundos del canvas real, sin audio.`;
         });

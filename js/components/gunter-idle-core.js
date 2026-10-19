@@ -142,10 +142,11 @@
             // Texel centres preserve the catalog's [-1,1], y-up coordinate map.
             vec2 uv=(clamp(p,-1.0,1.0)*.5+.5)*(127.0/128.0)+vec2(.5/128.0);
             vec4 guide=target?texture(u_shapeGuideTo,uv):texture(u_shapeGuideFrom,uv);
-            // Preserve sampled distance across Voronoi boundaries: averaging
-            // two nearest points must not invent a luminous bridge between
-            // separated fingers, wings or orbital strokes.
-            guide.z=max(guide.z,length(p-guide.xy));
+            // Negative distance denotes an authored MATERIAL INTERIOR, not
+            // the interior of every closed decorative stroke. Preserve that
+            // sign: discarding it reduced hands/wings/eyes to dark outlines.
+            // Outside, keep the nearest-stroke guard against false bridges.
+            if(guide.z>=0.0)guide.z=max(guide.z,length(p-guide.xy));
             return guide;
         }
         vec4 pathSample(float row,float along,bool target,float t,out vec2 tangent) {
@@ -176,11 +177,18 @@
                 vec2 tangent;vec4 path=pathSample(row,along,target,t,tangent);
                 vec2 normal=vec2(-tangent.y,tangent.x);
                 float grain=fract(row*.56984)*2.0-1.0;
-                // Keep the recognizable contour porous and alive, rather than
-                // extruding it into a uniformly thick luminous tube.
-                vec3 q=vec3(path.xy+normal*path.z*grain*.82,
-                    sin(row*2.71)*.035+sin(along*13.0+t*.31+row)*.012);
-                q.xy+=normal*sin(along*25.0+row+t*.27)*.006;
+                // The same path texture also carries its signed inward reach.
+                // Most fibres spread through the authored body; a minority
+                // retain its fine outline/landmarks. No extra particles, image
+                // overlays or per-point ray searches are required.
+                float body=step(.001,abs(path.w))*step(.28,fract(row*.41421356));
+                float filling=clamp(.06+.88*fract(row*.75487766)
+                    +.025*sin(along*8.0+t*.29+row),.03,.97);
+                float offset=mix(path.z*grain*.82,path.w*filling,body);
+                float depth=mix(.035,.055+.11*sin(filling*3.14159265),body);
+                vec3 q=vec3(path.xy+normal*offset,
+                    sin(row*2.71)*depth+sin(along*13.0+t*.31+row)*.012);
+                q.xy+=normal*sin(along*25.0+row+t*.27)*(.006+body*.007);
                 return worldPoint(q);
             }
             vec3 q=viewPoint(p);vec4 guide=materialGuide(q.xy,target);
@@ -197,18 +205,38 @@
             return mix(a,b,u_shape.z);
         }
         float morphWeight() {return mix(u_guideWeights.x,u_guideWeights.y,u_shape.z);}
-        float shapedDensity(vec3 p,bool target,float t) {
+        float shapedDensity(vec3 p,bool target,float t,float textureMatter) {
             vec3 q=viewPoint(p);q.xy+=vec2(sin(q.y*23.0+t*.27),cos(q.x*21.0-t*.31))*.012;
             vec4 guide=materialGuide(q.xy,target);
-            float channel=1.0-smoothstep(guide.w*.55,guide.w*2.15,guide.z);
-            float depth=1.0-smoothstep(.075,.28,abs(q.z));
-            float fold=.48+.52*sin(q.x*31.0+q.y*27.0+q.z*22.0+t*.28);
-            return channel*depth*(.35+fold*1.20);
+            float channel=1.0-smoothstep(guide.w*.55,max(.045,guide.w*2.15),guide.z);
+            float interior=smoothstep(0.0,.17,-guide.z);
+            float thickness=mix(.075,.23,interior);
+            float depth=1.0-smoothstep(thickness*.36,thickness+guide.w,abs(q.z));
+            // Broad folds and finer ridges share material coordinates. Volume
+            // grows inside the silhouette instead of extruding uniform cables.
+            float fold=.5+.5*sin(q.x*19.0+q.y*15.0+q.z*22.0
+                +sin(q.y*8.0-q.x*6.0+t*.19)*1.7+t*.28);
+            float ridges=.5+.5*sin(q.x*47.0-q.y*33.0+q.z*29.0+sin(q.x*13.0+t*.23));
+            return channel*depth*(.20+fold*fold*.78)*(.72+ridges*.38)*(.35+textureMatter*1.20);
         }
-        float shapedHeat(vec3 p,bool target,float t) {
+        vec3 shapedSupport(vec3 p,bool target) {
             vec3 q=viewPoint(p);vec4 guide=materialGuide(q.xy,target);
-            float channel=exp(-pow(guide.z/max(.018,guide.w*.54),2.0));
-            return channel*exp(-q.z*q.z/.006)*(.56+.24*sin(q.y*6.0+q.x*4.0-t*.75));
+            // Gas already inside a body keeps its interior flow. Pulling all
+            // samples to nearest edges evacuated its luminous central biomass.
+            vec2 xy=guide.z<0.0?q.xy:guide.xy;
+            float depth=.075+.13*smoothstep(0.0,.17,-guide.z);
+            return worldPoint(vec3(xy,clamp(q.z,-depth,depth)));
+        }
+        float shapedEnergySupport(vec3 p,bool target) {
+            vec3 q=viewPoint(p);vec4 guide=materialGuide(q.xy,target);
+            float channel=1.0-smoothstep(guide.w*.35,max(.035,guide.w*1.6),guide.z);
+            float interior=smoothstep(0.0,.17,-guide.z);
+            // This is only the buried support of the renewal source. Its
+            // moving thermal channels come from the same coherent fields as
+            // the organic gas, NOT the densest folds of the opaque matter.
+            // Squaring signed distance here would extinguish deep interiors.
+            float depth=1.0-smoothstep(.025,.075+interior*.12,abs(q.z+.035));
+            return channel*depth;
         }
         vec3 hash3(vec3 p) {
             p=fract(p*vec3(.1031,.1030,.0973)); p+=dot(p,p.yxz+33.33);
@@ -296,8 +324,12 @@
             float cavity=1.0-.66*exp(-dot(hole/vec2(.13,.19),hole/vec2(.13,.19)));
             float fine=potential(q*7.8+vec3(-3.1+t*.08,4.2-t*.055,t*.065),unused).x*.5+.5;
             float original=envelope*packing*cavity*(.15+fine*fine*1.50)*(.82+gas.r*.45);
-            float a=u_guideWeights.x<.0001?original:mix(original,shapedDensity(p,false,t),u_guideWeights.x);
-            float b=u_guideWeights.y<.0001?original:mix(original,shapedDensity(p,true,t),u_guideWeights.y);
+            // A silhouette changes support, not the chosen core's material:
+            // reuse its already-computed multiscale folds, cavity and grain.
+            // Replacing them by a smooth extruded guide lost that composition.
+            float textureMatter=packing*cavity*(.15+fine*fine*1.50)*(.82+gas.r*.45);
+            float a=u_guideWeights.x<.0001?original:mix(original,shapedDensity(p,false,t,textureMatter),u_guideWeights.x);
+            float b=u_guideWeights.y<.0001?original:mix(original,shapedDensity(p,true,t,textureMatter),u_guideWeights.y);
             return mix(a,b,u_shape.z);
         }
         vec3 organicVelocity(vec3 p,float t) {
@@ -349,11 +381,8 @@
                 // this force its renewal drifted out of thin fingers before
                 // warming them. Keep tangential curl alive; attract only the
                 // nearest-support offset, never paint a luminous contour.
-                vec3 view=viewPoint(p);
-                vec3 a=u_guideWeights.x<.0001?p:mix(p,worldPoint(vec3(
-                    materialGuide(view.xy,false).xy,clamp(view.z,-.13,.13))),u_guideWeights.x);
-                vec3 b=u_guideWeights.y<.0001?p:mix(p,worldPoint(vec3(
-                    materialGuide(view.xy,true).xy,clamp(view.z,-.13,.13))),u_guideWeights.y);
+                vec3 a=u_guideWeights.x<.0001?p:mix(p,shapedSupport(p,false),u_guideWeights.x);
+                vec3 b=u_guideWeights.y<.0001?p:mix(p,shapedSupport(p,true),u_guideWeights.y);
                 v*=1.0-morph*.70;
                 v+=(mix(a,b,u_shape.z)-p)*2.4*morph;
             }
@@ -552,10 +581,12 @@
             // Local history still arrives through RK2 and only a fractional
             // source renewal is added per step below; no gas state is reset.
             float texturePacking=.38+.62*lobes*(.45+.55*cavities);
+            float seams=1.0-smoothstep(.12,.45,abs(coarse.y+folds.x*.50));
+            float channels=(.33+seams*1.10)*texturePacking;
             float a=u_guideWeights.x<.0001?density:mix(density,
-                shapedDensity(p,false,t)*texturePacking*.72,u_guideWeights.x);
+                shapedEnergySupport(p,false)*channels,u_guideWeights.x);
             float b=u_guideWeights.y<.0001?density:mix(density,
-                shapedDensity(p,true,t)*texturePacking*.72,u_guideWeights.y);
+                shapedEnergySupport(p,true)*channels,u_guideWeights.y);
             density=mix(a,b,u_shape.z);
             return vec2(density,thermal);
         }
@@ -714,12 +745,16 @@
             float buried=bioEnergy(rest-worldPoint(vec3(0,0,.16)));
             float frontCover=smoothstep(.06,.35,buried)
                 *(1.0-smoothstep(.015,.20,emission));
+            float frontTransmission=frontCover;
+            // A transformed body retains porous front fibres: they reveal the
+            // same buried gas instead of turning its whole contour into ink.
+            frontCover*=1.0-morphWeight()*.65;
             // Reuse the ray-marched column extinction, instead of tracing
             // procedural density again for every subpixel fibre fragment.
             float column=clamp(texture(u_volume,gl_FragCoord.xy/u_resolution).a/.72,0.0,.96);
             float depth=clamp((.90-viewPoint(v_world).z)/1.8,0.0,1.0);
             float transmission=pow(1.0-column,depth*2.0);
-            transmission=mix(transmission,1.0,frontCover*.85);
+            transmission=mix(transmission,1.0,frontTransmission*.85);
             float matter=material.r;
             vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,emission+material.b*.45));
             vec3 color=u_shadow*(.20+v_depth*.28)*(1.0-incident)
@@ -739,6 +774,7 @@
             float packing=.45+matter*matter*5.50;
             float alpha=min(.90,edge*fade*(.20+v_depth*.10)*fragments*grain*packing
                 *(1.0+frontCover*.75))*transmission;
+            alpha*=1.0-morphWeight()*.32;
             result=vec4(color*u_brightness,alpha);
         }
     `;
@@ -804,10 +840,15 @@
                 float grains=potential(detail*vec3(48.0,57.0,53.0)+gas.b*vec3(2.2,-1.8,1.6),unused).x*.5+.5;
                 float grain=.08+1.85*smoothstep(.35,.65,grains);
                 float mass=max(0.0,material.r-.12);
+                // A named form has a thinner porous optical coat, not less
+                // simulated matter. Leave the organic material response alone.
+                float opticalMass=mass*mix(1.0,.72,morphWeight());
                 // Beer-Lambert extinction separates porous matter from the
                 // emitting gas; front coats partially obscure deeper folds.
-                float density=1.0-exp(-mass*mass*grain*18.0*(marchDepth/40.0)*u_density);
-                float heat=u_debugView>1.5?0.0:material.g*(.30+1.10*smoothstep(.18,.76,grains)),incident=material.b;
+                float density=1.0-exp(-opticalMass*opticalMass*grain*18.0*(marchDepth/40.0)*u_density);
+                float thermalGrain=mix(.30+1.10*smoothstep(.18,.76,grains),
+                    .08+2.40*pow(smoothstep(.30,.72,grains),2.0),morphWeight());
+                float heat=u_debugView>1.5?0.0:material.g*thermalGrain,incident=material.b;
                 float face=material.a*material.a;
                 vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,heat+incident*.45));
                 vec3 scattered=u_shadow*(.34+face*.12)*(1.0-clamp(incident,0.0,1.0))
@@ -855,6 +896,7 @@
     `;
     const COMPOSITE=HEADER+`
         uniform sampler2D u_image,u_bloom;
+        uniform float u_materialWeight;
         in vec2 v_uv;out vec4 result;
         void main() {
             vec4 scene=texture(u_image,v_uv);
@@ -863,7 +905,10 @@
             // retain its hue instead of bleaching into peach/white highlights.
             float peak=max(light.r,max(light.g,light.b));
             vec3 color=light*((1.0-exp(-peak*1.35))/max(.0001,peak));
-            float coverage=1.0-pow(max(0.0,1.0-scene.a),1.4);
+            // Thin named fibres need readable material coverage on light UI
+            // backgrounds. This is output coverage, not gas extinction or a
+            // brightness multiplier: internal emitted RGB remains unchanged.
+            float coverage=1.0-pow(max(0.0,1.0-scene.a),mix(1.4,3.6,u_materialWeight));
             float alpha=max(coverage,max(color.r,max(color.g,color.b)));
             result=vec4(color,alpha);
         }
@@ -1290,6 +1335,8 @@
             gl.uniform2f(this.uniform(blur,'u_step'),1.7/this.targets.a.width,0);this.quad(this.targets.b);
             this.texture(blur,'u_image',this.targets.b.texture);gl.uniform2f(this.uniform(blur,'u_step'),0,1.7/this.targets.a.height);this.quad(this.targets.a);
             const composite=this.programs.composite;this.use(composite);
+            const morph=this.shapeCoefficients(t)[2];
+            this.scalar(composite,'u_materialWeight',this.guideFrom.weight+(this.guideTo.weight-this.guideFrom.weight)*morph);
             this.texture(composite,'u_image',this.targets.scene.texture);this.texture(composite,'u_bloom',this.targets.a.texture,1);this.quad(null);
             this.frames++;
         }
