@@ -86,7 +86,7 @@ function harness(options = {}) {
             pendingStops.push(() => { this.fire('dataavailable', { data: { size: 42 } }); this.fire('stop'); });
         }
     }
-    const window = emitter({ GunterIdleCore: Renderer });
+    const window = emitter(options.anatomy ? { GunterIdleCoreAnatomy: Renderer } : { GunterIdleCore: Renderer });
     if (!options.noRecorder) window.MediaRecorder = Recorder;
     const context = {
         window, document, MediaRecorder: options.noRecorder ? undefined : Recorder,
@@ -135,6 +135,15 @@ check('HTML loads only the shared renderer and exposes its four debug layers', (
         assert.equal(h.canvas.dataset.alphaCorner, '0');
         assert.equal(h.views.filter(node => node.getAttribute('aria-pressed') === 'true').length, 1);
     }
+    assert.deepEqual(h.forbidden, []);
+});
+
+check('experimental anatomy is opt-in and uses the same isolated controls', () => {
+    const anatomyHtml = fs.readFileSync(path.join(__dirname, '../js/dev/core-bio-anatomy-lab.html'), 'utf8');
+    const scripts = [...anatomyHtml.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map(match => match[1].split('?')[0]);
+    assert.deepEqual(scripts, ['../components/gunter-core-forms.js', 'gunter-idle-core-anatomy.js', 'core-bio-lab.js']);
+    const h = harness({ anatomy: true }); h.frame();
+    assert.equal(h.renders.length, 1);
     assert.deepEqual(h.forbidden, []);
 });
 

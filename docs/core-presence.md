@@ -366,7 +366,58 @@ canales internos ligados a esas regiones y marcos locales de fibras. Ruido y
 opacidad sobre una extrusión XY genérica no pueden recuperar esos rasgos.
 Las otras 76 formas no deben considerarse validadas por estos ejemplos.
 
+Repetición de cadencia con el laboratorio en primer plano, sin grabación:
+mano, composición, 620×620, densidad 200 %, misma paleta y sin pausa. Tres
+ventanas muestreadas entre 06:35:28 y 06:37:43 UTC dieron 22,620, 21,639 y
+22,989 llamadas `renderTo`/s. La condición de ~1/s no se reprodujo mientras el
+documento reportó `visible`. No es un promedio de los 135 s observados ni una
+medición de GPU o de cuadros realmente presentados; no certifica 30 FPS.
+Evidencia: `output/foreground-cadence-v200.json` y
+`output/foreground-cadence-v200.png`. No se alteraron ajustes en esta medición.
+
 Punto de reversión antes de esta revisión: `86c77b17531e73fd15dc21ed1abb9afce7f8a749`.
 La fidelidad visual no se deduce de los tests WebGL simulados: requiere la
 comparación nativa. Las ilustraciones siguen teniendo bastante más detalle
 que la reconstrucción procedural; no se declara equivalencia exacta.
+
+### Prototipo anatómico aislado (no integrado)
+
+`js/dev/gunter-idle-core-anatomy.js` es un experimento opt-in derivado de v200.
+Exporta `GunterIdleCoreAnatomy`, separado de la clase estable. Ninguna página
+de la aplicación ni el service worker lo carga. El renderer, catálogo y URLs
+de producción permanecen iguales a `133c767`.
+
+La mano usa palma y falanges con profundidad; el ojo, globo almendrado,
+iris radial y cavidad pupilar con pared posterior oscura; el fénix, lentes
+volumétricas asimétricas para las plumas y el contorno de la cola. Los puntos
+de fibras usan esos marcos locales. Las mezclas interrumpidas componen bases
+anatómicas y guías heredadas sin alterar los colores ni reiniciar el estado.
+Las primitivas son geometría procedural, no imágenes o videos superpuestos.
+
+Una corrección óptica independiente deja emitir al gas real en cavidades
+sin exigir materia cercana; su radiancia sigue teniendo extinción en la
+marcha volumétrica. Esta corrección también afecta la óptica orgánica y de
+las otras formas heredadas dentro del experimento: no se declara que sus
+imágenes sean idénticas a producción. Sus trayectorias y catálogo no cambian.
+
+Vista aislada: ejecutar `node scripts/serve-core-bio-lab.cjs` y abrir
+`http://127.0.0.1:3013/js/dev/core-bio-anatomy-lab.html`.
+La comparación estable sigue en `/js/dev/core-bio-lab.html`. El servidor
+permite sólo seis archivos visuales mediante GET/HEAD, escucha en loopback
+y no inicia `server.js`, autenticación, APIs, WhatsApp ni preferencias.
+
+Verificación automática del prototipo: `node test/idle-core-anatomy-gpu.js`
+(73 contratos WebGL simulados), `node test/core-bio-lab.js` (14 contratos
+del controlador) y `node test/core-bio-lab-server.cjs` (4 de aislamiento),
+todos completos. Incluyen exclusión pupilar posterior a la interpolación,
+valles de dedos, muescas de plumas/cola, continuidad tras interrupciones y
+restauración del contexto. La sintaxis y `git diff --check` también pasan.
+
+QA nativa pendiente: el laboratorio inicial cargó scripts y controles, pero
+no entregó una muestra de cadencia ni un primer cuadro verificable; luego
+Chrome agotó el tiempo de respuesta de navegación/lectura del prototipo.
+No se atribuye esto a una causa de GPU, foco o compilación sin evidencia.
+No hay captura nueva de 15 segundos ni cuatro cuadros aprobados del
+experimento. Los tests usan WebGL simulado: no prueban compilación GLSL real,
+fluidez ni semejanza con las referencias. No integrar este prototipo hasta
+completar esa comparación, incluidos colores/densidad y fondos claro/oscuro.

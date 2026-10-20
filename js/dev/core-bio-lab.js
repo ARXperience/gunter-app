@@ -8,7 +8,8 @@
     const shapes = new Set(['organic','hand','eye','sword','jellyfish','butterfly','pentagram','dragon','phoenix']);
     const config = { particleColor:'#c7e4f7', shadowColor:'#14273c', energyColor:'#5dcdff', glowColor:'#4f86ff',
         density:1, brightness:1, size:1, speed:1, shape:'organic', debugView:'energy' };
-    const engine = new window.GunterIdleCore();
+    const Renderer = window.GunterIdleCoreAnatomy || window.GunterIdleCore;
+    const engine = new Renderer();
     let phase = 8, last = 0, frame = 0, paused = false, recorder = null, stream = null, timer = 0, blobUrl = '', lastVerify = 0, disposed = false;
     let cadenceStart = null, cadenceIntervals = 0, measuredFps = null;
     function updateStatus() {

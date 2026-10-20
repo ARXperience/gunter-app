@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gunter — anatomía experimental</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background:#080d14; color:#e5edf4; }
+    body { margin:0; padding:20px; }
+    main { max-width:1000px; margin:auto; }
+    h1 { font-size:22px; margin:0 0 8px; } p { color:#a4b5c6; max-width:760px; font-size:14px; }
+    nav, .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:16px 0; }
+    button, select, a, input { font:inherit; }
+    .hex-input { width:90px; padding:7px; border:1px solid #526678; border-radius:4px; background:#122332; color:#e5edf4; }
+    .hex-input[aria-invalid="true"] { border-color:#ff917b; }
+    button, select, a { border:1px solid #526678; border-radius:6px; background:#122332; color:#e5edf4; padding:10px 13px; min-height:42px; box-sizing:border-box; }
+    button[aria-pressed="true"] { background:#245363; border-color:#8ce2ec; }
+    button:disabled { opacity:.5; } label { font-size:13px; display:flex; align-items:center; gap:8px; }
+    .stage { display:grid; place-items:center; min-height:300px; background:#050609; }
+    .stage[data-backdrop="light"] { background:#f0f4fb; }
+    .stage[data-backdrop="checker"] { background:repeating-conic-gradient(#f8f8f8 0% 25%,#c5c9d0 0% 50%) 0 0 / 28px 28px; }
+    canvas { display:block; width:min(100%,620px); height:auto; aspect-ratio:1; touch-action:pan-y; }
+    output { display:block; margin:12px 0; min-height:22px; font-size:13px; }
+    video { display:block; max-width:100%; width:620px; margin-top:16px; background:#000; }
+    [hidden] { display:none!important; }
+    :focus-visible { outline:2px solid #a2e6ff; outline-offset:3px; }
+  </style>
+  <script src="../components/gunter-core-forms.js?v200-reference-material" defer></script>
+  <script src="gunter-idle-core-anatomy.js?v202-anatomical-volume" defer></script>
+  <script src="core-bio-lab.js?v202-anatomical-volume" defer></script>
+</head>
+<body>
+<main>
+  <p>Prototipo de anatomía 3D · No modifica el renderer estable de Gunter.</p>
+  <h1>Gunter / laboratorio bio</h1>
+  <p>Depuración del renderer real. Sin modelos, micrófono, audio, red externa ni cambios en tus preferencias. Los videos de referencia no forman parte de esta página.</p>
+  <nav aria-label="Capas de depuración">
+    <button type="button" data-view="energy" aria-pressed="true">Core aislado</button>
+    <button type="button" data-view="matter" aria-pressed="false">Materia sola</button>
+    <button type="button" data-view="filaments" aria-pressed="false">Filamentos solos</button>
+    <button type="button" data-view="composite" aria-pressed="false">Composición</button>
+  </nav>
+  <div class="stage" id="stage" data-backdrop="dark"><canvas id="core" width="620" height="620" aria-label="Simulación bio de Gunter"></canvas></div>
+  <div class="controls">
+    <label>Forma <select id="shape"><option value="organic">Orgánico</option><option value="hand">Mano</option><option value="eye">Ojo</option><option value="sword">Espada</option><option value="jellyfish">Medusa</option><option value="butterfly">Mariposa</option><option value="pentagram">Estrella invertida</option><option value="dragon">Dragón</option><option value="phoenix">Fénix</option></select></label>
+    <label>Fondo <select id="backdrop"><option value="dark">Oscuro</option><option value="light">Claro</option><option value="checker">Transparencia</option></select></label>
+    <label>Densidad <input id="density" type="range" min=".25" max="2" step=".05" value="1"></label>
+    <label>Brillo <input id="brightness" type="range" min=".2" max="2.5" step=".05" value="1"></label>
+    <label>Velocidad <input id="speed" type="range" min="0" max="2" step=".05" value="1"></label>
+    <label>Tamaño <input id="size" type="range" min=".7" max="1.3" step=".05" value="1"></label>
+  </div>
+  <div class="controls" aria-label="Colores HEX efímeros">
+    <label>Partículas <input class="hex-input" id="particleColor" type="text" value="#c7e4f7" pattern="#[0-9a-fA-F]{6}" maxlength="7" spellcheck="false" aria-label="Color HEX de partículas" title="HEX de seis dígitos, por ejemplo #c7e4f7"></label>
+    <label>Sombras <input class="hex-input" id="shadowColor" type="text" value="#14273c" pattern="#[0-9a-fA-F]{6}" maxlength="7" spellcheck="false" aria-label="Color HEX de sombras" title="HEX de seis dígitos, por ejemplo #14273c"></label>
+    <label>Energía <input class="hex-input" id="energyColor" type="text" value="#5dcdff" pattern="#[0-9a-fA-F]{6}" maxlength="7" spellcheck="false" aria-label="Color HEX de energía" title="HEX de seis dígitos, por ejemplo #5dcdff"></label>
+    <label>Resplandor <input class="hex-input" id="glowColor" type="text" value="#4f86ff" pattern="#[0-9a-fA-F]{6}" maxlength="7" spellcheck="false" aria-label="Color HEX de resplandor" title="HEX de seis dígitos, por ejemplo #4f86ff"></label>
+  </div>
+  <div class="controls">
+    <button type="button" id="pause" aria-pressed="false">Pausar</button>
+    <button type="button" id="record">Capturar 19 segundos</button>
+    <a id="download" hidden>Descargar grabación</a>
+  </div>
+  <output id="status" role="status">Preparando WebGL2…</output>
+  <output id="verification" aria-label="Estado de transparencia"></output>
+  <video id="recording" controls playsinline hidden aria-label="Grabación del renderer"></video>
+</main>
+</body>
+</html>
