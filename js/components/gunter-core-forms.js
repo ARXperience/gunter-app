@@ -53,7 +53,7 @@
     function materialRegions(id, strokes) {
         const polygon = (outer, holes=[]) => ({kind:'body',outer,holes});
         if(['eye','horus_eye','ra_eye','wedjat_eye'].includes(id))
-            return [polygon(strokes[0].points,[strokes[2].points])];
+            return [polygon(strokes[0].points,[strokes[2].points]),polygon(strokes[3].points)];
         if(id==='star_eye')return [polygon(strokes[1].points,[strokes[3].points])];
         if(id==='jellyfish')return [polygon([...strokes[0].points,...strokes[1].points])];
         if(id==='torus')return [polygon(strokes[0].points,[strokes[1].points])];
@@ -65,10 +65,34 @@
         return (bodyStrokes[id]||[]).filter(index=>strokes[index]).map(index=>polygon(strokes[index].points));
     }
     function interiorDetails(id) {
-        if(id==='hand')return [path('-.3,-.06 -.19,.04 -.04,.06 .14,.02 .27,-.08',.009),path('-.28,-.28 -.33,-.12 -.31,.02',.009),...[-.12,.1,.32].map((x,i)=>path([[x,.22+i*.015],[x+.055,.23+i*.015]],.008))];
-        if(['eye','horus_eye','ra_eye','wedjat_eye'].includes(id))return Array.from({length:18},(_,i)=>{
-            const a=i*TAU/18;return path([[Math.cos(a)*.125,Math.sin(a)*.13],[Math.cos(a+.035)*.208,Math.sin(a+.035)*.246]],.008);
-        });
+        if(id==='hand')return [
+            path('-.37,-.06 -.22,.07 -.04,.12 .16,.06 .34,-.06',.011),
+            path('-.4,-.25 -.31,-.17 -.2,-.16 -.07,-.22 .11,-.18 .3,-.25',.009),
+            path('-.36,-.34 -.41,-.15 -.36,.04 -.25,.12',.01),
+            path('-.16,-.48 -.06,-.35 -.08,-.12 .02,.12',.009),
+            ...[[[-.34,.43],[-.23,.42]],[[-.12,.6],[.05,.59]],[[.2,.53],[.34,.5]],[[.49,.3],[.6,.27]],
+                [[-.38,.62],[-.25,.6]],[[-.12,.77],[.05,.76]],[[.23,.7],[.37,.67]],[[.56,.43],[.66,.4]]].map(points=>path(points,.009))
+        ];
+        if(['eye','horus_eye','ra_eye','wedjat_eye'].includes(id))return [
+            ...Array.from({length:36},(_,i)=>{
+                const a=i*TAU/36,b=a+.025*Math.sin(i*1.7);
+                return path([[Math.cos(a)*.125,Math.sin(a)*.13],[Math.cos(b)*.174,Math.sin(b)*.195],[Math.cos(a+.035)*.218,Math.sin(a+.035)*.252]],.007+(i%3)*.001);
+            }),
+            path('-.72,.25 -.49,.42 -.17,.47 .17,.43 .49,.29 .71,.13',.013),
+            path('-.7,-.15 -.46,-.32 -.12,-.38 .23,-.34 .58,-.2',.011),
+            ...[-.59,-.42,-.23,.02,.26,.48,.63].map((x,i)=>path([[x,.31*(1-(x/.8)**2)],[x-.04,.43-.12*Math.abs(x)+.025*(i%2)]],.008))
+        ];
+        if(id==='phoenix')return [
+            ...Array.from({length:9},(_,i)=>{
+                const t=i/8,root=[-.14-.16*t,.08+.17*t],tip=[-.72+.39*t,.76-.78*t];
+                return pair(path([root,[(root[0]+tip[0])*.5-.06,(root[1]+tip[1])*.5+.04],tip],.009+(i%3)*.001));
+            }).flat(),
+            path('-.08,.16 -.04,.31 .09,.38 .23,.34',.01),
+            oval(.18,.344,.023,.016,.008),
+            path('-.07,.09 .04,-.11 -.01,-.31 .13,-.51 .05,-.72',.013),
+            path('-.07,.39 -.23,.62 -.14,.53 -.3,.54',.013),
+            path('-.03,.42 -.06,.68 .02,.54 .09,.59',.012)
+        ];
         if(id==='sword')return [path('-.105,.54 -.046,-.2',.011),path('.105,.54 .046,-.2',.011),...[-.43,-.51,-.59].map(y=>path([[-.055,y],[.055,y+.035]],.01))];
         if(id==='butterfly')return [...pair(path('-.06,.05 -.24,.25 -.47,.59 -.64,.61',.011)),...pair(path('-.1,-.03 -.34,-.26 -.45,-.54',.012)),...pair(path('-.24,.25 -.53,.2 -.66,.29',.009))];
         if(id==='jellyfish')return [-.52,-.24,.24,.52].map(x=>path([[0,.675],[x*.45,.57],[x*.83,.41],[x,.245]],.009));
@@ -93,9 +117,14 @@
         const upper = i <= 32, t = upper ? i / 32 : (64 - i) / 32;
         return [-.8 + 1.6 * t, (upper ? .32 : -.29) * Math.pow(Math.sin(Math.PI * t), .86)];
     });
-    const eye = [path(eyeLid, .027), oval(0, 0, .225, .265, .031), oval(0, 0, .105, .11, .025)];
+    // A real folded upper lid, rather than another closed luminous wire.
+    const upperLidFold=path('-.8,.1 -.65,.39 -.33,.53 .04,.52 .4,.39 .76,.11 .59,.18 .27,.32 -.08,.39 -.43,.32 -.69,.16 -.8,.1',.018);
+    const eye = [path(eyeLid, .027), oval(0, 0, .225, .265, .031), oval(0, 0, .105, .11, .025),upperLidFold];
     add('eye', 'Ojo', ['ojo', 'ojo abierto'], 'Párpados almendrados, iris y pupila.', eye);
-    add('hand', 'Mano', ['mano', 'palma', 'mano abierta'], 'Palma abierta y cinco dedos diferenciados.', [path('-.28,-.78 -.36,-.3 -.62,-.03 -.74,.2 -.7,.29 -.63,.31 -.57,.23 -.4,.02 -.36,.1 -.4,.57 -.35,.68 -.28,.68 -.22,.59 -.19,.15 -.17,.75 -.12,.85 -.04,.85 .02,.75 .04,.17 .09,.68 .15,.77 .22,.75 .26,.66 .25,.11 .34,.5 .4,.58 .47,.54 .49,.46 .42,-.17 .3,-.43 .24,-.78 -.28,-.78', .027), path('-.28,-.15 -.12,-.27 .12,-.17', .016), path('-.21,-.43 -.05,-.47 .14,-.39', .014)]);
+    add('hand', 'Mano', ['mano', 'palma', 'mano abierta'], 'Palma ancha, pulgar curvo, falanges y cinco dedos separados.', [
+        path('-.25,-.78 -.31,-.56 -.44,-.34 -.48,-.14 -.61,.04 -.73,.24 -.76,.34 -.72,.42 -.65,.44 -.58,.39 -.5,.28 -.36,.09 -.35,.22 -.43,.64 -.42,.75 -.37,.8 -.3,.81 -.25,.77 -.22,.66 -.19,.24 -.15,.22 -.15,.83 -.11,.93 -.04,.96 .03,.93 .07,.84 .08,.23 .12,.21 .19,.78 .24,.86 .31,.87 .37,.82 .39,.73 .32,.17 .35,.11 .5,.48 .57,.55 .64,.54 .7,.48 .69,.39 .54,.03 .52,-.18 .43,-.43 .28,-.61 .21,-.78 -.25,-.78',.027),
+        path('-.36,-.08 -.2,-.28 .02,-.21 .23,-.05',.014),path('-.24,-.43 -.03,-.51 .19,-.42',.011)
+    ]);
     add('sword', 'Espada', ['espada', 'espada de energia'], 'Hoja larga, punta, guarda y empuñadura.', [path('0,.85 -.13,.58 -.08,-.24 -.4,-.26 -.42,-.36 -.09,-.34 -.07,-.68 0,-.81 .07,-.68 .09,-.34 .42,-.36 .4,-.26 .08,-.24 .13,.58 0,.85', .045), path('0,.65 0,-.22', .026)]);
     add('octagram', 'Estrella de ocho puntas', ['octagrama', 'ocho puntas', 'estrella de ocho puntas'], 'Dos cuadrados entrelazados dentro de un círculo.', [star(8, 3, false), oval(0, 0, .8, .8, .025)]);
     // Technological / cosmic objects, one distinct contour per reference tile.
@@ -165,7 +194,10 @@
     add('flame', 'Llama', ['llama', 'fuego'], 'Tres lenguas de fuego de alturas diferentes.', [path('-.23,-.74 -.58,-.48 -.55,-.13 -.36,.13 -.32,-.17 -.17,.11 -.07,.6 .11,.84 .1,.37 .31,.58 .42,.22 .3,-.13 .51,.1 .6,-.27 .49,-.59 .16,-.77 -.23,-.74',.06),path('-.13,-.55 -.23,-.32 0,.1 .17,-.27 .1,-.57',.04)]);
     add('swirl', 'Remolino', ['remolino', 'vortice', 'torbellino'], 'Corriente ascendente en S de tres vueltas.', [path('-.44,-.76 .1,-.71 .34,-.48 .11,-.26 -.3,-.18 -.46,.05 -.25,.31 .23,.32 .46,.52 .29,.77 -.12,.78',.085),path('-.32,-.69 .18,-.55 -.34,-.02 .3,.53',.025)]);
     add('tree', 'Árbol de la vida', ['arbol', 'arbol de la vida', 'arbol cosmico'], 'Tronco ramificado, copa abierta y raíces.', [path('0,-.71 -.06,-.2 .04,.22 0,.54',.075),...pair(path('0,-.69 -.33,-.81 -.51,-.8',.035)),...pair(path('-.03,-.15 -.35,.1 -.57,.5 -.72,.57',.045)),...pair(path('.02,.14 -.22,.47 -.23,.76 -.35,.8',.035)),...pair(path('-.31,.14 -.63,.24 -.78,.17',.03)),...pair(path('-.39,.29 -.4,.63 -.56,.72',.03)),...pair(path('0,.44 -.1,.72 0,.83',.035))]);
-    add('phoenix', 'Fénix', ['fenix', 'ave fenix'], 'Ave renaciente con alas elevadas y cola llameante.', [...pair(path('-.09,.01 -.33,.33 -.53,.8 -.61,.48 -.79,.65 -.68,.22 -.48,-.1 -.14,-.16',.065)),path('-.12,.09 -.14,.36 .03,.49 .19,.38 .35,.34 .13,.24 .12,-.16 .3,-.5 .08,-.8 0,-.56 -.16,-.8 -.28,-.51 -.12,-.17 -.12,.09',.055)]);
+    add('phoenix', 'Fénix', ['fenix', 'ave fenix'], 'Alas de plumas separadas, cabeza con pico curvo y cola serpenteante.', [
+        ...pair(path('-.1,.03 -.27,.3 -.45,.5 -.66,.88 -.71,.79 -.65,.62 -.8,.78 -.83,.66 -.75,.49 -.86,.57 -.84,.42 -.68,.24 -.8,.3 -.78,.16 -.62,.02 -.7,.08 -.67,-.03 -.49,-.15 -.35,-.13 -.1,.03',.032)),
+        path('-.1,-.05 -.16,.14 -.12,.32 0,.43 .13,.45 .25,.4 .33,.3 .38,.21 .3,.18 .28,.26 .16,.25 .12,.13 .2,-.13 .15,-.31 .32,-.52 .24,-.68 .04,-.87 .14,-.57 .02,-.44 -.13,-.7 -.07,-.48 -.26,-.7 -.25,-.53 -.13,-.32 -.15,-.08 -.1,-.05',.035)
+    ]);
     add('dragon_head', 'Cabeza de dragón', ['cabeza de dragon', 'rostro de dragon'], 'Cabeza de perfil con cuernos, mandíbula y hocico.', [path('-.52,-.72 -.7,-.21 -.67,.22 -.45,.58 -.49,.84 -.14,.61 .17,.67 .39,.46 .78,.26 .64,.09 .36,.04 .62,-.15 .33,-.24 .04,-.15 -.21,-.35 -.28,-.77',.07),path('-.4,.48 -.12,.3 .29,.32',.035),path('-.57,.33 -.81,.5 -.66,.11',.04)]);
     add('wolf_head', 'Cabeza de lobo', ['cabeza de lobo', 'rostro de lobo'], 'Orejas triangulares, hocico largo y cuello.', [path('-.48,-.79 -.6,-.23 -.64,.28 -.48,.82 -.2,.59 .17,.69 .31,.46 .68,.22 .8,.06 .59,-.07 .29,-.1 .08,-.33 -.1,-.75',.065),path('-.44,.29 -.12,.25 .24,.33',.03),path('.27,-.09 .1,-.3',.035)]);
     add('deer_head', 'Cabeza de ciervo', ['cabeza de ciervo', 'cabeza de venado', 'cornamenta'], 'Cabeza frontal con dos grandes astas ramificadas.', [path('-.18,.13 -.23,-.22 0,-.67 .23,-.22 .18,.13 0,.24 -.18,.13',.065),...pair(path('-.16,.11 -.41,.39 -.43,.77 -.56,.83',.04)),...pair(path('-.4,.39 -.66,.48 -.78,.7',.035)),...pair(path('-.43,.57 -.27,.7 -.2,.84',.03)),...pair(path('-.17,.06 -.49,.2 -.36,-.04 -.17,.06',.04))]);

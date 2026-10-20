@@ -158,7 +158,7 @@ check('density reaches the renderer and pause freezes simulation phase', () => {
 check('representative shapes apply on the next frame with continuous phase and immediate DOM verification', () => {
     const h = harness(); h.frame(); h.frame();
     const shape = h.nodes.get('shape');
-    assert.deepEqual(shape.options.map(option => option.value), ['organic', 'hand', 'eye', 'sword', 'jellyfish', 'butterfly', 'pentagram', 'dragon']);
+    assert.deepEqual(shape.options.map(option => option.value), ['organic', 'hand', 'eye', 'sword', 'jellyfish', 'butterfly', 'pentagram', 'dragon','phoenix']);
     for (const option of shape.options) {
         const phase = h.renders.at(-1).phase;
         shape.value = option.value; shape.fire('change');
@@ -169,7 +169,7 @@ check('representative shapes apply on the next frame with continuous phase and i
         assert.ok(Math.abs(h.renders.at(-1).phase - phase - .04) < .000001, 'shape changes preserve simulation phase');
     }
     shape.value = 'unknown-shape'; shape.fire('change'); h.frame();
-    assert.equal(h.renders.at(-1).config.shape, 'dragon', 'only known renderer IDs are accepted');
+    assert.equal(h.renders.at(-1).config.shape, shape.options.at(-1).value, 'only known renderer IDs are accepted');
     assert.equal(h.engine.resets, 0);
     assert.deepEqual(h.forbidden, []);
 });

@@ -438,7 +438,8 @@ check('voice radiance modulates the buried energy and illuminated fibres, not a 
     const e=environment();e.render(8);
     const volume=e.core.programs.volume.program.shaders.find(shader=>shader.source.includes('vec3 emitted=')).source;
     const strands=e.core.programs.strands.program.shaders.find(shader=>shader.source.includes('vec3 coat=')).source;
-    assert.match(volume,/u_energy\*\(2\.1\+bodyWeight\*2\.1\+u_pointer\.z\*heat\*\.28\+u_audio\*1\.70\)/);
+    assert.match(volume,/u_energy\*\(energyGain\+u_pointer\.z\*heat\*\.28\+u_audio\*1\.70\)/);
+    assert.match(volume,/energyGain=mix\(1\.90,1\.70,morph\)/);
     assert.match(volume,/color\+=\(1\.0-opacity\)\*\(scattered\*density\+emitted\*emission\)/);
     assert.match(strands,/u_glow\*emission\*emission\*\(\.35\+u_pointer\.z\*\.32\+u_audio\*1\.45\)/);
     for(const level of [0,.03,.15,0]) {
@@ -606,7 +607,9 @@ check('shape attractors morph retained material and the shared volume without re
     assert.equal(e.core.field,field);assert.equal(e.created.Texture.length,created);
     assert.equal(e.draws.filter(d=>d.program===e.core.programs.simulation.program&&d.initialize===1).length,1);
     const shader=e.core.programs.simulation.program.shaders.find(s=>s.source.includes('uniform float u_dt')).source;
-    assert.match(shader,/v\+=\(morphGuide\(p,row,t,along\)-p\)\*4\.2\*morph/,'silhouettes are per-segment material velocity attractors');
+    assert.match(shader,/target=morphGuide\(p,row,t,along,tangent\),error=target-p/,'silhouettes retain per-segment material velocity attractors');
+    assert.match(shader,/v\+=\(normalError\*4\.2\+tangent\*dot\(error,tangent\)\*\.70\)\*morph/,
+        'strong normal correction preserves anatomy without phase-locking the tangential flow');
     assert.match(shader,/starPoint\(k\*2\.0,5\.0,\.77,-1\.5707963\)/,'pentagram extreme points start downwards');
     e.core.dispose();released(e);
 });
@@ -905,7 +908,7 @@ check('signed material bodies spread existing fibres through volume and retain p
     assert.match(simulation,/interior=smoothstep\(0\.0,\.17,-guide\.z\)/,'material thickness grows inside authored regions');
     assert.match(simulation,/textureMatter=packing\*cavity\*\(\.15\+fine\*fine\*1\.50\)\*\(\.82\+gas\.r\*\.45\)/,
         'named supports reuse the organic core material folds, cavities and fine grain');
-    assert.match(simulation,/shapedDensity\(p,false,t,textureMatter\)/);assert.match(simulation,/shapedDensity\(p,true,t,textureMatter\)/);
+    assert.match(simulation,/shapedDensity\(p,false,t,textureMatter,coarse,fine\)/);assert.match(simulation,/shapedDensity\(p,true,t,textureMatter,coarse,fine\)/);
     assert.match(simulation,/shapedSupport\(p,false\)/);assert.match(simulation,/shapedSupport\(p,true\)/);
     const fragment=e.core.programs.strands.program.shaders.find(s=>s.source.includes('flat in float v_seed')).source;
     assert.match(fragment,/vec4 material=mediumAt\(v_world\)/,'named fibres retain the same local material and heat');
@@ -916,7 +919,7 @@ check('signed material bodies spread existing fibres through volume and retain p
     assert.match(gas,/seams=1\.0-smoothstep\(\.12,\.45,abs\(coarse\.y\+folds\.x\*\.50\)\)/,'coherent gas seams are independent of the opaque matter folds');
     assert.doesNotMatch(gas,/shapedDensity\(p,false,t\)\*texturePacking/,'the brightest gas is not renewed exclusively inside the densest opaque folds');
     const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('u_debugView')).source;
-    assert.match(volume,/opticalMass=mass\*mix\(1\.0,\.72,morphWeight\(\)\)/,'porosity changes optical depth only for transformed matter');
+    assert.match(volume,/opticalMass=mass\*mix\(1\.0,\.92,morph\)/,'named material keeps nearly all its optical depth');
     assert.match(volume,/opticalMass\*opticalMass\*grain\*18\.0/);
     assert.equal(e.core.stats().filaments,3840,'body detail does not increase particle count');
     e.core.dispose();released(e);
@@ -948,10 +951,10 @@ check('named optical porosity preserves organic extinction and does not reduce s
     const e=environment();
     const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('vec4 material=mediumAt(p)')).source;
     assert.match(volume,/mass=max\(0\.0,material\.r-\.12\)/,'physical matter is unchanged');
-    assert.match(volume,/opticalMass=mass\*mix\(1\.0,\.72,morphWeight\(\)\)/,'only the displayed optical coat becomes porous');
+    assert.match(volume,/opticalMass=mass\*mix\(1\.0,\.92,morph\)/,'named material retains a nearly complete optical coat');
     assert.match(volume,/density=1\.0-exp\(-opticalMass\*opticalMass\*grain\*18\.0\*\(marchDepth\/40\.0\)\*u_density\)/);
-    assert.match(volume,/thermalGrain=mix\(\.30\+1\.10\*smoothstep\(\.18,\.76,grains\),\s*\.08\+2\.40\*pow\(smoothstep\(\.30,\.72,grains\),2\.0\),morphWeight\(\)\)/,
-        'named energy retains local granular peaks rather than lifting the whole body as smooth fog');
+    assert.match(volume,/thermalGrain=mix\(organicGrain,\.30\+1\.10\*smoothstep\(\.18,\.76,grains\),morph\)/,
+        'named energy retains its existing local granular response');
     for(const name of ['simulation','bio','field']) {
         const shader=e.core.programs[name].program.shaders.map(s=>s.source).join('\n');
         assert.doesNotMatch(shader,/opticalMass/,'presentation-only porosity never enters shared material/gas histories');
@@ -960,7 +963,7 @@ check('named optical porosity preserves organic extinction and does not reduce s
         const original=1-Math.exp(-mass*mass*grain*18*(1.92/40));
         let previous=original;
         for(const weight of [0,.2,.5,.8,1]) {
-            const opticalMass=mass*(1+(0.72-1)*weight);
+            const opticalMass=mass*(1+(0.92-1)*weight);
             const opacity=1-Math.exp(-opticalMass*opticalMass*grain*18*(1.92/40));
             if(weight===0)near(opacity,original,'organic optical depth remains exactly unchanged');
             assert.ok(Number.isFinite(opacity)&&opacity>=0&&opacity<=1,'finite nonnegative extinction');
@@ -1008,7 +1011,7 @@ check('compact membranes use narrow material bands and a wrinkled enclosing skin
         'outer membrane follows irregular matter coordinates, not a smooth screen-space circle');
     assert.match(matter,/membrane\*membrane\*2\.15\+skin\*\.62/);
     assert.equal((matter.match(/potential\(/g)||[]).length,3,'existing coarse/warp/fine fields are reused, not multiplied');
-    assert.match(matter,/shapedDensity\(p,false,t,textureMatter\)/);assert.match(matter,/shapedDensity\(p,true,t,textureMatter\)/,
+    assert.match(matter,/shapedDensity\(p,false,t,textureMatter,coarse,fine\)/);assert.match(matter,/shapedDensity\(p,true,t,textureMatter,coarse,fine\)/,
         'requested silhouettes inherit the same membrane material');
     const gas=e.core.programs.bio.program.shaders.find(s=>s.source.includes('vec2 bioSource')).source;
     const renewal=gas.slice(gas.indexOf('vec2 bioSource'),gas.indexOf('void main()',gas.indexOf('vec2 bioSource')));
@@ -1033,7 +1036,7 @@ check('membrane optics reuse cached normals and actual internal light with indep
     assert.equal((march.match(/potential\(/g)||[]).length,3,'no additional normal/radiance ray-march noise calls');
     assert.match(volume,/grain=\.42\+1\.20\*smoothstep\(\.28,\.74,grains\)/,'porous film coverage does not dissolve every fold into puff-like grains');
     assert.match(volume,/u_shadow\*\(\.27\+face\*\.10\)/);assert.match(volume,/u_particle\*tint\*incident/);
-    assert.match(volume,/u_energy\*\(2\.1\+bodyWeight\*2\.1\+u_pointer\.z\*heat\*\.28\+u_audio\*1\.70\)/);
+    assert.match(volume,/u_energy\*\(energyGain\+u_pointer\.z\*heat\*\.28\+u_audio\*1\.70\)/);
     assert.match(volume,/u_glow\*heat\*\(\.65\+u_pointer\.z\*\.28\+u_audio\*1\.45\)/,
         'hotter interior highlights still use the configured emissive color');
     assert.match(volume,/scattered\*density\+emitted\*emission/,'semi-transparent material and buried heat remain separate coupled systems');
@@ -1047,7 +1050,8 @@ check('procedural membrane surface shares gas velocity transport and configured 
     assert.match(vertex,/cachedVelocity\(p\)\*\(\.10\+bioEnergy\(p\)\*\.08\)/);
     assert.match(vertex,/p=flowWind\(p,u_flow\)/);assert.match(vertex,/transported\(q\.xy\*u_size\*\.80,aspect,q\.z\)/);
     assert.match(fragment,/normal=normalize\(cross\(dFdx\(v_world\),dFdy\(v_world\)\)\)/);
-    assert.match(fragment,/light=material\.b/);assert.match(fragment,/presence=1\.0-morphWeight\(\)/);
+    assert.match(fragment,/light=material\.b/);assert.match(fragment,/presence=mix\(1\.0,support,morph\)/,
+        'named material remains present inside its actual support instead of disappearing at full morph');
     assert.equal(e.draws.filter(d=>d.program===p).at(-1).count,96*64*6);
     assert.equal(e.live.Texture.size,10);assert.equal(e.live.Framebuffer.size,10);
     const before=e.draws.filter(d=>d.program===p).length;
@@ -1190,5 +1194,371 @@ check('four procedural strip vertices preserve quad parity with 150 percent fibr
     }
     assert.equal(3840*95*4,2560*95*6);assert.equal(7680*95*4,5120*95*6);
     e.core.dispose();released(e);
+});
+check('named membranes deform the existing surface to signed material support and discard authored holes',()=>{
+    const e=environment({realCatalog:true});e.render(8);
+    const p=e.core.programs.membrane.program;
+    const vertex=p.shaders.find(s=>s.source.includes('gl_VertexID')).source;
+    const fragment=p.shaders.find(s=>s.source.includes('gl_FrontFacing')).source;
+    const vertexBody=vertex.slice(vertex.indexOf('void main()'));
+    const fragmentBody=fragment.slice(fragment.indexOf('void main()'));
+    assert.match(vertexBody,/xy=\(uv\*2\.0-1\.0\)\*\.96/,'named skin uses the original fixed procedural grid');
+    assert.match(vertexBody,/guide=morphMaterialGuide\(xy\)/);assert.match(vertexBody,/interior=smoothstep\(0\.0,\.17,-guide\.z\)/);
+    assert.match(vertexBody,/q=mix\(q,shaped,morph\)/,'at full morph no organic sphere remains behind the named skin');
+    assert.match(fragmentBody,/rest=flowUnwind\(v_world,u_flow\)/);
+    assert.match(fragmentBody,/guide=morphMaterialGuide\(viewPoint\(rest\)\.xy\)/,'holes travel with the material rather than a screen-space cutout');
+    assert.match(fragmentBody,/support=1\.0-smoothstep\(guide\.w\*\.20,max\(\.012,guide\.w\*\.78\),guide\.z\)/);
+    assert.match(fragmentBody,/presence=mix\(1\.0,support,morph\);\s*if\(presence<\.02\)discard/);
+    assert.doesNotMatch(fragmentBody,/presence=1\.0-morphWeight|texture\(u_shapeGuide/,'signed guides only define support, never a painted color overlay');
+    assert.match(fragmentBody,/specular=pow\(clamp\(material\.a,0\.0,1\.0\),3\.0\)/);
+    assert.doesNotMatch(fragmentBody,/bioGradient\(|potential\(/,'surface lighting reuses the existing shared cache without extra gradient/noise marches');
+    const created=e.created.Texture.length,history=e.core.histories.slice();
+    for(const shape of ['eye','hand','butterfly','pentagram']) {
+        const start=e.draws.length;e.render(8,{...defaults,shape,static:true});
+        const draw=e.draws.slice(start).find(d=>d.program===p);
+        assert.equal(draw.count,96*64*6);assert.equal(p.u_guideWeights[1],1);
+        const data=e.core.guideTo.data;let interior=0,empty=0;
+        for(let i=0;i<data.length;i+=4) {
+            if(data[i+2]<0)interior++;
+            if(data[i+2]>Math.max(.012,data[i+3]*.78))empty++;
+        }
+        assert.ok(empty>0,'each shape retains empty regions rather than an enclosing sheet');
+        if(shape!=='pentagram')assert.ok(interior>0,'authored material interiors survive the signed support');
+        assert.equal(e.core.histories[0],history[0]);assert.equal(e.core.histories[1],history[1]);
+    }
+    // Two selected support/path slots are the existing catalog storage, not a
+    // membrane-only atlas. Returning to a form cannot allocate a third slot.
+    const selected=e.created.Texture.length;e.render(8,{...defaults,shape:'eye',static:true});
+    assert.equal(e.created.Texture.length,selected);assert.ok(selected>=created);
+    assert.equal(e.core.stats().volumeGrid,48);assert.equal(e.core.stats().volumeSamples,40);
+    e.core.dispose();released(e);
+});
+check('named bodies retain the same fine optical films and buried heat instead of flattening material at full morph',()=>{
+    const e=environment();
+    const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('vec3 emitted=')).source;
+    const body=volume.slice(volume.indexOf('void main()'));
+    assert.match(body,/mass=max\(mass\*mix\(\.24,\.95,morph\),film\*support\*\.55\)/,'named material retains its actual mass as well as fine folded films');
+    assert.match(body,/\+u_particle\*incident\*face\*film\*mix\(\.22,\.15,morph\)/,'same incident gas lights named membrane folds without a broad white specular coat');
+    assert.match(body,/thermalGrain=mix\(organicGrain,\.30\+1\.10\*smoothstep\(\.18,\.76,grains\),morph\)/);
+    assert.match(body,/whiteHeat=pow\(smoothstep\(mix\(\.35,\.38,morph\),mix\(\.90,\.95,morph\),heat\),3\.0\)\*mix\(\.22,\.12,morph\)/);
+    assert.doesNotMatch(body,/bodyWeight|film\*[^;]*\(1\.0-morphWeight\(\)\)/,'morphing changes support, not the existence of its film or hot interior');
+    const field=e.core.programs.field.program.shaders.find(s=>s.source.includes('float shapedDensity')).source;
+    const density=field.slice(field.indexOf('float shapedDensity'),field.indexOf('vec3 shapedSupport'));
+    assert.match(density,/sheets=1\.0-smoothstep\(\.06,\.34,fold\)/);
+    assert.match(density,/\(\.32\+sheets\*sheets\*1\.65\)[\s\S]*\(\.08\+textureMatter\*1\.60\)/,
+        'clustered dense folds and thin channels replace a large uniform grey floor');
+    assert.doesNotMatch(density,/potential\(|texture\(u_bio/,'named detail reuses already computed material texture');
+    e.core.dispose();released(e);
+});
+check('shape attraction preserves cached tangential curl with strong anatomical normal correction and no extra path scan',()=>{
+    const e=environment();
+    const shader=e.core.programs.simulation.program.shaders.find(s=>s.source.includes('uniform float u_dt')).source;
+    const velocity=shader.slice(shader.indexOf('vec3 velocity('),shader.indexOf('vec3 seedPosition'));
+    assert.match(velocity,/normalError=error-tangent\*dot\(error,tangent\)/);
+    assert.match(velocity,/v-=\(v-tangent\*dot\(v,tangent\)\)\*\.65\*morph/);
+    assert.doesNotMatch(velocity,/v\*=1\.0-morph\*\.85/,'full morph no longer suppresses 85 percent of every flow component');
+    const guided=shader.slice(shader.indexOf('vec3 guidedPoint'),shader.indexOf('float morphWeight'));
+    assert.equal((guided.match(/pathSample\(/g)||[]).length,1,'the existing path lookup also supplies the tangent');
+    assert.match(guided,/flowTangent=worldPoint\(vec3\(tangent,0\)\)/);
+    assert.equal((velocity.match(/cachedFlow\(p\)/g)||[]).length,1);
+    for(const tangent of [[1,0,0],[0,.6,.8],[Math.SQRT1_2,Math.SQRT1_2,0]]) {
+        const dot=(a,b)=>a.reduce((sum,v,i)=>sum+v*b[i],0),flow=[.21,-.13,.09],error=[.04,-.02,.03];
+        const along=dot(flow,tangent),errorAlong=dot(error,tangent);
+        const normal=flow.map((v,i)=>v-tangent[i]*along);
+        const normalError=error.map((v,i)=>v-tangent[i]*errorAlong);
+        const retained=flow.map((v,i)=>v-normal[i]*.65);
+        near(dot(retained,tangent),along,'tangential curl is retained at full morph');
+        near(dot(normalError,tangent),0,'anatomical correction acts normal to the assigned limb');
+        const corrected=retained.map((v,i)=>v+normalError[i]*4.2+tangent[i]*errorAlong*.70);
+        assert.ok(corrected.every(Number.isFinite),'bounded forces stay finite');
+    }
+    e.core.dispose();released(e);
+});
+check('compact carried grains and minority microfibres reuse one foreground strip pass and three history reads',()=>{
+    const e=environment();e.render(8);
+    const vertex=e.core.programs.strands.program.shaders.find(s=>s.source.includes('int filament=')).source;
+    const body=vertex.slice(vertex.indexOf('void main()'));
+    const fragment=e.core.programs.strands.program.shaders.find(s=>s.source.includes('flat in float v_seed')).source;
+    const fragmentBody=fragment.slice(fragment.indexOf('void main()'));
+    assert.equal((body.match(/texelFetch\(u_history/g)||[]).length,3,'granules reuse the existing p/before/after samples');
+    assert.match(body,/granule=1\.0-step\(\.76,fract\(seed\*\.6180339\)\)/);
+    assert.match(body,/start=endpoint\?before:p,end=endpoint\?p:after/,'all four grain vertices share one segment centre');
+    assert.match(body,/p=mix\(start,end,between\)/);assert.match(body,/age=\(float\(segment\)\+between\)\/float\(historyLength-1\)/);
+    assert.match(body,/radius=\.35\+\.45\*ribbon/,'compact subpixel half-width is bounded independently of segment length');
+    assert.match(body,/grainOffset=\(tangent\*alongSide\*radius\+normal\*side\*radius\*\.80\)\*2\.0\/u_resolution/);
+    assert.match(fragmentBody,/if\(v_granule>\.5&&grainRadius>1\.0\)discard/,'grains have finite rounded coverage, not full-length ribbons');
+    assert.match(fragmentBody,/fragments\*=\.18\+\.82\*smoothstep\(\.04,\.70,matter\)/,'dense clusters and real gaps follow the existing material field');
+    assert.doesNotMatch(source,/GL_POINTS|gl\.POINTS|createBuffer\(|bufferData\(/);
+    let grains=0;
+    for(let filament=0;filament<7680;filament++) {
+        const seed=Math.floor(filament/6)+(filament%6)*37.71,value=seed*.6180339;
+        if(value-Math.floor(value)<.76)grains++;
+    }
+    assert.ok(grains/7680>.74&&grains/7680<.78,'roughly three quarters of existing strips become compact grains');
+    assert.equal(e.draws.filter(d=>d.instances).length,1);assert.equal(e.draws.at(-1).count,4);
+    assert.equal(e.core.stats().filaments,3840);assert.equal(e.live.Texture.size,10);assert.equal(e.live.Framebuffer.size,10);
+    e.core.dispose();released(e);
+});
+check('named skin retains dark material with only microerosion while signed anatomy owns all holes',()=>{
+    const e=environment();
+    const fragment=e.core.programs.membrane.program.shaders.find(s=>s.source.includes('gl_FrontFacing')).source;
+    const body=fragment.slice(fragment.indexOf('void main()'));
+    assert.match(body,/granular=hash3\(floor\(rest\*137\.0\)\)/);
+    assert.match(body,/microErosion=\.84\+\.16\*microGrain/);
+    assert.match(body,/film=mix\(1\.0-smoothstep\(\.40,\.66,pores\),microErosion,morph\)/,
+        'the organic pores remain unchanged; named skin never inherits their large open circles');
+    assert.doesNotMatch(body,/shapedPores|pores=mix\(pores/);
+    assert.match(body,/film\*=mix\(\.12\+\.88\*packing,\.68\+\.32\*packing,morph\)/);
+    assert.match(body,/namedColor=u_shadow\*\(\.22\+packing\*\.35\+facing\*\.08\)/);
+    assert.match(body,/u_particle\*\(light\*\.06\+specular\*\.12\)/,'named pale reflection has no unlit white floor');
+    assert.match(body,/namedAlpha=film\*\(\.68\+packing\*\.14\+fresnel\*\.04\)\*presence\*u_density\*\(1\.0-vein\*\.58\)/);
+    assert.match(body,/alpha=mix\(alpha,namedAlpha,morph\)/);
+    assert.match(body,/presence=mix\(1\.0,support,morph\)/,'pupils and finger gaps still come from the signed support');
+    for(const grain of [0,.25,.5,.75,1]) {
+        const erosion=.84+.16*grain;
+        assert.ok(erosion>=.84&&erosion<=1,'microerosion changes coverage without opening macro holes');
+        assert.ok(erosion*.68*.68>.38,'unheated named skin retains continuous dark material coverage');
+    }
+    e.core.dispose();released(e);
+});
+check('named mass and local thermal highlights retain their existing response during organic contrast correction',()=>{
+    const e=environment();
+    const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('vec3 emitted=')).source;
+    const body=volume.slice(volume.indexOf('void main()'));
+    assert.match(body,/mass=max\(mass\*mix\(\.24,\.95,morph\),film\*support\*\.55\)/);
+    assert.match(body,/opticalMass=mass\*mix\(1\.0,\.92,morph\)/);
+    assert.match(body,/face\*mix\(\.85,\.75,morph\)/,'named faces retain their bounded white reflection gain');
+    assert.match(body,/energyGain=mix\(1\.90,1\.70,morph\)/);
+    assert.match(body,/whiteHeat=pow\(smoothstep\(mix\(\.35,\.38,morph\),mix\(\.90,\.95,morph\),heat\),3\.0\)\*mix\(\.22,\.12,morph\)/);
+    assert.match(body,/emission=1\.0-exp\(-heat\*3\.0\*\(marchDepth\/40\.0\)\)/,'the actual local heat still gates emission');
+    const mix=(a,b,t)=>a+(b-a)*t,smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+    for(const heat of [0,.03,.12,.4,.9]) {
+        const named=Math.pow(smooth(.38,.95,heat),3)*.12;
+        const atOne=Math.pow(smooth(mix(.35,.38,1),mix(.90,.95,1),heat),3)*mix(.22,.12,1);
+        near(atOne,named,'named incandescence remains exactly unchanged');
+        assert.ok(named<=.12,'named highlights stay local and cannot bleach the body');
+    }
+    for(const mass of [0,.12,.4,1])for(const film of [0,.5,1]) {
+        near(Math.max(mass*mix(.24,.95,0),film*.55),Math.max(mass*.24,film*.55),'organic film extinction is unchanged');
+        assert.ok(Math.max(mass*.95,film*.55)>=mass*.95,'full named morph retains at least 95 percent of physical mass');
+    }
+    e.core.dispose();released(e);
+});
+check('interrupted hand to eye membrane clips blend raw SDF consistently with the existing guide snapshot',()=>{
+    const e=environment({realCatalog:true});
+    const from=e.core.catalogGuide('hand'),to=e.core.catalogGuide('eye');
+    e.core.guideFrom=from;e.core.guideTo=to;
+    const frozen=e.core.blendedGuide(.5);
+    const sample=(data,p)=>{
+        const x=(Math.max(-1,Math.min(1,p[0]))*.5+.5)*127,y=(Math.max(-1,Math.min(1,p[1]))*.5+.5)*127;
+        const left=Math.floor(x),bottom=Math.floor(y),fx=x-left,fy=y-bottom,out=[];
+        for(let c=0;c<4;c++) {
+            const at=(xx,yy)=>data[(Math.min(127,yy)*128+Math.min(127,xx))*4+c];
+            out[c]=(at(left,bottom)*(1-fx)+at(left+1,bottom)*fx)*(1-fy)
+                +(at(left,bottom+1)*(1-fx)+at(left+1,bottom+1)*fx)*fy;
+        }
+        return out;
+    };
+    const corrected=(raw,p)=>raw[2]>=0?Math.max(raw[2],Math.hypot(p[0]-raw[0],p[1]-raw[1])):raw[2];
+    for(const p of [[-.1171875,-.5078125],[-.35,.2],[.1,.1],[.4,.4],[0,0]]) {
+        const a=sample(from.data,p),b=sample(to.data,p),before=a.map((v,c)=>(v+b[c])*.5),after=sample(frozen.data,p);
+        for(let c=0;c<4;c++)near(after[c],before[c],'raw membrane support survives a hand/eye interruption',2e-7);
+    }
+    // A signed interior and an outside edge demonstrate why applying max
+    // before vs after the blend cannot be treated as interchangeable. Keep
+    // this fixture independent of later anatomical catalog improvements.
+    const a=[.4,0,-.4,.05],b=[-.3,0,.402,.05],p=[0,0],rawBlend=a.map((v,c)=>(v+b[c])*.5);
+    const oldJump=Math.abs((corrected(a,p)+corrected(b,p))*.5-corrected(rawBlend,p));
+    assert.ok(oldJump>.04,'the former nonlinear guard can visibly close a near-zero signed opening');
+    const shader=e.core.programs.membrane.program.shaders.find(s=>s.source.includes('gl_FrontFacing')).source;
+    const raw=shader.slice(shader.indexOf('vec4 rawMaterialGuide'),shader.indexOf('vec4 materialGuide('));
+    const correctedGuide=shader.slice(shader.indexOf('vec4 materialGuide('),shader.indexOf('vec4 pathSample'));
+    const clip=shader.slice(shader.indexOf('vec4 morphMaterialGuide'),shader.indexOf('float shapedDensity'));
+    assert.match(raw,/return target\?texture\(u_shapeGuideTo,uv\):texture\(u_shapeGuideFrom,uv\)/);
+    assert.doesNotMatch(raw,/guide\.z=max/,'raw signed fields remain linearly blendable');
+    assert.match(clip,/guide\+=rawMaterialGuide\(p,false\)\*a/);assert.match(clip,/guide\+=rawMaterialGuide\(p,true\)\*b/);
+    assert.doesNotMatch(clip,/\+=materialGuide\(/,'membrane clipping never reintroduces the nonlinear nearest guard');
+    assert.match(correctedGuide,/guide=rawMaterialGuide\(p,target\)/);
+    assert.match(correctedGuide,/if\(guide\.z>=0\.0\)guide\.z=max\(guide\.z,length\(p-guide\.xy\)\)/,
+        'volume, gas and trajectory consumers retain their existing false-bridge guard');
+    assert.equal(e.live.Texture.size,6,'inspecting catalog support never allocates a membrane-only texture');
+    e.core.dispose();released(e);
+});
+check('named relief uses the existing irregular material cache and only buried gas opens narrow luminous channels',()=>{
+    const e=environment();e.render(8);
+    const p=e.core.programs.membrane.program;
+    const vertex=p.shaders.find(s=>s.source.includes('gl_VertexID')).source;
+    const vertexBody=vertex.slice(vertex.indexOf('void main()'));
+    const fragment=p.shaders.find(s=>s.source.includes('gl_FrontFacing')).source;
+    const body=fragment.slice(fragment.indexOf('void main()'));
+    assert.match(vertexBody,/relief=mediumAt\(flowWind\(support,u_flow\)\)/,'the same density/lighting field creates geometric folds');
+    assert.match(vertexBody,/fold=relief\.r\/\(\.35\+relief\.r\)/);
+    assert.doesNotMatch(vertexBody,/crease=|wrinkles=|xy\.x\*47\.0-xy\.y\*33\.0/,'no regular diagonal embossing is laid over anatomy');
+    assert.match(body,/if\(morph>\.0001\)\{granular=hash3\(floor\(rest\*137\.0\)\)/,'micrograins remain on material coordinates and leave organic shading alone');
+    assert.match(body,/if\(morph>\.0001\)normal=normalize\(normal\+worldPoint\(granular\)\*\.16\*morph\)/);
+    assert.match(body,/if\(morph>\.0001&&u_debugView<1\.5\)/,'isolated matter debug cannot acquire gas highlights');
+    assert.match(body,/gas=bioAt\(rest-worldPoint\(vec3\(0,0,\.14\)\)\)/);
+    assert.match(body,/buried=gas\.r\*gas\.g/);
+    assert.match(body,/vein=smoothstep\(\.08,\.42,buried\)\*\(1\.0-smoothstep\(\.10,\.65,material\.r\)\)\*\(\.22\+seam\*\.78\)/);
+    assert.match(body,/u_energy\*\(light\*\(\.28\+heat\*\.25\)\+vein\*buried\/\(\.24\+buried\)\*1\.50\)/);
+    assert.match(body,/namedAlpha=[^;]*\(1\.0-vein\*\.58\)/,'real local gas additionally opens the packing-based front coat');
+    assert.doesNotMatch(body,/potential\(|bioGradient\(/,'no extra per-pixel multiscale field or gradient march');
+    const density=vertex.slice(vertex.indexOf('float shapedDensity'),vertex.indexOf('vec3 shapedSupport'));
+    assert.match(density,/coarse\.x\*4\.7\+coarse\.z\*3\.9/,'existing multiscale material warps each named fold');
+    assert.match(density,/ridges=smoothstep\(\.18,\.82,fine\)/);
+    assert.doesNotMatch(density,/potential\(|q\.x\*47\.0-q\.y\*33\.0/);
+    const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+    for(const matter of [0,.1,.3,.65,1])for(const tracer of [0,.3,.5,.7,1]) {
+        const seam=1-smooth(.06,.24,Math.abs(tracer-.5));
+        const vein=heat=>smooth(.08,.42,heat)*(1-smooth(.10,.65,matter))*(.22+seam*.78);
+        assert.equal(vein(0),0,'no available heat means no revealed vein or invented emission');
+        assert.ok(vein(.6)>=0&&vein(.6)<=1);assert.ok(1-vein(.6)*.58>=.42,'even hot channels keep finite material coverage');
+        if(matter>=.65)assert.equal(vein(.6),0,'dense folds remain dark over buried heat');
+    }
+    const draw=e.draws.find(d=>d.program===p);
+    assert.equal(draw.count,96*64*6);assert.equal(draw.samplers.u_field.texture,e.core.field.texture);
+    assert.equal(e.live.Texture.size,10);assert.equal(e.live.Framebuffer.size,10);
+    e.core.dispose();released(e);
+});
+check('organic foreground separates dark albedo from emission and keeps warm front material over real buried heat',()=>{
+    const e=environment();e.render(8);
+    const fragment=e.core.programs.strands.program.shaders.find(s=>s.source.includes('flat in float v_seed')).source;
+    const body=fragment.slice(fragment.indexOf('void main()'));
+    assert.match(body,/organicCover=smoothstep\(\.04,\.30,buried\)\*buried\/\(\.06\+buried\+emission\*\.75\)/);
+    assert.match(body,/frontCover=mix\(organicCover,namedCover\*\.35,morph\)/,'full named cover remains v196 while organic cover is heat-relative');
+    const albedo=body.slice(body.indexOf('vec3 organicColor'),body.indexOf('color=mix(organicColor'));
+    assert.match(albedo,/organicColor=u_shadow\*\(\.34\+v_depth\*\.24\)/);
+    assert.doesNotMatch(albedo,/1\.0-incident/,'saturated incident light cannot erase organic shadow albedo');
+    assert.match(albedo,/u_energy\*localHot\*\(\.46\+u_audio\*\.70\)/);
+    assert.match(body,/localHot=smoothstep\(\.12,\.62,emission\)\*\(\.20\+\.80\*clamp\(material\.a,0\.0,1\.0\)\)/);
+    assert.match(body,/coat=mix\(organicCoat,coat,morph\)/);
+    assert.doesNotMatch(body,/u_volume|texture\(u_image/,'organic material still uses no composited-opacity readback');
+    const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+    for(const front of [0,.1,.3,.6,1]) {
+        const buried=.4,cover=smooth(.04,.30,buried)*buried/(.06+buried+front*.75);
+        assert.ok(cover>0&&cover<=1,'a warm foreground never abruptly drops its real buried cover');
+        const empty=smooth(.04,.30,0)*0/(.06+front*.75);
+        assert.equal(empty,0,'no buried heat means no invented cover');
+    }
+    for(const depth of [.08,.5,.92])assert.ok(.34+depth*.24>.34,'organic shadow albedo survives even incident=1');
+    assert.equal(e.draws.filter(d=>d.instances).length,1);assert.equal(e.draws.at(-1).framebuffer,null);
+    assert.equal(e.core.stats().filaments,3840);assert.equal(e.live.Texture.size,10);assert.equal(e.live.Framebuffer.size,10);
+    e.core.dispose();released(e);
+});
+check('organic optical peaks and film reflections are contained without changing named endpoints or isolated energy debug',()=>{
+    const e=environment();e.render(8);
+    const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('vec3 emitted=')).source;
+    const body=volume.slice(volume.indexOf('void main()'));
+    assert.match(body,/organicGrain=\.08\+1\.35\*pow\(smoothstep\(\.24,\.80,grains\),2\.0\)/);
+    assert.match(body,/thermalGrain=mix\(organicGrain,\.30\+1\.10\*smoothstep\(\.18,\.76,grains\),morph\)/);
+    assert.match(body,/u_shadow\*\(\.27\+face\*\.10\)\*mix\(\.72\+unlit\*\.28,unlit,morph\)/);
+    assert.match(body,/energyGain=mix\(1\.90,1\.70,morph\)/);
+    assert.match(body,/whiteHeat=pow\(smoothstep\(mix\(\.35,\.38,morph\),mix\(\.90,\.95,morph\),heat\),3\.0\)\*mix\(\.22,\.12,morph\)/);
+    const energyDebug=body.slice(body.indexOf('if(u_debugView>0.5'),body.indexOf('vec4 material=mediumAt(p)'));
+    assert.match(energyDebug,/heat=gas\.r\*gas\.g/);assert.match(energyDebug,/light=u_energy\*\(1\.25\+heat\*\.75\+u_audio\*\.65\)/);
+    assert.doesNotMatch(energyDebug,/organicGrain|energyGain|whiteHeat/,'isolated energy diagnostics retain their existing optical calculation');
+    const membrane=e.core.programs.membrane.program.shaders.find(s=>s.source.includes('gl_FrontFacing')).source;
+    const membraneBody=membrane.slice(membrane.indexOf('void main()'));
+    assert.match(membraneBody,/fresnel\*\(\.03\+light\*\.28\)\+specular\*\.55/,'organic skin cannot become the old broad white specular cloud');
+    assert.match(membraneBody,/namedColor=u_shadow\*\(\.22\+packing\*\.35\+facing\*\.08\)/);
+    assert.match(membraneBody,/color=mix\(color,namedColor,morph\)/,'full named skin retains v196 shading');
+    const mix=(a,b,t)=>a+(b-a)*t,smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+    for(const grain of [0,.1,.3,.5,.7,.9,1]) {
+        const organic=.08+1.35*smooth(.24,.80,grain)**2,named=.30+1.10*smooth(.18,.76,grain);
+        near(mix(organic,named,1),named,'named fine optical response stays unchanged');
+        if(grain<=.5)assert.ok(organic<named,'cool/mid grain no longer forms a uniform warm fog');
+    }
+    for(const [organic,named] of [[1.9,1.70],[.35,.38],[.90,.95],[.22,.12],[.65,.55],[.85,.75],[.22,.15]])
+        near(mix(organic,named,1),named,'named optical endpoint remains unchanged');
+    e.core.setAudioLevel(.1,true);e.render(8);
+    assert.equal(e.core.programs.volume.program.u_audio[0],1-Math.exp(-.5),'only measured owner audio modulates the optics');
+    assert.equal(e.core.stats().volumeGrid,48);assert.equal(e.core.stats().volumeSamples,40);
+    assert.equal(e.live.Texture.size,10);assert.equal(e.live.Framebuffer.size,10);
+    e.core.dispose();released(e);
+});
+check('organic coverage follows real dense folds while low-matter cavities keep only rare bounded dust',()=>{
+    const e=environment();e.render(8);
+    const fragment=e.core.programs.strands.program.shaders.find(s=>s.source.includes('flat in float v_seed')).source;
+    const body=fragment.slice(fragment.indexOf('void main()'));
+    assert.match(body,/foldCoverage=smoothstep\(\.10,\.60,matter\)/);
+    assert.match(body,/organicGrain=mix\(granules\*granules,\.04\+\.96\*granules,1\.0-v_granule\)/);
+    assert.match(body,/dust=\.004\*step\(\.985,fract\(v_seed\*\.754877\)\)\*granules\*granules/);
+    assert.match(body,/\(matter\*matter\*5\.20\)\*foldCoverage\*foldCoverage/,'organic packing has no positive floor independent of matter');
+    assert.match(body,/alpha=mix\(organicAlpha\*\.90,alpha\*\.68,morph\)/,'named v196 alpha is preserved separately');
+    const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+    const coverage=(matter,dust=false)=>{
+        const fragments=.8*(.18+.82*smooth(.04,.70,matter)),granules=.85,fold=smooth(.10,.60,matter);
+        const organic=.32*fragments*granules**2*(matter**2*5.20)*fold**2*1.375+(dust?.004*granules**2:0);
+        const prior=.32*fragments*(.35+.65*granules)*(.30+matter**2*5.20)*1.375;
+        return {organic:Math.min(.90,organic)*.90,prior:Math.min(.90,prior)*.90};
+    };
+    for(const matter of [0,.01,.025,.05,.10]) {
+        assert.equal(coverage(matter).organic,0,'unpacked cavities do not inherit a 360k-strip alpha floor');
+        assert.ok(coverage(matter,true).organic<=.004*.90,'rare dust remains individually bounded');
+    }
+    for(const matter of [.65,.8,1])assert.ok(coverage(matter).organic>=coverage(matter).prior*.70,
+        'dense folded material retains most of its previous coverage rather than globally fading the core');
+    assert.ok(coverage(.65).organic>coverage(.05,true).organic*100,'real folds dominate low-density dust by over two orders of magnitude');
+    let rare=0;
+    for(let filament=0;filament<7680;filament++) {
+        const seed=Math.floor(filament/6)+(filament%6)*37.71,value=seed*.754877;
+        if(value-Math.floor(value)>=.985)rare++;
+    }
+    assert.ok(rare/7680>.01&&rare/7680<.02,'only about 1.5 percent of stable seeds can make loose dust');
+    assert.ok(rare/7680*.004<.0001,'average empty-space alpha cannot reconstruct the old floor');
+    assert.equal(e.draws.filter(d=>d.instances).length,1);assert.equal(e.core.stats().filaments,3840);
+    assert.equal(e.live.Texture.size,10);assert.equal(e.live.Framebuffer.size,10);e.core.dispose();released(e);
+});
+check('hot organic channels regain localized intensity without brightening weak gas or altering named optics',()=>{
+    const e=environment();e.render(8);
+    const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('vec3 emitted=')).source;
+    const body=volume.slice(volume.indexOf('void main()'));
+    assert.match(body,/energyGain=mix\(1\.90,1\.70,morph\)/,'the last trial does not lower all gains again');
+    assert.match(body,/hotChannel=smoothstep\(\.10,\.35,material\.g\)\s*\*\(1\.0-smoothstep\(\.035,\.16,abs\(gas\.b-\.50\)\)\)\*smoothstep\(\.34,\.78,grains\)/);
+    assert.match(body,/emitted\+=\(u_energy\*2\.70\+u_glow\*\.90\)\*hotChannel\*\(1\.0-morph\)/,
+        'only carried hot tracer channels gain colored radiance; named v196 is unchanged');
+    const debug=body.slice(body.indexOf('if(u_debugView>0.5'),body.indexOf('vec4 material=mediumAt(p)'));
+    assert.doesNotMatch(debug,/hotChannel|organicGrain|energyGain/,'isolated energy diagnostics are unchanged');
+    const membrane=e.core.programs.membrane.program.shaders.find(s=>s.source.includes('gl_FrontFacing')).source;
+    const membraneBody=membrane.slice(membrane.indexOf('void main()'));
+    assert.match(membraneBody,/alpha=film\*\(\.18\+packing\*\.30\+fresnel\*\.40\+specular\*\.08\)/,
+        'actual packed organic folds reveal the internal film, not a new uniform coat');
+    assert.match(membraneBody,/color=mix\(color,namedColor,morph\)/);assert.match(membraneBody,/alpha=mix\(alpha,namedAlpha,morph\)/);
+    const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+    const channel=(heat,tracer,grain)=>smooth(.10,.35,heat)*(1-smooth(.035,.16,Math.abs(tracer-.5)))*smooth(.34,.78,grain);
+    for(const heat of [0,.02,.05,.10])for(const tracer of [0,.3,.5,.7,1])for(const grain of [0,.5,1])
+        assert.equal(channel(heat,tracer,grain),0,'weak substrate never gains extra emission');
+    assert.equal(channel(.6,.5,.9),1,'a real hot channel can reach full local intensity');
+    assert.equal(channel(.6,0,.9),0,'hot gas away from its narrow tracer channel is not globally boosted');
+    assert.equal(channel(.6,.5,.2),0,'the local fine-grain mask preserves dark gaps');
+    const peak=channel(.6,.5,.9);assert.ok(1.90+2.70*peak>1.90*2,'strong channels can contrast clearly with the unchanged base');
+    assert.equal(2.70*peak*(1-1),0,'named forms receive no organic-channel increment');
+    assert.equal(e.core.stats().volumeGrid,48);assert.equal(e.core.stats().volumeSamples,40);
+    assert.equal(e.draws.find(d=>d.program===e.core.programs.membrane.program).count,96*64*6);
+    assert.equal(e.live.Texture.size,10);assert.equal(e.live.Framebuffer.size,10);e.core.dispose();released(e);
+});
+check('named skin preserves continuous dark mass instead of losing its silhouette to sparse islands',()=>{
+    const e=environment();e.render(8);
+    const fragment=e.core.programs.membrane.program.shaders.find(s=>s.source.includes('gl_FrontFacing')).source;
+    const body=fragment.slice(fragment.indexOf('void main()'));
+    assert.match(body,/packing=smoothstep\(\.035,\.70,material\.r\)/);
+    assert.match(body,/namedAlpha=film\*\(\.68\+packing\*\.14\+fresnel\*\.04\)\*presence\*u_density\*\(1\.0-vein\*\.58\)/);
+    assert.doesNotMatch(body,/namedAlpha=film\*\(\.06\+packing\*\.74/,'the rejected low-coverage regression cannot dissolve authored anatomy');
+    assert.match(body,/presence=mix\(1\.0,support,morph\)/,'the same raw SDF still clips pupils and anatomical gaps');
+    assert.match(body,/microErosion=\.84\+\.16\*microGrain/,'no periodic macro holes are reintroduced');
+    assert.match(body,/namedColor=u_shadow\*\(\.22\+packing\*\.35\+facing\*\.08\)/,'existing dark material and gas color remain unchanged');
+    const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+    const alpha=matter=>{
+        const packing=smooth(.035,.70,matter),film=.92*(.68+.32*packing);
+        return film*(.68+.14*packing);
+    };
+    for(const matter of [0,.01,.035,.10])assert.ok(alpha(matter)>.40,
+        'low packing retains a continuous recognizable dark body instead of isolated patches');
+    for(const matter of [.65,.70,1])assert.ok(alpha(matter)>.72,'dense folds retain their established dark coverage');
+    assert.ok(alpha(.70)>alpha(.035),'real dense folds still strengthen the continuous material');
+    for(const matter of [0,.035,.1,.3,.5,.7,1])assert.ok(alpha(matter)>0&&alpha(matter)<1,'coverage stays finite without artificial holes');
+    assert.equal(e.core.stats().volumeGrid,48);assert.equal(e.core.stats().volumeSamples,40);
+    assert.equal(e.draws.find(d=>d.program===e.core.programs.membrane.program).count,96*64*6);
+    assert.equal(e.live.Texture.size,10);assert.equal(e.live.Framebuffer.size,10);e.core.dispose();released(e);
 });
 console.log(checks+' GPU material filament checks passed.');

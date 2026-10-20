@@ -291,3 +291,82 @@ con fondo claro y regreso a orgánico; sin errores de consola observados y alfa
 cero en la esquina. Se cerró la pestaña extra del agente y se recargó el
 laboratorio original, conservando sus valores iniciales. No se cambió ninguna
 preferencia guardada. Prueba visual local: `output/filament-mantle-final.png`.
+
+## Revisión de referencias y detalle material — 20 de octubre
+
+Se volvieron a inspeccionar los archivos locales completos de `E727- Smoke
+Rings 2…` (27,48 s, 720×720) y `primary fear…` (60,21 s, 720×1280), con
+fotogramas separados y cuatro muestras consecutivas de movimiento local por
+vídeo. La referencia es un manto de agrupaciones granulares y fibras cortas,
+bordes rotos, pliegues de distintas escalas y aperturas locales; no una madeja
+de cables largos ni una traslación uniforme. El pedestal y el entorno del
+segundo vídeo no son parte de Gunter. Las imágenes de mano, ojo y fénix se
+revisaron también a su resolución original para distinguir anatomía, masas
+oscuras y venas de luz. Los archivos sólo se usaron para análisis; ninguno se
+carga como textura o vídeo dentro de la aplicación.
+
+El mismo strip de cuatro vértices y las mismas tres lecturas de historia
+producen ahora 76 % de granos compactos alineados con la trayectoria y 24 % de
+microfibras. No se incrementan filamentos, atlas ni pasos de rayo. Las formas
+mantienen el movimiento tangencial compartido; la atracción normal conserva
+su soporte sin apagar el flujo general. La membrana existente también adopta
+el soporte de la transformación, con relieve del campo material y recorte SDF
+crudo coherente con los snapshots al interrumpirla. No se añade una silueta
+de otro material encima del núcleo. La pupila y los huecos anatómicos siguen
+siendo espacios vacíos, no poros sinusoidales arbitrarios.
+
+La mano incorpora palma más ancha, pulgar curvo y dedos desiguales con
+pliegues de articulación. El ojo añade el pliegue del párpado superior y 36
+trayectorias radiales de iris; el fénix separa lóbulos de plumas, pico curvo y
+cola serpenteante. Los 80 elementos del catálogo conservan sus identificadores;
+estas tres formas recibieron revisión anatómica específica, no las otras 76.
+
+El shader separa albedo oscuro, reflexión y emisión. El color no se hace blanco
+en toda la piel cuando sube la luz: las aperturas luminosas dependen del gas
+real enterrado. Los controles existentes de cuatro colores, densidad, tamaño,
+brillo y velocidad siguen compartidos entre orgánico y transformaciones.
+No hay nuevas preferencias persistentes ni amplitud de audio ficticia.
+
+Las revisiones nativas intermedias encontraron dos fallos que los tests no
+detectaban: una piel blanca con agujeros grandes y, al corregirla, un stencil
+oscuro demasiado plano. Se retiraron los agujeros periódicos. Un ensayo que
+quitaba el suelo de alpha fragmentó el fénix en manchas y se descartó; las
+formas conservan una cobertura continua pendiente de mejor relieve. En el
+orgánico, la cobertura de grano sigue pliegues densos; en cavidades sólo queda
+polvo raro. Se contiene el reflejo amplio y se refuerzan únicamente los canales
+calientes, no toda la masa de gas tibia. Esto conserva los colores configurados
+sin usar más partículas para ocultar el problema.
+
+Validación automática: 68 contratos GPU, 21 de catálogo, 8 de comandos, 50 de
+controlador, 21 de presencia/transporte y 13 del laboratorio (181 comprobaciones).
+Los tests incluyen continuidad del SDF crudo en una interrupción mano→ojo,
+separación entre coverage de cavidad/pliegue y control de blancos localizados.
+
+QA nativa de esta revisión: mano, ojo y fénix con fondo claro; orgánico con
+fondo oscuro, cuatro colores temporales y densidad 200 %. La última mano usa
+la versión v200 verificada en los scripts cargados y conserva alfa cero en la
+esquina; no se observaron errores ni warnings de consola. Sólo se usaron
+controles efímeros del laboratorio, sin tocar la página Día ni preferencias
+del usuario. Evidencias locales: `output/reference-hand-v200.png`,
+`output/reference-organic-v200.png` y
+`output/reference-organic-v200-19s.webm`. Este último se decodificó hasta
+18,58 s (35 frames); se revisaron cuatro muestras con alfa VP9 compuesto sobre
+negro. Un decodificador que ignore el alfa altera la aparente luminosidad.
+El laboratorio reportó alrededor de 1 cuadro/s en estas pruebas; no se ha
+aislado la causa ni se certifica fluidez o rendimiento de esta revisión.
+
+Resultado visual pendiente, no aprobado como reproducción fiel: la mano
+conserva un borde facetado y volumen insuficiente; el iris y los párpados no
+tienen aún anatomía 3D; al fénix le faltan capas de plumas en profundidad. El
+orgánico sigue leyéndose demasiado como nube. La paleta/densidad distinta de
+algunas capturas impide usarlas como comparación estructural controlada.
+La siguiente implementación debe añadir descriptores volumétricos propios
+para estas tres formas (palma/falanges, globo/iris/párpados, cuerpo/plumas),
+canales internos ligados a esas regiones y marcos locales de fibras. Ruido y
+opacidad sobre una extrusión XY genérica no pueden recuperar esos rasgos.
+Las otras 76 formas no deben considerarse validadas por estos ejemplos.
+
+Punto de reversión antes de esta revisión: `86c77b17531e73fd15dc21ed1abb9afce7f8a749`.
+La fidelidad visual no se deduce de los tests WebGL simulados: requiere la
+comparación nativa. Las ilustraciones siguen teniendo bastante más detalle
+que la reconstrucción procedural; no se declara equivalencia exacta.

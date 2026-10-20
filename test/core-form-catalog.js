@@ -210,7 +210,7 @@ check('trajectory W reaches inward into matter and stops before holes or unrelat
     const eye=forms.trajectories('eye',128),pupil=forms.get('eye').strokes[2];
     assert.ok(Math.abs(pupil.points[0][0]-.105*.82/.84)<1e-6,'pupil is round, not a vertical slit');
     assert.ok(Math.max(...pupil.points.map(p=>Math.abs(p[1])))/Math.max(...pupil.points.map(p=>Math.abs(p[0])))<1.1);
-    [1,...Array.from({length:18},(_,i)=>i+3)].forEach(row=>{
+    [1,...Array.from({length:36},(_,i)=>i+4)].forEach(row=>{
         for(let col=0;col<128;col++)assert.equal(eye.data[(row*128+col)*4+3],0,'iris and its radial landmarks do not drift into the body');
     });
     const hand=forms.trajectories('hand',128);
@@ -221,6 +221,31 @@ check('trajectory W reaches inward into matter and stops before holes or unrelat
     // instead of travelling through its empty centre to the opposite eyelid.
     const top=Array.from({length:128},(_,col)=>col).reduce((best,col)=>eye.data[col*4+1]>eye.data[best*4+1]?col:best,0);
     assert.ok(Math.abs(eye.data[top*4+3])>.12 && Math.abs(eye.data[top*4+3])<.23,'first exit at pupil prevents bridging its cavity');
+});
+check('reference hand has five separated digits, a broad palm and authored joint creases',()=>{
+    const entry=forms.get('hand'),size=128,data=forms.guide('hand',size);
+    const spansAt=y=>{
+        const row=Math.min(size-1,Math.max(0,Math.floor((y+1)*.5*size)));let spans=0,inside=false;
+        for(let x=0;x<size;x++){const on=data[(row*size+x)*4+2]<0;if(on&&!inside)spans++;inside=on;}
+        return spans;
+    };
+    assert.equal(spansAt(.30),5,'thumb and four uneven fingers keep real negative-space gaps');
+    assert.ok(entry.strokes.length>=15,'palm, thumb mound and finger joints are separate local landmarks');
+    assert.ok(materialAt('hand',-.28,-.1)<0&&materialAt('hand',.28,-.1)<0,'palm has material on both sides');
+    assert.ok(materialAt('hand',.30,-.72)>=0,'wrist is narrowed rather than a long rectangular mitten');
+});
+check('reference eye keeps a black pupil, radial iris fibres and a volumetric upper fold',()=>{
+    const entry=forms.get('eye');assert.equal(entry.regions.length,2);
+    assert.ok(entry.strokes.length>=45,'iris has multisegment radial fibres and lid creases');
+    assert.ok(materialAt('eye',0,0)>=0,'pupil remains empty');
+    assert.ok(materialAt('eye',0,.45)<0,'upper fold is material, not a floating light outline');
+    assert.ok(entry.strokes[3].points.length>=10,'upper lid follows an authored folded arc');
+});
+check('reference phoenix has separate feather lobes, hooked beak and curved body landmarks',()=>{
+    const entry=forms.get('phoenix');assert.equal(entry.regions.length,3);
+    assert.ok(entry.strokes[0].points.length>=18&&entry.strokes[1].points.length>=18,'each wing has individual primary-feather lobes');
+    assert.ok(entry.strokes.length>=25,'feather axes, eye, crest and serpentine tail are explicit');
+    assert.ok(entry.strokes[2].points.some(([x,y])=>x>.3&&y>.1&&y<.3),'head contains a hooked forward beak');
 });
 check('loading twice preserves the same catalog; no DOM, network or new storage', () => {
     vm.runInNewContext(source, { window }); assert.equal(window.GunterCoreForms, forms);

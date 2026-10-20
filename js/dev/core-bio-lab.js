@@ -5,7 +5,7 @@
     const verify = document.getElementById('verification'), recordButton = document.getElementById('record');
     const download = document.getElementById('download'), recording = document.getElementById('recording');
     const controls = [...document.querySelectorAll('button, select, input')];
-    const shapes = new Set(['organic','hand','eye','sword','jellyfish','butterfly','pentagram','dragon']);
+    const shapes = new Set(['organic','hand','eye','sword','jellyfish','butterfly','pentagram','dragon','phoenix']);
     const config = { particleColor:'#c7e4f7', shadowColor:'#14273c', energyColor:'#5dcdff', glowColor:'#4f86ff',
         density:1, brightness:1, size:1, speed:1, shape:'organic', debugView:'energy' };
     const engine = new window.GunterIdleCore();

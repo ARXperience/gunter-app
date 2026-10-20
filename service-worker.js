@@ -11,7 +11,7 @@
    Versionado: bumpear SW_VERSION para invalidar todo el cache.
    ============================================= */
 
-const SW_VERSION = "v193-filament-mantle-20261019";
+const SW_VERSION = "v200-reference-material-20261020";
 const CACHE_PREFIX = 'gunter-';
 const CACHE_STATIC = `${CACHE_PREFIX}static-${SW_VERSION}`;
 const CACHE_PAGES  = `${CACHE_PREFIX}pages-${SW_VERSION}`;
@@ -45,8 +45,8 @@ const PRECACHE_URLS = [
     '/styles/gunter-idle-core.css?v142b-idle-core',
     '/styles/gunter-core-presence.css?v173-material-navigation',
     '/js/services/gunter-core-presence.js?v173-material-navigation',
-    '/js/components/gunter-core-forms.js?v184-shape-material',
-    '/js/components/gunter-idle-core.js?v193-filament-mantle',
+    '/js/components/gunter-core-forms.js?v200-reference-material',
+    '/js/components/gunter-idle-core.js?v200-reference-material',
     '/js/services/voice-service.js?v163-core-motion',
     '/js/services/voice-activity-service.js?v141-video-core',
     '/js/config-settings.js?v170-smoke-play',
