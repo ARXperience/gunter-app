@@ -33,7 +33,7 @@
                     <section class="gwa__thread">
                         <header class="gwa__thread-head" id="gwa-thread-head">
                             <div class="gwa__thread-title">Selecciona una conversación</div>
-                            <div class="gwa__thread-sub">Los mensajes aparecen cuando alguien escriba "Hi Gunter".</div>
+                            <div class="gwa__thread-sub">Conversa por texto sin palabra de activación. Vincula tu número para consultar tu cuenta.</div>
                         </header>
                         <div class="gwa__thread-body" id="gwa-thread">
                             <p class="gday__empty" style="margin-top:40px;">Abre una conversación de la izquierda.</p>
@@ -46,8 +46,8 @@
                 </div>
 
                 <div class="gwa__hint">
-                    🔒 Solo Gunter responde cuando alguien escribe <strong>"Hi Gunter"</strong> (o variantes) al iniciar una conversación.
-                    La sesión permanece activa 8 minutos por contacto.
+                    🔒 Cualquiera puede conversar con Gunter. Los datos personales solo se consultan desde un número vinculado a su cuenta aprobada.
+                    Este canal es de consulta: los cambios se confirman desde la aplicación. El registro depende de tus ajustes de memoria.
                 </div>
 
                 <!-- Personality sync status -->

@@ -303,22 +303,26 @@
             vec4 gas=bioAt(p);
             vec3 q=p-idleCenter(t)*.25;
             vec3 warp=potential(q*1.85+vec3(t*.045,2.1-t*.035,-1.3+t*.025),unused);
-            q+=warp*.18;
+            q+=warp*.13;
             // Carried biomass, including its advected tracer, corrugates the
             // intermediate granular coat. It is not a second spherical fog.
             q+=vec3(sin(gas.b*6.1+q.y*4.0),cos(gas.b*5.7+q.z*4.0),sin(gas.b*4.3+q.x*4.0))*gas.r*.026;
             vec3 coarse=potential(q*3.1+vec3(1.7+t*.04,-2.3-t*.03,t*.035),unused);
             float radius=length(q*vec3(.96,1.03,1.10))+coarse.x*.12;
-            float envelope=1.0-smoothstep(.60,.81,radius);
+            float envelope=1.0-smoothstep(.54,.72,radius);
             // Anchor the envelope; only nearby folds bend with internal energy.
             vec3 offset=p-energyCenter(t);
             q-=worldPoint(vec3(u_pointer.xy*.24,0))*exp(-dot(offset,offset)/.18)*.22;
             q+=coarse*u_audio*.035*exp(-dot(offset,offset)/.18);
-            float folds=.5+.5*sin(q.y*11.8+q.z*5.3+coarse.x*4.5+coarse.z*2.8+t*.14);
-            // Finite folded coats with sparse matter between them, rather than
-            // a uniformly filled sphere. The warped envelope leaves cavities.
-            float packing=(.40+.60*smoothstep(-.25,.60,coarse.y))
-                *(.025+1.75*pow(smoothstep(.40,.84,folds),2.0));
+            float foldPhase=q.y*12.4+q.z*6.7+coarse.x*4.5+coarse.z*2.8+t*.14;
+            float folds=abs(sin(foldPhase));
+            // Narrow level bands are stretched translucent membranes, not
+            // broad, fog-filled lobes. The existing coarse field wrinkles the
+            // finite enclosing skin; its cavities still expose buried heat.
+            float membrane=1.0-smoothstep(.07,.39,folds);
+            float skin=1.0-smoothstep(.015,.075,abs(radius-(.55+coarse.z*.045)));
+            float packing=(.48+.52*smoothstep(-.25,.60,coarse.y))
+                *(.025+membrane*membrane*2.15+skin*.62);
             vec2 hole=q.xy-vec2(-.20,.13);
             hole.x+=.06*sin(q.z*6.0+t*.11);
             float cavity=1.0-.66*exp(-dot(hole/vec2(.13,.19),hole/vec2(.13,.19)));
@@ -536,8 +540,14 @@
                 density-matterDensity(p+vec3(0,0,.055),u_time));
             vec3 normal=gradient/max(.0001,length(gradient));
             float surface=smoothstep(.025,.22,length(gradient));
-            float facing=mix(.15,.20+.65*abs(dot(normal,direction))
-                +.15*max(0.0,dot(normal,worldPoint(vec3(0,0,1)))),surface);
+            vec3 viewDirection=worldPoint(vec3(0,0,1));
+            float grazing=pow(1.0-abs(dot(normal,viewDirection)),3.0);
+            float reflection=pow(max(0.0,dot(reflect(-direction,normal),viewDirection)),20.0);
+            // Reuse the actual cached material normal and gas gradient. Fine
+            // folds catch the interior emitter, with no extra normal marches,
+            // point light, screen-space gloss layer or painted outline.
+            float facing=mix(.12,.12+.40*abs(dot(normal,direction))
+                +grazing*.26+reflection*.72,surface);
             float obstruction=density*.5+matterDensity(p+direction*.055,u_time)
                 +matterDensity(p+direction*.115,u_time);
             // Single scattering gathered from the real advected luminous gas.
@@ -560,7 +570,7 @@
             vec3 coarse=potential(q*3.7+vec3(-2.6+t*.10,1.4-t*.07,t*.08),unused);
             vec3 folds=potential(q*7.6+vec3(4.2-t*.16,-1.3+t*.11,2.1+t*.13),unused);
             float radius=length(q*vec3(.93,1.04,1.08))+coarse.x*.16;
-            float body=1.0-smoothstep(.49,.73,radius);
+            float body=1.0-smoothstep(.43,.66,radius);
             // Connected lobes are carved by coherent low/mid-frequency fields,
             // not a collection of round emitters. Their saddle points open and
             // close into channels, leaving real dark cavities through the gas.
@@ -572,7 +582,12 @@
             // Cavities still thin the substrate rather than filling a sphere.
             float substrate=(.19+.13*smoothstep(-.35,.25,coarse.z))
                 *(1.0-.58*(1.0-cavities)*(1.0-lobes));
-            float density=body*(substrate+lobes*cavities*(.58+coarse.x*.22));
+            // A coherent folded saddle joins the hot chambers. Keeping the
+            // renewal in these irregular seams avoids a constellation of
+            // isolated glowing balls inside the compact membrane body.
+            float conduit=1.0-smoothstep(.08,.34,abs(coarse.y+folds.x*.50));
+            float density=body*(substrate*.75+conduit*(.46+cavities*.48)
+                +lobes*cavities*(.20+coarse.x*.12));
             float front=smoothstep(-.28,.32,coarse.x+folds.z*.52);
             float thermal=(.28+.72*front)*(.78+folds.y*.22);
             // During a requested transformation the SAME renewal source is
@@ -678,6 +693,62 @@
             result=vec4(p,1);
         }
     `;
+    // A folded, perforated material skin complements the low-resolution
+    // energy volume. Vertices are procedural: no image, geometry buffers,
+    // cloned core or additional simulation texture. Its deformation reads
+    // exactly the velocity/heat used by the free material filaments.
+    const MEMBRANE_VERTEX=HEADER+FIELD+TRANSPORT+`
+        uniform vec2 u_resolution;
+        uniform float u_size;
+        out vec3 v_world;
+        out vec2 v_surface;
+        void main() {
+            int cell=gl_VertexID/6,corner=gl_VertexID%6;
+            vec2 offset=corner==0?vec2(0,0):corner==1?vec2(1,0):corner==2?vec2(0,1):corner==3?vec2(0,1):corner==4?vec2(1,0):vec2(1,1);
+            vec2 uv=(vec2(cell%96,cell/96)+offset)/vec2(96,64);
+            float phi=uv.x*6.2831853,theta=uv.y*3.14159265;
+            float folds=sin(theta*4.0+sin(phi*3.0)*1.2+u_time*.13);
+            float radius=.53+folds*.095+sin(phi*5.0-theta*3.0+u_time*.09)*.038;
+            vec3 q=vec3(cos(phi)*sin(theta),sin(phi)*sin(theta),cos(theta))*(radius);
+            q.z*=.91;
+            vec3 p=worldPoint(q);
+            p+=cachedVelocity(p)*(.10+bioEnergy(p)*.08);
+            p=flowWind(p,u_flow);q=viewPoint(p);
+            vec2 aspect=min(u_resolution.x,u_resolution.y)/u_resolution;
+            gl_Position=vec4(transported(q.xy*u_size*.80,aspect,q.z),0,1);
+            v_world=p;v_surface=vec2(theta,phi);
+        }
+    `;
+    const MEMBRANE_FRAGMENT=HEADER+FIELD+MEDIUM+`
+        uniform vec3 u_particle,u_energy,u_glow,u_shadow;
+        uniform float u_brightness,u_density,u_debugView;
+        in vec3 v_world;
+        in vec2 v_surface;
+        out vec4 result;
+        void main() {
+            float presence=1.0-morphWeight();
+            if(presence<.001)discard;
+            float pores=sin(v_surface.x*6.0+sin(v_surface.y*3.0)*.5)*sin(v_surface.y*5.0-u_time*.10);
+            float film=1.0-smoothstep(.40,.66,pores);
+            if(film<.02)discard;
+            vec3 normal=normalize(cross(dFdx(v_world),dFdy(v_world)));
+            vec3 view=worldPoint(vec3(0,0,1));
+            float facing=abs(dot(normal,view)),fresnel=pow(1.0-facing,3.0);
+            vec4 material=mediumAt(v_world);
+            vec3 rest=flowUnwind(v_world,u_flow);
+            float heat=u_debugView>1.5?0.0:material.g;
+            float light=material.b;
+            vec3 gradient=bioGradient(rest);
+            vec3 direction=gradient/max(.0001,length(gradient));
+            float specular=pow(max(0.0,dot(reflect(-direction,normal),view)),24.0)*min(1.0,light*3.0);
+            vec3 color=u_shadow*(.18+facing*.16)
+                +u_particle*(.08+light*.35+fresnel*(.35+light*1.4)+specular*4.5)
+                +u_energy*light*(.32+heat*.75)+u_glow*heat*.65;
+            float alpha=film*(.14+fresnel*.70+specular*.25)*presence*u_density;
+            alpha*=gl_FrontFacing?1.0:.50;
+            result=vec4(color*u_brightness,clamp(alpha,0.0,.80));
+        }
+    `;
     const STRAND_VERTEX=HEADER+FIELD+TRANSPORT+`
         uniform sampler2D u_history;
         uniform vec2 u_resolution;
@@ -757,8 +828,8 @@
             transmission=mix(transmission,1.0,frontTransmission*.85);
             float matter=material.r;
             vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,emission+material.b*.45));
-            vec3 color=u_shadow*(.20+v_depth*.28)*(1.0-incident)
-                +u_particle*tint*material.b*(.55+material.a*2.0)*(1.0-emission*.65)
+            vec3 color=u_shadow*(.16+v_depth*.25)*(1.0-incident)
+                +u_particle*tint*material.b*(.34+material.a*2.2)*(1.0-emission*.65)
                 +u_energy*incident*(1.1+u_audio*.70)
                 +u_glow*emission*emission*(.35+u_pointer.z*.32+u_audio*1.45);
             // Front microfibres cover the buried emitter. Keep their shaded
@@ -774,7 +845,9 @@
             float packing=.45+matter*matter*5.50;
             float alpha=min(.90,edge*fade*(.20+v_depth*.10)*fragments*grain*packing
                 *(1.0+frontCover*.75))*transmission;
-            alpha*=1.0-morphWeight()*.32;
+            // Organic microfibres frame the films; they do not blanket the
+            // entire volume in translucent smoke. Named contours stay intact.
+            alpha*=mix(.42,.68,morphWeight());
             result=vec4(color*u_brightness,alpha);
         }
     `;
@@ -838,8 +911,17 @@
                 vec3 detail=rest-idleCenter(u_time)*.25;
                 vec3 unused;
                 float grains=potential(detail*vec3(48.0,57.0,53.0)+gas.b*vec3(2.2,-1.8,1.6),unused).x*.5+.5;
-                float grain=.08+1.85*smoothstep(.35,.65,grains);
+                // Grain stays on the material, never on a screen overlay.
+                float grain=.42+1.20*smoothstep(.28,.74,grains);
                 float mass=max(0.0,material.r-.12);
+                // Resolve thin folded films at ray resolution. The coarse
+                // density atlas supplies support; it cannot by itself resolve
+                // a membrane thinner than a 48^3 cell without becoming fog.
+                float filmPhase=detail.y*12.4+detail.z*6.7
+                    +sin(detail.x*5.1+detail.z*3.4+u_time*.14)*1.25+gas.b*.55;
+                float film=1.0-smoothstep(.035,.19,abs(sin(filmPhase)));
+                float support=smoothstep(.015,.22,material.r);
+                mass=mix(max(mass*.24,film*support*.55),mass,morphWeight());
                 // A named form has a thinner porous optical coat, not less
                 // simulated matter. Leave the organic material response alone.
                 float opticalMass=mass*mix(1.0,.72,morphWeight());
@@ -851,13 +933,16 @@
                 float heat=u_debugView>1.5?0.0:material.g*thermalGrain,incident=material.b;
                 float face=material.a*material.a;
                 vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,heat+incident*.45));
-                vec3 scattered=u_shadow*(.34+face*.12)*(1.0-clamp(incident,0.0,1.0))
-                    +u_particle*tint*incident*(.10+face*3.8)*(1.0-heat*.65)
-                    +u_energy*incident*.10;
+                vec3 scattered=u_shadow*(.27+face*.10)*(1.0-clamp(incident,0.0,1.0))
+                    +u_particle*tint*incident*(.055+face*3.4)*(1.0-heat*.65)
+                    +u_energy*incident*.08+u_glow*heat*face*.36
+                    +u_particle*incident*face*film*.70*(1.0-morphWeight());
                 // Voice changes the buried emitter, not a global screen flash.
                 // A syllable lifts local radiance while pauses restore idle.
-                vec3 emitted=u_energy*(2.4+u_pointer.z*heat*.28+u_audio*1.70)
-                    +u_glow*heat*(.25+u_pointer.z*.28+u_audio*1.45);
+                float bodyWeight=1.0-morphWeight();
+                vec3 emitted=u_energy*(2.1+bodyWeight*2.1+u_pointer.z*heat*.28+u_audio*1.70)
+                    +u_glow*heat*(.65+u_pointer.z*.28+u_audio*1.45)
+                    +u_particle*pow(smoothstep(mix(.18,.08,bodyWeight),mix(.70,.34,bodyWeight),heat),3.0)*mix(.95,1.8,bodyWeight);
                 float emission=1.0-exp(-heat*3.0*(marchDepth/40.0));
                 // Emission is accumulated at its buried 3D sample. Only the
                 // actual matter extinguishes it; the gas has no front surface.
@@ -995,7 +1080,7 @@
                     throw new Error('El núcleo requiere WebGL2 y texturas flotantes renderizables (EXT_color_buffer_float).');
                 this.programs={
                     simulation:this.program(QUAD,SIM),bio:this.program(QUAD,BIO_SIM),velocity:this.program(QUAD,VELOCITY_CACHE),field:this.program(QUAD,FIELD_CACHE),strands:this.program(STRAND_VERTEX,STRAND_FRAGMENT),
-                    volume:this.program(QUAD,VOLUME),copy:this.program(QUAD,COPY),
+                    volume:this.program(QUAD,VOLUME),membrane:this.program(MEMBRANE_VERTEX,MEMBRANE_FRAGMENT),copy:this.program(QUAD,COPY),
                     extract:this.program(QUAD,EXTRACT),blur:this.program(QUAD,BLUR),composite:this.program(QUAD,COMPOSITE)
                 };
                 this.histories=[];this.histories.push(this.target(HISTORY,SIM_HEADS,true));
@@ -1312,6 +1397,20 @@
             this.quad(this.targets.energy);
             const copy=this.programs.copy;this.use(copy);this.texture(copy,'u_image',this.targets.energy.texture);
             this.quad(this.targets.scene);
+            if(config.debugView==='composite'||config.debugView==='matter') {
+                const membrane=this.programs.membrane;this.use(membrane);
+                this.materialUniforms(membrane,t);this.interactionUniforms(membrane);
+                this.transportUniforms(membrane,config.transport);
+                this.texture(membrane,'u_field',this.field.texture);
+                gl.uniform2f(this.uniform(membrane,'u_resolution'),this.width,this.height);
+                this.scalar(membrane,'u_time',t);this.scalar(membrane,'u_size',size);
+                this.scalar(membrane,'u_brightness',config.brightness);this.scalar(membrane,'u_density',density);
+                this.scalar(membrane,'u_debugView',config.debugView==='matter'?2:0);
+                this.vector(membrane,'u_particle',rgb(config.particleColor));this.vector(membrane,'u_energy',rgb(config.energyColor));
+                this.vector(membrane,'u_glow',rgb(config.glowColor));this.vector(membrane,'u_shadow',rgb(config.shadowColor));
+                gl.enable(gl.BLEND);gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+                gl.drawArrays(gl.TRIANGLES,0,96*64*6);gl.disable(gl.BLEND);
+            }
             const strands=this.programs.strands;this.use(strands);
             this.interactionUniforms(strands);
             this.materialUniforms(strands,t);

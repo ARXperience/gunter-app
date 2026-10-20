@@ -174,9 +174,13 @@
     // ---------- IndexedDB persistence ----------
     async function saveOriginal(extracted, fileBlob) {
         if (!fileBlob) throw new Error('saveOriginal requiere blob');
+        const auth = window.GunterAuth, user = auth?.getUser?.();
+        const ownerId = user?.status === 'approved' && auth?.canAccessLocalData?.() === true
+            && window.localStorage?.getItem('gunter_device_user') === user.id ? user.id : undefined;
         const id = `doc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
         const record = {
             id,
+            ownerId,
             createdAt: new Date().toISOString(),
             extracted,
             blob: fileBlob,
@@ -236,6 +240,10 @@
         }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
           .map(r => ({
               id: r.id,
+              ownerId: r.ownerId,
+              privacy: r.privacy,
+              sensitivity: r.sensitivity,
+              meta: r.meta?.privacy ? { privacy:r.meta.privacy } : undefined,
               createdAt: r.createdAt,
               empresa: r.extracted?.empresa?.nombre,
               tipo: r.extracted?.tipo,

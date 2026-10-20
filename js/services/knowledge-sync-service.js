@@ -123,6 +123,7 @@
         for (const e of evts) {
             window.addEventListener(e, () => scheduleSync({ reason: e }));
         }
+        document.addEventListener('gunter-auth-ready', () => scheduleSync({ reason:'account-ready' }));
         window.addEventListener('gunterPremiumFeaturesChange', (e) => {
             if (e.detail?.key === 'whatsappAssistant' && e.detail?.value === true) {
                 scheduleSync({ reason: 'whatsapp-on' });

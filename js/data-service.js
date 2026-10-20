@@ -25,6 +25,9 @@ class GunterDataService {
     // Save data to localStorage
     save() {
         localStorage.setItem(this.storageKey, JSON.stringify(this.data));
+        if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+            window.dispatchEvent(new CustomEvent('gunter-data-changed', { detail:{ source:'data-service' } }));
+        }
     }
 
     // Default data structure
@@ -60,8 +63,12 @@ class GunterDataService {
             Object.assign(existing, projectData, { updatedAt: new Date().toISOString() });
         } else {
             // Create new project
+            const auth = window.GunterAuth, user = auth?.getUser?.();
+            const ownerId = user?.status === 'approved' && auth?.canAccessLocalData?.() === true
+                && localStorage.getItem('gunter_device_user') === user.id ? user.id : undefined;
             const newProject = {
                 id: projectData.id || 'proj_' + Date.now(),
+                ownerId,
                 name: projectData.name || 'Nuevo Proyecto',
                 environment: projectData.environment || 'empresarial',
                 market: projectData.market || '',

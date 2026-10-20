@@ -15,17 +15,8 @@ const QR = require('qrcode');
 const store = require('./message-log');
 const handler = require('./handler');
 const userContext = require('../user-context');
-const authStore = require('../auth/store');
 
 const SESSION_DIR = path.resolve(process.env.GUNTER_WHATSAPP_SESSION_DIR || path.join(__dirname, '..', '..', 'whatsapp-session'));
-
-// Multi-usuario: el número puente es UNO (este socket), pero cada mensaje
-// entrante se procesa en el contexto del usuario dueño de ese teléfono.
-// Teléfono no registrado → contexto del dueño del sistema (comportamiento previo).
-function resolveUserByPhone(phone) {
-    try { return authStore.findByPhone(phone)?.id || null; }
-    catch { return null; }
-}
 
 let sock = null;
 let state = 'disconnected'; // 'disconnected' | 'qr_ready' | 'connecting' | 'connected' | 'error'
@@ -36,6 +27,7 @@ let reconnectAttempt = 0;
 let manuallyDisconnected = false;
 let lastError = null;
 let authStateSaver = null;
+let policyUserId = null;
 
 // Lazy-load Baileys (ESM-interop)
 let baileys = null;
@@ -47,6 +39,8 @@ async function loadBaileys() {
 
 async function ensureConnection() {
     if (sock || state === 'connecting') return;
+    // Governs provider/privacy only, never incoming private-data identity.
+    policyUserId = userContext.currentUserId();
     manuallyDisconnected = false;
     await start();
 }
@@ -126,58 +120,19 @@ async function start() {
                 if (!m.message) continue;
 
                 const from = m.key.remoteJid;
-                const phone = from.split('@')[0];
-                const ts = new Date((m.messageTimestamp || 0) * 1000 || Date.now()).toISOString();
-
-                // Multi-usuario: el pipeline completo (memoria, log, knowledge,
-                // premium-intel, sync-queue) corre como el usuario de ese teléfono
-                const uid = resolveUserByPhone(phone);
-                await userContext.runAs(uid, async () => {
                 try {
-                    let reply = '';
-                    let ignored = false;
-
-                    // Audio (PTT / audio)
-                    if (m.message.audioMessage) {
-                        const buffer = await downloadMedia(m, 'audio');
-                        const mime = m.message.audioMessage.mimetype || 'audio/ogg';
-                        store.appendMessage({ direction: 'in', from: phone, text: '🎙 [audio]', id: m.key.id, timestamp: ts });
-                        const res = await handler.handleAudioMessage(buffer, mime, { from: phone });
-                        reply = res.reply; ignored = !!res.ignored;
-
-                    // Imagen
-                    } else if (m.message.imageMessage) {
-                        const buffer = await downloadMedia(m, 'image');
-                        const mime = m.message.imageMessage.mimetype || 'image/jpeg';
-                        const caption = m.message.imageMessage.caption || '';
-                        store.appendMessage({
-                            direction: 'in', from: phone,
-                            text: caption ? `📷 [imagen] ${caption}` : '📷 [imagen]',
-                            id: m.key.id, timestamp: ts
-                        });
-                        const res = await handler.handleImageMessage(buffer, mime, caption, { from: phone });
-                        reply = res.reply; ignored = !!res.ignored;
-
-                    // Texto
-                    } else {
-                        const text = extractText(m);
-                        if (!text) return;   // dentro de runAs: return = saltar este mensaje
-                        store.appendMessage({ direction: 'in', from: phone, text, id: m.key.id, timestamp: ts });
-                        const res = await handler.handle(text, { from: phone });
-                        reply = res.reply; ignored = !!res.ignored;
-                    }
-
-                    if (reply && !ignored) {
-                        await sock.sendMessage(from, { text: reply });
-                        store.appendMessage({
-                            direction: 'out', to: phone, from: myPhone, text: reply,
+                    const result = await handler.processIncoming(m, { policyUserId, downloadMedia,
+                        resolvePhoneJid: jid => sock?.signalRepository?.lidMapping?.getPNForLID(jid) });
+                    if (result.reply && !result.ignored) {
+                        await sock.sendMessage(from, { text: result.reply });
+                        if (result.logUserId) await userContext.runAs(result.logUserId, () => store.appendMessage({
+                            direction: 'out', to: result.phone, from: myPhone, text: result.reply,
                             timestamp: new Date().toISOString()
-                        });
+                        }));
                     }
                 } catch (e) {
                     console.error('[wa] handler error:', e);
                 }
-                });   // fin runAs(uid)
             }
         });
     } catch (err) {
@@ -197,19 +152,6 @@ async function downloadMedia(m, type) {
         reuploadRequest: sock?.updateMediaMessage
     });
     return buffer;
-}
-
-function extractText(m) {
-    const msg = m.message || {};
-    return (
-        msg.conversation ||
-        msg.extendedTextMessage?.text ||
-        msg.imageMessage?.caption ||
-        msg.videoMessage?.caption ||
-        msg.buttonsResponseMessage?.selectedDisplayText ||
-        msg.listResponseMessage?.title ||
-        ''
-    );
 }
 
 async function sendMessage(toPhone, text) {

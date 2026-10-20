@@ -214,3 +214,33 @@ Las referencias siguen siendo ilustraciones de mucho mayor detalle
 que esta reconstrucción procedural acotada; no se declara equivalencia exacta
 ni validación individual de las 79 formas. Punto de reversión previo:
 `2a518ee2e43c01fba7f5fda88de24d55a5bcb8d2`.
+
+## Biomembranas compactas — revisión posterior
+
+El material orgánico usa bandas estrechas, cavidades y una piel irregular en
+lugar de lóbulos de niebla rellenos. El volumen resuelve películas finas a
+resolución del rayo, conservando los 48³/40 pasos y los dos estados de gas.
+Se añade una superficie procedural plegada y perforada, de 96 × 64 celdas
+(36 864 vértices), generada con `gl_VertexID`: no usa imágenes, vídeos,
+texturas de referencia ni buffers de geometría adicionales. Es una superficie
+material, no una segunda simulación energética: lee el mismo campo de velocidad
+y calor que las partículas. Sus normales de superficie aportan reflejos y
+translucidez; el gas sigue determinando la iluminación interior.
+
+La superficie reutiliza los cuatro colores, brillo, tamaño, densidad, transporte
+y fase existentes. Se desvanece con el morph hacia una forma nombrada. Materia
+sola permite aislarla; energía y filamentos solos no la dibujan. La pasada
+adicional no aumenta los atlas/FBO, pero sí añade un programa y un draw: no se
+afirma coste cero ni una nueva tasa de FPS. No es una simulación elastodinámica
+de tejido ni una reconstrucción exacta de la fotografía de referencia.
+
+Las pruebas GPU cubren recursos, restauración, colores, transporte, formas y
+vistas aisladas; el laboratorio permite comparación visual en Chrome. Punto de
+reversión previo a esta revisión y al cambio de WhatsApp: `72e5d46`.
+
+Validación nativa de esta fase: composición orgánica con paleta cálida temporal,
+después mano para comprobar que la piel exterior se desvanece. Sin errores de
+consola observados, alfa cero en la esquina, sin cambiar preferencias guardadas.
+La captura `output/bio-membranes-final.png` documenta el resultado, todavía con
+menos microdetalle que la referencia; no es una certificación de equivalencia
+visual ni de rendimiento. Pasan 49 contratos GPU y 21 de presencia/transporte.

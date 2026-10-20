@@ -56,6 +56,10 @@
     }
 
     async function create(data) {
+        const auth = window.GunterAuth, user = auth?.getUser?.();
+        const account = user?.status === 'approved' && auth?.canAccessLocalData?.() === true
+            && window.localStorage?.getItem('gunter_device_user') === user.id ? user.id : null;
+        if (account && data.ownerId && data.ownerId !== account && data.ownerId !== 'local-user') throw new Error('TASK_OWNER_MISMATCH');
         const task = {
             id: newId(),
             title: data.title,
@@ -65,7 +69,7 @@
             dueAt: data.dueAt || null,
             projectId: data.projectId || null,
             projectName: data.projectName || null,
-            ownerId: data.ownerId || 'local-user',
+            ownerId: account || data.ownerId || 'local-user',
             people: data.people || [],
             tags: data.tags || [],
             source: data.source || 'manual',

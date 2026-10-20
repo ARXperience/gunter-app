@@ -27,7 +27,7 @@
    ============================================= */
 
 (function () {
-    const SNAPSHOT_VERSION = 1;
+    const SNAPSHOT_VERSION = 2;
     const MAX_TRANSCRIPT_CHARS = 4000;
     const MAX_ANALYSIS_JSON_CHARS = 2000;
 
@@ -84,21 +84,37 @@
     }
 
     async function build() {
+        const auth = window.GunterAuth, user = auth?.getUser?.();
+        const ownerId = user?.id;
+        function assertOwner() {
+            if (!ownerId || user.status !== 'approved' || auth?.isVerified?.() !== true
+                || auth?.canAccessLocalData?.() !== true || auth.getUser?.()?.id !== ownerId
+                || localStorage.getItem('gunter_device_user') !== ownerId) throw new Error('KNOWLEDGE_ACCOUNT_REQUIRED');
+        }
+        assertOwner();
+        const inherited = row => row && !row.deletedAt && (!row.ownerId || row.ownerId === ownerId)
+            && ![row.privacy, row.sensitivity, row.meta?.privacy].some(value =>
+                ['LOCAL', 'SENSITIVE_LOCAL_ONLY', 'NEVER_CLOUD'].includes(String(value || '').toUpperCase()));
+        const eligible = row => inherited(row) && row.ownerId === ownerId;
         const gd = window.gunterData;
         const cachedAnalyses = safeParse(localStorage.getItem('gunter_generated_analyses')) || {};
-        // Fase A.A2: usar helper si está disponible para obtener transcript COMPLETO desde IDB
-        let fullTranscript = '';
-        if (window.GunterTranscriptStore?.load) {
-            try { fullTranscript = (await window.GunterTranscriptStore.load() || '').trim(); }
-            catch { fullTranscript = (localStorage.getItem('gunter_full_transcript') || '').trim(); }
-        } else {
-            fullTranscript = (localStorage.getItem('gunter_full_transcript') || '').trim();
+        const coverage = {};
+        async function collect(kind, service, options) {
+            if (typeof service?.list !== 'function') { coverage[kind] = { available:false, limited:true }; return []; }
+            try {
+                const rows = await service.list(options); assertOwner();
+                if (!Array.isArray(rows)) throw new Error('INVALID_COLLECTION');
+                const own = rows.filter(eligible);
+                coverage[kind] = { available:true, count:own.length, excluded:rows.length-own.length, limited:true };
+                return own;
+            } catch (error) {
+                assertOwner(); coverage[kind] = { available:false, limited:true }; return [];
+            }
         }
-
-        const tasksAll      = window.GunterTasksService?.list ? await window.GunterTasksService.list().catch(() => []) : [];
-        const eventsAll     = window.GunterEventsService?.list ? await window.GunterEventsService.list().catch(() => []) : [];
-        const documentsAll  = window.GunterDocumentService?.list ? await window.GunterDocumentService.list().catch(() => []) : [];
-        const remindersAll  = window.GunterNotificationsService?.list ? await window.GunterNotificationsService.list({ status: 'scheduled' }).catch(() => []) : [];
+        const tasksAll = await collect('tasks', window.GunterTasksService);
+        const eventsAll = await collect('events', window.GunterEventsService, { ownerId, includeCancelled:true });
+        const documentsAll = await collect('documents', window.GunterDocumentService);
+        const remindersAll = await collect('reminders', window.GunterNotificationsService);
 
         // Index global tasks/events/documents by projectId
         const tasksByProject     = new Map();
@@ -137,15 +153,18 @@
             }
         }
 
-        const projects = (gd?.getAllProjects?.() || [])
-            .filter(p => !p.deletedAt)
+        const projectRows = gd?.getAllProjects?.() || [];
+        const projects = projectRows
+            .filter(eligible).slice(0, 100)
             .map(p => buildProjectSlice(p, {
-                cachedAnalyses,
-                fullTranscript,
+                cachedAnalyses, eligible:inherited, cachedEligible:eligible,
                 tasks: tasksByProject.get(p.id) || [],
                 events: eventsByProject.get(p.id) || [],
                 documents: documentsByProject.get(p.id) || []
             }));
+        coverage.projects = { available:typeof gd?.getAllProjects === 'function', count:projects.length, excluded:projectRows.filter(p=>!eligible(p)).length, limited:true };
+        coverage.notes = { available:coverage.projects.available, count:projects.reduce((n,p)=>n+p.notes.length,0), limited:true };
+        assertOwner();
 
         const recentDecisions = collectRecentDecisions(projects);
 
@@ -153,7 +172,9 @@
             version: SNAPSHOT_VERSION,
             syncedAt: new Date().toISOString(),
             source: 'browser',
-            userId: localStorage.getItem('gunter_username') || 'local-user',
+            userId: ownerId,
+            ownerId,
+            coverage,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Bogota',
             projects,
             globalTasks: globalTasks.slice(0, 200),
@@ -173,7 +194,7 @@
     }
 
     function buildProjectSlice(p, ctx) {
-        const meetings = (p.analyses || []).map(a => ({
+        const meetings = (p.analyses || []).filter(ctx.eligible).slice(-100).map(a => ({
             id: a.id || ('a_' + (a.timestamp || Date.now())),
             timestamp: a.timestamp,
             duration: a.duration || 0,
@@ -185,7 +206,7 @@
         const projectAnalyses = [];
         for (const [key, val] of Object.entries(ctx.cachedAnalyses)) {
             const [pid] = key.split('::');
-            if (pid !== p.id) continue;
+            if (pid !== p.id || !ctx.cachedEligible(val)) continue;
             projectAnalyses.push({
                 key,
                 analysisType: val.definition?.id || key.split('::')[1] || 'unknown',
@@ -196,7 +217,7 @@
             });
         }
 
-        const summary = shortSummaryFromAnalyses(meetings.length ? p.analyses : []);
+        const summary = shortSummaryFromAnalyses((p.analyses || []).filter(ctx.eligible));
         const lastActivityAt = computeLastActivityAt(p, meetings, projectAnalyses, ctx.tasks, ctx.events);
 
         return {
@@ -215,6 +236,7 @@
             tasks: ctx.tasks,
             events: ctx.events,
             documents: ctx.documents,
+            notes: (p.notes || []).filter(ctx.eligible).slice(-100).map(n => ({ id:n.id, text:String(n.text || n.content || '').slice(0,1600), at:n.at || n.createdAt })),
             decisions: extractDecisionsFromAnalyses(projectAnalyses).slice(0, 10),
             lastActivityAt
         };
@@ -266,7 +288,7 @@
     // ---------- Compactors ----------
     function compactTask(t) {
         return {
-            id: t.id, title: t.title,
+            id: t.id, ownerId:t.ownerId, title: t.title,
             status: t.status, priority: t.priority,
             dueAt: t.dueAt, createdAt: t.createdAt, updatedAt: t.updatedAt,
             tags: Array.isArray(t.tags) ? t.tags.slice(0, 8) : [],
@@ -276,8 +298,8 @@
     }
     function compactEvent(e) {
         return {
-            id: e.id, title: e.title,
-            startAt: e.startAt, endAt: e.endAt,
+            id: e.id, ownerId:e.ownerId, title: e.title, status:e.status,
+            startAt: e.startAt, endAt: e.endAt, updatedAt:e.updatedAt,
             location: e.location || null,
             description: (e.description || '').slice(0, 200),
             attendees: Array.isArray(e.attendees) ? e.attendees.slice(0, 10) : [],
@@ -290,12 +312,13 @@
     function compactDocument(d) {
         return {
             id: d.id,
+            ownerId:d.ownerId,
             tipo: d.tipo || d.kind || 'documento',
             title: d.title || d.empresa || d.filename || 'Documento',
             empresa: d.empresa || null,
-            valor: d.valor || null,
+            valor: d.valor ?? d.total ?? null,
             moneda: d.moneda || null,
-            fechaVencimiento: d.fechaVencimiento || d.fecha_vencimiento || null,
+            fechaVencimiento: d.fechaVencimiento || d.fecha_vencimiento || d.dueDate || null,
             resumen: (d.resumen || d.summary || '').slice(0, 300),
             confidence: d.confidence || null,
             createdAt: d.createdAt || d.savedAt || null,
@@ -305,7 +328,7 @@
     }
     function compactReminder(r) {
         return {
-            id: r.id, title: r.title,
+            id: r.id, ownerId:r.ownerId, title: r.title,
             fireAt: r.fireAt, priority: r.priority || 'normal',
             status: r.status,
             projectId: r.meta?.projectId || null

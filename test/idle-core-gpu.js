@@ -45,7 +45,7 @@ function environment(options={}) {
     gl.enable=gl.disable=()=>{};gl.blendFuncSeparate=(...value)=>{gl.blend=value;};
     gl.getExtension=name=>name==='EXT_color_buffer_float'?(options.noFloat?null:{}):name==='WEBGL_lose_context'?{loseContext(){losses++;}}:null;
     function record(mode,count,instances=0) {
-        assert.equal(mode,gl.TRIANGLES);assert.ok(count===3||count===6);
+        assert.equal(mode,gl.TRIANGLES);assert.ok(count===3||count===6||count===96*64*6);
         const samplers={};
         const pathSamplers=['u_pathsFrom','u_rowsFrom','u_pathsTo','u_rowsTo'].filter(name=>program.u_pathMode?.[name.endsWith('From')?0:1]>0);
         for(const name of ['u_history','u_image','u_bloom','u_volume','u_field','u_bio','u_velocity',...pathSamplers])if(program[name]) {
@@ -434,7 +434,7 @@ check('voice radiance modulates the buried energy and illuminated fibres, not a 
     const e=environment();e.render(8);
     const volume=e.core.programs.volume.program.shaders.find(shader=>shader.source.includes('vec3 emitted=')).source;
     const strands=e.core.programs.strands.program.shaders.find(shader=>shader.source.includes('vec3 coat=')).source;
-    assert.match(volume,/u_energy\*\(2\.4\+u_pointer\.z\*heat\*\.28\+u_audio\*1\.70\)/);
+    assert.match(volume,/u_energy\*\(2\.1\+bodyWeight\*2\.1\+u_pointer\.z\*heat\*\.28\+u_audio\*1\.70\)/);
     assert.match(volume,/color\+=\(1\.0-opacity\)\*\(scattered\*density\+emitted\*emission\)/);
     assert.match(strands,/u_glow\*emission\*emission\*\(\.35\+u_pointer\.z\*\.32\+u_audio\*1\.45\)/);
     for(const level of [0,.03,.15,0]) {
@@ -829,7 +829,8 @@ check('the independent energy volume ping-pongs a bounded 48 cubed state through
 check('the biomass substrate connects lobes and absorbs boundary gas by seconds, not by frame count',()=>{
     const e=environment();e.render(8);
     const shader=e.core.programs.bio.program.shaders.find(s=>s.source.includes('vec2 bioSource')).source;
-    assert.match(shader,/density=body\*\(substrate\+lobes\*cavities/,'a finite porous substrate survives between the hot lobes');
+    assert.match(shader,/density=body\*\(substrate\*\.75\+conduit\*\(\.46\+cavities\*\.48\)/,
+        'a finite porous substrate and connected saddle survive between hot chambers');
     assert.match(shader,/boundaryTransmission=exp\(-u_dt\*\(1\.0-support\)\*6\.0\)/);
     assert.match(shader,/mass\*boundaryTransmission/);assert.doesNotMatch(shader,/clamp\(mass\*support/);
     assert.match(shader,/shapedEnergySupport\(p,false\)\*channels/);
@@ -904,7 +905,7 @@ check('signed material bodies spread existing fibres through volume and retain p
     assert.match(simulation,/shapedSupport\(p,false\)/);assert.match(simulation,/shapedSupport\(p,true\)/);
     const fragment=e.core.programs.strands.program.shaders.find(s=>s.source.includes('out vec4 result')).source;
     assert.match(fragment,/frontCover\*=1\.0-morphWeight\(\)\*\.65/,'the front coat reveals buried energy instead of becoming opaque ink');
-    assert.match(fragment,/alpha\*=1\.0-morphWeight\(\)\*\.32/);
+    assert.match(fragment,/alpha\*=mix\(\.42,\.68,morphWeight\(\)\)/,'organic microfibres frame the films instead of obscuring them');
     assert.match(fragment,/frontTransmission=frontCover/,'optical bypass survives the reduction of the shaded front coat');
     assert.match(fragment,/transmission=mix\(transmission,1\.0,frontTransmission\*\.85\)/);
     const gas=e.core.programs.bio.program.shaders.find(s=>s.source.includes('vec2 bioSource')).source;
@@ -993,6 +994,68 @@ check('signed interior gas support uses buried coherent channels independently o
     assert.doesNotMatch(renewal,/shapedDensity|matterDensity/,'source is not tied to the most opaque folds');
     assert.match(shader,/previous=bioAt\(back\)/,'existing carried gas supplies the next RK2 step');
     assert.match(shader,/mass=mix\(carried\.r,restMass,1\.0-exp\(-u_dt\*\.62\)\)/,'renewal remains fractional rather than resetting history');
+    e.core.dispose();released(e);
+});
+check('compact membranes use narrow material bands and a wrinkled enclosing skin without extra field samples',()=>{
+    const e=environment();e.render(8);
+    const shader=e.core.programs.field.program.shaders.find(s=>s.source.includes('float matterDensity')).source;
+    const matter=shader.slice(shader.indexOf('float matterDensity'),shader.indexOf('vec3 organicVelocity'));
+    assert.match(matter,/envelope=1\.0-smoothstep\(\.54,\.72,radius\)/,'the underlying body is compact rather than a diffuse enclosing fog');
+    assert.match(matter,/folds=abs\(sin\(foldPhase\)\)/);
+    assert.match(matter,/membrane=1\.0-smoothstep\(\.07,\.39,folds\)/,'finite narrow bands form the translucent folded sheets');
+    assert.match(matter,/skin=1\.0-smoothstep\(\.015,\.075,abs\(radius-\(\.55\+coarse\.z\*\.045\)\)\)/,
+        'outer membrane follows irregular matter coordinates, not a smooth screen-space circle');
+    assert.match(matter,/membrane\*membrane\*2\.15\+skin\*\.62/);
+    assert.equal((matter.match(/potential\(/g)||[]).length,3,'existing coarse/warp/fine fields are reused, not multiplied');
+    assert.match(matter,/shapedDensity\(p,false,t,textureMatter\)/);assert.match(matter,/shapedDensity\(p,true,t,textureMatter\)/,
+        'requested silhouettes inherit the same membrane material');
+    const gas=e.core.programs.bio.program.shaders.find(s=>s.source.includes('vec2 bioSource')).source;
+    const renewal=gas.slice(gas.indexOf('vec2 bioSource'),gas.indexOf('void main()',gas.indexOf('vec2 bioSource')));
+    assert.match(renewal,/body=1\.0-smoothstep\(\.43,\.66,radius\)/);
+    assert.match(renewal,/conduit=1\.0-smoothstep\(\.08,\.34,abs\(coarse\.y\+folds\.x\*\.50\)\)/);
+    assert.match(renewal,/substrate\*\.75\+conduit\*\(\.46\+cavities\*\.48\)/,'structured heat connects chambers instead of isolated round emitters');
+    assert.equal((renewal.match(/potential\(/g)||[]).length,3,'the existing advected gas keeps its noise budget');
+    assert.equal(e.core.stats().volumeGrid,48);assert.equal(e.core.stats().volumeSamples,40);
+    assert.equal(e.core.stats().filaments,2560);assert.equal(e.live.Framebuffer.size,10);
+    e.core.dispose();released(e);
+});
+check('membrane optics reuse cached normals and actual internal light with independent configured colors',()=>{
+    const e=environment();e.render(8);
+    const field=e.core.programs.field.program.shaders.find(s=>s.source.includes('out vec4 result')).source;
+    assert.match(field,/normal=gradient\/max\(\.0001,length\(gradient\)\)/);
+    assert.match(field,/grazing=pow\(1\.0-abs\(dot\(normal,viewDirection\)\),3\.0\)/,'thin folds have a normal-derived grazing response');
+    assert.match(field,/reflection=pow\(max\(0\.0,dot\(reflect\(-direction,normal\),viewDirection\)\),20\.0\)/,
+        'specular response reflects the real thermal gradient, not an invented point light');
+    assert.match(field,/result=vec4\(density,heat,light,facing\)/,'same fixed atlas carries the membrane lighting');
+    const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('vec4 material=mediumAt(p)')).source;
+    const march=volume.slice(volume.indexOf('void main()'));
+    assert.equal((march.match(/potential\(/g)||[]).length,3,'no additional normal/radiance ray-march noise calls');
+    assert.match(volume,/grain=\.42\+1\.20\*smoothstep\(\.28,\.74,grains\)/,'porous film coverage does not dissolve every fold into puff-like grains');
+    assert.match(volume,/u_shadow\*\(\.27\+face\*\.10\)/);assert.match(volume,/u_particle\*tint\*incident/);
+    assert.match(volume,/u_energy\*\(2\.1\+bodyWeight\*2\.1\+u_pointer\.z\*heat\*\.28\+u_audio\*1\.70\)/);
+    assert.match(volume,/u_glow\*heat\*\(\.65\+u_pointer\.z\*\.28\+u_audio\*1\.45\)/,
+        'hotter interior highlights still use the configured emissive color');
+    assert.match(volume,/scattered\*density\+emitted\*emission/,'semi-transparent material and buried heat remain separate coupled systems');
+    e.core.dispose();released(e);
+});
+check('procedural membrane surface shares gas velocity transport and configured material without extra textures',()=>{
+    const e=environment();e.render(8);
+    const p=e.core.programs.membrane.program;
+    const vertex=p.shaders.find(s=>s.source.includes('v_surface')&&s.source.includes('gl_VertexID')).source;
+    const fragment=p.shaders.find(s=>s.source.includes('gl_FrontFacing')).source;
+    assert.match(vertex,/cachedVelocity\(p\)\*\(\.10\+bioEnergy\(p\)\*\.08\)/);
+    assert.match(vertex,/p=flowWind\(p,u_flow\)/);assert.match(vertex,/transported\(q\.xy\*u_size\*\.80,aspect,q\.z\)/);
+    assert.match(fragment,/normal=normalize\(cross\(dFdx\(v_world\),dFdy\(v_world\)\)\)/);
+    assert.match(fragment,/light=material\.b/);assert.match(fragment,/presence=1\.0-morphWeight\(\)/);
+    assert.equal(e.draws.filter(d=>d.program===p).at(-1).count,96*64*6);
+    assert.equal(e.live.Texture.size,10);assert.equal(e.live.Framebuffer.size,10);
+    const before=e.draws.filter(d=>d.program===p).length;
+    e.render(8,{...defaults,debugView:'energy'});assert.equal(e.draws.filter(d=>d.program===p).length,before);
+    e.render(8,{...defaults,particleColor:'#aabbcc',energyColor:'#336699',glowColor:'#993366',shadowColor:'#112233',brightness:1.3,density:1.44});
+    assert.deepEqual(Array.from(p.u_energy),[.2,.4,.6]);assert.equal(p.u_brightness[0],1.3);assert.equal(p.u_density[0],1.2);
+    assert.deepEqual(Array.from(p.u_particle),[170/255,187/255,204/255]);
+    assert.deepEqual(Array.from(p.u_glow),[153/255,51/255,102/255]);
+    assert.deepEqual(Array.from(p.u_shadow),[17/255,34/255,51/255]);
     e.core.dispose();released(e);
 });
 console.log(checks+' GPU material filament checks passed.');

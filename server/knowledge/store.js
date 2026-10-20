@@ -86,6 +86,8 @@ function putSnapshot(snapshot) {
     if (!snapshot || !Array.isArray(snapshot.projects)) {
         throw new Error('Snapshot inválido: falta projects[]');
     }
+    if (snapshot.version === 2 && (ctx.contextKind() !== 'session' || snapshot.ownerId !== ctx.currentUserId()
+        || snapshot.userId !== snapshot.ownerId)) throw new Error('KNOWLEDGE_OWNER_MISMATCH');
     snapshot.receivedAt = new Date().toISOString();
     const idx = buildIndex(snapshot);
     _memSet(memSnapshots, snapshot);
