@@ -244,3 +244,50 @@ consola observados, alfa cero en la esquina, sin cambiar preferencias guardadas.
 La captura `output/bio-membranes-final.png` documenta el resultado, todavía con
 menos microdetalle que la referencia; no es una certificación de equivalencia
 visual ni de rendimiento. Pasan 49 contratos GPU y 21 de presencia/transporte.
+
+## Manto exterior de filamentos — jerarquía de capas
+
+Las referencias de movimiento `E727- Smoke Rings 2…` y `primary fear…` guían
+la envolvente granular, sus pliegues y remolinos; no se cargan ni reproducen en
+el renderer. La composición es energía interna + membranas bio internas,
+seguida de un único draw de filamentos encima del compositor final. El bloom
+solo procesa las capas interiores: no lava la textura granular exterior.
+Se elimina la auto-oclusión de fibras por el volumen ya compuesto, manteniendo
+el calor y la irradiancia del campo compartido para su color y sombreado.
+
+La densidad normal pasa de 2 560 a 3 840 filamentos (+50 %); el rango existente
+25–200 % da 960–7 680. Son seis hebras por trayectoria, dentro de las mismas
+1 280 × 96 posiciones GPU. El coste de rasterización aumenta; no se certifica
+una tasa de FPS. No cambia la resolución de energía/velocidad ni hay clones
+de la composición, texturas adicionales o reseteo al cambiar densidad.
+
+Una atracción suave redistribuye las fibras orgánicas alrededor del bio núcleo;
+las formas nombradas conservan su soporte. La separación exterior se aplica en
+coordenadas materiales antes del transporte. Granulosidad, pequeños nudos y
+hebras continuas se desplazan con las curvas, no con ruido de pantalla.
+Siguen funcionando los cuatro colores, brillo, densidad, tamaño, velocidad,
+obstáculo del puntero, audio y vistas aisladas. No se cambian preferencias
+guardadas. Punto de reversión previo: `dcea752`.
+
+El calor del manto se guarda en el alfa antes libre del mismo atlas de velocidad;
+las etapas RK2 reutilizan una única muestra RGBA, sin leer gas de nuevo por
+fibra. El ancho y los nudos comparten una muestra de ruido material. Son
+reducciones del coste añadido, no una garantía de fluidez: las capturas de 19 s
+produjeron solo 21–24 fotogramas guardados. La cadencia de presentación se midió
+después independientemente en el laboratorio, contando intervalos RAF entre
+renderTo completados: la composición a densidad 100 % dio aproximadamente
+22 cuadros/s, con un solo laboratorio activo y sin grabar. El archivo capturado
+no representa por sí solo esa cadencia. No se certifican 30 FPS ni otros equipos.
+Las cintas usan ahora un strip de cuatro vértices, en lugar de seis vértices
+duplicados: 3 840 × 95 × 4 iguala los vértices anteriores de 2 560 × 95 × 6.
+Esto no elimina el coste de más primitivas ni su cobertura de píxeles.
+Pasan 55 contratos GPU, 50 de integración del controlador, 21 de
+presencia/transporte y 13 del laboratorio, incluida la métrica real (sin bucles
+ni temporizadores adicionales). La fidelidad de pliegues y
+microdetalle de los vídeos sigue siendo una referencia, no equivalencia exacta.
+
+QA nativa: orgánico a densidades 100/200 %, cuatro colores temporales, mano
+con fondo claro y regreso a orgánico; sin errores de consola observados y alfa
+cero en la esquina. Se cerró la pestaña extra del agente y se recargó el
+laboratorio original, conservando sus valores iniciales. No se cambió ninguna
+preferencia guardada. Prueba visual local: `output/filament-mantle-final.png`.

@@ -10,7 +10,7 @@
 (function () {
     'use strict';
     if (window.GunterIdleCore) return;
-    const BASE_FILAMENTS=2560, MAX_FILAMENTS=5120, SIM_HEADS=1280, HISTORY=96, STEP=1/45;
+    const BASE_FILAMENTS=3840, MAX_FILAMENTS=7680, SIM_HEADS=1280, HISTORY=96, STEP=1/45;
     const HEADER='#version 300 es\nprecision highp float;\nprecision highp int;\n';
     const FIELD=`
         uniform float u_time;
@@ -39,13 +39,14 @@
             float z=floor(cell.z);
             return mix(texture(u_bio,bioUV(cell.xy,z)),texture(u_bio,bioUV(cell.xy,min(47.0,z+1.0))),fract(cell.z));
         }
-        vec3 cachedVelocity(vec3 p) {
-            if(any(greaterThan(abs(p),vec3(.96))))return vec3(0);
+        vec4 cachedFlow(vec3 p) {
+            if(any(greaterThan(abs(p),vec3(.96))))return vec4(0);
             vec3 cell=clamp((p/.96*.5+.5)*47.0,vec3(0),vec3(47));
             float z=floor(cell.z);
-            return mix(texture(u_velocity,bioUV(cell.xy,z)).xyz,
-                texture(u_velocity,bioUV(cell.xy,min(47.0,z+1.0))).xyz,fract(cell.z));
+            return mix(texture(u_velocity,bioUV(cell.xy,z)),
+                texture(u_velocity,bioUV(cell.xy,min(47.0,z+1.0))),fract(cell.z));
         }
+        vec3 cachedVelocity(vec3 p) {return cachedFlow(p).xyz;}
         // Compact smoke-roll coordinates. Two local rotations preserve volume;
         // the final bounded shear lets neighbouring puffs lag by different
         // amounts, instead of elongating every particle along the travel axis.
@@ -370,13 +371,22 @@
             // Both independent RK2 integrators sample the same once-per-step
             // 48^3 velocity cache. Expensive curls, thermal gradients and the
             // pointer obstacle are not recomputed per material point/RK stage.
-            vec3 v=cachedVelocity(p),q=p-idleCenter(t)*.55;
+            vec4 carriedFlow=cachedFlow(p);
+            vec3 v=carriedFlow.xyz,q=p-idleCenter(t)*.55;
             float outside=max(0.0,length(p*vec3(.94,1.02,1.13))-.87);
             v-=p*outside*3.2*boundary;
             float morph=morphWeight();
             // An attraction field bends existing material trajectories into
             // each silhouette. Tangential/curl flow remains alive inside it.
             if(along>=0.0) {
+                // The material forms a loose, folded mantle around the gas.
+                // This is a gentle force on the existing fibres, not a hard
+                // shell, reset or second velocity field for the energy.
+                if(boundary>0.0&&morph<.999) {
+                    float radius=max(.035,length(q));
+                    float mantle=.65+.065*sin(row*.37+along*7.0)+carriedFlow.a*.025;
+                    v+=q/radius*clamp(mantle-radius,-.16,.24)*.48*(1.0-morph)*boundary;
+                }
                 v*=1.0-morph*.85;
                 v+=(morphGuide(p,row,t,along)-p)*4.2*morph;
             } else if(morph>.0001) {
@@ -507,7 +517,9 @@
             vec2 cell=floor(gl_FragCoord.xy),tile=floor(cell/48.0);
             vec3 grid=vec3(mod(cell,48.0),tile.x+tile.y*8.0);
             vec3 p=(grid/47.0*2.0-1.0)*.96;
-            result=vec4(organicVelocity(p,u_time),1);
+            // Alpha was unused: share previous-gas heat with the mantle,
+            // avoiding extra gas texture reads in every fibre RK2 sample.
+            result=vec4(organicVelocity(p,u_time),bioEnergy(p));
         }
     `;
     const FIELD_CACHE=HEADER+FIELD+`
@@ -764,15 +776,20 @@
         vec3 presentationPoint(vec3 p,float row,float along) {
             p=flowUnwind(p,u_previousFlow);
             if(u_static>.5&&morphWeight()>.001)p=morphGuide(p,row,u_time,along);
+            // A small material-space clearance keeps the living filament
+            // mantle outside the inner membrane, including during transport.
+            // Authored shapes retain their precise supports and holes.
+            vec3 center=idleCenter(u_time)*.25;
+            p=center+(p-center)*mix(1.10,1.0,morphWeight());
             return flowWind(p,u_flow);
         }
         void main() {
             int historyLength=textureSize(u_history,0).x;
             int filament=gl_InstanceID/(historyLength-1),segment=gl_InstanceID%(historyLength-1);
-            int row=filament/4;
+            int row=filament/6;
             int id=gl_VertexID;
-            bool endpoint=(id==1||id==4||id==5);
-            float side=(id==0||id==1||id==4)?-1.0:1.0;
+            bool endpoint=(id==1||id==3);
+            float side=id<2?-1.0:1.0;
             int x=segment+(endpoint?1:0);
             vec3 p=texelFetch(u_history,ivec2(x,row),0).xyz;
             vec3 before=texelFetch(u_history,ivec2(max(0,x-1),row),0).xyz;
@@ -782,15 +799,17 @@
             after=presentationPoint(after,float(row),float(min(historyLength-1,x+1))/float(historyLength-1));
             // Microstructure follows material coordinates: it travels with the
             // curve, rather than flickering as unrelated screen-space noise.
-            float seed=float(row)+float(filament%4)*37.71;
+            float seed=float(row)+float(filament%6)*37.71;
             float age=float(x)/float(historyLength-1);
-            vec3 fibre=hash3(vec3(seed,2.7,8.2))*.012;
+            vec3 fibre=hash3(vec3(seed,2.7,8.2))*mix(.021,.012,morphWeight());
             vec3 irregular=vec3(sin(age*71.0+seed),sin(age*53.0+seed*1.7),sin(age*89.0-seed*.7))*.006;
             p+=fibre+irregular;before+=fibre+irregular;after+=fibre+irregular;
             vec2 tangent=(projected(after)-projected(before))*u_resolution;
             tangent/=max(.00001,length(tangent));
             vec2 normal=vec2(-tangent.y,tangent.x);
-            float width=.18+.30*materialNoise(age*18.0,seed);
+            float ribbon=materialNoise(age*91.0,seed*.71);
+            float beads=smoothstep(.76,.91,ribbon);
+            float width=.24+.26*ribbon+beads*.48;
             vec2 position=projected(p)+normal*side*width*2.0/u_resolution;
             gl_Position=vec4(position,0,1);
             v_cross=side;v_age=age;v_seed=seed;
@@ -800,8 +819,6 @@
     const STRAND_FRAGMENT=HEADER+FIELD+MEDIUM+`
         uniform vec3 u_particle,u_energy,u_glow,u_shadow;
         uniform float u_brightness;
-        uniform sampler2D u_volume;
-        uniform vec2 u_resolution;
         in vec3 v_world;
         in float v_cross,v_age,v_depth;
         flat in float v_seed;
@@ -816,39 +833,42 @@
             float buried=bioEnergy(rest-worldPoint(vec3(0,0,.16)));
             float frontCover=smoothstep(.06,.35,buried)
                 *(1.0-smoothstep(.015,.20,emission));
-            float frontTransmission=frontCover;
             // A transformed body retains porous front fibres: they reveal the
             // same buried gas instead of turning its whole contour into ink.
             frontCover*=1.0-morphWeight()*.65;
-            // Reuse the ray-marched column extinction, instead of tracing
-            // procedural density again for every subpixel fibre fragment.
-            float column=clamp(texture(u_volume,gl_FragCoord.xy/u_resolution).a/.72,0.0,.96);
-            float depth=clamp((.90-viewPoint(v_world).z)/1.8,0.0,1.0);
-            float transmission=pow(1.0-column,depth*2.0);
-            transmission=mix(transmission,1.0,frontTransmission*.85);
+            // Filaments are the foreground material, not another luminous
+            // volume: never attenuate them by the already-composited core.
+            // Their shading still receives the same gas heat and irradiance.
             float matter=material.r;
             vec3 tint=mix(vec3(1),u_energy,smoothstep(.12,.65,emission+material.b*.45));
             vec3 color=u_shadow*(.16+v_depth*.25)*(1.0-incident)
-                +u_particle*tint*material.b*(.34+material.a*2.2)*(1.0-emission*.65)
+                +u_particle*tint*(.10+material.b*(.34+material.a*2.2))*(1.0-emission*.65)
                 +u_energy*incident*(1.1+u_audio*.70)
                 +u_glow*emission*emission*(.35+u_pointer.z*.32+u_audio*1.45);
             // Front microfibres cover the buried emitter. Keep their shaded
             // material response instead of painting emission over their face.
-            vec3 coat=u_shadow*(.32+v_depth*.20)+u_particle*tint*material.b*(.35+material.a*.90);
+            vec3 coat=u_shadow*(.32+v_depth*.20)+u_particle*tint*(.09+material.b*(.35+material.a*.90));
             color=mix(color,coat,frontCover*.88);
             // Broad erosion creates differently sized wisps; fine coverage
             // turns each wisp into porous, irregular microfibres, not a cable.
             float lengths=3.0+15.0*fract(v_seed*.56984);
-            float fragments=smoothstep(.20,.58,materialNoise(v_age*lengths,v_seed+4.1));
+            float fragments=.20+.80*smoothstep(.20,.58,materialNoise(v_age*lengths,v_seed+4.1));
             fragments=mix(fragments,.75,smoothstep(.35,.70,matter)*.55);
-            float grain=.06+.94*smoothstep(.24,.78,materialNoise(v_age*167.0,v_seed*1.31));
-            float packing=.45+matter*matter*5.50;
-            float alpha=min(.90,edge*fade*(.20+v_depth*.10)*fragments*grain*packing
-                *(1.0+frontCover*.75))*transmission;
-            // Organic microfibres frame the films; they do not blanket the
-            // entire volume in translucent smoke. Named contours stay intact.
-            alpha*=mix(.42,.68,morphWeight());
-            result=vec4(color*u_brightness,alpha);
+            // Most ribbons break into carried granules, while a smaller
+            // fraction stays fibrous. This avoids a uniform cottony veil.
+            float granules=smoothstep(.35,.80,materialNoise(v_age*211.0,v_seed*1.31));
+            float thread=step(.80,fract(v_seed*.6180339));
+            float grain=mix(.035+.965*granules*granules,.24+.76*granules,thread);
+            float packing=.80+matter*matter*4.50;
+            float alpha=min(.90,edge*fade*(.26+v_depth*.12)*fragments*grain*packing
+                *(1.0+frontCover*.75));
+            alpha*=mix(.90,.68,morphWeight());
+            // Tone-map once here because this sharp foreground pass is after
+            // core bloom. Bright fibres retain the chosen hue, not white fog.
+            color*=u_brightness;
+            float peak=max(color.r,max(color.g,color.b));
+            color*=(1.0-exp(-peak*1.35))/max(.0001,peak);
+            result=vec4(color,alpha);
         }
     `;
     const VOLUME=HEADER+FIELD+MEDIUM+TRANSPORT+`
@@ -1411,24 +1431,6 @@
                 gl.enable(gl.BLEND);gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
                 gl.drawArrays(gl.TRIANGLES,0,96*64*6);gl.disable(gl.BLEND);
             }
-            const strands=this.programs.strands;this.use(strands);
-            this.interactionUniforms(strands);
-            this.materialUniforms(strands,t);
-            this.transportUniforms(strands,config.transport);
-            this.texture(strands,'u_history',this.histories[this.historyIndex].texture);
-            this.texture(strands,'u_volume',this.targets.energy.texture,1);
-            this.texture(strands,'u_field',this.field.texture,2);
-            gl.uniform2f(this.uniform(strands,'u_resolution'),this.width,this.height);
-            this.scalar(strands,'u_time',t);this.scalar(strands,'u_size',size);this.scalar(strands,'u_brightness',config.brightness);
-            this.vector(strands,'u_particle',rgb(config.particleColor));this.vector(strands,'u_energy',rgb(config.energyColor));
-            this.vector(strands,'u_glow',rgb(config.glowColor));
-            this.vector(strands,'u_shadow',rgb(config.shadowColor));
-            this.activeFilaments=Math.round(BASE_FILAMENTS*config.density);
-            gl.enable(gl.BLEND);gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
-            this.destination(this.targets.scene);
-            if(config.debugView==='composite'||config.debugView==='filaments')
-                gl.drawArraysInstanced(gl.TRIANGLES,0,6,this.activeFilaments*(HISTORY-1));
-            gl.disable(gl.BLEND);
             const extract=this.programs.extract;this.use(extract);this.texture(extract,'u_image',this.targets.scene.texture);this.quad(this.targets.a);
             const blur=this.programs.blur;this.use(blur);this.texture(blur,'u_image',this.targets.a.texture);
             gl.uniform2f(this.uniform(blur,'u_step'),1.7/this.targets.a.width,0);this.quad(this.targets.b);
@@ -1437,6 +1439,27 @@
             const morph=this.shapeCoefficients(t)[2];
             this.scalar(composite,'u_materialWeight',this.guideFrom.weight+(this.guideTo.weight-this.guideFrom.weight)*morph);
             this.texture(composite,'u_image',this.targets.scene.texture);this.texture(composite,'u_bloom',this.targets.a.texture,1);this.quad(null);
+            // The single filament draw is last, above energy, membrane and
+            // their bloom. No subsequent glow pass can blur or hide its grain.
+            const strands=this.programs.strands;this.use(strands);
+            this.interactionUniforms(strands);
+            this.materialUniforms(strands,t);
+            this.transportUniforms(strands,config.transport);
+            this.texture(strands,'u_history',this.histories[this.historyIndex].texture);
+            this.texture(strands,'u_field',this.field.texture,2);
+            gl.uniform2f(this.uniform(strands,'u_resolution'),this.width,this.height);
+            this.scalar(strands,'u_time',t);this.scalar(strands,'u_size',size);this.scalar(strands,'u_brightness',config.brightness);
+            this.vector(strands,'u_particle',rgb(config.particleColor));this.vector(strands,'u_energy',rgb(config.energyColor));
+            this.vector(strands,'u_glow',rgb(config.glowColor));
+            this.vector(strands,'u_shadow',rgb(config.shadowColor));
+            this.activeFilaments=Math.min(MAX_FILAMENTS,Math.round(BASE_FILAMENTS*config.density));
+            gl.enable(gl.BLEND);gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+            this.destination(null);
+            if(config.debugView==='composite'||config.debugView==='filaments')
+                // Four strip vertices describe the same two-triangle ribbon;
+                // +50% fibres now reuse the prior total vertex count.
+                gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,this.activeFilaments*(HISTORY-1));
+            gl.disable(gl.BLEND);
             this.frames++;
         }
         renderTo(canvas,width,height,seconds=0,config={}) {

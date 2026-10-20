@@ -11,10 +11,10 @@ function environment(options={}) {
     const gl={},names=['VERTEX_SHADER','FRAGMENT_SHADER','COMPILE_STATUS','LINK_STATUS','TEXTURE_2D',
         'TEXTURE_MIN_FILTER','TEXTURE_MAG_FILTER','TEXTURE_WRAP_S','TEXTURE_WRAP_T','NEAREST','LINEAR',
         'CLAMP_TO_EDGE','RGBA32F','RGBA16F','RGBA','FLOAT','HALF_FLOAT','FRAMEBUFFER','COLOR_ATTACHMENT0',
-        'FRAMEBUFFER_COMPLETE','TRIANGLES','BLEND','SRC_ALPHA','ONE_MINUS_SRC_ALPHA','ONE'];
+        'FRAMEBUFFER_COMPLETE','TRIANGLES','TRIANGLE_STRIP','BLEND','SRC_ALPHA','ONE_MINUS_SRC_ALPHA','ONE'];
     names.forEach((name,i)=>gl[name]=i+1);gl.TEXTURE0=100;
     const live={Program:new Set(),Shader:new Set(),Texture:new Set(),Framebuffer:new Set()};
-    const created={Program:[],Shader:[],Texture:[],Framebuffer:[]},draws=[],textures=new Map(),events=[],contexts=[],listeners=new Map(),uploads=[];
+    const created={Program:[],Shader:[],Texture:[],Framebuffer:[]},draws=[],textures=new Map(),events=[],contexts=[],listeners=new Map(),uploads=[],enabled=new Set();
     let sequence=0,program,framebuffer,unit=0,boundTexture,viewport,losses=0;
     for(const kind of Object.keys(live)) {
         gl['create'+kind]=()=>{const resource={kind,id:++sequence};live[kind].add(resource);created[kind].push(resource);return resource;};
@@ -42,10 +42,12 @@ function environment(options={}) {
     gl.framebufferTexture2D=(type,attachment,target,texture)=>{framebuffer.texture=texture;};
     gl.checkFramebufferStatus=()=>created.Framebuffer.length===options.failFramebufferAt?-1:gl.FRAMEBUFFER_COMPLETE;
     gl.viewport=(...v)=>{viewport=v;};
-    gl.enable=gl.disable=()=>{};gl.blendFuncSeparate=(...value)=>{gl.blend=value;};
+    gl.enable=capability=>enabled.add(capability);gl.disable=capability=>enabled.delete(capability);
+    gl.blendFuncSeparate=(...value)=>{gl.blend=value;};
     gl.getExtension=name=>name==='EXT_color_buffer_float'?(options.noFloat?null:{}):name==='WEBGL_lose_context'?{loseContext(){losses++;}}:null;
     function record(mode,count,instances=0) {
-        assert.equal(mode,gl.TRIANGLES);assert.ok(count===3||count===6||count===96*64*6);
+        if(instances) {assert.equal(mode,gl.TRIANGLE_STRIP);assert.equal(count,4);}
+        else {assert.equal(mode,gl.TRIANGLES);assert.ok(count===3||count===96*64*6);}
         const samplers={};
         const pathSamplers=['u_pathsFrom','u_rowsFrom','u_pathsTo','u_rowsTo'].filter(name=>program.u_pathMode?.[name.endsWith('From')?0:1]>0);
         for(const name of ['u_history','u_image','u_bloom','u_volume','u_field','u_bio','u_velocity',...pathSamplers])if(program[name]) {
@@ -55,12 +57,13 @@ function environment(options={}) {
             assert.notEqual(texture,framebuffer?.texture,'no framebuffer texture feedback for '+name);
             samplers[name]={unit:samplerUnit,texture};
         }
-        draws.push({program,framebuffer,texture:framebuffer?.texture,count,instances,viewport:viewport.slice(),
+        draws.push({program,framebuffer,texture:framebuffer?.texture,mode,count,instances,viewport:viewport.slice(),
+            blending:enabled.has(gl.BLEND),blend:gl.blend?.slice(),
             time:program.u_time?.[0],density:program.u_density?.[0],initialize:program.u_initialize?.[0],samplers,
             pointer:program.u_pointer?.slice(),pointerFlow:program.u_pointerFlow?.slice()});
     }
     gl.drawArrays=(mode,first,count)=>record(mode,count);
-    gl.drawArraysInstanced=(mode,first,count,instances)=>{assert.ok(instances>0&&instances<=5120*95);record(mode,count,instances);};
+    gl.drawArraysInstanced=(mode,first,count,instances)=>{assert.ok(instances>0&&instances<=7680*95);record(mode,count,instances);};
     const canvas={width:300,height:150,getContext(type,attributes){contexts.push({type,attributes});return options.noWebgl?null:gl;},
         addEventListener(type,cb){listeners.set(type,cb);}};
     const window={dispatchEvent(event){events.push(event);},GunterCoreForms:options.catalog},document={createElement(tag){assert.equal(tag,'canvas');return canvas;}};
@@ -107,10 +110,10 @@ check('one transparent WebGL2 compositor uses floating material state and no poi
 });
 check('density changes real ribbon instance counts at 25, 100 and 200 percent',()=>{
     const e=environment();
-    for(const [density,count] of [[.25,640],[1,2560],[2,5120]]) {
+    for(const [density,count] of [[.25,960],[1,3840],[2,7680]]) {
         e.render(8,{...defaults,density});
         const draw=e.draws.filter(d=>d.instances).at(-1);
-        assert.equal(draw.count,6);assert.equal(draw.instances,count*95);assert.equal(e.core.stats().filaments,count);
+        assert.equal(draw.count,4);assert.equal(draw.mode,e.gl.TRIANGLE_STRIP);assert.equal(draw.instances,count*95);assert.equal(e.core.stats().filaments,count);
     }
     e.core.dispose();released(e);
 });
@@ -160,14 +163,15 @@ check('one fixed floating atlas supplies density, energy, irradiance and facing 
     assert.match(shader,/result\s*=\s*vec4\(density,heat,light,facing\)/);
     const volume=e.draws.find(d=>d.program===e.core.programs.volume.program),strands=e.draws.find(d=>d.instances);
     assert.equal(volume.samplers.u_field.unit,0);assert.equal(volume.samplers.u_field.texture,field.texture);
-    assert.equal(strands.samplers.u_field.unit,2);assert.equal(strands.samplers.u_field.texture,field.texture);
+    assert.ok(Number.isInteger(strands.samplers.u_field.unit));assert.equal(strands.samplers.u_field.texture,field.texture);
     assert.equal(strands.samplers.u_history.unit,0);
+    assert.notEqual(strands.samplers.u_field.unit,strands.samplers.u_history.unit,'cached material and history retain independent sampler bindings');
     assert.equal(strands.samplers.u_history.texture,e.core.histories[e.core.historyIndex].texture);
-    assert.equal(strands.samplers.u_volume.unit,1);assert.equal(strands.samplers.u_volume.texture,e.core.targets.energy.texture);
+    assert.equal(strands.samplers.u_volume,undefined,'foreground filaments cannot be extinguished by the full volume column');
     assert.equal(e.core.targets.energy.texture.internal,e.gl.RGBA16F);
     assert.equal(e.live.Framebuffer.size,10);assert.equal(e.live.Texture.size,10);
-    const fragment=e.core.programs.strands.program.shaders.find(s=>s.source.includes('uniform sampler2D u_volume')).source;
-    assert.match(fragment,/texture\(u_volume,gl_FragCoord.xy\/u_resolution\)/);
+    const fragment=e.core.programs.strands.program.shaders.find(s=>s.source.includes('flat in float v_seed')).source;
+    assert.doesNotMatch(fragment,/uniform sampler2D u_volume|texture\(u_volume/,'the foreground pass has no auto-occlusion sampler');
     for(const name of ['strands','volume']) {
         const cached=e.core.programs[name].program.shaders.find(s=>s.source.includes('vec4 mediumAt')).source;
         assert.match(cached,/texture\(u_field,/);assert.match(cached,/vec4 material=mediumAt\(/);
@@ -191,7 +195,7 @@ check('real advected biomass supplies composite heat, irradiance and thermal cou
     assert.match(field,/result=vec4\(density,heat,light,facing\)/,'both visible passes receive the contained heat');
     e.core.dispose();released(e);
 });
-check('buried gas emits within the depth march while only matter extinguishes it and front fibres cover it',()=>{
+check('buried gas emits within the depth march while foreground fibres retain real material shading without volume occlusion',()=>{
     const e=environment();
     const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('vec4 material=mediumAt(p)')).source;
     const extinction=volume.match(/float density=([^;]+);/)[1];
@@ -200,13 +204,13 @@ check('buried gas emits within the depth march while only matter extinguishes it
     assert.match(volume,/color\+=\(1\.0-opacity\)\*\(scattered\*density\+emitted\*emission\)/,
         'emission passes through the opacity already accumulated in front of its 3D sample');
     assert.match(volume,/opacity\+=\(1\.0-opacity\)\*density/);
-    const strands=e.core.programs.strands.program.shaders.find(s=>s.source.includes('uniform sampler2D u_volume')).source;
+    const strands=e.core.programs.strands.program.shaders.find(s=>s.source.includes('flat in float v_seed')).source;
     assert.match(strands,/buried=bioEnergy\(rest-worldPoint\(vec3\(0,0,\.16\)\)\)/,
         'a filament covers actual luminous gas lying behind its 3D location');
     assert.match(strands,/color=mix\(color,coat,frontCover\*\.88\)/,'front microfibres keep their shaded material color');
-    assert.match(strands,/transmission=mix\(transmission,1\.0,frontTransmission\*\.85\)/,
-        'the full column must not erase fibres lying in front of the energy');
-    assert.match(strands,/\*\(1\.0\+frontCover\*\.75\)\)\*transmission/,'front material has visible covering alpha');
+    assert.doesNotMatch(strands,/u_volume|frontTransmission|float transmission|\*transmission/,
+        'all foreground fibres stay above volume, including unlit outer curls');
+    assert.match(strands,/result=vec4\(/,'a shaded finite-alpha material pass remains, not an additive opaque overlay');
     e.core.dispose();released(e);
 });
 check('avatars reuse the atlas across colors, brightness, size, resolution and older timestamps',()=>{
@@ -318,13 +322,13 @@ check('all four GPU material passes share pointer uniforms and avatars never adv
     assert.deepEqual(interaction(e.core),state,'same and older avatars preserve one shared inertial state');
     assert.equal(e.core.steps,steps);assert.equal(e.core.historyIndex,history);assert.equal(e.core.fieldBuilds,builds);
     assert.deepEqual(e.core.histories,histories);assert.equal(e.core.field,field);
-    assert.equal(e.created.Texture.length,created);assert.equal(e.core.stats().filaments,2560);
+    assert.equal(e.created.Texture.length,created);assert.equal(e.core.stats().filaments,3840);
     advanceSteps(e,1);
     assert.equal(e.core.steps,steps+1);assert.equal(e.core.fieldBuilds,builds+1);
     const next=interaction(e.core);assert.notDeepEqual(next,state);
     for(const name of ['simulation','field','volume','strands'])assertPointerDraw(e.draws.filter(d=>d.program===e.core.programs[name].program).at(-1),next);
     assert.equal(e.created.Texture.length,created);assert.equal(e.created.Framebuffer.length,framebuffers);
-    assert.equal(e.created.Program.length,programs);assert.equal(e.core.stats().filaments,2560);
+    assert.equal(e.created.Program.length,programs);assert.equal(e.core.stats().filaments,3840);
     assert.equal(e.live.Framebuffer.size,10);assert.equal(e.live.Texture.size,10);
     e.core.dispose();released(e);
 });
@@ -350,10 +354,10 @@ check('resetPointer clears inertia immediately and invalidates a same-phase atla
 });
 check('finite input bounds and the legacy energy color alias remain supported',()=>{
     const e=environment();let out=e.render(NaN,{density:999,brightness:Infinity,size:-10},NaN,Infinity);
-    assert.equal(out.width,512);assert.equal(out.height,512);assert.equal(e.core.stats().filaments,5120);
+    assert.equal(out.width,512);assert.equal(out.height,512);assert.equal(e.core.stats().filaments,7680);
     assert.equal(e.core.programs.strands.program.u_size[0],.7);assert.equal(e.core.programs.strands.program.u_brightness[0],1);
     e.render(0,{color:'#ff0000',density:-4},10000,-5);
-    assert.equal(e.core.stats().width,720);assert.equal(e.core.stats().height,1);assert.equal(e.core.stats().filaments,640);
+    assert.equal(e.core.stats().width,720);assert.equal(e.core.stats().height,1);assert.equal(e.core.stats().filaments,960);
     assert.deepEqual(Array.from(e.core.programs.strands.program.u_energy),[1,0,0]);
     e.core.dispose();released(e);
 });
@@ -468,7 +472,7 @@ check('depth-delayed smoke packets share coherent per-depth volume and filament 
             assert.deepEqual(Array.from(p.u_transportFrom),[.4,.5,1]);
             assert.deepEqual(Array.from(p.u_transportTo),[-.85,-.7,.20]);
         }
-        assert.equal(e.core.stats().filaments,2560,'transport reuses actual density, not extra ghost copies');
+        assert.equal(e.core.stats().filaments,3840,'transport reuses actual density, not extra ghost copies');
     }
     const vertex=e.core.programs.strands.program.shaders.find(s=>s.source.includes('int filament=')).source;
     const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('vec3 emitted=')).source;
@@ -692,7 +696,7 @@ check('the real catalog reaches the renderer as selected material guides, not te
     const shader=e.core.programs.field.program.shaders.find(s=>s.source.includes('vec4 materialGuide')).source;
     assert.match(shader,/texture\(u_shapeGuideTo,uv\)/);assert.match(shader,/guide\.z=max\(guide\.z,length\(p-guide\.xy\)\)/);
     assert.doesNotMatch(shader,/butterfly|hourglass/,'the new catalog does not enlarge the shader branch tree');
-    assert.equal(e.core.stats().filaments,2560);e.core.dispose();released(e);
+    assert.equal(e.core.stats().filaments,3840);e.core.dispose();released(e);
 });
 check('authored paths assign one stable stroke to each fibre with constant-time GPU lookup and bounded storage',()=>{
     const e=environment({realCatalog:true});e.render(8);
@@ -762,10 +766,10 @@ check('one shared velocity atlas is built per fixed step and both RK2 integrator
     }
     const simulation=e.core.programs.simulation.program.shaders.find(s=>s.source.includes('uniform float u_dt')).source;
     const velocity=simulation.slice(simulation.indexOf('vec3 velocity('),simulation.indexOf('vec3 seedPosition'));
-    assert.match(velocity,/vec3 v=cachedVelocity\(p\)/);assert.doesNotMatch(velocity,/potential\(|energyTransport\(|bioGradient\(/,
+    assert.match(velocity,/vec4 carriedFlow=cachedFlow\(p\);\s*vec3 v=carriedFlow\.xyz/);assert.doesNotMatch(velocity,/potential\(|energyTransport\(|bioGradient\(/,
         'individual RK stages no longer recompute the expensive common flow');
     const builder=e.core.programs.velocity.program.shaders.find(s=>s.source.includes('result=vec4(organicVelocity')).source;
-    assert.match(builder,/result=vec4\(organicVelocity\(p,u_time\),1\)/);
+    assert.match(builder,/result=vec4\(organicVelocity\(p,u_time\),bioEnergy\(p\)\)/);
     assert.equal(e.core.stats().velocityCache,'shared-48cubed-per-step');assert.equal(e.created.Texture.length,created);
     const count=builds.length;e.render(e.core.displayTime);assert.equal(e.draws.filter(d=>d.program===e.core.programs.velocity.program).length,count,
         'other views of the same state never build an extra velocity cache');
@@ -903,11 +907,10 @@ check('signed material bodies spread existing fibres through volume and retain p
         'named supports reuse the organic core material folds, cavities and fine grain');
     assert.match(simulation,/shapedDensity\(p,false,t,textureMatter\)/);assert.match(simulation,/shapedDensity\(p,true,t,textureMatter\)/);
     assert.match(simulation,/shapedSupport\(p,false\)/);assert.match(simulation,/shapedSupport\(p,true\)/);
-    const fragment=e.core.programs.strands.program.shaders.find(s=>s.source.includes('out vec4 result')).source;
-    assert.match(fragment,/frontCover\*=1\.0-morphWeight\(\)\*\.65/,'the front coat reveals buried energy instead of becoming opaque ink');
-    assert.match(fragment,/alpha\*=mix\(\.42,\.68,morphWeight\(\)\)/,'organic microfibres frame the films instead of obscuring them');
-    assert.match(fragment,/frontTransmission=frontCover/,'optical bypass survives the reduction of the shaded front coat');
-    assert.match(fragment,/transmission=mix\(transmission,1\.0,frontTransmission\*\.85\)/);
+    const fragment=e.core.programs.strands.program.shaders.find(s=>s.source.includes('flat in float v_seed')).source;
+    assert.match(fragment,/vec4 material=mediumAt\(v_world\)/,'named fibres retain the same local material and heat');
+    assert.doesNotMatch(fragment,/u_volume|frontTransmission|\*transmission/,'named fibres are also foreground rather than faded by a volume column');
+    assert.doesNotMatch(fragment,/alpha\*=mix\(\.42,\.68,morphWeight\(\)\)/,'the former organic blanket attenuation is removed');
     const gas=e.core.programs.bio.program.shaders.find(s=>s.source.includes('vec2 bioSource')).source;
     assert.match(gas,/shapedEnergySupport\(p,false\)\*channels/);
     assert.match(gas,/seams=1\.0-smoothstep\(\.12,\.45,abs\(coarse\.y\+folds\.x\*\.50\)\)/,'coherent gas seams are independent of the opaque matter folds');
@@ -915,7 +918,7 @@ check('signed material bodies spread existing fibres through volume and retain p
     const volume=e.core.programs.volume.program.shaders.find(s=>s.source.includes('u_debugView')).source;
     assert.match(volume,/opticalMass=mass\*mix\(1\.0,\.72,morphWeight\(\)\)/,'porosity changes optical depth only for transformed matter');
     assert.match(volume,/opticalMass\*opticalMass\*grain\*18\.0/);
-    assert.equal(e.core.stats().filaments,2560,'body detail does not increase particle count');
+    assert.equal(e.core.stats().filaments,3840,'body detail does not increase particle count');
     e.core.dispose();released(e);
 });
 check('named silhouettes inherit live colors density brightness speed and size without new geometry or state resets',()=>{
@@ -933,7 +936,7 @@ check('named silhouettes inherit live colors density brightness speed and size w
         }
         assert.equal(p.u_brightness[0],1.6);assert.equal(p.u_size[0],1.2);
     }
-    assert.equal(e.core.stats().filaments,4608);assert.equal(e.core.steps,steps);
+    assert.equal(e.core.stats().filaments,6912);assert.equal(e.core.steps,steps);
     assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.bioHistories[0],bio[0]);
     assert.equal(e.core.pathTextures.to,paths);assert.equal(e.created.Texture.length,created);
     e.render(12,{...config,static:false,speed:.7});
@@ -964,10 +967,8 @@ check('named optical porosity preserves organic extinction and does not reduce s
             assert.ok(opacity<=previous+1e-12,'named coat thins continuously, never becomes more opaque');previous=opacity;
         }
     }
-    const strands=e.core.programs.strands.program.shaders.find(s=>s.source.includes('uniform sampler2D u_volume')).source;
-    assert.ok(strands.indexOf('frontTransmission=frontCover')<strands.indexOf('frontCover*=1.0-morphWeight()*.65'),
-        'transmission keeps the original front-facing coverage before shading attenuation');
-    assert.match(strands,/transmission=mix\(transmission,1\.0,frontTransmission\*\.85\)/);
+    const strands=e.core.programs.strands.program.shaders.find(s=>s.source.includes('flat in float v_seed')).source;
+    assert.doesNotMatch(strands,/u_volume|frontTransmission|\*transmission/,'volume porosity cannot erase the foreground filaments');
     const composite=e.core.programs.composite.program.shaders.find(s=>s.source.includes('u_materialWeight')).source;
     assert.match(composite,/coverage=1\.0-pow\(max\(0\.0,1\.0-scene\.a\),mix\(1\.4,3\.6,u_materialWeight\)\)/);
     e.render(8,{...defaults,shape:'organic',static:true});
@@ -1016,7 +1017,7 @@ check('compact membranes use narrow material bands and a wrinkled enclosing skin
     assert.match(renewal,/substrate\*\.75\+conduit\*\(\.46\+cavities\*\.48\)/,'structured heat connects chambers instead of isolated round emitters');
     assert.equal((renewal.match(/potential\(/g)||[]).length,3,'the existing advected gas keeps its noise budget');
     assert.equal(e.core.stats().volumeGrid,48);assert.equal(e.core.stats().volumeSamples,40);
-    assert.equal(e.core.stats().filaments,2560);assert.equal(e.live.Framebuffer.size,10);
+    assert.equal(e.core.stats().filaments,3840);assert.equal(e.live.Framebuffer.size,10);
     e.core.dispose();released(e);
 });
 check('membrane optics reuse cached normals and actual internal light with independent configured colors',()=>{
@@ -1056,6 +1057,138 @@ check('procedural membrane surface shares gas velocity transport and configured 
     assert.deepEqual(Array.from(p.u_particle),[170/255,187/255,204/255]);
     assert.deepEqual(Array.from(p.u_glow),[153/255,51/255,102/255]);
     assert.deepEqual(Array.from(p.u_shadow),[17/255,34/255,51/255]);
+    e.core.dispose();released(e);
+});
+check('foreground filaments are drawn once after the final compositor and never enter bloom or intermediate targets',()=>{
+    const e=environment();
+    for(const config of [defaults,{...defaults,density:2},{...defaults,shape:'hand',static:true},
+        {...defaults,transport:{progress:.4,from:[0,0],to:[.7,-.4],fromScale:1,toScale:.24,bend:.15}}]) {
+        const start=e.draws.length;e.render(8,config,360,240);const draws=e.draws.slice(start);
+        const overlays=draws.filter(draw=>draw.program===e.core.programs.strands.program);
+        assert.equal(overlays.length,1,'one shared material draw, not an old pass plus a second foreground copy');
+        const overlay=overlays[0],compositor=draws.findIndex(draw=>draw.program===e.core.programs.composite.program);
+        assert.ok(compositor>=0);assert.equal(draws.at(-1),overlay,'nothing can cover the fibre pass after it');
+        assert.ok(draws.indexOf(overlay)>compositor,'filaments are genuinely above the tone-mapped composite');
+        assert.equal(overlay.framebuffer,null,'foreground goes directly to the output framebuffer');
+        assert.equal(overlay.texture,undefined);assert.deepEqual(overlay.viewport,[0,0,360,240]);
+        assert.equal(overlay.blending,true);assert.deepEqual(overlay.blend,[e.gl.SRC_ALPHA,e.gl.ONE_MINUS_SRC_ALPHA,e.gl.ONE,e.gl.ONE_MINUS_SRC_ALPHA],
+            'finite material alpha overlays the premultiplied output without an additive screen flash');
+        for(const draw of draws.filter(draw=>[e.core.programs.extract.program,e.core.programs.blur.program,e.core.programs.membrane.program].includes(draw.program)))
+            assert.ok(draws.indexOf(draw)<compositor,'membrane and bloom finish before the single foreground pass');
+        assert.equal(overlay.samplers.u_volume,undefined);assert.equal(overlay.samplers.u_image,undefined);assert.equal(overlay.samplers.u_bloom,undefined,
+            'the pass cannot feed back the current output or inherit volume-opacity suppression');
+    }
+    e.core.dispose();released(e);
+});
+check('foreground retains isolated debug views without extra draws state resets or new simulation atlases',()=>{
+    const e=environment();e.render(8);const histories=e.core.histories.slice(),bio=e.core.bioHistories.slice(),velocity=e.core.velocityField;
+    const created=e.created.Texture.length,steps=e.core.steps;
+    for(const [debugView,visible] of [['energy',false],['matter',false],['filaments',true],['composite',true]]) {
+        const start=e.draws.length;e.render(8,{...defaults,debugView});const draws=e.draws.slice(start);
+        const overlays=draws.filter(draw=>draw.program===e.core.programs.strands.program);
+        assert.equal(overlays.length,visible?1:0);
+        const compositor=draws.findIndex(draw=>draw.program===e.core.programs.composite.program);
+        assert.ok(compositor>=0);assert.equal(draws.at(-1).program,visible?e.core.programs.strands.program:e.core.programs.composite.program);
+        if(visible)assert.equal(overlays[0].framebuffer,null);
+    }
+    assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);
+    assert.equal(e.core.bioHistories[0],bio[0]);assert.equal(e.core.bioHistories[1],bio[1]);assert.equal(e.core.velocityField,velocity);
+    assert.equal(e.created.Texture.length,created);assert.equal(e.core.steps,steps);assert.equal(e.core.stats().volumeGrid,48);
+    assert.equal(e.core.stats().volumeSamples,40);assert.equal(e.live.Framebuffer.size,10);e.core.dispose();released(e);
+});
+check('six bounded visible copies per head provide 150 percent density without out-of-range history reads',()=>{
+    const e=environment();e.render(8);const histories=e.core.histories.slice(),created=e.created.Texture.length,steps=e.core.steps;
+    const vertex=e.core.programs.strands.program.shaders.find(shader=>shader.source.includes('int filament=')).source;
+    assert.match(vertex,/int row=filament\/6;/,'six visible strands reuse each existing simulated path');
+    assert.match(vertex,/filament%6/,'the six copies have stable distinct material-space seeds');
+    for(const [constant,value] of [['BASE_FILAMENTS',3840],['MAX_FILAMENTS',7680],['SIM_HEADS',1280],['HISTORY',96]])
+        assert.match(source,new RegExp('\\b'+constant+'\\s*=\\s*'+value+'\\b'));
+    for(const [density,expected] of [[.25,960],[1,3840],[2,7680]]) {
+        const start=e.draws.length;e.render(8,{...defaults,density});const draw=e.draws.slice(start).find(item=>item.instances);
+        assert.equal(draw.instances,expected*95);assert.equal(e.core.stats().filaments,expected);
+        for(let filament=0;filament<expected;filament++) {
+            const row=Math.floor(filament/6),copy=filament%6;
+            assert.ok(row>=0&&row<histories[0].height&&copy>=0&&copy<6,'every visible copy reads an allocated head');
+        }
+    }
+    assert.equal(Math.floor((7680-1)/6),1279,'maximum density reaches the last valid head exactly');
+    for(const history of e.core.histories){assert.equal(history.width,96);assert.equal(history.height,1280);}
+    assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);
+    assert.equal(e.created.Texture.length,created);assert.equal(e.core.steps,steps,'changing visible density never reseeds simulation');
+    e.core.dispose();released(e);
+});
+check('cached flow shares previous gas heat through unused atlas alpha without gas reads in every RK2 stage',()=>{
+    const e=environment();e.render(8);const cache=e.core.velocityField,created=e.created.Texture.length;
+    assert.equal(cache.width,384);assert.equal(cache.height,288);assert.equal(cache.texture.internal,e.gl.RGBA16F);
+    const simulation=e.core.programs.simulation.program.shaders.find(shader=>shader.source.includes('uniform float u_dt')).source;
+    const sample=simulation.slice(simulation.indexOf('vec4 cachedFlow('),simulation.indexOf('// Compact smoke-roll'));
+    assert.match(sample,/return mix\(texture\(u_velocity,bioUV\(cell\.xy,z\)\),\s*texture\(u_velocity,bioUV\(cell\.xy,min\(47\.0,z\+1\.0\)\)\),fract\(cell\.z\)\)/,
+        'a single vector interpolation retains both cached velocity and actual carried heat');
+    assert.equal((sample.match(/texture\(u_velocity/g)||[]).length,2,'the existing two atlas samples provide all four channels');
+    assert.match(sample,/vec3 cachedVelocity\(vec3 p\) \{return cachedFlow\(p\)\.xyz;\}/,'other existing consumers retain their vector API');
+    const velocity=simulation.slice(simulation.indexOf('vec3 velocity('),simulation.indexOf('vec3 seedPosition'));
+    assert.equal((velocity.match(/cachedFlow\(p\)/g)||[]).length,1,'each RK evaluation fetches one shared flow vector');
+    assert.doesNotMatch(velocity,/bioEnergy\(|bioAt\(|bioGradient\(|texture\(u_bio/,'mantle force does not add gas texture reads per material RK2 sample');
+    assert.match(velocity,/if\(boundary>0\.0&&morph<\.999\)\s*\{[\s\S]*?mantle=.*?carriedFlow\.a\*\.025/,
+        'warm-up and fully authored shapes skip the organic mantle calculation');
+    const builder=e.core.programs.velocity.program.shaders.find(shader=>shader.source.includes('result=vec4(organicVelocity')).source;
+    assert.match(builder,/result=vec4\(organicVelocity\(p,u_time\),bioEnergy\(p\)\)/,'the cached scalar is physical previous-gas heat, not a synthetic animation level');
+    e.core.setPointer(.2,-.3);e.core.setAudioLevel(.04,true);e.render(8.1);
+    const builds=e.draws.filter(draw=>draw.program===e.core.programs.velocity.program);
+    const material=e.draws.filter(draw=>draw.program===e.core.programs.simulation.program);
+    const gas=e.draws.filter(draw=>draw.program===e.core.programs.bio.program);
+    assert.equal(builds.length,e.core.steps);assert.equal(builds.length,material.length);assert.equal(builds.length,gas.length);
+    for(let i=0;i<builds.length;i++) {
+        assert.equal(builds[i].samplers.u_bio.texture,material[i].samplers.u_bio.texture,'cached heat comes from the same previous gas as material');
+        assert.equal(builds[i].samplers.u_bio.texture,gas[i].samplers.u_bio.texture,'both integrators remain coupled to one previous gas state');
+        assert.equal(material[i].samplers.u_velocity.texture,cache.texture);assert.equal(gas[i].samplers.u_velocity.texture,cache.texture);
+    }
+    assert.equal(e.core.velocityField,cache);assert.equal(e.created.Texture.length,created,'heat reuses alpha; no second atlas or extra histories');
+    assert.equal(e.live.Framebuffer.size,10);assert.equal(e.core.stats().volumeGrid,48);e.core.dispose();released(e);
+});
+check('foreground ribbon width and beads reuse one material noise sample without reducing density',()=>{
+    const e=environment();e.render(8,{...defaults,density:2});
+    const vertex=e.core.programs.strands.program.shaders.find(shader=>shader.source.includes('int filament=')).source;
+    const body=vertex.slice(vertex.indexOf('void main()'));
+    assert.equal((body.match(/materialNoise\(/g)||[]).length,1,'no extra per-vertex materialNoise for bead width');
+    assert.match(body,/ribbon=materialNoise\(age\*91\.0,seed\*\.71\)/);
+    assert.match(body,/beads=smoothstep\(\.76,\.91,ribbon\)/);assert.match(body,/width=\.24\+\.26\*ribbon\+beads\*\.48/);
+    assert.equal(e.core.stats().filaments,7680);assert.equal(e.draws.filter(draw=>draw.instances).length,1,'all copies remain in the single foreground draw');
+    e.core.dispose();released(e);
+});
+check('four procedural strip vertices preserve quad parity with 150 percent fibres at the previous vertex budget',()=>{
+    const e=environment();e.render(8);
+    const vertex=e.core.programs.strands.program.shaders.find(shader=>shader.source.includes('int filament=')).source;
+    assert.match(vertex,/bool endpoint=\(id==1\|\|id==3\)/,'strip endpoint order is a,b,a,b');
+    assert.match(vertex,/float side=id<2\?-1\.0:1\.0/,'strip sides are negative,negative,positive,positive');
+    assert.doesNotMatch(source,/createBuffer\(|bufferData\(|drawElements/,'quad remains procedural, with no vertex/index buffers');
+    const area=triangle=>{
+        const [a,b,c]=triangle;return ((b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]))/2;
+    };
+    for(const [a,b] of [[[0,0],[1,0]],[[-.4,.2],[.6,.8]],[[.2,-.3],[-.7,.4]]]) {
+        const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy),normal=[-dy/length,dx/length],width=.37;
+        const point=(end,side)=>[end[0]+normal[0]*width*side,end[1]+normal[1]*width*side];
+        const strip=[point(a,-1),point(b,-1),point(a,1),point(b,1)];
+        // OpenGL reverses odd strip-triangle winding. These are exactly the
+        // original two independent triangles, without a crossed or missing half.
+        const triangles=[[strip[0],strip[1],strip[2]],[strip[2],strip[1],strip[3]]];
+        const first=area(triangles[0]),second=area(triangles[1]);
+        assert.ok(first>0&&second>0,'both strip triangles retain consistent front-face parity');
+        near(first+second,length*width*2,'strip covers the same entire ribbon quad',1e-12);
+    }
+    for(const [density,oldCount,newCount] of [[.25,640,960],[1,2560,3840],[2,5120,7680]]) {
+        const start=e.draws.length;e.render(8,{...defaults,density});const draws=e.draws.slice(start);
+        const foreground=draws.filter(draw=>draw.instances);
+        assert.equal(foreground.length,1);assert.equal(foreground[0].mode,e.gl.TRIANGLE_STRIP);assert.equal(foreground[0].count,4);
+        assert.equal(foreground[0].instances,newCount*95);
+        assert.equal(foreground[0].instances*foreground[0].count,oldCount*95*6,
+            '150 percent visible fibres use exactly the previous number of processed vertices');
+        for(const draw of draws.filter(item=>!item.instances)) {
+            assert.equal(draw.mode,e.gl.TRIANGLES);
+            assert.ok(draw.count===3||draw.count===96*64*6,'fullscreen and membrane topology remains unchanged');
+        }
+    }
+    assert.equal(3840*95*4,2560*95*6);assert.equal(7680*95*4,5120*95*6);
     e.core.dispose();released(e);
 });
 console.log(checks+' GPU material filament checks passed.');

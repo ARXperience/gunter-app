@@ -216,7 +216,7 @@ check('brightness, speed and size reuse renderer config with bounded numeric val
     assert.deepEqual(h.forbidden, []);
 });
 
-check('recording captures 30 fps for 19 seconds and publishes actual elapsed duration', () => {
+check('recording requests 30 fps for 19 seconds and publishes actual elapsed duration', () => {
     const h = harness(); h.click('pause'); h.click('record');
     const recorder = h.recordings[0];
     assert.equal(h.streams[0].fps, 30);
@@ -301,4 +301,50 @@ check('unsupported rendering, capture, codecs and encoder construction fail grac
     }
 });
 
+check('measured cadence starts without a sample and reports actual one-second render intervals, not requested capture FPS', () => {
+    const h = harness();
+    assert.match(h.nodes.get('status').textContent, /Cadencia: sin muestra/);
+    assert.equal(h.canvas.dataset.measuredFps, undefined);assert.equal(h.frames.size, 1);assert.equal(h.timers.size, 0);
+    h.frame(1000);
+    assert.match(h.nodes.get('status').textContent, /sin muestra/,'one completed call does not establish an interval');
+    h.frame(1000);
+    assert.equal(Number(h.canvas.dataset.measuredFps), 1);
+    assert.match(h.nodes.get('status').textContent, /1,0 cuadros\/s medidos \(renderTo\)/);
+    assert.ok(Math.abs(h.renders.at(-1).phase - h.renders[0].phase - .08) < 1e-9,
+        'cadence uses elapsed RAF time, not the deliberately clamped simulation phase');
+    h.click('record');assert.equal(h.streams[0].fps, 30,'capture rate is a request, not a measurement');
+    const message = h.nodes.get('status').textContent;
+    h.frame(1000);
+    assert.equal(Number(h.canvas.dataset.measuredFps), 1,'measured render cadence remains independent of captureStream(30)');
+    assert.equal(h.nodes.get('status').textContent, message,'cadence never overwrites recording progress');
+    assert.equal(h.frames.size, 1,'measurement reuses the existing loop');assert.equal(h.timers.size, 1,'only the pre-existing recording deadline is scheduled');
+    h.window.fire('pagehide');h.flushStops();assert.deepEqual(h.forbidden, []);
+});
+check('measured cadence counts completed rendered frames and remains presentation cadence while phase is paused', () => {
+    const h = harness();h.frame(40);h.click('pause');
+    const phase = h.renders.at(-1).phase;
+    for(let i=0;i<25;i++)h.frame(40);
+    assert.equal(Number(h.canvas.dataset.measuredFps), 25,'forty-millisecond intervals measure 25, not the requested cap of 30');
+    assert.match(h.nodes.get('status').textContent, /Pausado.*25,0 cuadros\/s medidos/);
+    assert.equal(h.renders.at(-1).phase, phase);assert.equal(h.renders.at(-1).config.static, true);
+    const count = h.renders.length;
+    h.frame(10);h.frame(10);
+    assert.equal(h.renders.length, count,'throttled RAF callbacks are not counted as rendered frames');
+    assert.equal(Number(h.canvas.dataset.measuredFps), 25);assert.equal(h.frames.size, 1);assert.equal(h.timers.size, 0);
+    assert.equal(h.engine.resets, 0);assert.deepEqual(h.forbidden, []);
+});
+check('hiding discards cadence history and return requires fresh visible intervals without affecting phase or disposal', () => {
+    const h = harness();for(let i=0;i<26;i++)h.frame(40);
+    assert.equal(Number(h.canvas.dataset.measuredFps), 25);
+    const phase = h.renders.at(-1).phase, count = h.renders.length;
+    h.hide();assert.equal(h.canvas.dataset.measuredFps, undefined);assert.match(h.nodes.get('status').textContent, /sin muestra/);
+    h.advance(60000);assert.equal(h.renders.length, count);assert.equal(h.frames.size, 0);
+    h.show();h.frame(40);
+    assert.equal(h.canvas.dataset.measuredFps, undefined);assert.match(h.nodes.get('status').textContent, /sin muestra/);
+    assert.equal(h.renders.at(-1).phase, phase,'hidden time does not advance the phase or pollute the measurement');
+    h.frame(1000);assert.equal(Number(h.canvas.dataset.measuredFps), 1,'return is measured from new successful render intervals only');
+    assert.equal(h.engine.disposals, 0);assert.equal(h.frames.size, 1);
+    h.window.fire('pagehide');assert.equal(h.canvas.dataset.measuredFps, undefined);assert.equal(h.frames.size, 0);assert.equal(h.engine.disposals, 1);
+    assert.deepEqual(h.forbidden, []);
+});
 console.log(`core-bio-lab: ${checks} contract checks passed`);

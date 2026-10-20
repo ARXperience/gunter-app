@@ -10,6 +10,31 @@
         density:1, brightness:1, size:1, speed:1, shape:'organic', debugView:'energy' };
     const engine = new window.GunterIdleCore();
     let phase = 8, last = 0, frame = 0, paused = false, recorder = null, stream = null, timer = 0, blobUrl = '', lastVerify = 0, disposed = false;
+    let cadenceStart = null, cadenceIntervals = 0, measuredFps = null;
+    function updateStatus() {
+        if (recorder || disposed) return;
+        const cadence = measuredFps === null ? 'Cadencia: sin muestra'
+            : `${measuredFps.toFixed(1).replace('.', ',')} cuadros/s medidos (renderTo)`;
+        status.textContent = `WebGL2 disponible · ${paused?'Pausado':'Simulación activa'} · ${cadence} · sin audio ni amplitud simulada`;
+    }
+    function resetCadence() {
+        cadenceStart = null; cadenceIntervals = 0; measuredFps = null;
+        delete canvas.dataset.measuredFps;
+    }
+    function sampleRendered(now) {
+        // Count intervals between completed renderTo calls against RAF elapsed
+        // time, never against requested capture FPS or the clamped phase clock.
+        if (cadenceStart === null || now < cadenceStart) {
+            cadenceStart = now; cadenceIntervals = 0; return;
+        }
+        cadenceIntervals++;
+        const elapsed = now - cadenceStart;
+        if (elapsed >= 1000) {
+            measuredFps = cadenceIntervals * 1000 / elapsed;
+            canvas.dataset.measuredFps = measuredFps.toFixed(3);
+            cadenceStart = now; cadenceIntervals = 0;
+        }
+    }
     function updateVerification(now, force = false) {
         if (!force && now - lastVerify < 1000) return;
         lastVerify = now;
@@ -20,15 +45,15 @@
     }
     function tick(now) {
         frame = 0;
-        if (document.hidden || disposed) { last = 0; return; }
+        if (document.hidden || disposed) { last = 0; resetCadence(); return; }
         if (!last || now - last >= 1000/30) {
             if (last && !paused) phase += Math.min(.08,(now-last)/1000);
             last = now;
             try {
                 engine.renderTo(canvas,620,620,phase,{...config,static:paused});
-                if (!recorder) status.textContent = `WebGL2 disponible · ${paused?'Pausado':'Simulación activa'} · sin audio ni amplitud simulada`;
+                sampleRendered(now); updateStatus();
                 updateVerification(now);
-            } catch (error) { status.textContent = error.message; return; }
+            } catch (error) { resetCadence(); status.textContent = error.message; return; }
         }
         frame = requestAnimationFrame(tick);
     }
@@ -96,13 +121,14 @@
         status.textContent='Capturando 19 segundos, con margen para verificar al menos 15 segundos útiles…';
     });
     document.addEventListener('visibilitychange',()=>{
-        if(document.hidden) { if(frame)cancelAnimationFrame(frame); frame=0; last=0; stopRecording(); engine.resetPointer(); }
-        else if(!frame&&engine.available)frame=requestAnimationFrame(tick);
+        if(document.hidden) { if(frame)cancelAnimationFrame(frame); frame=0; last=0; resetCadence(); updateStatus(); stopRecording(); engine.resetPointer(); }
+        else if(!frame&&engine.available) { updateStatus(); frame=requestAnimationFrame(tick); }
     });
     window.addEventListener('pagehide',()=>{
         disposed=true;
+        resetCadence();
         if(frame)cancelAnimationFrame(frame); clearTimeout(timer); stopRecording(); stream?.getTracks().forEach(track=>track.stop());
         if(blobUrl)URL.revokeObjectURL(blobUrl); engine.dispose();
     },{once:true});
-    if(engine.available) frame=requestAnimationFrame(tick); else status.textContent=engine.error;
+    if(engine.available) { updateStatus(); frame=requestAnimationFrame(tick); } else status.textContent=engine.error;
 })();
