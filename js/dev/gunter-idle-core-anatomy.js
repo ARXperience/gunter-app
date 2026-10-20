@@ -15,8 +15,8 @@
     const BASE_FILAMENTS=3840, MAX_FILAMENTS=7680, SIM_HEADS=1280, HISTORY=96, STEP=1/45;
     // Three bounded anatomical descriptors, in the catalog's already-normalized
     // VIEW coordinates. Other forms retain their existing guide/path pipeline.
-    // These constants generate GLSL and the CPU numerical diagnostic together;
-    // they are geometry, never an image, another simulation or another atlas.
+    // These constants generate point assignment and CPU geometry diagnostics.
+    // Baked textures contain geometric values, never reference-image overlays.
     const part=(a,b,r,z,type=1,options={})=>{
         const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy)||1;
         return {c:[(a[0]+b[0])/2,(a[1]+b[1])/2,options.depth||0],axis:[dx/length,dy/length],
@@ -107,7 +107,7 @@
         result.gas=(1-smooth(-.045,-.005,result.distance))*(1-result.pupil);
         return result;
     }
-    function formFront(kind,xy){
+    function formFront(kind,xy,applyPupil=true){
         let z=-1,coverage=0,region=0;
         FORM_PARTS[kind-1].forEach((p,i)=>{if(p.onlyFibre)return;
             if(p.polygon){const edge=polygonAt(p.polygon,xy);if(edge.distance>0)return;
@@ -121,7 +121,7 @@
             const front=p.c[2]+p.z*Math.sqrt(Math.max(0,1-n));if(front>z){z=front;coverage=1;region=i;}
         });
         const pupil=kind===2?1-smooth(1,1.15,pupilRadius(xy)):0;
-        if(pupil>0&&coverage)z=Math.min(z,.025+.035*Math.min(1,pupilRadius(xy)**2));
+        if(applyPupil&&pupil>0&&coverage)z=Math.min(z,.025+.035*Math.min(1,pupilRadius(xy)**2));
         return {z:coverage?z:0,coverage,region,pupil};
     }
     function formPoint(kind,row,along,time=0){
@@ -197,44 +197,43 @@
                 if((a.y>q.y)!=(b.y>q.y)&&q.x<(b.x-a.x)*(q.y-a.y)/(b.y-a.y)+a.x)inside=!inside;
             }return vec3(inside?-best:best,inside?-normal:normal);
         }
+        // CPU-baked procedural geometry is immutable. Two XY-linear taps
+        // interpolate adjacent z slices without crossing their atlas edges.
+        vec2 anatomyVolumeUV(vec2 xy,float slice,int kind,float plane){
+            return (vec2(mod(slice,8.0),floor(slice/8.0))*64.0+xy+.5
+                +vec2(0.0,float(kind-1)*512.0+plane*256.0))/vec2(512.0,1536.0);
+        }
+        vec4 anatomyVolumeSample(vec3 cell,int kind,float plane){
+            float z=floor(cell.z);
+            return mix(texture(u_anatomyVolume,anatomyVolumeUV(cell.xy,z,kind,plane)),
+                texture(u_anatomyVolume,anatomyVolumeUV(cell.xy,min(31.0,z+1.0),kind,plane)),fract(cell.z));
+        }
         FormVolume sampleAnatomy(vec3 q,int kind){
-            FormVolume s;s.distance=10.0;s.normal=vec3(0,0,1);s.local=vec3(0);s.axis=vec3(0,1,0);s.radius=.1;s.pupil=0.0;
-            int start=formStart(kind),count=formCount(kind);
-            for(int j=0;j<int(u_anatomyBudget.x);j++){
-                if(j>=count)break;int i=start+j;if(ANAT_M[i].y>.5)continue;
-                vec4 c=ANAT_C[i],a=ANAT_A[i];vec3 d=q-c.xyz;
-                vec3 local=vec3(dot(d.xy,a.xy),dot(d.xy,vec2(-a.y,a.x)),d.z);
-                vec3 radii=vec3(ANAT_M[i].x>.5?a.z:c.w,a.z,a.w),v=local;
-                if(ANAT_M[i].x>.5)v.x=sign(v.x)*max(0.0,abs(v.x)-c.w);
-                float distance=(length(v/radii)-1.0)*min(radii.x,min(radii.y,radii.z));
-                vec3 lensNormal=vec3(0);
-                if(ANAT_M[i].x>1.5){vec3 edge=anatomicalEdge(q.xy,i);float reach=sqrt(clamp(-edge.x/a.z,0.0,1.0)),vertical=abs(d.z)-a.w*reach;
-                    distance=max(edge.x,vertical);float gain=a.w/(2.0*a.z*max(.04,reach));
-                    lensNormal=vertical>edge.x?normalize(vec3(edge.yz*gain,sign(d.z))):vec3(edge.yz,0);}
-                if(kind==2&&j==0){float t=clamp((q.x+.78095)/1.5619,0.0,1.0),edge=pow(max(0.0,sin(t*3.14159265)),.86);
-                    distance=max(distance,max(abs(q.x)-.78095,q.y>0.0?q.y-.31238*edge:-q.y-.28310*edge));}
-                if(distance<s.distance){vec3 g=v/(radii*radii);g/=max(.00001,length(g));
-                    s.distance=distance;s.normal=ANAT_M[i].x>1.5?lensNormal:vec3(a.xy*g.x+vec2(-a.y,a.x)*g.y,g.z);s.local=local;s.axis=vec3(a.xy,0);s.radius=a.z;}
+            FormVolume s;s.distance=10.0;s.normal=vec3(0,0,1);s.local=vec3(0);s.axis=vec3(0,1,0);s.radius=.1;
+            s.pupil=0.0;s.support=0.0;s.gas=0.0;
+            if(u_anatomyReady[kind-1]<.5)return s;
+            vec3 extent=vec3(.96,.96,.36),outside=max(abs(q)-extent,vec3(0));
+            if(any(greaterThan(outside,vec3(0)))){
+                s.distance=length(outside)+.001;s.normal=normalize(sign(q)*outside);return s;
             }
+            vec3 cell=clamp((q/extent*.5+.5)*vec3(63.0,63.0,31.0),vec3(0),vec3(63,63,31));
+            vec4 surface=anatomyVolumeSample(cell,kind,0.0),frame=anatomyVolumeSample(cell,kind,1.0);
+            s.distance=surface.x;s.normal=surface.yzw/max(.00001,length(surface.yzw));s.local=frame.xyz;s.radius=max(.0001,frame.w);
+            // Keep the pupil/backcup exact AFTER interpolation: the geometry
+            // atlas must never bridge its dark aperture or introduce gas.
             if(kind==2){float r=pupilDistance(q.xy),floor=.025+.035*min(1.0,r*r),cut=max((r-1.0)*.1025,floor-q.z);
                 if(-cut>s.distance){s.distance=-cut;s.normal=vec3(0,0,1);}s.pupil=1.0-smoothstep(1.0,1.15,r);}
             s.support=1.0-smoothstep(-.020,0.0,s.distance);s.gas=(1.0-smoothstep(-.045,-.005,s.distance))*(1.0-s.pupil);return s;
         }
         vec3 anatomyFront(vec2 xy,int kind){
-            float front=-1.0,coverage=0.0;int start=formStart(kind),count=formCount(kind);
-            for(int j=0;j<int(u_anatomyBudget.x);j++){
-                if(j>=count)break;int i=start+j;if(ANAT_M[i].y>.5)continue;
-                vec4 c=ANAT_C[i],a=ANAT_A[i];vec2 d=xy-c.xy;float u=dot(d,a.xy),v=dot(d,vec2(-a.y,a.x));
-                if(ANAT_M[i].x>1.5){vec3 edge=anatomicalEdge(xy,i);if(edge.x>0.0)continue;
-                    front=max(front,c.z+a.w*sqrt(clamp(-edge.x/a.z,0.0,1.0)));coverage=1.0;continue;}
-                float x=ANAT_M[i].x>.5?max(0.0,abs(u)-c.w)/a.z:u/c.w,n=x*x+v*v/(a.z*a.z);if(n>1.0)continue;
-                if(kind==2&&j==0){float t=clamp((xy.x+.78095)/1.5619,0.0,1.0),edge=pow(max(0.0,sin(t*3.14159265)),.86);
-                    if(abs(xy.x)>.78095||xy.y>.31238*edge||xy.y<-.28310*edge)continue;}
-                front=max(front,c.z+a.w*sqrt(max(0.0,1.0-n)));coverage=1.0;
-            }
-            float pupil=kind==2?1.0-smoothstep(1.0,1.15,pupilDistance(xy)):0.0;
-            if(pupil>0.0&&coverage>0.0){float r=pupilDistance(xy);front=min(front,.025+.035*min(1.0,r*r));}
-            return vec3(coverage>0.0?front:0.0,coverage,pupil);
+            if(u_anatomyReady[kind-1]<.5||any(greaterThan(abs(xy),vec2(.96))))return vec3(0);
+            vec2 cell=(xy/.96*.5+.5)*255.0;
+            vec4 frontal=texture(u_anatomyFront,(cell+.5+vec2(0,float(kind-1)*256.0))/vec2(256,768));
+            float coverage=frontal.y,front=coverage>.00001?frontal.x/coverage:0.0;
+            float pupil=coverage>.00001?frontal.z/coverage:0.0;
+            if(kind==2){float r=pupilDistance(xy);pupil=1.0-smoothstep(1.0,1.15,r);
+                if(pupil>0.0&&coverage>0.0)front=min(front,.025+.035*min(1.0,r*r));}
+            return vec3(front,coverage,pupil);
         }
         vec3 anatomyPoint(float row,float along,float t,int kind,out vec3 tangent){
             int start=formStart(kind),count=formCount(kind),index=start+count-1;float choice=fract((row+.5)*.61803398875);
@@ -271,6 +270,8 @@
         uniform vec3 u_guideMode,u_guideWeights;
         uniform vec3 u_anatomyFrom,u_anatomyTo;
         uniform vec3 u_anatomyBudget;
+        uniform sampler2D u_anatomyVolume,u_anatomyFront;
+        uniform vec3 u_anatomyReady;
         uniform float u_static;
         vec3 worldPoint(vec3 p);
         vec3 viewPoint(vec3 p);
@@ -1500,12 +1501,19 @@
             startStrength:number(value.startStrength,0,1,0)};
     };
     class GunterIdleCore {
+        static shaderSources(){return {
+            simulation:{vertex:QUAD,fragment:SIM},bio:{vertex:QUAD,fragment:BIO_SIM},
+            velocity:{vertex:QUAD,fragment:VELOCITY_CACHE},field:{vertex:QUAD,fragment:FIELD_CACHE},
+            strands:{vertex:STRAND_VERTEX,fragment:STRAND_FRAGMENT},volume:{vertex:QUAD,fragment:VOLUME},
+            membrane:{vertex:MEMBRANE_VERTEX,fragment:MEMBRANE_FRAGMENT},copy:{vertex:QUAD,fragment:COPY},
+            extract:{vertex:QUAD,fragment:EXTRACT},blur:{vertex:QUAD,fragment:BLUR},composite:{vertex:QUAD,fragment:COMPOSITE}
+        };}
         // Pure geometry diagnostics use the very constants compiled into GLSL;
         // no GL readback, network, preferences, media or mutable model state.
         static sampleFormVolume(name,p){const kind=anatomyOf(name).findIndex(v=>v===1)+1;
             return kind&&Array.isArray(p)&&p.length>=3&&p.every(Number.isFinite)?formVolume(kind,p):null;}
-        static sampleFormFront(name,p){const kind=anatomyOf(name).findIndex(v=>v===1)+1;
-            return kind&&Array.isArray(p)&&p.length>=2&&p.every(Number.isFinite)?formFront(kind,p):null;}
+        static sampleFormFront(name,p,unclipped=false){const kind=anatomyOf(name).findIndex(v=>v===1)+1;
+            return kind&&Array.isArray(p)&&p.length>=2&&p.every(Number.isFinite)?formFront(kind,p,!unclipped):null;}
         static sampleFormPoint(name,row,along,time=0){const kind=anatomyOf(name).findIndex(v=>v===1)+1;
             return kind&&[row,along,time].every(Number.isFinite)?formPoint(kind,row,along,time):null;}
         sampleVolumeState(p,progress=this.shapeCoefficients(this.displayTime||0)[2]){
@@ -1536,7 +1544,7 @@
             const angle=distance<.0001?0:-Math.sin(p*Math.PI)*Math.sin(-p*3.6)*.78;
             return {x:Math.cos(angle)*px-Math.sin(angle)*py,y:Math.sin(angle)*px+Math.cos(angle)*py};
         }
-        constructor() {
+        constructor(options={}) {
             this.canvas=document.createElement('canvas');
             this.available=false;this.error='';this.frames=0;this.steps=0;this.fieldBuilds=0;this.bioSteps=0;this.resources=[];
             this.pointerRevision=0;this.resetPointer();
@@ -1544,6 +1552,8 @@
             this.shapeState={from:0,to:0,start:0};this.shapeName='organic';
             this.guideFrom={name:'organic',id:0,weight:0,data:null,anatomy:[0,0,0]};this.guideTo=this.guideFrom;
             this.guideTextures={};this.pathTextures={};this.guideRevision=0;this.snapshotActive=false;this.shapeSnapshot=null;
+            this.anatomyCache=new Map();this.anatomyTextures={};this.anatomyUploaded=[0,0,0];this.anatomyPreparations=new Map();
+            this.allowSynchronousGeometry=options.allowSynchronousGeometry===true;
             this.currentFlow=[1,0,0];this.historyFlow=[1,0,0];this.flowTime=-1;this.staticPresentation=false;
             this.canvas.addEventListener('webglcontextlost',event=>{
                 event.preventDefault();this.available=false;this.error='Se perdió el contexto WebGL2.';
@@ -1553,6 +1563,7 @@
                 if(this.disposed)return;
                 this.resources=[];this.targets=null;this.histories=null;this.bioHistories=null;this.velocityField=null;this.field=null;this.fieldTime=null;this.fieldDensity=null;
                 this.guideTextures={};this.pathTextures={};this.shapeSnapshot=null;this.snapshotActive=false;
+                this.anatomyTextures={};this.anatomyUploaded=[0,0,0];
                 this.simulationTime=null;this.displayTime=null;
                 this.flowTime=-1;
                 this.historyFlow=[...this.currentFlow];this.fieldShapeKey=null;this.fieldFlowKey=null;
@@ -1584,6 +1595,7 @@
                 this.velocityField=this.target(384,288);
                 this.uploadGuide('from',this.supportData(this.guideFrom));this.uploadGuide('to',this.supportData(this.guideTo));
                 this.uploadPaths('from',this.supportPaths(this.guideFrom));this.uploadPaths('to',this.supportPaths(this.guideTo));
+                this.ensureAnatomy();
                 this.historyIndex=0;this.simulationTime=null;this.displayTime=null;
                 this.historyFlow=[...this.currentFlow];this.fieldShapeKey=null;this.fieldFlowKey=null;
                 this.available=true;this.error='';
@@ -1656,6 +1668,8 @@
         }
         selectShape(name,time,still) {
             const target=shapeId(name),state=this.shapeState;
+            if(!this.allowSynchronousGeometry&&anatomyOf(name).some((weight,i)=>weight&&!this.anatomyCache.has(i+1)))
+                throw new Error('Prepara la anatomía con prepareAnatomy() antes de renderizar esta forma.');
             if(name!==this.shapeName) {
                 const progress=this.shapeCoefficients(time)[2];
                 if(window.GunterCoreForms?.guide) {
@@ -1681,6 +1695,7 @@
                     this.uploadPaths('from',this.supportPaths(this.guideFrom));
                 }
             }
+            this.ensureAnatomy();
             this.shapeName=name;this.staticPresentation=still;
         }
         catalogGuide(name) {
@@ -1763,6 +1778,86 @@
             const state=this.shapeState,p=state.from===state.to?1:number((time-state.start)/1.65,0,1,1);
             return [state.from,state.to,p*p*(3-2*p)];
         }
+        validateAnatomyCache(baked) {
+            if(!(baked?.volume instanceof Float32Array)||baked.volume.length!==512*512*4
+                ||!(baked?.front instanceof Float32Array)||baked.front.length!==256*256*4)
+                throw new Error('La caché geométrica del laboratorio no es válida.');
+            return baked;
+        }
+        prepareAnatomy(name,options={}) {
+            const aborted=()=>Object.assign(new Error('Preparación geométrica cancelada.'),{name:'AbortError'});
+            if(this.disposed)return Promise.reject(aborted());
+            const kind=anatomyOf(name).findIndex(value=>value===1)+1;
+            if(!kind)return options.signal?.aborted?Promise.reject(aborted()):Promise.resolve(null);
+            if(options.signal?.aborted)return Promise.reject(aborted());
+            if(this.anatomyCache.has(kind))return Promise.resolve(this.anatomyCache.get(kind));
+            let entry=this.anatomyPreparations.get(kind);
+            if(!entry){
+                if(!window.GunterAnatomyCache?.buildAsync)
+                    return Promise.reject(new Error('La preparación geométrica asíncrona no está disponible.'));
+                entry={controller:new AbortController(),progress:new Set(),signals:new Map()};
+                const current=entry;
+                current.promise=Promise.resolve().then(()=>window.GunterAnatomyCache.buildAsync(kind,
+                    {volume:formVolume,front:(k,xy)=>formFront(k,xy,false)},
+                    {signal:current.controller.signal,onProgress:value=>{
+                        for(const listener of current.progress)listener(value);
+                    },schedule:options.schedule,batchSize:options.batchSize})).then(baked=>{
+                    if(this.disposed||current.controller.signal.aborted)throw aborted();
+                    this.anatomyCache.set(kind,this.validateAnatomyCache(baked));return baked;
+                }).finally(()=>{
+                    for(const [signal,listener] of current.signals)signal.removeEventListener('abort',listener);
+                    if(this.anatomyPreparations.get(kind)===current)this.anatomyPreparations.delete(kind);
+                });
+                this.anatomyPreparations.set(kind,current);
+            }
+            if(typeof options.onProgress==='function')entry.progress.add(options.onProgress);
+            // Calls for the same form share one preparation. A supplied abort
+            // signal cancels that shared operation; it can then be retried.
+            if(options.signal&&!entry.signals.has(options.signal)){
+                const listener=()=>entry.controller.abort();entry.signals.set(options.signal,listener);
+                options.signal.addEventListener('abort',listener,{once:true});
+            }
+            return entry.promise;
+        }
+        ensureAnatomy() {
+            const from=this.guideFrom.anatomy||[0,0,0],to=this.guideTo.anatomy||[0,0,0];
+            const needed=[0,1,2].filter(i=>from[i]*this.guideFrom.weight+to[i]*this.guideTo.weight>.00001);
+            if(!needed.length)return; // Organic startup allocates no geometry cache.
+            for(const i of needed)if(!this.anatomyCache.has(i+1)){
+                if(!this.allowSynchronousGeometry)
+                    throw new Error('Prepara la anatomía con prepareAnatomy() antes de renderizar esta forma.');
+                const builder=window.GunterAnatomyCache;
+                if(!builder?.build)throw new Error('La caché geométrica del laboratorio no está disponible.');
+                const baked=builder.build(i+1,{volume:formVolume,front:(kind,xy)=>formFront(kind,xy,false)});
+                this.anatomyCache.set(i+1,this.validateAnatomyCache(baked));
+            }
+            const gl=this.gl;
+            try {
+                if(!this.anatomyTextures.volume){
+                    // Read-only distance/local-frame and frontal geometry. No
+                    // framebuffer, new material state or independent velocity.
+                    for(const [key,width,height] of [['volume',512,1536],['front',256,768]]){
+                        const texture=gl.createTexture();
+                        if(!texture)throw new Error('No se pudo crear la caché geométrica GPU.');
+                        this.anatomyTextures[key]=texture;gl.bindTexture(gl.TEXTURE_2D,texture);
+                        for(const name of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,name,gl.LINEAR);
+                        for(const name of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,name,gl.CLAMP_TO_EDGE);
+                        gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,width,height,0,gl.RGBA,gl.FLOAT,null);
+                    }
+                }
+                for(const i of needed)if(!this.anatomyUploaded[i]){
+                    const baked=this.anatomyCache.get(i+1);
+                    for(const [key,width,height] of [['volume',512,512],['front',256,256]]){
+                        gl.bindTexture(gl.TEXTURE_2D,this.anatomyTextures[key]);
+                        gl.texSubImage2D(gl.TEXTURE_2D,0,0,i*height,width,height,gl.RGBA,gl.FLOAT,baked[key]);
+                    }
+                    this.anatomyUploaded[i]=1;
+                }
+            } catch(error) {
+                Object.values(this.anatomyTextures).forEach(texture=>gl.deleteTexture(texture));
+                this.anatomyTextures={};this.anatomyUploaded=[0,0,0];throw error;
+            }
+        }
         materialUniforms(program,time) {
             this.vector(program,'u_shape',this.shapeCoefficients(time));
             this.vector(program,'u_guideMode',[this.guideFrom.data?1:0,this.guideTo.data?1:0,0]);
@@ -1771,6 +1866,9 @@
             this.vector(program,'u_anatomyTo',this.guideTo.anatomy||[0,0,0]);
             this.vector(program,'u_anatomyBudget',ANATOMY_BUDGET);
             const fallback=this.histories[this.historyIndex].texture;
+            this.vector(program,'u_anatomyReady',this.anatomyUploaded);
+            this.texture(program,'u_anatomyVolume',this.anatomyTextures.volume||fallback,12);
+            this.texture(program,'u_anatomyFront',this.anatomyTextures.front||fallback,13);
             this.texture(program,'u_shapeGuideFrom',this.guideFrom.data?this.guideTextures.from:fallback,3);
             this.texture(program,'u_shapeGuideTo',this.guideTo.data?this.guideTextures.to:fallback,4);
             const fromPaths=this.supportPaths(this.guideFrom),toPaths=this.supportPaths(this.guideTo);
@@ -1999,12 +2097,15 @@
             this.deleteTargets(this.shapeSnapshot?[this.shapeSnapshot]:null);this.shapeSnapshot=null;this.snapshotActive=false;
             Object.values(this.guideTextures||{}).forEach(texture=>this.gl.deleteTexture(texture));this.guideTextures={};
             Object.values(this.pathTextures||{}).forEach(slots=>Object.values(slots).forEach(texture=>this.gl.deleteTexture(texture)));this.pathTextures={};
+            Object.values(this.anatomyTextures||{}).forEach(texture=>this.gl.deleteTexture(texture));this.anatomyTextures={};this.anatomyUploaded=[0,0,0];
             this.resources.forEach(program=>this.gl.deleteProgram(program));this.resources=[];
         }
         dispose() {
             if(this.disposed)return;
             this.setAudioLevel(0,false);
-            this.disposed=true;this.available=false;this.release();this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
+            this.disposed=true;this.available=false;
+            for(const entry of this.anatomyPreparations.values())entry.controller.abort();this.anatomyPreparations.clear();
+            this.release();this.anatomyCache.clear();this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
             this.canvas.width=this.canvas.height=1;
         }
     }

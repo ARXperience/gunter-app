@@ -439,3 +439,61 @@ solución demostrada del bloqueo. Antes de reactivar, la siguiente revisión
 debe medir etapas de compilación/primer draw y sacar evaluaciones repetidas
 de descriptores de los shaders compartidos mediante un caché geométrico;
 no volver a usar la sesión de trabajo del usuario como prueba de estrés.
+
+### Caché geométrica y validación fuera del navegador
+
+Se sustituyeron los recorridos de primitivas/aristas en `sampleAnatomy` y
+`anatomyFront` por consultas de coste constante a geometría procedural. Las
+trayectorias de puntos mantienen su parametrización analítica. El nuevo
+`gunter-anatomy-cache.js` no almacena imágenes de referencia, colores, luz,
+velocidades ni simulación: sólo distancia, normal, marco local y profundidad
+frontal. Energía y fibras siguen usando los dos sistemas y el campo común.
+
+La distancia y el marco usan una rejilla 64×64×32, con extensión
+`[.96,.96,.36]`; el frente usa 256×256. Dos atlas GPU RGBA16F de sólo lectura
+(unidades 12/13) consumen 7,5 MiB al activar anatomía, sin framebuffer nuevo.
+Cada forma preparada retiene 5 MiB de datos CPU, reutilizables al restaurar
+el contexto. El orgánico no crea esos recursos. El corte pupilar se aplica
+después de interpolar; se corrigió el frente para no difuminar previamente
+la cavidad y extenderla más allá de su borde.
+
+`await core.prepareAnatomy('hand', {signal, onProgress})` prepara por lotes de
+128 nodos y cede al hilo anfitrión. Solicitudes duplicadas comparten trabajo;
+cancelar o disponer la instancia no deja una caché parcial ni trabajo activo.
+El constructor normal rechaza renderizar una anatomía no preparada antes de
+mutar las guías: no construye su caché dentro del primer cuadro. La opción
+`allowSynchronousGeometry:true` queda sólo para pruebas offline explícitas.
+El propietario futuro debe cargar el módulo de caché antes del renderer,
+esperar la preparación y después permitir seleccionar esa forma.
+
+Validación completa: 81 contratos del renderer simulado, 19 de la caché,
+8 del watchdog, 2 de preparación con geometría real, 14 del laboratorio y
+4 de aislamiento (128). Auditoría numérica de 1200 puntos por forma: sin
+errores de signo a más de .015 del borde, sin fallos en huecos/muescas
+seleccionados y sin gas en la columna pupilar. El error RMS de distancia
+fue .00105 (mano), .00099 (ojo) y .00279 (fénix). Son muestras Float32 CPU,
+no lectura de las texturas half-float en GPU ni aprobación visual.
+
+También se verificaron compilación/enlace reales de los 11 programas y 11
+probes sintéticos de pipeline 1×1 (draw, finish y lectura de píxel). Se usa
+ANGLE/SwiftShader instalado, en un proceso PowerShell x64 descartable por
+programa, con límite externo de 15 s que sólo termina ese hijo. La selección
+explícita de [SwiftShader en ANGLE](https://chromium.googlesource.com/angle/angle/+/HEAD/extensions/EGL_ANGLE_platform_angle_device_type_swiftshader.txt)
+se comprueba contra `GL_RENDERER`, sin fallback hardware. No se abre Chrome,
+no se reinicia el backend y no se alteran opciones del navegador. Hubo avisos
+de Vulkan relativos al directorio de capas; los programas completaron los
+probes sin errores GL. No se presenta esto como una consola libre de avisos.
+
+Comandos manuales: `node scripts/audit-anatomy-cache.cjs`,
+`node scripts/check-anatomy-shaders.cjs` y
+`node scripts/check-anatomy-shaders.cjs --probe`. El verificador nativo
+requiere el paquete local Playwright/ANGLE 1217; si falta, falla sin instalar
+nada ni elegir otro driver. El resultado incluye hashes de fuentes, backend,
+tiempos y limitaciones. Evidencias locales: `output/anatomy-cache-audit.json`,
+`output/anatomy-shader-validation.json`, `output/anatomy-shader-probes.json`.
+
+La página experimental y su ruta JS siguen en cuarentena. Estos probes usan
+datos sintéticos mínimos: no ejecutan un cuadro completo del renderer ni
+certifican 30 FPS, ausencia de bloqueo en hardware, vídeo continuo o fidelidad
+a las referencias. La siguiente etapa debe validar un cuadro completo en un
+entorno aislado y acotado antes de reconsiderar la prueba visual interactiva.

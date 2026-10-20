@@ -16,7 +16,7 @@ for (const url of ['/', '/js/dev/core-bio-lab.html', '/js/dev/core-bio-anatomy-l
 console.log('ok 1 - only the two laboratory pages and three stable visual scripts resolve');
 
 for (const url of ['/.env', '/server.js', '/api/auth/session', '/api/whatsapp', '/dashboard.html',
-    '/service-worker.js', '/js/dev/gunter-idle-core-anatomy.js?v203-runtime-anatomy-loops',
+    '/service-worker.js', '/js/dev/gunter-idle-core-anatomy.js?v203-runtime-anatomy-loops', '/js/dev/gunter-anatomy-cache.js',
     '/../.env', '/%2e%2e/.env', '/js/dev/%2e%2e/%2e%2e/server.js',
     '/js/dev/..%2f..%2fserver.js', '/js/components/gunter-idle-core.js/extra']) {
     assert.equal(resolveAsset(url).status, 404, url);

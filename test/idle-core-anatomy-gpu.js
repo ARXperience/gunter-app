@@ -2,11 +2,15 @@
 // WebGL2 resource/dispatch contracts. Native shader and visual checks run separately.
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../js/dev/gunter-idle-core-anatomy.js'),'utf8');
+const cacheSource=fs.readFileSync(require('node:path').join(__dirname,'../js/dev/gunter-anatomy-cache.js'),'utf8');
+let geometryFixture;
 const defaults={particleColor:'#b8bec9',energyColor:'#ff452b',glowColor:'#ff6d35',brightness:1,density:1,speed:1,size:1};
 const STEP=1/45;
 let checks=0;
+const asyncChecks=[];
 const filter=process.argv[2]?new RegExp(process.argv[2]):null;
 const check=(name,fn)=>{if(filter&&!filter.test(name))return;fn();console.log('ok '+(++checks)+' - '+name);};
+const checkAsync=(name,fn)=>{if(filter&&!filter.test(name))return;asyncChecks.push({name,fn});};
 function environment(options={}) {
     const gl={},names=['VERTEX_SHADER','FRAGMENT_SHADER','COMPILE_STATUS','LINK_STATUS','TEXTURE_2D',
         'TEXTURE_MIN_FILTER','TEXTURE_MAG_FILTER','TEXTURE_WRAP_S','TEXTURE_WRAP_T','NEAREST','LINEAR',
@@ -14,7 +18,7 @@ function environment(options={}) {
         'FRAMEBUFFER_COMPLETE','TRIANGLES','TRIANGLE_STRIP','BLEND','SRC_ALPHA','ONE_MINUS_SRC_ALPHA','ONE'];
     names.forEach((name,i)=>gl[name]=i+1);gl.TEXTURE0=100;
     const live={Program:new Set(),Shader:new Set(),Texture:new Set(),Framebuffer:new Set()};
-    const created={Program:[],Shader:[],Texture:[],Framebuffer:[]},draws=[],textures=new Map(),events=[],contexts=[],listeners=new Map(),uploads=[],enabled=new Set();
+    const created={Program:[],Shader:[],Texture:[],Framebuffer:[]},draws=[],textures=new Map(),events=[],contexts=[],listeners=new Map(),uploads=[],subUploads=[],cacheBuilds=[],cacheAsyncBuilds=[],enabled=new Set();
     let sequence=0,program,framebuffer,unit=0,boundTexture,viewport,losses=0;
     for(const kind of Object.keys(live)) {
         gl['create'+kind]=()=>{const resource={kind,id:++sequence};live[kind].add(resource);created[kind].push(resource);return resource;};
@@ -38,6 +42,12 @@ function environment(options={}) {
         Object.assign(boundTexture,{w,h,internal,dataType});
         if(data)uploads.push({texture:boundTexture,data,w,h,internal,dataType});
     };
+    gl.texSubImage2D=(type,level,x,y,w,h,format,dataType,data)=>{
+        assert.ok(data instanceof Float32Array);assert.equal(data.length,w*h*4);
+        assert.ok(x>=0&&y>=0&&x+w<=boundTexture.w&&y+h<=boundTexture.h,'cache subupload remains inside its kind slab');
+        subUploads.push({texture:boundTexture,x,y,w,h,dataType,data});
+        if(subUploads.length===options.failGeometryUploadAt)throw new Error('geometry upload diagnostic');
+    };
     gl.bindFramebuffer=(type,value)=>{framebuffer=value;};
     gl.framebufferTexture2D=(type,attachment,target,texture)=>{framebuffer.texture=texture;};
     gl.checkFramebufferStatus=()=>created.Framebuffer.length===options.failFramebufferAt?-1:gl.FRAMEBUFFER_COMPLETE;
@@ -50,9 +60,10 @@ function environment(options={}) {
         else {assert.equal(mode,gl.TRIANGLES);assert.ok(count===3||count===96*64*6);}
         const samplers={};
         const pathSamplers=['u_pathsFrom','u_rowsFrom','u_pathsTo','u_rowsTo'].filter(name=>program.u_pathMode?.[name.endsWith('From')?0:1]>0);
-        for(const name of ['u_history','u_image','u_bloom','u_volume','u_field','u_bio','u_velocity',...pathSamplers])if(program[name]) {
+        const geometrySamplers=program.u_anatomyReady?.some(Boolean)?['u_anatomyVolume','u_anatomyFront']:[];
+        for(const name of ['u_history','u_image','u_bloom','u_volume','u_field','u_bio','u_velocity',...pathSamplers,...geometrySamplers])if(program[name]) {
             const samplerUnit=program[name][0],texture=textures.get(samplerUnit);
-            assert.ok(Number.isInteger(samplerUnit)&&samplerUnit>=0,'valid sampler unit');
+            assert.ok(Number.isInteger(samplerUnit)&&samplerUnit>=0&&samplerUnit<16,'valid WebGL2 minimum sampler unit');
             assert.ok(live.Texture.has(texture),'sampler reads a live texture');
             assert.notEqual(texture,framebuffer?.texture,'no framebuffer texture feedback for '+name);
             samplers[name]={unit:samplerUnit,texture};
@@ -67,12 +78,26 @@ function environment(options={}) {
     const canvas={width:300,height:150,getContext(type,attributes){contexts.push({type,attributes});return options.noWebgl?null:gl;},
         addEventListener(type,cb){listeners.set(type,cb);}};
     const window={dispatchEvent(event){events.push(event);},GunterCoreForms:options.catalog},document={createElement(tag){assert.equal(tag,'canvas');return canvas;}};
-    const context=vm.createContext({window,document,CustomEvent:class{constructor(type,value){this.type=type;this.detail=value.detail;}}});
+    const context=vm.createContext({window,document,Float32Array,AbortController,CustomEvent:class{constructor(type,value){this.type=type;this.detail=value.detail;}}});
+    vm.runInContext(cacheSource,context);
+    if(!options.realCache){const original=window.GunterAnatomyCache;
+        const fixture=()=>geometryFixture||=( {volume:new Float32Array(512*512*4),front:new Float32Array(256*256*4)} );
+        window.GunterAnatomyCache={...original,build(kind,callbacks){
+            cacheBuilds.push(kind);assert.equal(typeof callbacks.volume,'function');assert.equal(typeof callbacks.front,'function');
+            return {kind,...fixture()};
+        },async buildAsync(kind,callbacks,buildOptions){
+            cacheAsyncBuilds.push(kind);assert.equal(typeof callbacks.volume,'function');assert.equal(typeof callbacks.front,'function');
+            if(options.asyncBuilder)return options.asyncBuilder(kind,callbacks,buildOptions,fixture());
+            await buildOptions.schedule?.();
+            if(buildOptions.signal.aborted)throw Object.assign(new Error('aborted fixture'),{name:'AbortError'});
+            buildOptions.onProgress?.({fraction:1,completed:196608,total:196608});return {kind,...fixture()};
+        }};
+    }
     if(options.realCatalog)vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../js/components/gunter-core-forms.js'),'utf8'),context);
     vm.runInContext(source,context);
-    const core=new window.GunterIdleCoreAnatomy();
+    const core=new window.GunterIdleCoreAnatomy(options.synchronousGeometry===false?{}:{allowSynchronousGeometry:true});
     const output=()=>({width:0,height:0,getContext(type){assert.equal(type,'2d');return{clearRect(){},drawImage(value){assert.equal(value,canvas);}};}});
-    return {gl,core,forms:window.GunterCoreForms,options,live,created,draws,contexts,events,listeners,uploads,losses:()=>losses,
+    return {gl,core,forms:window.GunterCoreForms,options,live,created,draws,contexts,events,listeners,uploads,subUploads,cacheBuilds,cacheAsyncBuilds,losses:()=>losses,
         render(time=8,config=defaults,w=240,h=240){const target=output();core.renderTo(target,w,h,time,config);return target;},
         lost(){Object.values(live).forEach(set=>set.clear());listeners.get('webglcontextlost')({preventDefault(){}});},
         restored(){listeners.get('webglcontextrestored')();}};
@@ -591,7 +616,7 @@ check('the fourth color independently tints unlit matter and front coats without
     assert.deepEqual(Array.from(e.core.programs.volume.program.u_shadow),[7/255,20/255,35/255]);
     e.core.dispose();released(e);
 });
-check('shape attractors morph retained material and the shared volume without re-seeding or allocating new resources',()=>{
+check('shape attractors morph retained material without reseeding and add only two immutable geometry textures',()=>{
     const e=environment();e.render(8);const histories=e.core.histories.slice(),field=e.core.field,created=e.created.Texture.length;
     e.render(8,{...defaults,shape:'eye'});
     assert.equal(e.core.stats().shape,'eye');assert.equal(e.core.stats().morph,0);
@@ -605,7 +630,7 @@ check('shape attractors morph retained material and the shared volume without re
     e.render(9.7,{...defaults,shape:'eye'});assert.equal(e.core.stats().morph,1);
     e.render(9.72,{...defaults,shape:'hand'});assert.equal(e.core.stats().shape,'hand');
     assert.equal(e.core.draws,undefined);assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);
-    assert.equal(e.core.field,field);assert.equal(e.created.Texture.length,created);
+    assert.equal(e.core.field,field);assert.equal(e.created.Texture.length,created+2);
     assert.equal(e.draws.filter(d=>d.program===e.core.programs.simulation.program&&d.initialize===1).length,1);
     const shader=e.core.programs.simulation.program.shaders.find(s=>s.source.includes('uniform float u_dt')).source;
     assert.match(shader,/target=morphGuide\(p,row,t,along,tangent\),error=target-p/,'silhouettes retain per-segment material velocity attractors');
@@ -625,7 +650,7 @@ check('all basic silhouettes are available at a frozen phase and reduced motion 
         e.render(8,{...defaults,shape,static:true});assert.equal(e.core.fieldBuilds,after,'same frozen shape reuses the atlas');
     }
     e.render(8,{...defaults,shape:'sword',speed:0});assert.equal(e.core.programs.strands.program.u_static[0],1);
-    assert.equal(e.core.steps,steps);assert.equal(e.created.Texture.length,created);
+    assert.equal(e.core.steps,steps);assert.equal(e.created.Texture.length,created+2);
     e.render(8,{...defaults,shape:'unknown',static:true});assert.equal(e.core.stats().shape,'organic');
     e.core.dispose();released(e);
 });
@@ -670,7 +695,7 @@ check('catalog forms lazily upload only selected fixed-size material guides and 
     e.render(8.6,{...defaults,shape:'dragon'});
     assert.ok(e.core.programs.field.program.u_snapshotWeight[0]<1);
     e.render(8.6,{...defaults,shape:'eye'});
-    assert.equal(e.core.shapeSnapshot,snapshot);assert.equal(e.created.Texture.length,textureCount,'repeated interruptions reuse two guides and one snapshot');
+    assert.equal(e.core.shapeSnapshot,snapshot);assert.equal(e.created.Texture.length,textureCount+2,'eye adds only immutable geometry; guides and snapshot are reused');
     assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.histories[1],histories[1]);assert.equal(e.core.field,field);
     assert.equal(e.draws.filter(d=>d.program===e.core.programs.simulation.program&&d.initialize===1).length,1,'no particle history reseed');
     e.render(10.3,{...defaults,shape:'eye'});assert.equal(e.core.stats().morph,1);
@@ -1562,28 +1587,87 @@ check('named skin preserves continuous dark mass instead of losing its silhouett
     assert.equal(e.draws.find(d=>d.program===e.core.programs.membrane.program).count,96*64*6);
     assert.equal(e.live.Texture.size,10);assert.equal(e.live.Framebuffer.size,10);e.core.dispose();released(e);
 });
-check('anatomical loops use descriptor-bounded runtime uniforms instead of static part-by-edge expansion',()=>{
+check('anatomical volume and front are constant-time cache lookups with no primitive or edge scans',()=>{
     const e=environment();e.render(8,{...defaults,shape:'phoenix',static:true});
     let consumers=0;
     for(const value of Object.values(e.core.programs)){
         const shaders=value.program.shaders.filter(shader=>shader.source.includes('FormVolume sampleAnatomy('));
         if(!shaders.length)continue;consumers++;
         assert.deepEqual(Array.from(value.program.u_anatomyBudget),[20,15,0],
-            'every shared-field consumer receives the fixed descriptor maxima');
+            'only lower-frequency fibre assignment retains the descriptor maxima');
         for(const shader of shaders){
-            assert.match(shader.source,/uniform vec3 u_anatomyBudget;/);
-            assert.equal((shader.source.match(/for\(int j=0;j<int\(u_anatomyBudget\.x\);j\+\+\)/g)||[]).length,3,
-                'volume, analytic front and fibre assignment share runtime part bounds');
-            assert.equal((shader.source.match(/for\(int i=0;i<int\(u_anatomyBudget\.y\);i\+\+\)/g)||[]).length,1,
-                'polygon edge evaluation cannot become a static nested edge expansion');
-            assert.doesNotMatch(shader.source,/for\(int [ij]=0;[ij]<(?:20|15);[ij]\+\+\)/,
-                'no previous literal maximum loop remains');
-            assert.match(shader.source,/if\(j>=count\)break;int i=start\+j;/,'per-form bounds remain enforced');
-            assert.match(shader.source,/if\(i>=count\)break;/,'per-polygon bounds remain enforced');
+            const volume=shader.source.slice(shader.source.indexOf('FormVolume sampleAnatomy('),shader.source.indexOf('vec3 anatomyFront('));
+            const front=shader.source.slice(shader.source.indexOf('vec3 anatomyFront('),shader.source.indexOf('vec3 anatomyPoint('));
+            assert.doesNotMatch(volume+front,/for\s*\(|while\s*\(|anatomicalEdge\(/,
+                'high-frequency volume and front never scan primitives or edges');
+            assert.match(volume,/anatomyVolumeSample\(cell,kind,0\.0\)/);
+            assert.match(volume,/anatomyVolumeSample\(cell,kind,1\.0\)/);
+            assert.match(front,/texture\(u_anatomyFront,/);
+            assert.match(shader.source,/min\(31\.0,z\+1\.0\).*fract\(cell\.z\)/s,
+                'manual z interpolation cannot cross atlas tile boundaries');
+            assert.match(volume,/float r=pupilDistance\(q\.xy\).*cut=max/s,
+                'exact pupil subtraction is applied after cached interpolation');
+            assert.equal((shader.source.match(/for\(int j=0;j<int\(u_anatomyBudget\.x\);j\+\+\)/g)||[]).length,1,
+                'part scan remains only in point assignment');
         }
     }
-    assert.equal(consumers,7,'all and only the seven material programs share the descriptor budget');
+    assert.equal(consumers,7);
     e.core.dispose();released(e);
+});
+check('anatomical cache is lazy immutable geometry on units 12 and 13 with no new framebuffer',()=>{
+    const e=environment({realCatalog:true});e.render(8);
+    assert.deepEqual(e.cacheBuilds,[]);assert.equal(e.core.anatomyCache.size,0);
+    assert.equal(e.live.Texture.size,10);assert.equal(e.live.Framebuffer.size,10);
+    e.render(8,{...defaults,shape:'hand',static:true});
+    assert.deepEqual(e.cacheBuilds,[1]);assert.deepEqual(Array.from(e.core.anatomyUploaded),[1,0,0]);
+    assert.equal(e.live.Texture.size,18);assert.equal(e.live.Framebuffer.size,10);
+    const volume=e.core.anatomyTextures.volume,front=e.core.anatomyTextures.front;
+    assert.deepEqual([volume.w,volume.h,volume.internal],[512,1536,e.gl.RGBA16F]);
+    assert.deepEqual([front.w,front.h,front.internal],[256,768,e.gl.RGBA16F]);
+    assert.equal(e.subUploads.length,2);assert.deepEqual(e.subUploads.map(x=>x.y),[0,0]);
+    const histories=e.core.histories.slice(),bio=e.core.bioHistories.slice(),created=e.created.Texture.length;
+    e.render(8.1,{...defaults,shape:'hand',density:2,brightness:2,energyColor:'#0000ff'});
+    assert.deepEqual(e.cacheBuilds,[1]);assert.equal(e.subUploads.length,2);assert.equal(e.created.Texture.length,created);
+    e.render(8.2,{...defaults,shape:'eye',static:true});
+    e.render(8.3,{...defaults,shape:'phoenix',static:true});
+    assert.deepEqual(e.cacheBuilds,[1,2,3]);assert.equal(e.created.Texture.length,created);
+    assert.deepEqual(e.subUploads.map(x=>x.y),[0,0,512,256,1024,512]);
+    e.render(8.4,{...defaults,shape:'hand',static:true});assert.equal(e.subUploads.length,6);
+    for(const name of ['simulation','bio','velocity','field','strands','volume','membrane']){
+        const p=e.core.programs[name].program;
+        assert.equal(p.u_anatomyVolume[0],12);assert.equal(p.u_anatomyFront[0],13);
+    }
+    assert.equal(e.core.histories[0],histories[0]);assert.equal(e.core.bioHistories[0],bio[0]);
+    e.core.dispose();assert.equal(e.core.anatomyCache.size,0);released(e);
+});
+check('anatomical CPU data survives context restoration and partial GPU cache uploads release both textures',()=>{
+    const e=environment();e.render(8,{...defaults,shape:'eye',static:true});
+    const baked=e.core.anatomyCache.get(2),old=e.core.anatomyTextures.volume;
+    e.lost();e.restored();assert.equal(e.core.available,true);
+    assert.equal(e.core.anatomyCache.get(2),baked);assert.deepEqual(e.cacheBuilds,[2],'restoration never rebakes CPU geometry');
+    assert.notEqual(e.core.anatomyTextures.volume,old);assert.equal(e.subUploads.length,4);
+    e.render(8,{...defaults,shape:'eye',static:true});assert.equal(e.subUploads.length,4);
+    e.core.dispose();released(e);
+    const failed=environment({failGeometryUploadAt:2});failed.render(8);
+    assert.throws(()=>failed.render(8,{...defaults,shape:'hand',static:true}),/geometry upload diagnostic/);
+    assert.equal(failed.live.Texture.size,10);assert.equal(failed.live.Framebuffer.size,10);
+    assert.deepEqual(Object.keys(failed.core.anatomyTextures),[]);
+    assert.deepEqual(Array.from(failed.core.anatomyUploaded),[0,0,0]);
+    failed.options.failGeometryUploadAt=-1;
+    failed.render(8,{...defaults,shape:'hand',static:true});assert.deepEqual(failed.cacheBuilds,[1]);
+    assert.equal(failed.live.Texture.size,12);failed.core.dispose();released(failed);
+    const restoredFailure=environment();restoredFailure.render(8,{...defaults,shape:'eye',static:true});
+    restoredFailure.options.failGeometryUploadAt=3;restoredFailure.lost();restoredFailure.restored();
+    assert.equal(restoredFailure.core.available,false);assert.match(restoredFailure.core.error,/geometry upload diagnostic/);
+    assert.deepEqual(restoredFailure.cacheBuilds,[2]);released(restoredFailure);
+    restoredFailure.core.dispose();assert.equal(restoredFailure.core.anatomyCache.size,0);released(restoredFailure);
+});
+check('exact runtime shader sources can be inspected without DOM or GPU initialization',()=>{
+    const window={},context=vm.createContext({window,document:{createElement(){throw Error('unexpected GPU initialization');}}});
+    vm.runInContext(source,context);
+    const sources=window.GunterIdleCoreAnatomy.shaderSources();
+    assert.deepEqual(Object.keys(sources),['simulation','bio','velocity','field','strands','volume','membrane','copy','extract','blur','composite']);
+    for(const pair of Object.values(sources))for(const text of Object.values(pair))assert.ok(text.startsWith('#version 300 es'));
 });
 check('anatomical descriptors provide genuine curved depth and preserve finger gaps and the separate eyelid fold',()=>{
     const e=environment(),K=e.core.constructor;
@@ -1712,4 +1796,64 @@ check('real cavity gas can emit before Beer-Lambert attenuation but anatomical e
     assert.equal(e.draws.find(d=>d.program===c.programs.membrane.program).count,96*64*6);
     c.dispose();released(e);
 });
-console.log(checks+' GPU material filament checks passed.');
+check('default renderer never synchronously builds anatomy during first render',()=>{
+    const e=environment({synchronousGeometry:false,realCatalog:true});e.render(8);
+    assert.equal(e.core.allowSynchronousGeometry,false);assert.equal(e.core.anatomyCache.size,0);
+    assert.deepEqual(e.cacheBuilds,[]);assert.deepEqual(e.cacheAsyncBuilds,[]);
+    assert.throws(()=>e.render(8,{...defaults,shape:'hand',static:true}),/prepareAnatomy/);
+    assert.deepEqual(e.cacheBuilds,[]);assert.deepEqual(e.cacheAsyncBuilds,[]);
+    assert.equal(e.live.Texture.size,10);assert.equal(e.live.Framebuffer.size,10);
+    assert.equal(e.core.shapeName,'organic');assert.equal(e.core.guideTo.data,null);
+    e.core.dispose();released(e);
+});
+checkAsync('prepareAnatomy deduplicates asynchronous CPU work before any GPU geometry allocation',async()=>{
+    const e=environment({synchronousGeometry:false});e.render(8);let resume,progress=0;
+    const schedule=()=>new Promise(resolve=>{resume=resolve;});
+    const first=e.core.prepareAnatomy('hand',{schedule,onProgress(){progress++;}});
+    const duplicate=e.core.prepareAnatomy('hand',{onProgress(){progress++;}});
+    assert.equal(first,duplicate);await Promise.resolve();
+    assert.deepEqual(e.cacheBuilds,[]);assert.deepEqual(e.cacheAsyncBuilds,[1]);
+    assert.equal(e.core.anatomyCache.size,0);assert.equal(e.live.Texture.size,10);
+    resume();const baked=await first;assert.equal(e.core.anatomyCache.get(1),baked);
+    assert.equal(progress,2);assert.equal(e.core.anatomyPreparations.size,0);
+    assert.equal(e.live.Texture.size,10);assert.equal(e.subUploads.length,0);
+    assert.equal(await e.core.prepareAnatomy('hand'),baked);assert.deepEqual(e.cacheAsyncBuilds,[1]);
+    e.render(8,{...defaults,shape:'hand',static:true});assert.equal(e.live.Texture.size,12);
+    assert.deepEqual(e.cacheBuilds,[]);assert.equal(e.subUploads.length,2);
+    assert.equal(await e.core.prepareAnatomy('organic'),null);assert.equal(e.core.anatomyCache.size,1);
+    e.core.dispose();released(e);
+});
+checkAsync('prepareAnatomy shares cancellation, supports retry and cannot retain a disposed completion',async()=>{
+    const e=environment({synchronousGeometry:false});let resume;
+    const controller=new AbortController(),schedule=()=>new Promise(resolve=>{resume=resolve;});
+    const pending=e.core.prepareAnatomy('eye',{signal:controller.signal,schedule});
+    const duplicate=e.core.prepareAnatomy('eye');assert.equal(pending,duplicate);
+    await Promise.resolve();controller.abort();resume();
+    await assert.rejects(pending,{name:'AbortError'});assert.equal(e.core.anatomyCache.size,0);
+    assert.equal(e.core.anatomyPreparations.size,0);assert.deepEqual(e.cacheBuilds,[]);
+    await e.core.prepareAnatomy('eye');assert.deepEqual(e.cacheAsyncBuilds,[2,2]);assert.equal(e.core.anatomyCache.size,1);
+    const disposed=e.core.prepareAnatomy('hand',{schedule});await Promise.resolve();
+    e.core.dispose();assert.equal(e.core.anatomyCache.size,0);assert.equal(e.core.anatomyPreparations.size,0);
+    resume();await assert.rejects(disposed,{name:'AbortError'});assert.equal(e.core.anatomyCache.size,0);released(e);
+    await assert.rejects(e.core.prepareAnatomy('eye'),{name:'AbortError'});
+    const already=new AbortController();already.abort();const fresh=environment({synchronousGeometry:false});
+    await assert.rejects(fresh.core.prepareAnatomy('hand',{signal:already.signal}),{name:'AbortError'});
+    assert.deepEqual(fresh.cacheAsyncBuilds,[]);fresh.core.dispose();released(fresh);
+});
+checkAsync('asynchronous geometry fronts remain uncut until the exact post-interpolation pupil correction',async()=>{
+    let observed;
+    const e=environment({synchronousGeometry:false,asyncBuilder:async(kind,callbacks,options,fixture)=>{
+        observed=callbacks.front(kind,[0,0]);return {kind,...fixture};
+    }});
+    await e.core.prepareAnatomy('eye');const K=e.core.constructor;
+    const clipped=K.sampleFormFront('eye',[0,0]),uncut=K.sampleFormFront('eye',[0,0],true);
+    assert.ok(uncut.z>.20);near(clipped.z,.025,'public default retains exact dark backcup');
+    near(observed.z,uncut.z,'cache callback stores the uncut front');assert.equal(observed.pupil,1);
+    assert.match(source,/front:\(k,xy\)=>formFront\(k,xy,false\)/);
+    assert.match(source,/front:\(kind,xy\)=>formFront\(kind,xy,false\)/);
+    e.core.dispose();released(e);
+});
+(async()=>{
+    for(const {name,fn} of asyncChecks){await fn();console.log('ok '+(++checks)+' - '+name);}
+    console.log(checks+' GPU material filament checks passed.');
+})().catch(error=>{console.error(error);process.exitCode=1;});
