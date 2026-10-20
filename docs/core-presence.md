@@ -400,14 +400,17 @@ marcha volumétrica. Esta corrección también afecta la óptica orgánica y de
 las otras formas heredadas dentro del experimento: no se declara que sus
 imágenes sean idénticas a producción. Sus trayectorias y catálogo no cambian.
 
-Vista aislada: ejecutar `node scripts/serve-core-bio-lab.cjs` y abrir
-`http://127.0.0.1:3013/js/dev/core-bio-anatomy-lab.html`.
-La comparación estable sigue en `/js/dev/core-bio-lab.html`. El servidor
-permite sólo seis archivos visuales mediante GET/HEAD, escucha en loopback
+El laboratorio experimental está en cuarentena: `core-bio-anatomy-lab.html`
+ahora es sólo un aviso estático sin scripts, canvas ni arranque WebGL,
+con CSP que también prohíbe scripts. El servidor de prueba se detuvo;
+no reiniciarlo para repetir la prueba gráfica en el navegador de trabajo.
+La comparación estable permanece en `/js/dev/core-bio-lab.html`. El servidor
+permite sólo cinco archivos visuales mediante GET/HEAD, excluye la ruta
+del renderer experimental, escucha en loopback
 y no inicia `server.js`, autenticación, APIs, WhatsApp ni preferencias.
 
 Verificación automática del prototipo: `node test/idle-core-anatomy-gpu.js`
-(73 contratos WebGL simulados), `node test/core-bio-lab.js` (14 contratos
+(74 contratos WebGL simulados), `node test/core-bio-lab.js` (14 contratos
 del controlador) y `node test/core-bio-lab-server.cjs` (4 de aislamiento),
 todos completos. Incluyen exclusión pupilar posterior a la interpolación,
 valles de dedos, muescas de plumas/cola, continuidad tras interrupciones y
@@ -421,3 +424,18 @@ No hay captura nueva de 15 segundos ni cuatro cuadros aprobados del
 experimento. Los tests usan WebGL simulado: no prueban compilación GLSL real,
 fluidez ni semejanza con las referencias. No integrar este prototipo hasta
 completar esa comparación, incluidos colores/densidad y fondos claro/oscuro.
+
+Incidente de validación posterior: la dirección abierta tenía un punto
+adicional después de `.html` y respondía 404. Al navegar a la ruta válida,
+Chrome dejó de responder antes de observar un cuadro; el usuario confirmó
+que el navegador completo estaba congelado. Se detuvo únicamente el servidor
+visual creado para QA y se desactivó la página experimental. No se cerró
+Chrome por la fuerza ni se tocaron la página Día o ajustes del navegador.
+
+Se preparó fuera de producción un ensayo de límites uniformes `[20,15,0]`
+para los bucles anatómicos, manteniendo la geometría y sus guardas. Los 74
+contratos simulados pasan, pero el ensayo no se considera validado en GPU ni
+solución demostrada del bloqueo. Antes de reactivar, la siguiente revisión
+debe medir etapas de compilación/primer draw y sacar evaluaciones repetidas
+de descriptores de los shaders compartidos mediante un caché geométrico;
+no volver a usar la sesión de trabajo del usuario como prueba de estrés.

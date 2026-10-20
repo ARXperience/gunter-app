@@ -138,10 +138,14 @@ check('HTML loads only the shared renderer and exposes its four debug layers', (
     assert.deepEqual(h.forbidden, []);
 });
 
-check('experimental anatomy is opt-in and uses the same isolated controls', () => {
+check('experimental page is quarantined without executable scripts or automatic WebGL startup', () => {
     const anatomyHtml = fs.readFileSync(path.join(__dirname, '../js/dev/core-bio-anatomy-lab.html'), 'utf8');
     const scripts = [...anatomyHtml.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map(match => match[1].split('?')[0]);
-    assert.deepEqual(scripts, ['../components/gunter-core-forms.js', 'gunter-idle-core-anatomy.js', 'core-bio-lab.js']);
+    assert.deepEqual(scripts, []);
+    assert.doesNotMatch(anatomyHtml, /<script\b|<iframe\b|<object\b|\bon[a-z]+\s*=/i);
+    assert.match(anatomyHtml, /script-src 'none'/);
+    assert.match(anatomyHtml, /data-state="quarantined"/);
+    assert.match(anatomyHtml, /no carga scripts ni inicia WebGL/);
     const h = harness({ anatomy: true }); h.frame();
     assert.equal(h.renders.length, 1);
     assert.deepEqual(h.forbidden, []);

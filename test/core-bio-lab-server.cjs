@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const { resolveAsset, createLabServer } = require('../scripts/serve-core-bio-lab.cjs');
 
 for (const url of ['/', '/js/dev/core-bio-lab.html', '/js/dev/core-bio-anatomy-lab.html',
-    '/js/dev/gunter-idle-core-anatomy.js?v202-anatomical-volume', '/js/dev/core-bio-lab.js',
+    '/js/dev/core-bio-lab.js',
     '/js/components/gunter-core-forms.js?v200-reference-material',
     '/js/components/gunter-idle-core.js?v200-reference-material']) {
     const result = resolveAsset(url);
@@ -13,10 +13,11 @@ for (const url of ['/', '/js/dev/core-bio-lab.html', '/js/dev/core-bio-anatomy-l
     assert.ok(fs.statSync(result.file).isFile(), url);
     assert.match(result.type, /text\/(?:html|javascript)/);
 }
-console.log('ok 1 - only the two laboratory pages and four visual scripts resolve');
+console.log('ok 1 - only the two laboratory pages and three stable visual scripts resolve');
 
 for (const url of ['/.env', '/server.js', '/api/auth/session', '/api/whatsapp', '/dashboard.html',
-    '/service-worker.js', '/../.env', '/%2e%2e/.env', '/js/dev/%2e%2e/%2e%2e/server.js',
+    '/service-worker.js', '/js/dev/gunter-idle-core-anatomy.js?v203-runtime-anatomy-loops',
+    '/../.env', '/%2e%2e/.env', '/js/dev/%2e%2e/%2e%2e/server.js',
     '/js/dev/..%2f..%2fserver.js', '/js/components/gunter-idle-core.js/extra']) {
     assert.equal(resolveAsset(url).status, 404, url);
 }

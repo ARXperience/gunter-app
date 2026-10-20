@@ -1562,6 +1562,29 @@ check('named skin preserves continuous dark mass instead of losing its silhouett
     assert.equal(e.draws.find(d=>d.program===e.core.programs.membrane.program).count,96*64*6);
     assert.equal(e.live.Texture.size,10);assert.equal(e.live.Framebuffer.size,10);e.core.dispose();released(e);
 });
+check('anatomical loops use descriptor-bounded runtime uniforms instead of static part-by-edge expansion',()=>{
+    const e=environment();e.render(8,{...defaults,shape:'phoenix',static:true});
+    let consumers=0;
+    for(const value of Object.values(e.core.programs)){
+        const shaders=value.program.shaders.filter(shader=>shader.source.includes('FormVolume sampleAnatomy('));
+        if(!shaders.length)continue;consumers++;
+        assert.deepEqual(Array.from(value.program.u_anatomyBudget),[20,15,0],
+            'every shared-field consumer receives the fixed descriptor maxima');
+        for(const shader of shaders){
+            assert.match(shader.source,/uniform vec3 u_anatomyBudget;/);
+            assert.equal((shader.source.match(/for\(int j=0;j<int\(u_anatomyBudget\.x\);j\+\+\)/g)||[]).length,3,
+                'volume, analytic front and fibre assignment share runtime part bounds');
+            assert.equal((shader.source.match(/for\(int i=0;i<int\(u_anatomyBudget\.y\);i\+\+\)/g)||[]).length,1,
+                'polygon edge evaluation cannot become a static nested edge expansion');
+            assert.doesNotMatch(shader.source,/for\(int [ij]=0;[ij]<(?:20|15);[ij]\+\+\)/,
+                'no previous literal maximum loop remains');
+            assert.match(shader.source,/if\(j>=count\)break;int i=start\+j;/,'per-form bounds remain enforced');
+            assert.match(shader.source,/if\(i>=count\)break;/,'per-polygon bounds remain enforced');
+        }
+    }
+    assert.equal(consumers,7,'all and only the seven material programs share the descriptor budget');
+    e.core.dispose();released(e);
+});
 check('anatomical descriptors provide genuine curved depth and preserve finger gaps and the separate eyelid fold',()=>{
     const e=environment(),K=e.core.constructor;
     for(const [name,points] of Object.entries({hand:[[0,-.15,0],[-.03,.62,0]],eye:[[.17,0,0],[0,.455,0]],phoenix:[[0,.1,0],[.45,.50,0]]})) {

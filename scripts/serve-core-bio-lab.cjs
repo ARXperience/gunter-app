@@ -10,7 +10,6 @@ const root = path.resolve(__dirname, '..');
 const assets = new Map([
     ['/js/dev/core-bio-lab.html', ['js/dev/core-bio-lab.html', 'text/html; charset=utf-8']],
     ['/js/dev/core-bio-anatomy-lab.html', ['js/dev/core-bio-anatomy-lab.html', 'text/html; charset=utf-8']],
-    ['/js/dev/gunter-idle-core-anatomy.js', ['js/dev/gunter-idle-core-anatomy.js', 'text/javascript; charset=utf-8']],
     ['/js/dev/core-bio-lab.js', ['js/dev/core-bio-lab.js', 'text/javascript; charset=utf-8']],
     ['/js/components/gunter-core-forms.js', ['js/components/gunter-core-forms.js', 'text/javascript; charset=utf-8']],
     ['/js/components/gunter-idle-core.js', ['js/components/gunter-idle-core.js', 'text/javascript; charset=utf-8']]
@@ -61,7 +60,7 @@ if (require.main === module) {
         server.on('error', error => { console.error('Laboratorio: ' + error.message); process.exitCode = 1; });
         server.listen(port, '127.0.0.1', () => {
             console.log(`Laboratorio visual: http://127.0.0.1:${port}/js/dev/core-bio-lab.html`);
-            console.log('Sólo seis archivos visuales; backend e integraciones desconectados.');
+            console.log('Cinco archivos visuales; prototipo en cuarentena, backend e integraciones desconectados.');
         });
     }
 }

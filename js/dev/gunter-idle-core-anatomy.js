@@ -174,6 +174,10 @@
     const ALL_PARTS=FORM_PARTS.flat();
     let polyOffset=0;const POLY_VERTICES=[],POLY_RANGES=ALL_PARTS.map(p=>{const range=[polyOffset,p.polygon?.length||0];
         if(p.polygon){POLY_VERTICES.push(...p.polygon);polyOffset+=p.polygon.length;}return range;});
+    // Runtime-uniform bounds keep the geometry loops finite without asking
+    // the shader translator to statically expand every part x polygon edge
+    // at every inlined support call. Values come only from these descriptors.
+    const ANATOMY_BUDGET=[Math.max(...FORM_PARTS.map(a=>a.length)),Math.max(...POLY_RANGES.map(a=>a[1])),0];
     const ANATOMY_GLSL=`
         const vec4 ANAT_C[${ALL_PARTS.length}]=vec4[${ALL_PARTS.length}](${ALL_PARTS.map(p=>v4([...p.c,p.h])).join(',')});
         const vec4 ANAT_A[${ALL_PARTS.length}]=vec4[${ALL_PARTS.length}](${ALL_PARTS.map(p=>v4([...p.axis,p.r,p.z])).join(',')});
@@ -186,7 +190,7 @@
         float pupilDistance(vec2 p){return length(p/vec2(.1025,.10738));}
         vec3 anatomicalEdge(vec2 q,int index){
             int start=int(ANAT_R[index].x),count=int(ANAT_R[index].y);float best=100.0;bool inside=false;vec2 normal=vec2(0,1);
-            for(int i=0;i<${Math.max(...POLY_RANGES.map(a=>a[1]))};i++){if(i>=count)break;
+            for(int i=0;i<int(u_anatomyBudget.y);i++){if(i>=count)break;
                 vec2 a=ANAT_P[start+(i+count-1)%count],b=ANAT_P[start+i],e=b-a,p=q-a;
                 float t=clamp(dot(p,e)/dot(e,e),0.0,1.0);vec2 delta=p-e*t;float distance=length(delta);
                 if(distance<best){best=distance;normal=distance>.000001?delta/distance:vec2(0,1);}
@@ -196,7 +200,7 @@
         FormVolume sampleAnatomy(vec3 q,int kind){
             FormVolume s;s.distance=10.0;s.normal=vec3(0,0,1);s.local=vec3(0);s.axis=vec3(0,1,0);s.radius=.1;s.pupil=0.0;
             int start=formStart(kind),count=formCount(kind);
-            for(int j=0;j<${Math.max(...FORM_PARTS.map(a=>a.length))};j++){
+            for(int j=0;j<int(u_anatomyBudget.x);j++){
                 if(j>=count)break;int i=start+j;if(ANAT_M[i].y>.5)continue;
                 vec4 c=ANAT_C[i],a=ANAT_A[i];vec3 d=q-c.xyz;
                 vec3 local=vec3(dot(d.xy,a.xy),dot(d.xy,vec2(-a.y,a.x)),d.z);
@@ -218,7 +222,7 @@
         }
         vec3 anatomyFront(vec2 xy,int kind){
             float front=-1.0,coverage=0.0;int start=formStart(kind),count=formCount(kind);
-            for(int j=0;j<${Math.max(...FORM_PARTS.map(a=>a.length))};j++){
+            for(int j=0;j<int(u_anatomyBudget.x);j++){
                 if(j>=count)break;int i=start+j;if(ANAT_M[i].y>.5)continue;
                 vec4 c=ANAT_C[i],a=ANAT_A[i];vec2 d=xy-c.xy;float u=dot(d,a.xy),v=dot(d,vec2(-a.y,a.x));
                 if(ANAT_M[i].x>1.5){vec3 edge=anatomicalEdge(xy,i);if(edge.x>0.0)continue;
@@ -234,7 +238,7 @@
         }
         vec3 anatomyPoint(float row,float along,float t,int kind,out vec3 tangent){
             int start=formStart(kind),count=formCount(kind),index=start+count-1;float choice=fract((row+.5)*.61803398875);
-            for(int j=0;j<${Math.max(...FORM_PARTS.map(a=>a.length))};j++){if(j>=count)break;if(choice<=ANAT_M[start+j].z){index=start+j;break;}}
+            for(int j=0;j<int(u_anatomyBudget.x);j++){if(j>=count)break;if(choice<=ANAT_M[start+j].z){index=start+j;break;}}
             vec4 c=ANAT_C[index],a=ANAT_A[index];float phase=fract(row*.23971)+along*(.18+.64*fract(row*.1397))+t*.020;
             phase=1.0-abs(mod(phase,2.0)-1.0);float u=(phase*2.0-1.0)*c.w;
             float angle=row*2.399963+along*.72,fill=.42+.50*fract(row*.754877),section=ANAT_M[index].x>.5?1.0:sqrt(max(.03,1.0-u*u/(c.w*c.w)));
@@ -266,6 +270,7 @@
         uniform vec3 u_pathMode;
         uniform vec3 u_guideMode,u_guideWeights;
         uniform vec3 u_anatomyFrom,u_anatomyTo;
+        uniform vec3 u_anatomyBudget;
         uniform float u_static;
         vec3 worldPoint(vec3 p);
         vec3 viewPoint(vec3 p);
@@ -1764,6 +1769,7 @@
             this.vector(program,'u_guideWeights',[this.guideFrom.weight,this.guideTo.weight,0]);
             this.vector(program,'u_anatomyFrom',this.guideFrom.anatomy||[0,0,0]);
             this.vector(program,'u_anatomyTo',this.guideTo.anatomy||[0,0,0]);
+            this.vector(program,'u_anatomyBudget',ANATOMY_BUDGET);
             const fallback=this.histories[this.historyIndex].texture;
             this.texture(program,'u_shapeGuideFrom',this.guideFrom.data?this.guideTextures.from:fallback,3);
             this.texture(program,'u_shapeGuideTo',this.guideTo.data?this.guideTextures.to:fallback,4);
