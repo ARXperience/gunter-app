@@ -28,13 +28,43 @@ class GunterNodeService : Service() {
     }
     override fun onBind(intent: Intent?): IBinder? = null
     private fun loop() {
-        val config = SecureNodeStore(this).load() ?: run { stopSelf(); return }; val api = NodeApi(config.serverUrl); val commands = MobileExecutors(this, config); var heartbeatAt = 0L
+        val config = SecureNodeStore(this).load() ?: run { running.set(false); stopSelf(); return }
+        val api = runCatching { NodeApi(config.serverUrl) }.getOrElse {
+            getSharedPreferences("gunter_mobile_runtime", MODE_PRIVATE).edit().putString("notice",
+                "El vínculo guardado no corresponde al servidor de este APK. Abre Dispositivo y vuelve a vincularlo; no se borraron tus datos.").apply()
+            running.set(false); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return
+        }
+        val commands = MobileExecutors(this, config); var heartbeatAt = 0L
         while (running.get()) try {
             if (System.currentTimeMillis() - heartbeatAt > 20_000) { api.heartbeat(config, "ONLINE", JSONObject().put("runtime", true).put("nativeBridge", true)); heartbeatAt = System.currentTimeMillis() }
             val items = api.pull(config).optJSONArray("items") ?: org.json.JSONArray()
-            for (index in 0 until items.length()) { val command = items.getJSONObject(index); val commandId = command.getString("id"); try { val output = commands.execute(command.getString("skill"), command.optJSONObject("payload") ?: JSONObject(), commandId); api.result(config, commandId, output.result, output.evidence) } catch (error: Exception) { api.result(config, commandId, JSONObject().put("ok", false).put("error", error.message), JSONObject().put("verified", false)) } }
+            for (index in 0 until items.length()) {
+                if (!running.get() || Thread.currentThread().isInterrupted) break
+                val command = items.getJSONObject(index); val commandId = command.getString("id")
+                val output = try {
+                    commands.execute(command.getString("skill"), command.optJSONObject("payload") ?: JSONObject(), commandId)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
+                } catch (error: Exception) {
+                    val code = error.message?.takeIf { it.matches(Regex("mobile_[a-z0-9_]{1,100}")) } ?: "mobile_execution_failed"
+                    MobileExecution(JSONObject().put("ok", false).put("error", code), JSONObject().put("verified", false))
+                }
+                // A rejected/unreachable result endpoint is not another execution failure.
+                // Never replay the effect or overwrite its evidence with a second report.
+                try { api.result(config, commandId, output.result, output.evidence) }
+                catch (_: Exception) {
+                    getSharedPreferences("gunter_mobile_runtime", MODE_PRIVATE).edit().putString("notice",
+                        "No se confirmó un resultado con el servidor. Revisa Actividad antes de repetir la acción; podría haberse ejecutado.").apply()
+                }
+            }
             Thread.sleep(2500)
-        } catch (_: Exception) { Thread.sleep(5000) }
+        } catch (_: Exception) {
+            if (!running.get() || Thread.currentThread().isInterrupted) break
+            try { Thread.sleep(5000) } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt(); break
+            }
+        }
     }
     private fun notification(): android.app.Notification {
         val manager = getSystemService(NotificationManager::class.java); val channel = NotificationChannel("gunter_node", "Gunter activo", NotificationManager.IMPORTANCE_LOW); manager.createNotificationChannel(channel)

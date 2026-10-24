@@ -19,6 +19,14 @@
     let gisLoaded = false;
     let initializing = false;
     const listeners = new Set();
+    // This is a UX capability check, not an authorization boundary. Preserve the
+    // real WebView identity; never spoof a browser to bypass Google's OAuth policy.
+    const embeddedAndroid = /\bGunterAndroid\//.test(window.navigator?.userAgent || '');
+    function requiresBrowserError() {
+        const error = new Error('La vinculación con Google requiere el navegador del sistema. Abre Gunter desde «Navegador» y realiza allí la conexión. Esa sesión es independiente de la app; no se transfieren tokens automáticamente.');
+        error.code = 'GOOGLE_SYSTEM_BROWSER_REQUIRED';
+        return error;
+    }
 
     // ---------- Server-side config ----------
     async function loadServerConfig() {
@@ -64,6 +72,7 @@
 
     // ---------- Init ----------
     async function init() {
+        if (embeddedAndroid) return false;
         if (initializing || tokenClient) return;
         initializing = true;
         try {
@@ -125,6 +134,7 @@
 
     // ---------- Public API ----------
     async function connect({ silent = false } = {}) {
+        if (embeddedAndroid) throw requiresBrowserError();
         const ready = await init();
         if (!ready || !tokenClient) {
             throw new Error('Google no está configurado. Añade GOOGLE_CLIENT_ID al .env y reinicia el servidor.');
@@ -160,6 +170,7 @@
     }
 
     async function getAccessToken() {
+        if (embeddedAndroid) throw requiresBrowserError();
         if (isConnected()) return currentToken;
         // Try silent refresh
         try {
@@ -189,7 +200,8 @@
             configured: !!cfg.configured,
             connected: isConnected(),
             email: getUserEmail(),
-            expiresAt: currentExpiresAt
+            expiresAt: currentExpiresAt,
+            requiresSystemBrowser: embeddedAndroid
         };
     }
 

@@ -3,10 +3,12 @@ package com.gunter.mobile
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.media.MediaMetadata
+import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.DocumentsContract
-import android.provider.Settings
 import androidx.documentfile.provider.DocumentFile
 import org.json.JSONArray
 import org.json.JSONObject
@@ -36,7 +38,9 @@ class MobileExecutors(private val context: Context, private val config: NodeConf
             else -> throw IllegalStateException("mobile_app_required")
         }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
-        return MobileExecution(JSONObject().put("opened", appId.ifEmpty { deepLink }), JSONObject().put("appOpened", true))
+        // Android can suppress background launches without throwing. Dispatch is not proof
+        // of a visible app, especially when this executor runs in GunterNodeService.
+        return MobileExecution(JSONObject().put("requested", appId.ifEmpty { deepLink }), intentEvidence())
     }
 
     private fun listFiles(payload: JSONObject): MobileExecution {
@@ -67,7 +71,7 @@ class MobileExecutors(private val context: Context, private val config: NodeConf
         if (uri.scheme != "content" || !belongsToAuthorizedFolder(uri)) throw IllegalStateException("mobile_file_token_invalid")
         val intent = Intent(Intent.ACTION_VIEW).setData(uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
         context.startActivity(Intent.createChooser(intent, "Abrir con").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        return MobileExecution(JSONObject().put("fileToken", uri.toString()), JSONObject().put("fileOpened", true))
+        return MobileExecution(JSONObject().put("fileToken", uri.toString()), intentEvidence())
     }
 
     private fun findFile(root: DocumentFile, name: String): DocumentFile? {
@@ -84,23 +88,59 @@ class MobileExecutors(private val context: Context, private val config: NodeConf
         val manager = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
         val listener = ComponentName(context, GunterNotificationListener::class.java)
         val controller = manager.getActiveSessions(listener).firstOrNull() ?: throw IllegalStateException("mobile_media_permission_required")
+        val before = mediaSnapshot(controller)
+        val requestedState = if (before.state == 3) 2 else 3 // PlaybackState.PLAYING / PAUSED
         if (skill == "mobile.media.next") controller.transportControls.skipToNext()
-        else if (controller.playbackState?.state == 3) controller.transportControls.pause() else controller.transportControls.play()
-        return MobileExecution(JSONObject().put("package", controller.packageName), JSONObject().put("playbackStateObserved", controller.playbackState != null))
+        else if (requestedState == 2) controller.transportControls.pause() else controller.transportControls.play()
+
+        // TransportControls do not return a completion result. Observe a bounded, real
+        // postcondition; a pre-existing playback state cannot verify a sent command.
+        val deadline = SystemClock.elapsedRealtime() + 1500
+        var verified = mediaEffectObserved(skill, before, mediaSnapshot(controller), requestedState)
+        while (!verified && SystemClock.elapsedRealtime() < deadline) {
+            Thread.sleep(minOf(50, deadline - SystemClock.elapsedRealtime()).coerceAtLeast(1))
+            verified = mediaEffectObserved(skill, before, mediaSnapshot(controller), requestedState)
+        }
+        val evidence = JSONObject().put("mediaCommandDispatched", true).put("effectVerified", verified)
+        if (verified) {
+            if (skill == "mobile.media.next") evidence.put("playbackStateChanged", true).put("trackChanged", true)
+            else evidence.put("playbackStateObserved", true).put("requestedStateObserved", true)
+        }
+        return MobileExecution(JSONObject().put("package", controller.packageName).put("effectVerified", verified), evidence)
+    }
+
+    private fun mediaSnapshot(controller: MediaController): MobileMediaSnapshot {
+        val metadata = controller.metadata
+        fun value(key: String) = metadata?.getString(key)?.trim()?.takeIf { it.isNotEmpty() }
+        return MobileMediaSnapshot(
+            controller.playbackState?.state,
+            value(MediaMetadata.METADATA_KEY_MEDIA_ID),
+            value(MediaMetadata.METADATA_KEY_TITLE) ?: value(MediaMetadata.METADATA_KEY_DISPLAY_TITLE),
+            value(MediaMetadata.METADATA_KEY_ARTIST)
+        )
     }
 
     private fun prepareMessage(payload: JSONObject): MobileExecution {
+        val channel = requireSmsChannel(payload.optString("channel", "sms"))
         val recipient = payload.optString("recipient").trim(); val text = payload.optString("text").trim(); if (recipient.isEmpty() || text.isEmpty()) throw IllegalStateException("mobile_message_required")
         val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${Uri.encode(recipient)}")).putExtra("sms_body", text).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
-        return MobileExecution(JSONObject().put("channel", payload.optString("channel", "sms")), JSONObject().put("draftId", UUID.randomUUID().toString()))
+        // No SMS is sent here, and an external messaging app supplies no saved-draft ID.
+        return MobileExecution(JSONObject().put("channel", channel).put("userSendRequired", true), intentEvidence().put("userSendRequired", true))
     }
 
     private fun scheduleReminder(payload: JSONObject, commandId: String): MobileExecution {
         val title = payload.optString("title").trim(); if (title.isEmpty()) throw IllegalStateException("mobile_reminder_title_required")
-        val id = commandId.ifBlank { throw IllegalStateException("mobile_command_id_required") }; ReminderReceiver.schedule(context, id, title, payload.getString("runAt"))
-        return MobileExecution(JSONObject().put("id", id), JSONObject().put("persistedId", id))
+        val id = commandId.ifBlank { throw IllegalStateException("mobile_command_id_required") }
+        val record = ReminderReceiver.schedule(context, id, title, payload.optString("runAt"))
+        return MobileExecution(
+            JSONObject().put("id", id).put("runAt", record.runAt).put("delivery", "inexact"),
+            JSONObject().put("persistedId", id).put("persisted", true).put("reconsulted", true)
+                .put("alarmScheduled", true).put("exact", false).put("deliveryGuaranteed", false)
+        )
     }
+
+    private fun intentEvidence() = JSONObject().put("intentDispatched", true).put("effectVerified", false)
 
     private fun authorizedFolder(token: String): DocumentFile {
         val selected = if (token.isBlank() && config.folders.size == 1) config.folders.first() else token

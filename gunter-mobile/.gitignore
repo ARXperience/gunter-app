@@ -1,0 +1,18 @@
+# Local Android/Gradle state and generated application artifacts.
+android/.gradle/
+android/.kotlin/
+android/local.properties
+android/**/build/
+android/**/.cxx/
+android/**/*.apk
+android/**/*.aab
+android/**/google-services.json
+
+# Distribution keys and local signing settings must remain outside source.
+**/*.jks
+**/*.keystore
+**/keystore.properties
+**/signing.properties
+
+# Local reports are evidence, not source or proof of device acceptance.
+reports/

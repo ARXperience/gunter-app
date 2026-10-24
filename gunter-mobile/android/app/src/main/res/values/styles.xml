@@ -1,1 +1,13 @@
-<resources><style name="AppTheme" parent="android:style/Theme.Material.NoActionBar"><item name="android:fontFamily">sans</item><item name="android:colorAccent">#4D7CFF</item></style><string name="gunter_command_channel">gunter_commands</string></resources>
+<resources>
+    <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#70E4EF</item>
+        <item name="android:statusBarColor">#0D1E2B</item>
+        <item name="android:navigationBarColor">#0D1E2B</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+    <string name="gunter_command_channel">gunter_commands</string>
+    <color name="gunter_icon_background">#0D1E2B</color>
+</resources>

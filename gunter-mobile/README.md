@@ -1,5 +1,19 @@
 # Gunter Mobile Runtime
 
+## Candidato Android con interfaz completa (0.2.0)
+
+El nuevo launcher `GunterWebActivity` conecta las pantallas de Gunter con un
+origen HTTPS fijado en el APK y conserva «Dispositivo» para el acompañante
+nativo. Debug usa el paquete separado `com.gunter.mobile.preview`; release
+exige origen y firma externa. **No es todavía una versión aprobada para
+clientes ni un APK entregado.** Alcance, funciones incompletas, pruebas,
+configuración y aceptación en [ANDROID_CLIENT_RELEASE.md](../docs/ANDROID_CLIENT_RELEASE.md).
+
+No confundir los comandos del runtime con la UI web, ni una prueba simulada
+con funcionamiento físico. Google OAuth, exportaciones blob, voz/adjuntos,
+sync general y edición/cancelación de alarmas locales tienen limitaciones
+explícitas en esa matriz. La vinculación del nodo no comparte tokens con la web.
+
 Núcleo embebible para los acompañantes Android/iOS. Se empareja con el Control Plane, mantiene heartbeat, recibe comandos y solo delega capacidades declaradas a un puente nativo que conserva los permisos del sistema.
 
 El puente debe implementar `openApp`, `media`, `listFiles`, `searchFiles`, `openFile`, `prepareMessage`, `sendMessage` y `scheduleReminder`. Los archivos se representan mediante tokens concedidos por el selector del sistema, no mediante acceso global al almacenamiento. Enviar mensajes y abrir enlaces de otras apps conserva la confirmación del servidor.
@@ -11,6 +25,11 @@ Android puede ampliar automatización mediante un servicio de accesibilidad habi
 `android/` contiene el host Android nativo: vincula el acceso de un solo uso, cifra localmente la credencial con Android Keystore, conserva un servicio visible en primer plano, recibe comandos y reporta evidencia al Control Plane. La pantalla permite iniciar/detener el servicio y activar/desactivar avisos push FCM; la app registra un token del dispositivo con el nodo autenticado y el servidor lo cifra antes de guardarlo. Una señal push solo anuncia que hay una acción pendiente y abre Gunter; no incluye el contenido del comando. Android 15 limita el tipo de servicio de sincronización usado aquí a seis horas acumuladas por cada periodo de 24 horas en segundo plano; el host se detiene limpiamente y explica el límite al usuario. Los avisos push ayudan a volver a abrir el acompañante, pero no anulan límites del SO ni garantizan automatización silenciosa permanente. Los recordatorios reutilizan el ID estable del comando para que un reintento no duplique alarmas. Las carpetas se autorizan con el selector del sistema y se guardan como URI persistente; no solicita acceso global al almacenamiento.
 
 Para FCM, registra `com.gunter.mobile` como app Android en Firebase y coloca el `google-services.json` descargado en `android/app/` (no es una credencial de servidor, pero no se debe subir al repositorio sin decisión del equipo). En el servidor configura `FCM_SERVICE_ACCOUNT_JSON` con el JSON de una cuenta de servicio de alcance mínimo que tenga permiso de envío de FCM HTTP v1. Sin ese archivo de app y secreto de servidor, la compilación puede hacerse, pero el envío push no queda operativo.
+
+En el candidato nuevo se prefiere `android/app/src/release/google-services.json`.
+La preview aislada requiere un archivo distinto para `com.gunter.mobile.preview`
+en `android/app/src/debug/google-services.json`; no reutiliza automáticamente
+el del paquete de distribución. El build declara explícitamente si hay FCM.
 
 Ábrelo con Android Studio, usa JDK 17 y el SDK Android 35, y ejecuta la variante `debug`. Para distribución, firma una variante `release` con la clave de la organización. El control multimedia requiere que el usuario habilite el listener de notificaciones en Ajustes. El envío directo por SMS se mantiene bloqueado salvo que se implemente el rol de aplicación SMS predeterminada; el host abre un borrador confirmado por el usuario.
 

@@ -82,6 +82,25 @@ Esta fase usó únicamente `gunter-validation-poc/` (directorio hermano local) p
 
 ## Plantilla para nuevas decisiones
 
+### Nota de candidato — Android HTTPS para clientes (2026-10-24)
+
+- **Estado:** implementación candidata aislada, **no release aprobada**. El
+  usuario solicitó integrar las funciones móviles y eligió APK directo; todavía
+  no proporcionó dominio HTTPS ni identidad de firma. No se aprueba por ello
+  IA offline, sync general, OAuth nativo ni las tecnologías pendientes de ADR-001/002.
+- **Solución en código:** UI web del servidor en WebView restringido a un origen,
+  sin puente JS genérico; micrófono a demanda, selector/descarga explícitos y
+  acompañante nativo. Preview usa `com.gunter.mobile.preview`, sin sobrescribir
+  datos de la app anterior ni migrar datos del backend.
+- **Validación:** Node y políticas JVM separadas de Android real; build completo,
+  firma, integración de gaps y dispositivo siguen siendo gates. El intento
+  Gradle local falló antes de configurar; no se declara APK compilado.
+- **Impacto/rollback/licencia:** fuentes existentes Android/AndroidX/Firebase,
+  sin añadir un runtime de IA o permisos generales. Mantener web y acompañante;
+  no instalar la preview restaura el comportamiento previo. Inventario de
+  licencias/distribución y aceptación siguen pendientes. Matriz y comandos:
+  [candidato Android](../ANDROID_CLIENT_RELEASE.md).
+
 ### ADR-XXX — Título
 
 - **Estado:** pendiente / aprobada / descartada / reemplazada.

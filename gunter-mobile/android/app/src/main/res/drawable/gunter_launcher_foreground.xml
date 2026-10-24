@@ -1,0 +1,11 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Same optical-size mark as assets/gunter/gunter-core.svg; not a new logo. -->
+    <group android:translateX="22" android:translateY="22" android:scaleX="2" android:scaleY="2">
+        <path android:pathData="m16,2 4.2,6.8L28,4l-0.8,9.2L31,16l-6.8,4.2L28,28l-9.2,-0.8L16,31l-4.2,-6.8L4,28l0.8,-9.2L1,16l6.8,-4.2L4,4l9.2,0.8Z" android:fillColor="#257da5" android:fillAlpha="0.2" />
+        <path android:pathData="m16,3 5.4,7.6L29,16l-7.6,5.4L16,29l-5.4,-7.6L3,16l7.6,-5.4Z" android:fillColor="@android:color/transparent" android:strokeColor="#1782ad" android:strokeWidth="1.5" android:strokeLineJoin="round" />
+        <path android:pathData="m7,7 9,3.6L25,7l-3.6,9L25,25l-9,-3.6L7,25l3.6,-9Z" android:fillColor="@android:color/transparent" android:strokeColor="#568cd3" android:strokeWidth="1.4" android:strokeLineJoin="round" />
+        <path android:pathData="m16,10 6,6 -6,6 -6,-6Z" android:fillColor="#38bada" android:strokeColor="#b4f1ff" android:strokeWidth="1.2" />
+        <path android:pathData="M16,13v6m-3,-3h6" android:fillColor="@android:color/transparent" android:strokeColor="#f1fdff" android:strokeWidth="1.6" android:strokeLineCap="round" />
+    </group>
+</vector>

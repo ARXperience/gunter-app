@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   android:
-    name: Android debug compile
+    name: Android isolated preview (not a client release)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -33,14 +33,24 @@ jobs:
           packages: "platforms;android-35 build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: "8.7"
-      - name: Compile debug APK
-        run: gradle -p gunter-mobile/android :app:assembleDebug
-      - name: Upload installable debug APK
+          gradle-version: "8.9"
+      - name: Verify APK report safety checks
+        run: node --test gunter-mobile/scripts/test-apk-report.cjs
+      - name: Test, lint and compile isolated preview APK
+        env:
+          GUNTER_WEB_ORIGIN: ${{ vars.GUNTER_WEB_ORIGIN }}
+        run: gradle -p gunter-mobile/android --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Record preview APK checksum and build metadata
+        run: node gunter-mobile/scripts/report-android-apk.cjs debug
+      - name: Upload installable preview (debug signed, not for customers)
         uses: actions/upload-artifact@v7
         with:
-          name: gunter-android-debug-apk
-          path: gunter-mobile/android/app/build/outputs/apk/debug/*.apk
+          name: gunter-android-preview-apk
+          path: |
+            gunter-mobile/android/app/build/outputs/apk/debug/*.apk
+            gunter-mobile/reports/android-debug-apk.json
+            gunter-mobile/android/app/build/reports/tests/testDebugUnitTest/
+            gunter-mobile/android/app/build/reports/lint-results-debug.html
           if-no-files-found: error
           retention-days: 7
 

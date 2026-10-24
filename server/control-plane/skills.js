@@ -161,6 +161,13 @@ function verify(skillName, result = {}) {
     else if (['reminder.inspect', 'jobs.cancel'].includes(skillName)) verified = !!evidence.persistedId && evidence.reconsulted === true;
     else if (['reminder.update', 'reminder.retry'].includes(skillName)) verified = !!evidence.persistedId && evidence.reconsulted === true
         && Number.isSafeInteger(evidence.revision) && evidence.revision >= 1;
+    else if (skillName === 'mobile.reminder') {
+        const nativeAlarm = ['persisted', 'alarmScheduled', 'deliveryGuaranteed', 'exact'].some(key => Object.hasOwn(evidence, key));
+        verified = !!evidence.persistedId && (!nativeAlarm || (
+            evidence.persisted === true && evidence.reconsulted === true && evidence.alarmScheduled === true
+        ));
+        if (verified) limitation = 'scheduled_locally_not_delivery_confirmed';
+    }
     else if (skillName === 'tasks.create' || skillName.includes('reminder') || skillName === 'follow_up.schedule') verified = !!evidence.persistedId;
     else if (skillName === 'mobile.message.send') {
         verified = evidence.channelAccepted === true;
@@ -171,6 +178,10 @@ function verify(skillName, result = {}) {
         if (verified && evidence.delivered !== true) limitation = 'accepted_by_channel_not_delivery_confirmed';
     } else if (skillName === 'mobile.message.prepare') verified = !!evidence.draftId || !!evidence.preparedText;
     else verified = evidence.verified === true || !!result.evidenceRef;
+    if (!verified && ['mobile.open_app', 'mobile.files.open', 'mobile.message.prepare'].includes(skillName)
+        && evidence.intentDispatched === true && evidence.effectVerified === false) {
+        limitation = 'intent_dispatched_effect_not_observed';
+    }
     return { verified, state: verified ? 'VERIFIED' : 'VERIFICATION_FAILED', limitation };
 }
 

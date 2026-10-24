@@ -45,6 +45,7 @@
     "test:node": "node test/gunter-node.js",
     "test:mobile": "node test/mobile-runtime.js",
     "test:mobile-push": "node test/mobile-push.js",
+    "test:android-client": "node test/android-client-contracts.cjs && node test/android-google-auth.cjs && node gunter-mobile/scripts/test-apk-report.cjs",
     "test:e2e": "node test/run-e2e.js",
     "preflight": "node scripts/preflight.js",
     "node:pair": "node gunter-node/cli.js pair",
