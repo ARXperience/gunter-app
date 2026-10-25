@@ -90,13 +90,15 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await page.locator('#cp-hybrid-mode').selectOption('AUTO');
     await page.locator('#cp-hybrid-save').click();
     await expect.poll(async () => (await (await page.request.get('/api/control/hybrid/status')).json()).data.mode).toBe('AUTO');
-    await page.locator('#config-tab-preferences').click();
+    await page.locator('#config-tab-schedule').click();
     await page.locator('#pref-city').fill('Cali');
     await page.locator('#pref-city').press('Tab');
     await page.locator('#pref-timezone').fill('America/Bogota');
     await page.locator('#pref-timezone').press('Tab');
+    await page.locator('#config-tab-voice').click();
     await page.locator('#pref-language').selectOption('es-MX');
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gunter_prefs')).city)).toBe('Cali');
+    await page.locator('#config-tab-premium').click();
     await page.evaluate(() => window.GunterCompanion.__handleFromWake('desactiva el saludo al entrar'));
     await expect(page.locator('#pref-entry-greeting')).toBeChecked();
     await page.evaluate(() => window.GunterCompanion.__handleFromWake('sí'));
@@ -109,9 +111,14 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await expect(page.locator('#pref-entry-greeting')).toBeChecked();
     const preferencesTab = page.locator('#config-tab-preferences');
     await expect(preferencesTab).toBeVisible();
+    await preferencesTab.click();
     await preferencesTab.press('ArrowRight');
     await expect(page.locator('#config-tab-data')).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('#config-panel-data')).toBeVisible();
+    await page.locator('#config-tab-connections').click();
+    await page.getByText('Proveedores y claves del servidor', { exact: true }).click();
+    await expect(page.locator('#status-fcm')).toBeVisible();
+    await expect(page.locator('#status-apns')).toBeVisible();
     await expect(page.locator('#status-fcm')).not.toContainText('Servidor no responde');
     await expect(page.locator('#status-apns')).not.toContainText('Servidor no responde');
 
