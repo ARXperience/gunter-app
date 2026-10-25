@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$JavaHome,
     [Parameter(Mandatory = $true)][string]$AndroidJar,
+    [Parameter(Mandatory = $true)][string]$WebKitAar,
     [string]$CacheDirectory = (Join-Path $env:USERPROFILE '.gradle/caches/modules-2/files-2.1')
 )
 $ErrorActionPreference = 'Stop'
@@ -28,6 +29,20 @@ $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $mobileRoot '..')).Path
 $sourceRoot = Join-Path $mobileRoot 'android/app/src/main/java/com/gunter/mobile'
 $output = Join-Path $repositoryRoot 'output/android-shell-typecheck'
 New-Item -ItemType Directory -Path $output -Force | Out-Null
+$webKit = (Resolve-Path -LiteralPath $WebKitAar).Path
+if ((Get-FileHash -LiteralPath $webKit -Algorithm SHA256).Hash.ToLowerInvariant() -ne '18a0a51ad129e0c8563f031d46c8a7e61169f56ae84e562a0d75686941262111') {
+    throw 'Pass the verified official AndroidX WebKit 1.12.1 AAR; do not substitute a stub for its API.'
+}
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [IO.Compression.ZipFile]::OpenRead($webKit)
+$webKitClasses = Join-Path $output 'webkit-1.12.1-classes.jar'
+try {
+    $entry = $archive.GetEntry('classes.jar')
+    if (-not $entry -or $entry.Length -gt 16MB) { throw 'WebKit classes.jar is missing or unexpectedly large.' }
+    $input = $entry.Open()
+    $destination = [IO.File]::Open($webKitClasses, [IO.FileMode]::Create)
+    try { $input.CopyTo($destination) } finally { $input.Dispose(); $destination.Dispose() }
+} finally { $archive.Dispose() }
 $stubs = Join-Path $output 'ShellTypecheckStubs.kt'
 $stubSource = @'
 // GENERATED TYPECHECK INPUT ONLY. Never compile this file into an APK.
@@ -43,11 +58,11 @@ object ReminderReceiver {
 }
 '@
 [IO.File]::WriteAllText($stubs, $stubSource, [Text.UTF8Encoding]::new($false))
-$sources = @('GunterWebActivity.kt', 'WebDownloadController.kt', 'WebOriginPolicy.kt') | ForEach-Object { Join-Path $sourceRoot $_ }
+$sources = @('GunterWebActivity.kt', 'WebDownloadController.kt', 'WebOriginPolicy.kt', 'WebBlobExportController.kt', 'WebExportProtocol.kt', 'WebExportScript.kt') | ForEach-Object { Join-Path $sourceRoot $_ }
 foreach ($source in $sources) { if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw 'An exact shell source is missing.' } }
 $separator = [IO.Path]::PathSeparator
 $compilerClasspath = @($compiler, $stdlib, $reflect, $trove, $coroutines, $annotations) -join $separator
-$sourceClasspath = @($stdlib, $annotations, $android) -join $separator
+$sourceClasspath = @($stdlib, $annotations, $android, $webKitClasses) -join $separator
 $target = Join-Path $output 'gunter-shell-typecheck.jar'
 & $java -Xmx1024m -cp $compilerClasspath org.jetbrains.kotlin.cli.jvm.K2JVMCompiler `
     -no-stdlib -no-reflect -jvm-target 17 -language-version 2.0 -api-version 1.9 `
@@ -57,6 +72,7 @@ $report = [ordered]@{
     kind = 'KOTLIN_SHELL_TYPECHECK_WITH_EXPLICIT_STUBS'; passed = $true; generatedAt = [DateTimeOffset]::UtcNow.ToString('o')
     kotlinCompilerVersion = '2.0.21'; stdlibVersion = '1.9.23'; jvmTarget = '17'; languageVersion = '2.0'; apiVersion = '1.9'
     androidJar = [ordered]@{ path = $android; sha256 = (Get-FileHash -LiteralPath $android -Algorithm SHA256).Hash.ToLowerInvariant(); usage = 'Type references only; does not substitute compileSdk=35.' }
+    webKit = [ordered]@{ version = '1.12.1'; aarPath = $webKit; aarSha256 = (Get-FileHash -LiteralPath $webKit -Algorithm SHA256).Hash.ToLowerInvariant(); classesSha256 = (Get-FileHash -LiteralPath $webKitClasses -Algorithm SHA256).Hash.ToLowerInvariant() }
     sources = @($sources | ForEach-Object { [ordered]@{ path = (Resolve-Path -LiteralPath $_).Path; sha256 = (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant() } })
     stubs = [ordered]@{ path = $stubs; sha256 = (Get-FileHash -LiteralPath $stubs -Algorithm SHA256).Hash.ToLowerInvariant(); symbols = @('BuildConfig', 'MainActivity', 'ReminderReceiver.reschedulePending') }
     jarSha256 = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()

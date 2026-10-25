@@ -366,7 +366,7 @@ function browserModule(relativePath, windowOverrides = {}) {
     await test('registro expone solo herramientas allowlist', () => {
         const { toolset } = makeAssistantTools();
         assert.deepEqual(toolset.listTools().map(tool => tool.id), [
-            'social.send', 'app.inspect', 'app.navigate', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update', 'procedure.execute', 'desktop.apps.open', 'desktop.browser.open', 'desktop.browser.search', 'desktop.browser.youtube.play', 'mobile.open_app', 'mobile.files.list', 'mobile.files.search', 'mobile.files.open', 'mobile.media.play_pause', 'mobile.media.next',
+            'social.send', 'app.inspect', 'app.core.shape', 'app.navigate', 'preferences.update', 'desktop.permissions.update', 'settings.list', 'settings.update', 'procedure.execute', 'desktop.apps.open', 'desktop.browser.open', 'desktop.browser.search', 'desktop.browser.youtube.play', 'mobile.open_app', 'mobile.files.list', 'mobile.reminders.list', 'mobile.reminders.update', 'mobile.reminders.cancel', 'mobile.files.search', 'mobile.files.open', 'mobile.media.play_pause', 'mobile.media.next',
             'desktop.files.open', 'desktop.files.list', 'desktop.files.search',
             'desktop.media.play_pause', 'desktop.media.next', 'desktop.media.previous', 'desktop.media.stop',
             'desktop.media.volume_up', 'desktop.media.volume_down', 'desktop.media.mute',

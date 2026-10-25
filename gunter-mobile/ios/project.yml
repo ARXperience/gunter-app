@@ -11,6 +11,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gunter.mobile
         SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Gunter
       configs:
         Debug:

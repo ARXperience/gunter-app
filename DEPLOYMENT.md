@@ -1,5 +1,12 @@
 # Despliegue de Gunter
 
+No se necesita un dominio comprado: puede usarse el subdominio HTTPS de un
+proveedor de servidor. GitHub sirve para código/CI/artefactos; Pages es estático
+y no sustituye el backend Node, la IA ni los conectores. Antes de desplegar hay
+que elegir el servicio, almacenamiento persistente y secretos; este trabajo no
+contrata ni publica hosting. No usar el laboratorio visual ni una página de
+reserva como API de clientes.
+
 1. Copia `.env.example` como `.env` y completa las variables necesarias sin publicar ese archivo.
 2. Sirve la aplicación mediante HTTPS. Define `ALLOWED_ORIGINS` con el origen público exacto y activa `AUTH_COOKIE_SECURE=true`.
 3. Si un proxy inverso termina TLS, define `TRUST_PROXY=true`; de lo contrario déjalo en `false`.

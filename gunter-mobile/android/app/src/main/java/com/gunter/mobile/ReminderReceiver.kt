@@ -26,7 +26,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 else {
                     val id = intent.getStringExtra("id")
                     if (id != null && intent.data == alarmUri(id)) {
-                        coordinator.deliver(id, intent.getLongExtra("whenMillis", -1))
+                        coordinator.deliver(id, intent.getLongExtra("whenMillis", -1), intent.getLongExtra("revision", 1))
                     }
                 }
             } catch (_: Exception) {
@@ -44,6 +44,15 @@ class ReminderReceiver : BroadcastReceiver() {
         internal fun schedule(context: Context, id: String, title: String, runAt: String): ReminderRecord =
             coordinator(context.applicationContext).schedule(id, title, runAt)
 
+        internal fun list(context: Context, id: String? = null): List<ReminderRecord> =
+            coordinator(context.applicationContext).list(id)
+
+        internal fun update(context: Context, id: String, title: String, runAt: String, expectedRevision: Long, mutationId: String): ReminderRecord =
+            coordinator(context.applicationContext).update(id, title, runAt, expectedRevision, mutationId)
+
+        internal fun cancel(context: Context, id: String, expectedRevision: Long): ReminderCancellation =
+            coordinator(context.applicationContext).cancel(id, expectedRevision)
+
         /** Safe to call when the app resumes or notification permission is granted. */
         fun reschedulePending(context: Context) {
             val app = context.applicationContext
@@ -58,7 +67,8 @@ class ReminderReceiver : BroadcastReceiver() {
             ReminderStore(context),
             { record -> scheduleAlarm(context, record) },
             { requireNotifications(context) },
-            { record -> postNotification(context, record) }
+            { record -> postNotification(context, record) },
+            { id -> cancelAlarm(context, id) }
         )
 
         private fun requireNotifications(context: Context) {
@@ -80,9 +90,21 @@ class ReminderReceiver : BroadcastReceiver() {
             // hashCode collisions silently replacing another reminder in this app.
             val intent = Intent(context, ReminderReceiver::class.java).setAction(ACTION_REMINDER)
                 .setData(alarmUri(record.id)).putExtra("id", record.id).putExtra("whenMillis", record.whenMillis)
+                .putExtra("revision", record.revision)
             val pending = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val manager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, maxOf(record.whenMillis, System.currentTimeMillis() + 1000), pending)
+        }
+
+        private fun cancelAlarm(context: Context, id: String) {
+            val intent = Intent(context, ReminderReceiver::class.java).setAction(ACTION_REMINDER).setData(alarmUri(id))
+            // Obtain the same identity even on a repeated cancellation. Creating a token
+            // here does not schedule an alarm; it lets every retry call the real cancel
+            // APIs rather than infer success from a missing local row or cached status.
+            val pending = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+            (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pending)
+            pending.cancel()
+            context.getSystemService(NotificationManager::class.java).cancel(id, 0)
         }
 
         private fun postNotification(context: Context, record: ReminderRecord) {

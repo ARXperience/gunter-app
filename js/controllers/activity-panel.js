@@ -197,7 +197,10 @@
             'desktop.files.open': 'Abrir archivo', 'desktop.screen.inspect': 'Inspeccionar pantalla',
             'mobile.media.next': 'Cambiar pista', 'mobile.media.play_pause': 'Controlar reproducción',
             'mobile.message.prepare': 'Preparar mensaje', 'mobile.message.send': 'Enviar mensaje',
-            'mobile.open_app': 'Abrir aplicación móvil', 'mobile.reminder': 'Crear recordatorio móvil'
+            'mobile.open_app': 'Abrir aplicación móvil', 'mobile.reminder': 'Crear recordatorio móvil',
+            'mobile.reminders.list': 'Consultar recordatorios locales del móvil',
+            'mobile.reminders.update': 'Editar recordatorio local del móvil',
+            'mobile.reminders.cancel': 'Cancelar recordatorio local del móvil'
         })[name] || readable(name);
     }
     function humanError(error) {

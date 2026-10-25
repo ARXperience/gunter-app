@@ -1,10 +1,10 @@
 # Gunter Android — candidato de aplicación para clientes
 
-Estado de revisión: 2026-10-24. Entrega solicitada: APK instalable directamente.
+Estado de revisión: 2026-10-25. Entrega solicitada: APK instalable directamente.
 
 **No es una release aprobada ni un APK entregado.** El código incorpora una
 vista de la aplicación completa y conserva las capacidades del acompañante
-nativo. Faltan dominio HTTPS, empaquetado y firma de distribución, integración
+nativo. Faltan servidor HTTPS accesible, firma de distribución, integración
 de algunas funciones y aceptación en teléfonos reales. No confundir un test
 unitario, una captura de viewport móvil o un workflow escrito con esas pruebas.
 
@@ -25,6 +25,20 @@ unitario, una captura de viewport móvil o un workflow escrito con esas pruebas.
 - El puerto 3013 del laboratorio visual **no es** el servidor de la aplicación.
   `localhost` o `127.0.0.1` en un teléfono designan ese teléfono, no el PC.
 
+## Sin dominio propio
+
+No es necesario comprar un dominio para preparar el APK: un proveedor de
+backend puede dar una dirección HTTPS propia, que se configura como origen.
+GitHub conserva código y ejecuta la compilación, pero GitHub Pages sólo sirve
+contenido estático; no ejecuta el servidor Node de Gunter, la IA ni WhatsApp.
+No apuntar el cliente a una página de reserva de Pages como si fuera su API.
+Referencia: [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages).
+
+La preview sin origen permite configurar explícitamente un HTTPS de pruebas.
+Mientras no exista un servidor, no hay login/chat conectado. La pantalla
+Dispositivo sigue permitiendo gestionar recordatorios exclusivamente locales;
+no implica IA offline ni sincronización. No se publicó ni contrató hosting.
+
 ## Funciones y límites reales
 
 | Función | Implementación del candidato | Pendiente antes de ofrecerla a clientes |
@@ -33,10 +47,10 @@ unitario, una captura de viewport móvil o un workflow escrito con esas pruebas.
 | Voz y captura de reuniones | Permiso Android de micrófono a demanda, sólo audio y origen configurado | Captura/STT/TTS reales, interrupciones, reproducción y recuperación en dispositivo; no se ofrece escucha permanente ni IA offline móvil |
 | Adjuntar documentos, audio o imágenes | Selector Android de documentos, sin acceso global al almacenamiento | MIME/tamaño, proveedores de archivos y recreación de Activity en teléfono; cámara WebRTC no implementada |
 | Guardar archivos HTTPS | Confirmación, selector de destino, sesión same-origin, límite 50 MiB | Descargas autenticadas/reconexión/rotación en dispositivo; un fallo puede dejar un archivo vacío o parcial, se avisa y no se borra automáticamente |
-| Exportaciones `blob:`/`data:` | Aviso de no soporte, sin afirmar que se guardaron | Exportación nativa segura todavía no integrada; repetir el flujo en la versión web del navegador |
+| Exportaciones `blob:`/`data:` | Hook temprano de Blob/anchors, protocolo exclusivo de exportación, origen exacto/frame principal, confirmación y selector de destino; límite 50 MiB y backpressure | Requiere proveedor WebView con WEB_MESSAGE_LISTENER y DOCUMENT_START_SCRIPT. Validar archivos reales, cancelación, rotación y proveedores de documentos en teléfono; hay fallback explícito si no se captura |
 | Abrir aplicaciones, archivos o borradores SMS | Intent explícito; SMS nunca se envía directamente | Android puede impedir aperturas en segundo plano. Se informa dispatch, no efecto verificado; backend no marca éxito ni repite automáticamente |
 | Multimedia | Observación posterior acotada del estado/pista, además del permiso del listener | Sesiones reales de reproductores y rechazo de permisos; no se inventa una confirmación si no se observa |
-| Alarmas locales | Persistencia privada con commit/relectura, alarma inexacta, recuperación tras arranque/reanudación y permisos | Entrega con Doze, reinicio, canales y revocación. No hay sincronización de edición/cancelación de una alarma local ya creada con los jobs del servidor |
+| Alarmas locales | Crear, consultar, editar y cancelar desde Dispositivo; persistencia privada con relectura, versión y mutationId, cancelación real de alarma/notificación; recuperación tras arranque/reanudación | Entrega con Doze, reinicio, canales y revocación. La lista no confirma entrega. No hay sincronización con jobs del servidor ni historial de registros retirados |
 | Push FCM | Opt-in y configuración distinta por paquete debug/release | Firebase de app y servidor, token real, permisos y entrega. Los avisos no contienen el comando ni eluden los límites de Android |
 | Google Calendar/OAuth | No intenta GIS dentro del WebView; explica cómo usar el navegador | Falta flujo OAuth nativo con retorno seguro a la app. La sesión del navegador es independiente: conectarlo allí no transfiere tokens al WebView |
 | WhatsApp y otros conectores | Se usan las integraciones del servidor desde la UI compartida | Configuración y pruebas end-to-end del conector; el APK no crea por sí solo un bot de WhatsApp ni una conexión nueva |
@@ -59,6 +73,10 @@ HTTP; errores TLS cancelados; cookies de terceros desactivadas; accesos
 `file:`/`content:` del motor web desactivados; sin `addJavascriptInterface` ni
 puente genérico de ejecución. Los enlaces externos necesitan gesto y
 confirmación. El selector sólo devuelve documentos elegidos explícitamente.
+El nuevo puente WebKit acepta únicamente mensajes de exportación validados;
+no expone archivos, credenciales, ejecución ni métodos Android arbitrarios.
+La caché temporal propia se elimina al cancelar/terminar normalmente; una
+muerte abrupta del proceso puede dejar un temporal privado hasta su evicción.
 
 El permiso web concede exclusivamente `AUDIO_CAPTURE`, después del permiso
 Android; no concede automáticamente todos los recursos pedidos. Las
@@ -88,7 +106,11 @@ node gunter-mobile/scripts/report-android-apk.cjs debug
 Debug sin origen compilado ofrece una entrada HTTPS de pruebas explícita.
 Cambiar el origen no traslada los datos o sesiones del origen anterior. El
 workflow `mobile-build.yml` prepara el SDK y ejecuta tests/lint/build en CI,
-pero no se ha ejecutado ni subido ese workflow como parte de este trabajo.
+y fue subido a `codex/android-client-candidate` con autorización del usuario.
+El primer intento (901f9b1) compiló Android pero falló lint por un atributo API27
+con minSdk26; se eliminó el atributo sin omitir lint. La nueva ejecución debe
+comprobar también la UI y el exportador integrados. Ver resultados de Actions,
+no asumir éxito por la existencia del workflow.
 
 Para release, el propietario debe aportar por entorno/gestor de secretos:
 
@@ -127,8 +149,8 @@ llamarla versión final. No se redistribuyen modelos ni binarios Windows.
 Rollback del candidato: no instalar la preview o desinstalar sólo
 `com.gunter.mobile.preview` (elimina únicamente sus datos locales). La web,
 backend y acompañante original se conservan; no se hizo migración ni borrado de
-datos productivos. No se subieron cambios, se publicó un APK ni se cambió la
-cuarentena del laboratorio bio.
+datos productivos. Los cambios se suben sólo a la rama candidata autorizada,
+sin fusionar main, desplegar backend ni cambiar la cuarentena del laboratorio bio.
 
 ## Evidencia de esta revisión
 
@@ -137,15 +159,18 @@ runtime móvil, push simulado, Control Plane y UI se ejecutan sin teléfono ni
 proveedores reales. Los tests JVM de políticas/recordatorios usan adaptadores
 inyectados, no AlarmManager ni Firebase de un dispositivo.
 
-Resultado de esta revisión: 31 tests JVM, 10 contratos Android, 12 aserciones
-del guard OAuth, 8 tests del reporte APK, 4 contratos del runtime móvil y 34 del
-Control Plane pasaron; también pasaron las suites de push simulado y UI. Los
-31 JVM se compilaron con Kotlin 2.0.21 y stdlib cacheada 1.9.23; `android.jar`
+Resultado local: 55 tests JVM (51 políticas/recordatorios y 4 protocolo de
+exportación), 10 contratos Android, 12 aserciones OAuth, 8 tests de políticas
+de recordatorios móviles, 5 contratos fuente de su diálogo, 7 tests del script
+de exportación en VM, 8 del reporte APK, 52 del asistente, 4 del runtime móvil
+y 34 del Control Plane. No son pruebas de proveedores ni dispositivos.
+Los JVM se compilaron con Kotlin 2.0.21 y stdlib cacheada 1.9.23; `android.jar`
 36.1 sólo resuelve tipos del adaptador que no se ejecuta. No se cambió el SDK
 35 requerido por el APK para obtener ese resultado.
 
-El typecheck de las tres fuentes exactas del shell también pasó, usando ese
-`android.jar` y tres stubs **explícitos** de BuildConfig/MainActivity/recuperación
+El typecheck de las seis fuentes exactas del shell/exportador también pasó,
+con AndroidX WebKit 1.12.1 oficial verificado, ese `android.jar` y tres stubs
+**explícitos** de BuildConfig/MainActivity/recuperación
 de alarmas. Encontró y permitió corregir un conflicto Kotlin entre la propiedad
 `overlay` y `ViewGroup.overlay`. Quedaron cuatro avisos de deprecación de insets.
 No valida el resto de clases, recursos, manifest, Gradle DSL ni runtime Android.
@@ -159,11 +184,10 @@ Los scripts `gunter-mobile/scripts/test-android-policies.ps1` y
 oficial cacheado y permiten repetir esos checks sin Gradle ni red. Son una
 alternativa diagnóstica, no una vía de empaquetado de distribución.
 
-El intento local de Gradle/JDK 17 y JBR 21 falló antes de configurar el proyecto:
-Java NIO/IPC (`Invalid argument: connect`). Las pruebas con directorios
-temporales cortos no resolvieron el bloqueo y no cambiaron ajustes del sistema.
-Falta el SDK 35 local. La descarga de herramientas oficiales fue interrumpida
-por timeout, quedó incompleta y no se verificó, extrajo ni ejecutó. No se
-instalaron paquetes SDK ni se aceptaron licencias nuevas. No hay APK generado
-por este trabajo ni validación física; los resultados adicionales deben
-consultarse con sus limitaciones en el informe de validación local.
+El bloqueo Java NIO/IPC de Gradle Windows se reprodujo y su prueba mínima se
+resolvió igualando el orden de argumentos JVM de Gradle 8.9, sin cambiar el SO.
+`invoke-android-gradle-local.ps1` permite repetir ese modo acotado. No sustituye
+el build: falta SDK35 local y la configuración Android offline agotó su plazo.
+La descarga anterior de herramientas SDK quedó incompleta, no se ejecutó ni
+se aceptaron licencias nuevas. La vía de empaquetado usada es Actions en Linux.
+Queda pendiente la validación física y la aceptación de los gaps de la tabla.

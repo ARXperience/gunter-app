@@ -36,8 +36,8 @@ $testRoot = Join-Path $mobileRoot 'android/app/src/test/java/com/gunter/mobile'
 $output = Join-Path $mobileRoot 'android/app/build/policy-jvm-tests'
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $target = Join-Path $output 'gunter-policies-tests.jar'
-$sources = @('WebOriginPolicy.kt', 'ReminderStore.kt', 'MobilePolicies.kt') | ForEach-Object { Join-Path $sourceRoot $_ }
-$tests = @('WebOriginPolicyTest', 'ReminderCoordinatorTest', 'MobileSmsPolicyTest', 'MobileMediaObservationTest')
+$sources = @('WebOriginPolicy.kt', 'WebExportProtocol.kt', 'ReminderStore.kt', 'MobilePolicies.kt') | ForEach-Object { Join-Path $sourceRoot $_ }
+$tests = @('WebOriginPolicyTest', 'WebExportProtocolTest', 'ReminderCoordinatorTest', 'MobileSmsPolicyTest', 'MobileMediaObservationTest')
 $sources += $tests | ForEach-Object { Join-Path $testRoot "$_.kt" }
 foreach ($source in $sources) { if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw 'A policy source/test is missing; do not replace it with a stub.' } }
 $separator = [IO.Path]::PathSeparator

@@ -15,20 +15,28 @@ class ReminderCoordinatorTest {
         var putSucceeds = true
         var removeSucceeds = true
         var incorrectReadback = false
+        var ignoreRemove = false
+        var getCalls = 0
+        var putCalls = 0
+        val failedPuts = mutableSetOf<Int>()
+        val incorrectReads = mutableSetOf<Int>()
         override fun get(id: String): ReminderRecord? {
+            getCalls += 1
             events += "get:$id"
             val item = records[id]
-            return if (incorrectReadback && item != null) item.copy(title = "different") else item
+            return if ((incorrectReadback || getCalls in incorrectReads) && item != null) item.copy(title = "different") else item
         }
         override fun all(): List<ReminderRecord> = records.values.toList()
         override fun put(record: ReminderRecord): Boolean {
+            putCalls += 1
             events += "put:${record.id}"
-            if (putSucceeds) records[record.id] = record
-            return putSucceeds
+            val succeeded = putSucceeds && putCalls !in failedPuts
+            if (succeeded) records[record.id] = record
+            return succeeded
         }
         override fun remove(id: String): Boolean {
             events += "remove:$id"
-            if (removeSucceeds) records.remove(id)
+            if (removeSucceeds && !ignoreRemove) records.remove(id)
             return removeSucceeds
         }
     }
@@ -38,8 +46,9 @@ class ReminderCoordinatorTest {
         at: Long = now,
         alarm: (ReminderRecord) -> Unit = { store.events += "alarm:${it.id}" },
         permission: () -> Unit = { store.events += "permission" },
-        post: (ReminderRecord) -> Unit = { store.events += "notify:${it.id}" }
-    ) = ReminderCoordinator(store, alarm, permission, post) { at }
+        post: (ReminderRecord) -> Unit = { store.events += "notify:${it.id}" },
+        cancelAlarm: (String) -> Unit = { store.events += "cancelAlarm:$it" }
+    ) = ReminderCoordinator(store, alarm, permission, post, cancelAlarm) { at }
 
     private fun fails(code: String, action: () -> Unit) {
         try { action(); fail("Expected $code") } catch (error: IllegalStateException) { assertEquals(code, error.message) }
@@ -224,5 +233,242 @@ class ReminderCoordinatorTest {
         assertEquals(2, store.records.size)
         assertEquals("Agua", store.records["FB"]?.title)
         assertEquals("Comida", store.records["Ea"]?.title)
+    }
+
+    @Test fun listAndReadAreReadOnlyAndDoNotRequireNotificationPermission() {
+        val store = MemoryStore()
+        val later = ReminderRecord("later", "Comida", now + 10000)
+        val overdue = ReminderRecord("overdue", "Agua", now - 10000)
+        store.records[later.id] = later
+        store.records[overdue.id] = overdue
+        val runtime = coordinator(store, permission = { throw AssertionError("Listing must not require notifications") })
+        assertEquals(listOf(overdue, later), runtime.list())
+        assertEquals(listOf(later), runtime.list("later"))
+        assertTrue(runtime.list("absent").isEmpty())
+        assertEquals("pending", later.status(now))
+        assertEquals("overdue", overdue.status(now))
+        assertFalse(store.events.any { it.startsWith("put:") || it.startsWith("remove:") || it.startsWith("alarm:") })
+    }
+
+    @Test fun updateKeepsStableIdPersistsReconsultsAndReplacesAlarm() {
+        val store = MemoryStore()
+        val runtime = coordinator(store)
+        runtime.schedule("one", "Agua", future)
+        store.events.clear()
+        val updated = runtime.update("one", " Comida ", "2026-10-23T14:00:00Z", 1, "update-1")
+        assertEquals("one", updated.id)
+        assertEquals(2L, updated.revision)
+        assertEquals("update-1", updated.lastMutationId)
+        assertEquals("Comida", updated.title)
+        assertEquals(updated, store.records["one"])
+        assertEquals(listOf("get:one", "permission", "put:one", "get:one", "alarm:one"), store.events)
+        assertEquals(1, store.records.size)
+    }
+
+    @Test fun retryOfSameUpdateDoesNotIncrementRevisionOrCreateAnotherRowOrNotify() {
+        val store = MemoryStore()
+        val runtime = coordinator(store)
+        runtime.schedule("one", "Agua", future)
+        val updated = runtime.update("one", "Comida", future, 1, "update-1")
+        store.events.clear()
+        assertEquals(updated, runtime.update("one", "Comida", future, 1, "update-1"))
+        assertEquals(listOf("get:one", "permission", "alarm:one"), store.events)
+        assertEquals(1, store.records.size)
+    }
+
+    @Test fun retryOfSameMutationWithDifferentContentFailsBeforeAnySideEffect() {
+        val store = MemoryStore()
+        val runtime = coordinator(store)
+        runtime.schedule("one", "Agua", future)
+        val updated = runtime.update("one", "Comida", future, 1, "update-1")
+        store.events.clear()
+        fails("mobile_reminder_mutation_conflict") { runtime.update("one", "Trabajo", future, 1, "update-1") }
+        assertEquals(listOf("get:one"), store.events)
+        assertEquals(updated, store.records["one"])
+    }
+
+    @Test fun staleUpdateOrCancelCannotOverwriteANewerRevision() {
+        val store = MemoryStore()
+        val runtime = coordinator(store)
+        runtime.schedule("one", "Agua", future)
+        val updated = runtime.update("one", "Comida", future, 1, "update-1")
+        store.events.clear()
+        fails("mobile_reminder_revision_conflict") { runtime.update("one", "Trabajo", future, 1, "update-2") }
+        fails("mobile_reminder_revision_conflict") { runtime.cancel("one", 1) }
+        assertEquals(listOf("get:one", "get:one"), store.events)
+        assertEquals(updated, store.records["one"])
+    }
+
+    @Test fun oldMutationRetriedAfterAnotherUpdateCannotReapplyOldValues() {
+        val store = MemoryStore()
+        val runtime = coordinator(store)
+        runtime.schedule("one", "Agua", future)
+        runtime.update("one", "Comida", future, 1, "update-1")
+        val latest = runtime.update("one", "Trabajo", future, 2, "update-2")
+        store.events.clear()
+        fails("mobile_reminder_revision_conflict") { runtime.update("one", "Comida", future, 1, "update-1") }
+        assertEquals(listOf("get:one"), store.events)
+        assertEquals(latest, store.records["one"])
+    }
+
+    @Test fun updateOfMissingRecordDoesNotImplicitlyCreateOne() {
+        val store = MemoryStore()
+        fails("mobile_reminder_not_found") { coordinator(store).update("missing", "Agua", future, 1, "update-1") }
+        assertEquals(listOf("get:missing"), store.events)
+        assertTrue(store.records.isEmpty())
+    }
+
+    @Test fun deniedUpdatePermissionPreservesOriginalRowAndAlarm() {
+        val store = MemoryStore()
+        val previous = coordinator(store).schedule("one", "Agua", future)
+        store.events.clear()
+        fails("blocked") {
+            coordinator(store, permission = { throw IllegalStateException("blocked") }).update("one", "Comida", future, 1, "update-1")
+        }
+        assertEquals(previous, store.records["one"])
+        assertEquals(listOf("get:one"), store.events)
+    }
+
+    @Test fun failedUpdatePersistenceRestoresPreviousRowWithoutReplacingAlarm() {
+        val store = MemoryStore()
+        val runtime = coordinator(store)
+        val previous = runtime.schedule("one", "Agua", future)
+        store.failedPuts += store.putCalls + 1
+        store.events.clear()
+        fails("mobile_reminder_persist_failed") { runtime.update("one", "Comida", future, 1, "update-1") }
+        assertEquals(previous, store.records["one"])
+        assertFalse(store.events.any { it.startsWith("alarm:") })
+    }
+
+    @Test fun mismatchedUpdateReadbackRestoresPreviousRowWithoutClaimingSuccess() {
+        val store = MemoryStore()
+        val runtime = coordinator(store)
+        val previous = runtime.schedule("one", "Agua", future)
+        store.incorrectReads += store.getCalls + 2 // after reading previous and writing updated
+        store.events.clear()
+        fails("mobile_reminder_persist_failed") { runtime.update("one", "Comida", future, 1, "update-1") }
+        assertEquals(previous, store.records["one"])
+        assertFalse(store.events.any { it.startsWith("alarm:") })
+    }
+
+    @Test fun failedUpdateAlarmRollsBackAndRearmsPreviousRevision() {
+        val store = MemoryStore()
+        val previous = coordinator(store).schedule("one", "Agua", future)
+        val scheduled = mutableListOf<ReminderRecord>()
+        val runtime = coordinator(store, alarm = {
+            if (it.revision == 2L) throw IllegalStateException("alarm_failed")
+            scheduled += it
+        })
+        fails("alarm_failed") { runtime.update("one", "Comida", future, 1, "update-1") }
+        assertEquals(previous, store.records["one"])
+        assertEquals(listOf(previous), scheduled)
+    }
+
+    @Test fun failedUpdateRollbackDoesNotReturnSuccessAndLeavesRecoverableRow() {
+        val store = MemoryStore()
+        coordinator(store).schedule("one", "Agua", future)
+        store.failedPuts += store.putCalls + 2 // updated write succeeds, rollback fails
+        val runtime = coordinator(store, alarm = { throw IllegalStateException("alarm_failed") })
+        fails("alarm_failed") { runtime.update("one", "Comida", future, 1, "update-1") }
+        assertEquals(2L, store.records["one"]?.revision)
+        assertEquals("Comida", store.records["one"]?.title)
+    }
+
+    @Test fun oldBroadcastRevisionCannotDeliverATitleOnlyUpdate() {
+        val store = MemoryStore()
+        val runtime = coordinator(store)
+        runtime.schedule("one", "Agua", future)
+        val updated = runtime.update("one", "Comida", future, 1, "update-1")
+        val due = coordinator(store, at = updated.whenMillis)
+        store.events.clear()
+        assertFalse(due.deliver("one", updated.whenMillis, 1))
+        assertEquals(listOf("get:one"), store.events)
+        assertTrue(due.deliver("one", updated.whenMillis, 2))
+        assertTrue(store.records.isEmpty())
+    }
+
+    @Test fun cancelPersistsAndReconsultsAbsenceBeforePlatformCancellation() {
+        val store = MemoryStore()
+        coordinator(store).schedule("one", "Agua", future)
+        store.events.clear()
+        val runtime = coordinator(store, permission = { throw AssertionError("Cancellation needs no notification permission") })
+        val cancelled = runtime.cancel("one", 1)
+        assertFalse(cancelled.alreadyAbsent)
+        assertEquals(listOf("get:one", "remove:one", "get:one", "cancelAlarm:one"), store.events)
+        assertTrue(store.records.isEmpty())
+        assertFalse(runtime.deliver("one", Instant.parse(future).toEpochMilli(), 1))
+    }
+
+    @Test fun repeatedCancelOfAbsentIdStillRequestsRealPlatformCancellation() {
+        val store = MemoryStore()
+        val runtime = coordinator(store)
+        runtime.schedule("one", "Agua", future)
+        runtime.cancel("one", 1)
+        store.events.clear()
+        assertTrue(runtime.cancel("one", 1).alreadyAbsent)
+        assertTrue(runtime.cancel("one", 1).alreadyAbsent)
+        assertEquals(2, store.events.count { it == "cancelAlarm:one" })
+        assertFalse(store.events.any { it.startsWith("alarm:") || it.startsWith("notify:") })
+    }
+
+    @Test fun failedCancelRemovalKeepsRowAndDoesNotClaimAlarmCancellation() {
+        val store = MemoryStore()
+        val previous = coordinator(store).schedule("one", "Agua", future)
+        store.removeSucceeds = false
+        store.events.clear()
+        fails("mobile_reminder_remove_failed") { coordinator(store).cancel("one", 1) }
+        assertEquals(previous, store.records["one"])
+        assertFalse(store.events.any { it.startsWith("cancelAlarm:") })
+    }
+
+    @Test fun cancelRemovalMustBeReconsultedEvenWhenCommitReturnsTrue() {
+        val store = MemoryStore()
+        val previous = coordinator(store).schedule("one", "Agua", future)
+        store.ignoreRemove = true
+        store.events.clear()
+        fails("mobile_reminder_remove_failed") { coordinator(store).cancel("one", 1) }
+        assertEquals(previous, store.records["one"])
+        assertFalse(store.events.any { it.startsWith("cancelAlarm:") })
+    }
+
+    @Test fun failedPlatformCancellationKeepsDurableAbsenceAndRetryStillCancels() {
+        val store = MemoryStore()
+        val previous = coordinator(store).schedule("one", "Agua", future)
+        fails("cancel_failed") {
+            coordinator(store, cancelAlarm = { throw IllegalStateException("cancel_failed") }).cancel("one", 1)
+        }
+        assertTrue(store.records.isEmpty())
+        assertFalse(coordinator(store).deliver("one", previous.whenMillis, 1))
+        assertTrue(coordinator(store).cancel("one", 1).alreadyAbsent)
+        assertTrue(store.events.contains("cancelAlarm:one"))
+    }
+
+    @Test fun malformedRevisionsIdsOrNewUpdateDatesNeverCauseMutation() {
+        val store = MemoryStore()
+        val runtime = coordinator(store)
+        val previous = runtime.schedule("one", "Agua", future)
+        store.events.clear()
+        for (revision in listOf(0L, -1L, 9007199254740992L)) {
+            fails("mobile_reminder_revision_required") { runtime.update("one", "Comida", future, revision, "update") }
+            fails("mobile_reminder_revision_required") { runtime.cancel("one", revision) }
+        }
+        fails("mobile_reminder_id_required") { runtime.list("") }
+        fails("mobile_reminder_id_required") { runtime.cancel("", 1) }
+        fails("mobile_command_id_required") { runtime.update("one", "Comida", future, 1, "") }
+        for (date in listOf("not-a-date", "2026-10-23T11:00:00Z")) {
+            fails("mobile_reminder_date_invalid") { runtime.update("one", "Comida", date, 1, "update") }
+        }
+        assertEquals(previous, store.records["one"])
+        assertFalse(store.events.any { it.startsWith("put:") || it.startsWith("remove:") || it.startsWith("alarm:") || it.startsWith("cancelAlarm:") })
+    }
+
+    @Test fun wireRevisionsRejectCoercionAndNonFiniteOrFractionalNumbers() {
+        for (value in listOf<Any?>(null, "1", true, 0, -1, 1.5, Double.NaN, Double.POSITIVE_INFINITY, 9007199254740992L)) {
+            fails("mobile_reminder_revision_required") { requireReminderRevision(value) }
+        }
+        assertEquals(1L, requireReminderRevision(1))
+        assertEquals(2L, requireReminderRevision(2L))
+        assertEquals(3L, requireReminderRevision(3.0))
+        assertEquals(9007199254740991L, requireReminderRevision(9007199254740991L))
     }
 }

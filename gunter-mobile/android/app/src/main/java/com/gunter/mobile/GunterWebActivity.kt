@@ -61,7 +61,11 @@ class GunterWebActivity : Activity() {
     private var pickerMultiple = false
     private var activeDialog: AlertDialog? = null
     private var backCallback: OnBackInvokedCallback? = null
-    private val downloadsDelegate = lazy { WebDownloadController(this, { web }, { policy }) }
+    private val downloadsDelegate = lazy { WebDownloadController(this, { web }, { policy }) {
+        if (!isTrustedPageActive()) false
+        else if (microphoneWasGranted) { confirmCaptureReset("exportar el archivo"); false }
+        else true
+    } }
     private val downloads by downloadsDelegate
     private val previewPreferences by lazy { getSharedPreferences("gunter_web_preview", MODE_PRIVATE) }
 
@@ -184,6 +188,8 @@ class GunterWebActivity : Activity() {
         view.webViewClient = client()
         view.webChromeClient = chrome(view)
         view.setDownloadListener { url, _, _, _, _ -> handleDownload(url) }
+        downloads.attachTo(view, trusted)
+        if (foreground) downloads.onResume()
         canvas.addView(view, 0, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         hidePanel()
         val saved = restoreNavigation
@@ -214,6 +220,7 @@ class GunterWebActivity : Activity() {
 
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
             if (web !== view) return
+            downloads.onPageStarted(view)
             cancelMicrophone()
             completeFiles(null)
             if (policy?.isInternal(url) != true) { view.stopLoading(); showError("Se bloqueó una dirección no autorizada."); return }
@@ -453,10 +460,12 @@ class GunterWebActivity : Activity() {
         ReminderReceiver.reschedulePending(this)
         if (web == null && policy != null) createWebView()
         web?.onResume()
+        if (downloadsDelegate.isInitialized()) downloads.onResume()
     }
 
     override fun onPause() {
         foreground = false
+        if (downloadsDelegate.isInitialized()) downloads.onPause()
         activeDialog?.cancel()
         activeDialog = null
         cancelMicrophone()
@@ -471,6 +480,7 @@ class GunterWebActivity : Activity() {
 
     private fun releaseWebView() {
         val view = web ?: return
+        if (downloadsDelegate.isInitialized()) downloads.onWebViewReleased(view)
         web = null
         microphoneWasGranted = false
         view.stopLoading()

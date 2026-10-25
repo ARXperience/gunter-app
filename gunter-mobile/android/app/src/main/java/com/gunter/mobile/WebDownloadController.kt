@@ -16,7 +16,8 @@ import java.util.concurrent.Executors
 class WebDownloadController(
     private val activity: Activity,
     private val currentWeb: () -> WebView?,
-    private val currentPolicy: () -> WebOriginPolicy?
+    private val currentPolicy: () -> WebOriginPolicy?,
+    private val beforeFileOperation: () -> Boolean = { true }
 ) {
     private data class Download(val address: String, val policy: WebOriginPolicy, val name: String, val userAgent: String)
     private var pending: Download? = null
@@ -25,15 +26,25 @@ class WebDownloadController(
     @Volatile private var connection: HttpURLConnection? = null
     private var dialog: AlertDialog? = null
     private val worker = Executors.newSingleThreadExecutor()
+    private val exports = WebBlobExportController(activity, currentWeb, currentPolicy, beforeFileOperation) { pending != null || busy }
+
+    fun attachTo(view: WebView, policy: WebOriginPolicy) = exports.attachTo(view, policy)
+    fun onResume() = exports.onResume()
+    fun onPause() = exports.onPause()
+    fun onPageStarted(view: WebView) = exports.onPageStarted(view)
+    fun onWebViewReleased(view: WebView) = exports.onWebViewReleased(view)
 
     fun request(address: String) {
         if (disposed || activity.isFinishing || activity.isDestroyed) return
         val policy = currentPolicy()
         if (policy == null || !policy.isInternal(currentWeb()?.url) || !policy.isInternal(address)) {
-            explain("Esta descarga no es un archivo HTTPS del servidor de Gunter. Las exportaciones blob/data todavía requieren la versión web en el navegador; no se han guardado.")
+            explain(if (address.startsWith("blob:") || address.startsWith("data:"))
+                "No se pudo capturar esta exportación local. Necesita un Android System WebView compatible y una exportación iniciada desde la página actual. Actualiza WebView y repite; si persiste, usa Gunter en el navegador. No se guardó un archivo."
+                else "Esta descarga no pertenece al origen HTTPS autorizado de Gunter. No se guardó un archivo.")
             return
         }
-        if (pending != null || busy) { explain("Termina o cancela la descarga anterior."); return }
+        if (pending != null || busy || exports.isBusy) { explain("Termina o cancela la descarga anterior."); return }
+        if (!beforeFileOperation()) return
         val filename = URLUtil.guessFileName(address, null, null)
             .replace(Regex("[\\p{Cntrl}/\\\\:*?\"<>|]"), "_").take(120).ifBlank { "archivo-gunter" }
         val download = Download(address, policy, filename, currentWeb()?.settings?.userAgentString.orEmpty())
@@ -55,6 +66,7 @@ class WebDownloadController(
     }
 
     fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        if (WebBlobExportController.handlesRequestCode(requestCode)) return exports.onActivityResult(requestCode, resultCode, data)
         if (requestCode != SAVE_DOCUMENT) return false
         val download = pending; pending = null
         val destination = data?.data
@@ -136,6 +148,7 @@ class WebDownloadController(
     }
 
     fun dispose() {
+        exports.dispose()
         disposed = true; pending = null; dialog?.dismiss(); dialog = null
         connection?.disconnect(); worker.shutdownNow()
     }
@@ -143,6 +156,6 @@ class WebDownloadController(
     companion object {
         private const val SAVE_DOCUMENT = 7304
         private const val MAX_BYTES = 50L * 1024 * 1024
-        fun handlesRequestCode(code: Int) = code == SAVE_DOCUMENT
+        fun handlesRequestCode(code: Int) = code == SAVE_DOCUMENT || WebBlobExportController.handlesRequestCode(code)
     }
 }

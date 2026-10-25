@@ -17,7 +17,7 @@
     // A temporary visual form is local/reversible, like navigation: it never
     // changes preferences, permissions, files, models or external systems.
     const VOICE_READ_ONLY_TOOLS = new Set(['app.navigate', 'app.inspect', 'app.core.shape', 'settings.list', 'agenda.list', 'jobs.list', 'reminder.inspect', 'commitments.list',
-        'desktop.files.list', 'desktop.files.search', 'desktop.ui.inspect', 'mobile.files.list', 'mobile.files.search']);
+        'desktop.files.list', 'desktop.files.search', 'desktop.ui.inspect', 'mobile.files.list', 'mobile.files.search', 'mobile.reminders.list']);
 
     function normalize(value) {
         return String(value || '')
@@ -738,11 +738,17 @@
             return { ...(command.result || {}), commandId: command.id, evidence: command.evidence || {} };
         }
 
-        async function executeMobileSkill(skill, payload = {}, inputSource = 'text') {
+        async function executeMobileSkill(skill, payload = {}, inputSource = 'text', targetNodeId = null) {
             const control = runtime.GunterControlPlane;
             if (!control?.nodes || !control?.queueCommand || !control?.waitForCommand) throw new Error('Gunter móvil no está disponible en esta pantalla.');
             const nodeData = await control.nodes();
-            const node = (nodeData.items || []).find(item => ['ANDROID', 'IOS'].includes(item.nodeType) && ['ONLINE', 'DEGRADED', 'SYNCING'].includes(item.state));
+            const localReminder = skill.startsWith('mobile.reminders.');
+            const candidates = (nodeData.items || []).filter(item => (localReminder ? item.nodeType === 'ANDROID' : ['ANDROID', 'IOS'].includes(item.nodeType))
+                && ['ONLINE', 'DEGRADED', 'SYNCING'].includes(item.state) && (!targetNodeId || item.nodeId === targetNodeId)
+                && (!localReminder || (skill.endsWith('.list') ? ['mobile.reminders.read'] : ['mobile.reminders.read', 'mobile.reminders.write'])
+                    .every(capability => item.capabilities?.includes(capability))));
+            if (candidates.length > 1) throw new Error('Hay varios móviles conectados. Selecciona el dispositivo antes de ejecutar esta acción; no elegí uno automáticamente.');
+            const node = candidates[0];
             if (!node) throw new Error('No hay un móvil con Gunter conectado. Vincúlalo desde Configuración y abre su acompañante.');
             const queued = await control.queueCommand({
                 nodeId: node.nodeId, skill, payload, autonomy: 'L3', confirmed: true, inputSource,
@@ -756,7 +762,7 @@
                 error.code = code;
                 throw error;
             }
-            return { ...(command.result || {}), commandId: command.id, evidence: command.evidence || {} };
+            return { ...(command.result || {}), nodeId: node.nodeId, commandId: command.id, evidence: command.evidence || {} };
         }
 
         async function controlPlan(tool, match, confirmed) {
@@ -887,6 +893,8 @@
             if (isUsageGuidanceRequest(text)) return null;
             const mobileTarget = /\b(en|desde|a|mi)\b.*\b(movil|celular|telefono|iphone|ipad|android)\b/.test(t);
             const questionText = conversationalText(text);
+            if (/^(?:lista|listar|muestra|muestrame|consulta|consultar|ver|revisa)(?: (?:mis|los))? recordatorios locales (?:de|en|del) (?:mi |el )?(?:movil|celular|telefono|android)$/.test(questionText))
+                return { toolId: 'mobile.reminders.list', args: { rawText: text } };
             // Commitment references may contain tool names. Interpret the anchored
             // operation first, never a command embedded in its literal action.
             const commitmentRequest = parseCommitmentRequest(text);
@@ -1994,6 +2002,44 @@
                 if (!items.length) return 'La carpeta autorizada está vacía.';
                 return `En el móvil encontré ${items.length} elemento(s):\n${items.slice(0, 12).map(item => `• ${item.name}${item.directory ? ' (carpeta)' : ''}`).join('\n')}${items.length > 12 ? '\n• …' : ''}`;
             }
+        });
+
+        register({
+            id: 'mobile.reminders.list', description: 'Consulta los recordatorios locales pendientes de un Android vinculado; no es la agenda sincronizada.', confirm: 'never', reversible: true,
+            validate(args) {
+                return (args.offset === undefined || Number.isSafeInteger(args.offset) && args.offset >= 0 && args.offset <= 250)
+                    && (args.limit === undefined || Number.isSafeInteger(args.limit) && args.limit >= 1 && args.limit <= 20)
+                    ? { ok: true } : { ok: false, reply: 'La página de recordatorios no es válida.' };
+            },
+            execute(args) { return executeMobileSkill('mobile.reminders.list', { ...(args.id ? { id: args.id } : {}), offset: args.offset || 0, limit: args.limit || 20 }, args.inputSource, args.nodeId); },
+            verify(result) { return result?.evidence?.remindersRead === true && result.evidence.reconsulted === true; },
+            formatResult(result) {
+                const items = result.items || [];
+                if (!items.length) return 'No hay registros locales pendientes en ese Android. Esto no certifica si un aviso anterior se entregó o se canceló.';
+                return `Recordatorios locales de ese Android (sin sincronización con los avisos del servidor):\n${items.map(item => `• ${item.title} — ${formatDateTime(item.runAt, timezone())}${item.status === 'overdue' ? ' · vencido, sin entrega confirmada' : ''}`).join('\n')}\nPuedes editarlos o cancelarlos en Dispositivo → Recordatorios de este móvil.${result.nextOffset != null ? ' Hay más registros; esta consulta muestra sólo una página.' : ''}`;
+            }
+        });
+
+        for (const action of ['update', 'cancel']) register({
+            id: `mobile.reminders.${action}`, description: `${action === 'update' ? 'Edita' : 'Cancela'} un recordatorio local de Android identificado y reconsultado, con confirmación.`, confirm: 'always', reversible: action === 'update',
+            validate(args) {
+                if (!args.nodeId || typeof args.id !== 'string' || !args.id.trim() || args.id.length > 240 || /[\u0000-\u001f\u007f]/.test(args.id)
+                    || !Number.isSafeInteger(args.expectedRevision) || args.expectedRevision < 1)
+                    return { ok: false, reply: 'Primero consulta el recordatorio en ese Android para obtener su identidad y versión. También puedes cambiarlo desde Dispositivo → Recordatorios de este móvil.' };
+                if (action === 'update' && (typeof args.title !== 'string' || !args.title.trim() || args.title.length > 180 || /[\u0000-\u001f\u007f]/.test(args.title)
+                    || typeof args.runAt !== 'string' || !/(?:Z|[+-]\d{2}:\d{2})$/.test(args.runAt) || !Number.isFinite(Date.parse(args.runAt)) || Date.parse(args.runAt) <= now().getTime()))
+                    return { ok: false, reply: 'Indica un título de hasta 180 caracteres y una fecha futura con zona horaria.' };
+                return { ok: true };
+            },
+            confirmation(args) { return `¿Confirmas ${action === 'update' ? `editar el título y horario a “${args.title}”, ${formatDateTime(args.runAt, timezone())}` : 'cancelar el aviso'} del recordatorio local ${args.id}, versión ${args.expectedRevision}, en el Android ${args.nodeId}? No cambia los avisos del servidor.`; },
+            execute(args) { return executeMobileSkill(`mobile.reminders.${action}`, { id: args.id, expectedRevision: args.expectedRevision, ...(action === 'update' ? { title: args.title, runAt: args.runAt } : {}) }, args.inputSource, args.nodeId); },
+            verify(result) {
+                const e = result?.evidence || {};
+                return !!e.persistedId && e.reconsulted === true && (action === 'cancel'
+                    ? e.absent === true && e.alarmCancelled === true && e.notificationCancelled === true
+                    : e.persisted === true && e.alarmScheduled === true && Number.isSafeInteger(e.revision) && e.revision >= 1);
+            },
+            formatResult() { return action === 'cancel' ? 'El registro ya no está en ese Android y se cancelaron su alarma y notificación. No es un historial de entrega ni cambia los avisos del servidor.' : 'Cambio guardado y alarma local reprogramada. Android puede retrasar el aviso; su entrega aún no está confirmada. No cambia los avisos del servidor.'; }
         });
 
         register({
@@ -3404,6 +3450,9 @@
             mobile_app_not_opened: 'El sistema del móvil no abrió esa aplicación o enlace.',
             mobile_media_permission_required: 'Activa el permiso de control multimedia en los ajustes del teléfono.',
             mobile_notifications_not_allowed: 'Activa las notificaciones de Gunter en los ajustes del teléfono.',
+            mobile_reminder_revision_conflict: 'El recordatorio local cambió. Consúltalo de nuevo y confirma la versión nueva.',
+            mobile_reminder_mutation_conflict: 'Ese intento ya cambió el recordatorio de otra manera. Consúltalo antes de repetir.',
+            mobile_reminder_not_found: 'El registro local ya no está en ese teléfono. No puedo deducir si se entregó o se canceló.',
             mobile_files_read_permission_required: 'Abre el acompañante móvil y autoriza una carpeta con el selector del sistema.',
             mobile_folder_not_authorized: 'Esa carpeta no está autorizada en el móvil. Selecciónala desde el acompañante.',
             node_not_found: 'El móvil ya no está vinculado. Revísalo en Configuración.',

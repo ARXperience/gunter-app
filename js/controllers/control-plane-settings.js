@@ -343,7 +343,7 @@
         try {
             const data = await window.GunterControlPlane.createNodePairing({
                 nodeType, deviceName: `${nodeType === 'IOS' ? 'iPhone/iPad' : 'Android'} · Gunter`,
-                capabilities: ['mobile.apps.open', 'mobile.files.read', 'mobile.media.control', 'mobile.messaging.prepare', 'mobile.reminders.write']
+                capabilities: ['mobile.apps.open', 'mobile.files.read', 'mobile.media.control', 'mobile.messaging.prepare', 'mobile.reminders.read', 'mobile.reminders.write']
             });
             showMobilePairingDialog(data);
         } catch (error) {

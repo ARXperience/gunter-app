@@ -5,10 +5,18 @@ on:
     paths:
       - "gunter-mobile/**"
       - ".github/workflows/mobile-build.yml"
+      - "test/android-*.cjs"
+      - "server/control-plane/skills.js"
+      - "js/core/assistant-tools.js"
+      - "package.json"
   pull_request:
     paths:
       - "gunter-mobile/**"
       - ".github/workflows/mobile-build.yml"
+      - "test/android-*.cjs"
+      - "server/control-plane/skills.js"
+      - "js/core/assistant-tools.js"
+      - "package.json"
   workflow_dispatch:
 
 permissions:
@@ -34,8 +42,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "8.9"
-      - name: Verify APK report safety checks
-        run: node --test gunter-mobile/scripts/test-apk-report.cjs
+      - name: Verify Android client policies and export contracts
+        run: npm run test:android-client
       - name: Test, lint and compile isolated preview APK
         env:
           GUNTER_WEB_ORIGIN: ${{ vars.GUNTER_WEB_ORIGIN }}

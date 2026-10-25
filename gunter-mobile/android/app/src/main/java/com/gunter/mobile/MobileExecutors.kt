@@ -24,6 +24,9 @@ class MobileExecutors(private val context: Context, private val config: NodeConf
         "mobile.media.next", "mobile.media.play_pause" -> media(skill)
         "mobile.message.prepare" -> prepareMessage(payload)
         "mobile.reminder" -> scheduleReminder(payload, commandId)
+        "mobile.reminders.list" -> listReminders(payload)
+        "mobile.reminders.update" -> updateReminder(payload, commandId)
+        "mobile.reminders.cancel" -> cancelReminder(payload)
         "mobile.message.send" -> throw IllegalStateException("mobile_direct_send_requires_default_sms_app")
         else -> throw IllegalStateException("mobile_skill_not_supported")
     }
@@ -133,12 +136,48 @@ class MobileExecutors(private val context: Context, private val config: NodeConf
         val title = payload.optString("title").trim(); if (title.isEmpty()) throw IllegalStateException("mobile_reminder_title_required")
         val id = commandId.ifBlank { throw IllegalStateException("mobile_command_id_required") }
         val record = ReminderReceiver.schedule(context, id, title, payload.optString("runAt"))
+        return MobileExecution(reminderJson(record), reminderEvidence(record))
+    }
+
+    private fun listReminders(payload: JSONObject): MobileExecution {
+        val id = if (payload.has("id") && !payload.isNull("id")) payload.optString("id") else null
+        val records = ReminderReceiver.list(context, id)
+        // Command results have a 64 KiB server limit. Even worst-case escaped titles
+        // and bounded IDs fit with this page size; the local UI can still list all rows.
+        val offset = if (id == null) payload.optInt("offset", 0).coerceIn(0, records.size) else 0
+        val limit = if (id == null) payload.optInt("limit", 20).coerceIn(1, 20) else 1
+        val page = records.drop(offset).take(limit)
+        val items = JSONArray(page.map { reminderJson(it) })
+        val next = offset + page.size
+        val result = JSONObject().put("items", items).put("scope", "local_device").put("total", records.size)
+            .put("offset", offset).put("nextOffset", if (next < records.size) next else JSONObject.NULL)
+        if (id != null) result.put("id", id).put("item", items.optJSONObject(0) ?: JSONObject.NULL)
+            .put("status", records.firstOrNull()?.status(System.currentTimeMillis()) ?: "absent")
+        return MobileExecution(result, JSONObject().put("remindersRead", true).put("reconsulted", true).put("itemCount", page.size))
+    }
+
+    private fun updateReminder(payload: JSONObject, commandId: String): MobileExecution {
+        val record = ReminderReceiver.update(context, payload.optString("id"), payload.optString("title"),
+            payload.optString("runAt"), requireReminderRevision(payload.opt("expectedRevision")), commandId)
+        return MobileExecution(reminderJson(record), reminderEvidence(record))
+    }
+
+    private fun cancelReminder(payload: JSONObject): MobileExecution {
+        val cancelled = ReminderReceiver.cancel(context, payload.optString("id"), requireReminderRevision(payload.opt("expectedRevision")))
         return MobileExecution(
-            JSONObject().put("id", id).put("runAt", record.runAt).put("delivery", "inexact"),
-            JSONObject().put("persistedId", id).put("persisted", true).put("reconsulted", true)
-                .put("alarmScheduled", true).put("exact", false).put("deliveryGuaranteed", false)
+            JSONObject().put("id", cancelled.id).put("status", "absent").put("alreadyAbsent", cancelled.alreadyAbsent),
+            JSONObject().put("persistedId", cancelled.id).put("absent", true).put("reconsulted", true)
+                .put("alarmCancelled", true).put("notificationCancelled", true)
         )
     }
+
+    private fun reminderJson(record: ReminderRecord) = JSONObject().put("id", record.id).put("title", record.title)
+        .put("runAt", record.runAt).put("revision", record.revision).put("status", record.status(System.currentTimeMillis()))
+        .put("delivery", "inexact")
+
+    private fun reminderEvidence(record: ReminderRecord) = JSONObject().put("persistedId", record.id)
+        .put("persisted", true).put("reconsulted", true).put("alarmScheduled", true).put("revision", record.revision)
+        .put("exact", false).put("deliveryGuaranteed", false)
 
     private fun intentEvidence() = JSONObject().put("intentDispatched", true).put("effectVerified", false)
 

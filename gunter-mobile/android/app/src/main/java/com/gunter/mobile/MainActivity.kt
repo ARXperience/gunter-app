@@ -20,6 +20,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : Activity() {
+    private var localReminders: LocalRemindersDialog? = null
     private val store by lazy { SecureNodeStore(this) }; private lateinit var status: TextView; private var startAfterNotificationPermission = false; private var enablePushAfterPermission = false
     private lateinit var server: EditText; private lateinit var pairing: EditText; private lateinit var name: EditText
     override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); createPushChannel(); render(); if (intent?.getStringExtra("kind") == "GUNTER_COMMAND_READY") startNode() }
@@ -53,6 +54,10 @@ class MainActivity : Activity() {
         root.addView(Button(this).apply { text = "Iniciar Gunter en este móvil"; setOnClickListener { startNode() } })
         root.addView(Button(this).apply { text = "Detener Gunter en este móvil"; setOnClickListener { stopNode() } })
         root.addView(Button(this).apply { text = "Configurar notificaciones"; setOnClickListener { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName)) } })
+        root.addView(Button(this).apply { text = "Recordatorios de este móvil"; setOnClickListener {
+            localReminders?.close()
+            localReminders = LocalRemindersDialog(this@MainActivity).also { it.show() }
+        } })
         root.addView(Button(this).apply { text = "Activar avisos push de Gunter"; setOnClickListener { activatePush() } })
         root.addView(Button(this).apply { text = "Desactivar avisos push"; setOnClickListener { deactivatePush() } })
         root.addView(Button(this).apply { text = "Permitir control multimedia"; setOnClickListener {
@@ -136,5 +141,7 @@ class MainActivity : Activity() {
         }.start()
     }
     private fun stopNode() { stopService(Intent(this, GunterNodeService::class.java)); val notice = "Gunter se detuvo en este móvil. El dispositivo sigue vinculado."; getSharedPreferences("gunter_mobile_runtime", MODE_PRIVATE).edit().putString("notice", notice).apply(); status.text = notice }
+    override fun onPause() { localReminders?.close(); localReminders = null; super.onPause() }
+    override fun onDestroy() { localReminders?.close(); localReminders = null; super.onDestroy() }
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) { super.onActivityResult(requestCode, resultCode, data); if (requestCode == 41 && resultCode == RESULT_OK && data?.data != null) { val uri = data.data!!; contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); store.load()?.let { store.save(it.copy(folders = setOf(uri.toString()))); status.text = "Carpeta autorizada. Esta será la carpeta de trabajo del móvil." } } }
 }

@@ -11,8 +11,13 @@ configuración y aceptación en [ANDROID_CLIENT_RELEASE.md](../docs/ANDROID_CLIE
 
 No confundir los comandos del runtime con la UI web, ni una prueba simulada
 con funcionamiento físico. Google OAuth, exportaciones blob, voz/adjuntos,
-sync general y edición/cancelación de alarmas locales tienen limitaciones
+sync general y entrega de alarmas locales tienen limitaciones
 explícitas en esa matriz. La vinculación del nodo no comparte tokens con la web.
+Dispositivo → Recordatorios de este móvil permite crear, consultar, editar y
+cancelar registros sólo locales, con revisión y confirmación. No se sincronizan
+automáticamente con los jobs del servidor. El cliente no requiere un dominio
+comprado, pero sí un servidor HTTPS para conversación y funciones conectadas;
+GitHub Pages no ejecuta ese backend.
 
 Núcleo embebible para los acompañantes Android/iOS. Se empareja con el Control Plane, mantiene heartbeat, recibe comandos y solo delega capacidades declaradas a un puente nativo que conserva los permisos del sistema.
 

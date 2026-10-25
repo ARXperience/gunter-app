@@ -129,6 +129,7 @@ tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(valida
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation("androidx.webkit:webkit:1.12.1")
     implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
     implementation("com.google.firebase:firebase-messaging")
     testImplementation("junit:junit:4.13.2")

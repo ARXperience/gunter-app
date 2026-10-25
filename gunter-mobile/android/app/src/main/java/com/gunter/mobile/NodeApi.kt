@@ -21,7 +21,7 @@ class NodeApi(base: String) {
     fun clearPushToken(config: NodeConfig) = request("/nodes/push-token", config.nodeToken, "DELETE")
     fun pull(config: NodeConfig): JSONObject = request("/commands/pull?limit=10", config.nodeToken, "GET")
     fun result(config: NodeConfig, commandId: String, result: JSONObject, evidence: JSONObject) = request("/commands/result", config.nodeToken, "POST", JSONObject().put("commandId", commandId).put("result", result).put("evidence", evidence))
-    private fun capabilities() = listOf("mobile.apps.open", "mobile.files.read", "mobile.media.control", "mobile.messaging.prepare", "mobile.reminders.write")
+    private fun capabilities() = listOf("mobile.apps.open", "mobile.files.read", "mobile.media.control", "mobile.messaging.prepare", "mobile.reminders.read", "mobile.reminders.write")
     private fun request(route: String, token: String, method: String, body: JSONObject? = null): JSONObject {
         val connection = (URL(origin + "/api/control" + route).openConnection() as HttpURLConnection)
         try {

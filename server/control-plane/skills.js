@@ -63,7 +63,10 @@ const REGISTRY = Object.freeze([
     skill('mobile.files.list', ['ANDROID', 'IOS'], 'mobile.node', 'read', 'L3', ['mobile.files.read']),
     skill('mobile.files.search', ['ANDROID', 'IOS'], 'mobile.node', 'read', 'L3', ['mobile.files.read']),
     skill('mobile.files.open', ['ANDROID', 'IOS'], 'mobile.node', 'local_device_action', 'L3', ['mobile.files.read']),
-    skill('mobile.reminder', ['ANDROID', 'IOS'], 'automation.basic', 'external_write', 'L3', ['jobs.write'])
+    skill('mobile.reminder', ['ANDROID', 'IOS'], 'automation.basic', 'external_write', 'L3', ['jobs.write']),
+    skill('mobile.reminders.list', ['ANDROID'], 'automation.basic', 'read', 'L4', ['mobile.reminders.read']),
+    skill('mobile.reminders.update', ['ANDROID'], 'automation.basic', 'external_write', 'L3', ['mobile.reminders.read', 'mobile.reminders.write']),
+    skill('mobile.reminders.cancel', ['ANDROID'], 'automation.basic', 'external_write', 'L3', ['mobile.reminders.read', 'mobile.reminders.write'])
 ]);
 
 function skill(name, supportedNodes, entitlement, risk, autonomyMax, permissions) {
@@ -93,7 +96,19 @@ function validateArguments(entry, payload) {
         return Object.entries(value).every(([key, child]) =>
             !['__proto__', 'prototype', 'constructor'].includes(key) && walk(child, depth + 1));
     };
-    return entry.inputSchema.type === 'object' && walk(payload);
+    if (entry.inputSchema.type !== 'object' || !walk(payload)) return false;
+    if (entry.name.startsWith('mobile.reminders.')) {
+        const id = value => typeof value === 'string' && value.length > 0 && value.length <= 240 && !/[\u0000-\u001f\u007f]/.test(value);
+        if (entry.name === 'mobile.reminders.list') return (payload.id === undefined || id(payload.id))
+            && (payload.offset === undefined || Number.isSafeInteger(payload.offset) && payload.offset >= 0 && payload.offset <= 250)
+            && (payload.limit === undefined || Number.isSafeInteger(payload.limit) && payload.limit >= 1 && payload.limit <= 20);
+        if (!id(payload.id) || !Number.isSafeInteger(payload.expectedRevision) || payload.expectedRevision < 1) return false;
+        if (entry.name === 'mobile.reminders.update') return typeof payload.title === 'string' && payload.title.trim().length > 0
+            && payload.title.length <= 180 && !/[\u0000-\u001f\u007f]/.test(payload.title)
+            && typeof payload.runAt === 'string' && payload.runAt.length <= 40
+            && /(?:Z|[+-]\d{2}:\d{2})$/.test(payload.runAt) && Number.isFinite(Date.parse(payload.runAt));
+    }
+    return true;
 }
 
 // LLM proposals are inert until this deterministic gate accepts an allowlisted
@@ -112,6 +127,8 @@ function authorize({ userId, actor = {}, skillName, node, autonomy = 'L3', confi
     if (!entry) return { ok: false, error: 'skill_not_found' };
     const nodeType = node?.nodeType || node?.node_type || 'WEB';
     if (!entry.supportedNodes.includes(nodeType)) return { ok: false, error: 'skill_not_supported_by_node' };
+    if (skillName.startsWith('mobile.reminders.') && !entry.permissions.every(permission => node?.capabilities?.includes(permission)))
+        return { ok: false, error: 'skill_not_supported_by_runtime' };
     const feature = flags.evaluate(entry.entitlement, actor);
     if (!feature.enabled) return { ok: false, error: 'feature_flag_disabled', reason: feature.reason };
     const entitlement = entitlements.check(userId, entry.entitlement);
@@ -161,6 +178,17 @@ function verify(skillName, result = {}) {
     else if (['reminder.inspect', 'jobs.cancel'].includes(skillName)) verified = !!evidence.persistedId && evidence.reconsulted === true;
     else if (['reminder.update', 'reminder.retry'].includes(skillName)) verified = !!evidence.persistedId && evidence.reconsulted === true
         && Number.isSafeInteger(evidence.revision) && evidence.revision >= 1;
+    else if (skillName === 'mobile.reminders.list') verified = evidence.remindersRead === true && evidence.reconsulted === true;
+    else if (skillName === 'mobile.reminders.cancel') {
+        verified = !!evidence.persistedId && evidence.absent === true && evidence.reconsulted === true
+            && evidence.alarmCancelled === true && evidence.notificationCancelled === true;
+        if (verified) limitation = 'absent_locally_not_delivery_history';
+    }
+    else if (skillName === 'mobile.reminders.update') {
+        verified = !!evidence.persistedId && evidence.persisted === true && evidence.reconsulted === true
+            && evidence.alarmScheduled === true && Number.isSafeInteger(evidence.revision) && evidence.revision >= 1;
+        if (verified) limitation = 'scheduled_locally_not_delivery_confirmed';
+    }
     else if (skillName === 'mobile.reminder') {
         const nativeAlarm = ['persisted', 'alarmScheduled', 'deliveryGuaranteed', 'exact'].some(key => Object.hasOwn(evidence, key));
         verified = !!evidence.persistedId && (!nativeAlarm || (

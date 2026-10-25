@@ -523,7 +523,8 @@ function defaultCapabilities(nodeType) {
     ];
     if (nodeType === 'ANDROID' || nodeType === 'IOS') return [
         'mobile.apps.open', 'mobile.media.control', 'mobile.files.read',
-        'mobile.messaging.prepare', 'mobile.messaging.send', 'mobile.reminders.write'
+        'mobile.messaging.prepare', 'mobile.messaging.send', 'mobile.reminders.write',
+        ...(nodeType === 'ANDROID' ? ['mobile.reminders.read'] : [])
     ];
     return [];
 }
