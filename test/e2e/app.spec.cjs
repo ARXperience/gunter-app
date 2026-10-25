@@ -8,14 +8,18 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await expect(page.locator('#glogin-form-register')).toBeVisible();
     const username = `e2e_${Date.now()}`;
     const password = 'ClaveTemporal-927!';
-    await page.locator('#gr-name').fill('Prueba E2E');
+    // Profile names allow letters, not the digits in the old "E2E" fixture.
+    // The greeting uses preferredName (the first word), not full displayName.
+    await page.locator('#gr-name').fill('Prueba Integración');
     await page.locator('#gr-user').fill(username);
     await page.locator('#gr-email').fill('');
     await page.locator('#gr-pass').fill(password);
     await page.locator('#gr-pass2').fill(password);
+    const registration = page.waitForResponse(response => response.url().endsWith('/api/auth/register') && response.request().method() === 'POST');
     await page.locator('#gr-submit').click();
+    expect((await registration).status(), 'valid fixture registration must succeed before checking navigation').toBe(200);
     await expect(page).toHaveURL(/day\.html/);
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /Prueba E2E/.test(item.text)));
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /Buen(?:os días|as tardes|as noches).*Prueba.*Son las/.test(item.text)));
     // Allow the authenticated entry (including the first SW activation) to finish.
     await page.waitForLoadState('load');
     await expect(page.locator('#gday-quickbar-input')).toBeVisible();
@@ -52,9 +56,9 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     expect(hybrid.runtime.localSTTAvailable).toBe(false);
     expect(hybrid.runtime.localTTSAvailable).toBe(false);
     expect(hybrid.runtime.backendAvailable).toBe(true);
-    const greetings = await page.evaluate(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').filter(item => /Prueba E2E/.test(item.text)).map(item => item.text));
+    const greetings = await page.evaluate(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').filter(item => /Buen(?:os días|as tardes|as noches).*Prueba.*Son las/.test(item.text)).map(item => item.text));
     expect(greetings).toHaveLength(1);
-    expect(greetings[0]).toMatch(/Buen(?:os días|as tardes|as noches).*Prueba E2E.*Son las/);
+    expect(greetings[0]).toMatch(/Buen(?:os días|as tardes|as noches).*Prueba.*Son las/);
 
     // Use the actual capture form and browser persistence, not a mocked service.
     const taskTitle = `E2E verificar flujo ${Date.now()}`;
@@ -123,7 +127,7 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await page.locator('#gl-submit').click();
     await expect(page).toHaveURL(/day\.html/);
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /ciudad configurada es Cali/.test(item.text)));
-    const latestGreeting = await page.evaluate(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').filter(item => /Prueba E2E/.test(item.text)).at(-1)?.text);
+    const latestGreeting = await page.evaluate(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').filter(item => /Buen(?:os días|as tardes|as noches).*Prueba.*Son las/.test(item.text)).at(-1)?.text);
     expect(latestGreeting).not.toBe(greetings[0]);
 
     // A provider can finish after cancellation: the old reply must stay silent

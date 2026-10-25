@@ -81,3 +81,17 @@ test('ambiguous devices and old runtimes do not get a guessed reminder target', 
         assert.equal(calls.length, 0);
     }
 });
+
+for (const action of ['update', 'cancel']) test(`${action} confirmation belongs to the initiating account and is cleared on account change`, () => {
+    let account = 'account-a';
+    const values = new Map([['gunter_pending_tool_v1', JSON.stringify({ toolId: `mobile.reminders.${action}`,
+        actorId: account, createdAt: Date.now(), args: { id: 'fixture-private', title: 'Private fixture', expectedRevision: 1, nodeId: 'a' } })]]);
+    const storage = { getItem: key => values.get(key) || null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };
+    const api = tools.create({ storage, root: { GunterAuth: { canAccessLocalData: () => true, getUser: () => ({ id: account }) } } });
+    assert.equal(api.isContextualFollowUp('sí'), true);
+    assert.equal(api.getPending().actorId, 'account-a');
+    account = 'account-b';
+    assert.equal(api.isContextualFollowUp('sí'), false);
+    assert.equal(api.getPending(), null);
+    assert.equal(storage.getItem('gunter_pending_tool_v1'), null);
+});

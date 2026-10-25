@@ -2,7 +2,7 @@
 
 Estado de revisión: 2026-10-25. Entrega solicitada: APK instalable directamente.
 
-**No es una release aprobada ni un APK entregado.** El código incorpora una
+**Hay un APK preview; no es una release aprobada para clientes.** El código incorpora una
 vista de la aplicación completa y conserva las capacidades del acompañante
 nativo. Faltan servidor HTTPS accesible, firma de distribución, integración
 de algunas funciones y aceptación en teléfonos reales. No confundir un test
@@ -108,9 +108,10 @@ Cambiar el origen no traslada los datos o sesiones del origen anterior. El
 workflow `mobile-build.yml` prepara el SDK y ejecuta tests/lint/build en CI,
 y fue subido a `codex/android-client-candidate` con autorización del usuario.
 El primer intento (901f9b1) compiló Android pero falló lint por un atributo API27
-con minSdk26; se eliminó el atributo sin omitir lint. La nueva ejecución debe
-comprobar también la UI y el exportador integrados. Ver resultados de Actions,
-no asumir éxito por la existencia del workflow.
+con minSdk26; se eliminó el atributo sin omitir lint. La ejecución
+[40233475226](https://github.com/ARXperience/gunter-app/actions/runs/40233475226)
+del commit `8b88a9e` pasó tests, lint y assembleDebug, incluyendo el diálogo y
+el exportador reales. También pasó el build de simulador iOS; no es QA física.
 
 Para release, el propietario debe aportar por entorno/gestor de secretos:
 
@@ -161,7 +162,8 @@ inyectados, no AlarmManager ni Firebase de un dispositivo.
 
 Resultado local: 55 tests JVM (51 políticas/recordatorios y 4 protocolo de
 exportación), 10 contratos Android, 12 aserciones OAuth, 8 tests de políticas
-de recordatorios móviles, 5 contratos fuente de su diálogo, 7 tests del script
+de políticas de recordatorios móviles más 2 de aislamiento de confirmaciones,
+5 contratos fuente de su diálogo, 7 tests del script
 de exportación en VM, 8 del reporte APK, 52 del asistente, 4 del runtime móvil
 y 34 del Control Plane. No son pruebas de proveedores ni dispositivos.
 Los JVM se compilaron con Kotlin 2.0.21 y stdlib cacheada 1.9.23; `android.jar`
@@ -191,3 +193,17 @@ el build: falta SDK35 local y la configuración Android offline agotó su plazo.
 La descarga anterior de herramientas SDK quedó incompleta, no se ejecutó ni
 se aceptaron licencias nuevas. La vía de empaquetado usada es Actions en Linux.
 Queda pendiente la validación física y la aceptación de los gaps de la tabla.
+
+## Artefacto preview comprobado
+
+Actions generó y se descargó `app-debug.apk` del commit `8b88a9e`:
+4.248.919 bytes, SHA-256
+`6bd8ea1b5d3e198541370f20b3037a9583307cf48823a7ce37a6c8be7ffa4a23`.
+El hash local coincide con el informe de CI. `apksigner` oficial 36.0.0 verificó
+la firma v2 y el certificado **Android Debug**, no una identidad de distribución.
+`aapt2` confirmó `com.gunter.mobile.preview`, versión `0.2.0-preview`, minSdk26,
+target/compile35 y launcher `GunterWebActivity`. No se instaló en un teléfono.
+
+La verificación de firma local complementa el reporte descargado, que conserva
+honestamente `signatureVerified:false` porque ese script no ejecuta apksigner.
+No se alteró el reporte ni se atribuyó una firma de clientes a la preview.

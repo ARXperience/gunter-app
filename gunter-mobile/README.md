@@ -6,7 +6,8 @@ El nuevo launcher `GunterWebActivity` conecta las pantallas de Gunter con un
 origen HTTPS fijado en el APK y conserva «Dispositivo» para el acompañante
 nativo. Debug usa el paquete separado `com.gunter.mobile.preview`; release
 exige origen y firma externa. **No es todavía una versión aprobada para
-clientes ni un APK entregado.** Alcance, funciones incompletas, pruebas,
+clientes.** Hay un APK preview generado por Actions y comprobado con apksigner;
+no equivale a instalación ni aceptación física. Alcance, funciones incompletas, pruebas,
 configuración y aceptación en [ANDROID_CLIENT_RELEASE.md](../docs/ANDROID_CLIENT_RELEASE.md).
 
 No confundir los comandos del runtime con la UI web, ni una prueba simulada

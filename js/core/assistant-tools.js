@@ -392,6 +392,7 @@
     function accountPendingTool(pending) {
         return pending && (pending.toolId?.startsWith('tasks.') || pending.toolId?.startsWith('calendar.') || pending.toolId?.startsWith('commitments.')
             || pending.toolId === 'reminder.schedule' || pending.toolId === 'reminder.update' || pending.toolId === 'reminder.retry' || pending.toolId === 'jobs.cancel'
+            || pending.toolId === 'mobile.reminders.update' || pending.toolId === 'mobile.reminders.cancel'
             || !!pending.args?.eventLink || !!pending.args?.target?.meta?.eventLink
             || pending.toolId === 'settings.update'
             || (pending.toolId === 'preferences.update' && pending.args?.key === 'calendarPlanning'));
