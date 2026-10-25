@@ -19,7 +19,20 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await page.locator('#gr-submit').click();
     expect((await registration).status(), 'valid fixture registration must succeed before checking navigation').toBe(200);
     await expect(page).toHaveURL(/day\.html/);
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /Buen(?:os días|as tardes|as noches|a madrugada).*Prueba.*son las/i.test(item.text)));
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /Buen(?:os días|as tardes|as noches|a madrugada).*Prueba.*son las/i.test(item.text))).catch(async error => {
+        // Technical readiness only: no names, message text, cookies or tokens.
+        console.log('Entry flow diagnostics:', await page.evaluate(() => ({
+            readyState: document.readyState,
+            authVerified: window.GunterAuth?.isVerified?.() === true,
+            sessionKnown: !!window.GunterAuth?.getSessionStartedAt?.(),
+            presenceLoaded: !!window.GunterPresence,
+            companionLoaded: !!window.GunterCompanion,
+            companionMounted: !!document.getElementById('gunter-companion'),
+            entryKnown: !!sessionStorage.getItem('gunter_app_entry'),
+            greetingEnabled: window.GunterPresence?.preferences?.().entryGreeting !== false
+        })));
+        throw error;
+    });
     // Allow the authenticated entry (including the first SW activation) to finish.
     await page.waitForLoadState('load');
     await expect(page.locator('#gday-quickbar-input')).toBeVisible();
