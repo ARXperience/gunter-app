@@ -131,7 +131,9 @@ Después: `:app:assembleRelease`, reporte `release`, verificación del APK con
 firma esperada por el propietario. El reporte sólo identifica un artefacto,
 tamaño y SHA-256: **no acredita firma, instalación ni aceptación**. La misma
 clave y un `versionCode` creciente son necesarios para las actualizaciones.
-No se generó ni eligió una clave de distribución en este trabajo.
+No se generó ni eligió una clave de distribución en este trabajo. La firma
+debug de Actions puede cambiar entre builds; no asumir actualización in situ
+de la preview ni desinstalarla con datos importantes sin revisar su respaldo.
 
 ## Aceptación pendiente y rollback
 
@@ -162,7 +164,7 @@ inyectados, no AlarmManager ni Firebase de un dispositivo.
 
 Resultado local: 55 tests JVM (51 políticas/recordatorios y 4 protocolo de
 exportación), 10 contratos Android, 12 aserciones OAuth, 8 tests de políticas
-de políticas de recordatorios móviles más 2 de aislamiento de confirmaciones,
+de recordatorios móviles más 2 de aislamiento de confirmaciones,
 5 contratos fuente de su diálogo, 7 tests del script
 de exportación en VM, 8 del reporte APK, 52 del asistente, 4 del runtime móvil
 y 34 del Control Plane. No son pruebas de proveedores ni dispositivos.

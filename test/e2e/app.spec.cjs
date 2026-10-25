@@ -19,7 +19,7 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await page.locator('#gr-submit').click();
     expect((await registration).status(), 'valid fixture registration must succeed before checking navigation').toBe(200);
     await expect(page).toHaveURL(/day\.html/);
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /Buen(?:os días|as tardes|as noches).*Prueba.*Son las/.test(item.text)));
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /Buen(?:os días|as tardes|as noches|a madrugada).*Prueba.*son las/i.test(item.text)));
     // Allow the authenticated entry (including the first SW activation) to finish.
     await page.waitForLoadState('load');
     await expect(page.locator('#gday-quickbar-input')).toBeVisible();
@@ -56,9 +56,9 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     expect(hybrid.runtime.localSTTAvailable).toBe(false);
     expect(hybrid.runtime.localTTSAvailable).toBe(false);
     expect(hybrid.runtime.backendAvailable).toBe(true);
-    const greetings = await page.evaluate(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').filter(item => /Buen(?:os días|as tardes|as noches).*Prueba.*Son las/.test(item.text)).map(item => item.text));
+    const greetings = await page.evaluate(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').filter(item => /Buen(?:os días|as tardes|as noches|a madrugada).*Prueba.*son las/i.test(item.text)).map(item => item.text));
     expect(greetings).toHaveLength(1);
-    expect(greetings[0]).toMatch(/Buen(?:os días|as tardes|as noches).*Prueba.*Son las/);
+    expect(greetings[0]).toMatch(/Buen(?:os días|as tardes|as noches|a madrugada).*Prueba.*son las/i);
 
     // Use the actual capture form and browser persistence, not a mocked service.
     const taskTitle = `E2E verificar flujo ${Date.now()}`;
@@ -127,7 +127,7 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await page.locator('#gl-submit').click();
     await expect(page).toHaveURL(/day\.html/);
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /ciudad configurada es Cali/.test(item.text)));
-    const latestGreeting = await page.evaluate(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').filter(item => /Buen(?:os días|as tardes|as noches).*Prueba.*Son las/.test(item.text)).at(-1)?.text);
+    const latestGreeting = await page.evaluate(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').filter(item => /Buen(?:os días|as tardes|as noches|a madrugada).*Prueba.*son las/i.test(item.text)).at(-1)?.text);
     expect(latestGreeting).not.toBe(greetings[0]);
 
     // A provider can finish after cancellation: the old reply must stay silent
