@@ -65,6 +65,20 @@ test('HTTP local sólo preview opt-in con host literal y release cerrado', () =>
     assert.match(shell, /policy\?\.isAllowedResource\(request\.url\.toString\(\)\)/);
     assert.match(native('WebBlobExportController'), /!policy\.isInternal\(sourceOrigin\.toString\(\)\)/);
 });
+test('sesiones, datos y vinculación quedan excluidos de backup y transferencia Android', () => {
+    const manifest = read('gunter-mobile/android/app/src/main/AndroidManifest.xml');
+    assert.match(manifest, /allowBackup="false"/);
+    assert.match(manifest, /fullBackupContent="@xml\/gunter_backup_rules"/);
+    assert.match(manifest, /dataExtractionRules="@xml\/gunter_data_extraction_rules"/);
+    const legacy = read('gunter-mobile/android/app/src/main/res/xml/gunter_backup_rules.xml');
+    const modern = read('gunter-mobile/android/app/src/main/res/xml/gunter_data_extraction_rules.xml');
+    const domains = ['root', 'file', 'database', 'sharedpref', 'external', 'device_root', 'device_file', 'device_database', 'device_sharedpref'];
+    for (const rules of [legacy, modern.match(/<cloud-backup>([\s\S]*?)<\/cloud-backup>/)?.[1], modern.match(/<device-transfer>([\s\S]*?)<\/device-transfer>/)?.[1]]) {
+        assert.ok(rules);
+        assert.doesNotMatch(rules, /<include\s/);
+        for (const domain of domains) assert.ok(rules.includes(`<exclude domain="${domain}" path="." />`), domain);
+    }
+});
 test('recordatorios durables y no anuncio de hora exacta', () => {
     assert.match(native('ReminderStore'), /\.commit\(\)/);
     assert.match(native('ReminderStore'), /storage.get\(id\) != record/);

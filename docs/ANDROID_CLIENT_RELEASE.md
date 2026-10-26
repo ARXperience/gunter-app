@@ -121,9 +121,10 @@ workflow `mobile-build.yml` prepara el SDK y ejecuta tests/lint/build en CI,
 y fue subido a `codex/android-client-candidate` con autorización del usuario.
 El primer intento (901f9b1) compiló Android pero falló lint por un atributo API27
 con minSdk26; se eliminó el atributo sin omitir lint. La ejecución
-[40236652055](https://github.com/ARXperience/gunter-app/actions/runs/40236652055)
-del commit `12a966f` pasó tests, lint y assembleDebug, incluyendo el diálogo y
-el exportador reales. También pasó el build de simulador iOS; no es QA física.
+[40252707932](https://github.com/ARXperience/gunter-app/actions/runs/40252707932)
+del commit `a929026` pasó tests, lint y assembleDebug, incluyendo el diálogo,
+exportador y modo USB. El log confirma origen compilado vacío, necesario para
+configurar manualmente el PC. También pasó el build de simulador iOS; no es QA física.
 
 Para release, el propietario debe aportar por entorno/gestor de secretos:
 
@@ -176,7 +177,7 @@ inyectados, no AlarmManager ni Firebase de un dispositivo.
 
 Resultado local: 59 tests JVM (55 políticas/recordatorios y 4 de protocolo de
 exportación, incluidos cuatro nuevos tests del modo loopback),
-11 contratos Android, 12 aserciones OAuth, 8 tests de políticas
+12 contratos Android, 12 aserciones OAuth, 8 tests de políticas
 de recordatorios móviles más 2 de aislamiento de confirmaciones,
 5 contratos fuente de su diálogo, 8 tests del script
 de exportación en VM, 2 del arranque aislado, 8 guardas del helper USB,
@@ -212,13 +213,14 @@ Queda pendiente la validación física y la aceptación de los gaps de la tabla.
 
 ## Artefacto preview comprobado
 
-Actions generó y se descargó `app-debug.apk` del commit `12a966f`:
-4.248.919 bytes, SHA-256
-`5668478579fe57accfbaf7e4a4e2ad1c0d8afb130294c9af16b8abfb7a062e09`.
+Actions generó y se descargó `app-debug.apk` del commit `a929026`:
+4.249.662 bytes, SHA-256
+`8ca1655e1145656b41dd243c68de20e374b4842d80897734c0de149c06f1e3ff`.
 El hash local coincide con el informe de CI. `apksigner` oficial 36.0.0 verificó
 la firma v2 y el certificado **Android Debug**, no una identidad de distribución.
 `aapt2` confirmó `com.gunter.mobile.preview`, versión `0.2.0-preview`, minSdk26,
 target/compile35 y launcher `GunterWebActivity`. No se instaló en un teléfono.
+Ubicación local: `output/android-client-a929026/android/app/build/outputs/apk/debug/app-debug.apk`.
 
 La verificación de firma local complementa el reporte descargado, que conserva
 honestamente `signatureVerified:false` porque ese script no ejecuta apksigner.
@@ -232,3 +234,16 @@ tareas/agenda y la invitación del modelo, sin saltar el registro de entrada
 ni la comprobación de cuenta/sesión. Los 24 tests locales de presencia pasan;
 la corrección aún requiere validación e2e en CI. No se ha marcado ese recorrido como aprobado ni se han
 omitido sus aserciones. Este pendiente también impide declarar release final.
+
+Revisión posterior de seguridad: reglas explícitas excluyen datos privados tanto
+del backup como de la transferencia Android entre dispositivos. No hay migración
+automática de credenciales, sesiones, WebView o recordatorios; una reinstalación
+necesita respaldo/exportación voluntaria y nueva vinculación. El exportador
+comprueba las dos capacidades opcionales de WebKit también al responder/retirar
+su script. Referencia: [reglas de backup Android](https://developer.android.com/identity/data/autobackup).
+
+El núcleo pide `failIfMajorPerformanceCaveat:true` antes de compilar shaders. Si
+el navegador rechaza ese contexto, mantiene el fallback explícito y las funciones
+de Gunter, sin reintentar silenciosamente un camino 3D lento. No baja el detalle
+en hardware admitido ni acredita fluidez física. Referencia:
+[atributos WebGL de Khronos](https://registry.khronos.org/webgl/specs/latest/1.0/#WEBGLCONTEXTATTRIBUTES).

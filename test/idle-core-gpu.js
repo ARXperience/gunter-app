@@ -64,7 +64,7 @@ function environment(options={}) {
     }
     gl.drawArrays=(mode,first,count)=>record(mode,count);
     gl.drawArraysInstanced=(mode,first,count,instances)=>{assert.ok(instances>0&&instances<=7680*95);record(mode,count,instances);};
-    const canvas={width:300,height:150,getContext(type,attributes){contexts.push({type,attributes});return options.noWebgl?null:gl;},
+    const canvas={width:300,height:150,getContext(type,attributes){contexts.push({type,attributes});return options.noWebgl||(options.majorCaveat&&attributes.failIfMajorPerformanceCaveat)?null:gl;},
         addEventListener(type,cb){listeners.set(type,cb);}};
     const window={dispatchEvent(event){events.push(event);},GunterCoreForms:options.catalog},document={createElement(tag){assert.equal(tag,'canvas');return canvas;}};
     const context=vm.createContext({window,document,CustomEvent:class{constructor(type,value){this.type=type;this.detail=value.detail;}}});
@@ -103,10 +103,19 @@ function assertPointerDraw(draw,state) {
 check('one transparent WebGL2 compositor uses floating material state and no point/buffer geometry',()=>{
     const e=environment();assert.ok(e.core.available);assert.equal(e.contexts.length,1);
     assert.equal(e.contexts[0].type,'webgl2');assert.equal(e.contexts[0].attributes.alpha,true);
+    assert.equal(e.contexts[0].attributes.failIfMajorPerformanceCaveat,true,'a slow software/readback context must be rejected before shader compilation');
     assert.equal(e.core.histories.length,2);
     for(const target of e.core.histories){assert.equal(target.width,96);assert.equal(target.height,1280);assert.equal(target.texture.internal,e.gl.RGBA32F);}
     e.render();assert.equal(e.core.stats().simulation,'gpu-advected-material-filaments');
     assert.equal(e.core.stats().segmentsPerFilament,95);e.core.dispose();released(e);
+});
+check('browser-declared major performance caveat refuses heavy compilation without a software retry',()=>{
+    const e=environment({majorCaveat:true});
+    assert.equal(e.core.available,false);
+    assert.equal(e.contexts.length,1,'no automatic retry with weaker context options');
+    assert.equal(e.created.Program.length,0,'no heavy shaders compiled on a refused context');
+    assert.equal(e.created.Texture.length,0,'no GPU state allocated');
+    e.core.dispose();released(e);
 });
 check('density changes real ribbon instance counts at 25, 100 and 200 percent',()=>{
     const e=environment();

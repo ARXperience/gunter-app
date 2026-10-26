@@ -223,6 +223,7 @@ class WebBlobExportController(
         return value.toString().toInt()
     }
     private fun reply(proxy: JavaScriptReplyProxy, id: String, type: String, seq: Int? = null) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
         runCatching { proxy.postMessage(JSONObject().put("type", type).put("id", id).apply { if (seq != null) put("seq", seq) }.toString()) }
     }
     private fun armTimeout(ms: Long) { clearTimeout(); timeout = Runnable { cancelTransfer(); explain("La exportación se canceló por inactividad. No se guardó un archivo de usuario.") }.also { handler.postDelayed(it, ms) } }
@@ -241,7 +242,8 @@ class WebBlobExportController(
     private fun deleteLater(file: File) { worker.execute { file.delete() } }
     private fun detach() {
         cancelTransfer(); clearPrepared(); cancelCopy()
-        runCatching { script?.remove() }; script = null
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) runCatching { script?.remove() }
+        script = null
         attached?.let { view -> if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) runCatching { WebViewCompat.removeWebMessageListener(view, WebExportScript.BRIDGE) } }
         attached = null; attachedOrigin = null
     }

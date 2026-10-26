@@ -1227,7 +1227,10 @@
         initialize() {
             try {
                 const gl=this.gl=this.canvas.getContext('webgl2',{alpha:true,premultipliedAlpha:true,
-                    antialias:false,depth:false,stencil:false,preserveDrawingBuffer:false,powerPreference:'low-power'});
+                    antialias:false,depth:false,stencil:false,preserveDrawingBuffer:false,powerPreference:'low-power',
+                    // Never run this high-cost volume on a browser-declared slow
+                    // software/readback path: it must not freeze chat or login.
+                    failIfMajorPerformanceCaveat:true});
                 if(!gl||!gl.getExtension('EXT_color_buffer_float'))
                     throw new Error('El núcleo requiere WebGL2 y texturas flotantes renderizables (EXT_color_buffer_float).');
                 this.programs={
