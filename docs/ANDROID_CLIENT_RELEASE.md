@@ -245,7 +245,8 @@ de tarea, ajustes híbridos y preferencias con confirmación de voz, reingreso,
 cancelación de respuesta tardía y navegación de captura en viewport móvil sin
 overflow horizontal. También pasaron `npm test` y `npm audit --omit=dev` con
 instalación limpia del lockfile parcheado. No sustituye WebView ni dispositivo
-físico; la prueba usa el fallback honesto al no disponer de GPU admitida.
+físico ni certifica el renderizado GPU. Los contratos separados cubren el
+fallback con capacidades simuladas; la fluidez real se comprobará en el OPPO.
 
 Se corrigió además una colisión del catálogo: una orden exacta de «saludo al
 entrar» cambiaba el ajuste distinto de «bienvenida por voz». Ahora conserva la
