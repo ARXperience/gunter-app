@@ -39,4 +39,51 @@ class WebOriginPolicyTest {
         assertFalse(policy.isInternal(null))
         assertNull(WebOriginPolicy.externalScheme(null))
     }
+
+    @Test fun loopbackHttpRequiresExplicitOptInAndPreservesExactOrigin() {
+        val localUrl = "http://127.0.0.1:3002"
+        assertNull(WebOriginPolicy.fromConfiguredOrigin(localUrl))
+        assertFalse(WebOriginPolicy.isHttps(localUrl))
+        assertNull(WebOriginPolicy.externalScheme(localUrl))
+        val local = WebOriginPolicy.fromConfiguredOrigin("HTTP://127.0.0.1:3002/", allowLoopbackHttp = true)!!
+        assertEquals(localUrl, local.origin)
+        assertEquals("$localUrl/", local.rootUrl)
+        assertTrue(local.isLoopbackHttp)
+        assertTrue(local.isInternal("$localUrl/tasks?day=today#new"))
+        listOf("http://127.0.0.1:3003/tasks", "http://127.0.0.1:3013/", "https://127.0.0.1:3002/", "http://localhost:3002/", "http://127.0.0.2:3002/", "http://192.168.1.20:3002/").forEach {
+            assertFalse(it, local.isInternal(it))
+        }
+        assertFalse(policy.isLoopbackHttp)
+        assertFalse(policy.isInternal(localUrl))
+    }
+
+    @Test fun loopbackOptInDoesNotPermitLanInternetOrAmbiguousAuthorities() {
+        listOf("http://localhost:3002", "http://[::1]:3002", "http://127.1:3002", "http://2130706433:3002", "http://0x7f000001:3002", "http://127.000.000.001:3002", "http://127.0.0.1.:3002", "http://%31%32%37.0.0.1:3002", "http://127.0.0.1:03002", "http://user@127.0.0.1:3002", "http://127.0.0.1:3002@evil.example", "http://127.0.0.1:3002.evil.example", "http://127.0.0.2:3002", "http://0.0.0.0:3002", "http://192.168.1.5:3002", "http://10.0.0.1:3002", "http://172.16.0.1:3002", "http://gunter.example:3002", "http://127.0.0.1:3002/path", "http://127.0.0.1:3002/?token=x", "http://127.0.0.1:3002/#x", "http://127.0.0.1:3002\\@evil.example", " http://127.0.0.1:3002").forEach {
+            assertNull(it, WebOriginPolicy.fromConfiguredOrigin(it, allowLoopbackHttp = true))
+        }
+    }
+
+    @Test fun localTestRequiresExplicitUnprivilegedPortAndExcludesLab() {
+        listOf("http://127.0.0.1", "http://127.0.0.1:", "http://127.0.0.1:0", "http://127.0.0.1:80", "http://127.0.0.1:443", "http://127.0.0.1:1023", "http://127.0.0.1:3013", "http://127.0.0.1:65536", "http://127.0.0.1:-1", "http://127.0.0.1:bad").forEach {
+            assertNull(it, WebOriginPolicy.fromConfiguredOrigin(it, allowLoopbackHttp = true))
+        }
+        listOf(1024, 3002, 65535).forEach { assertNotNull(WebOriginPolicy.fromConfiguredOrigin("http://127.0.0.1:$it", allowLoopbackHttp = true)) }
+        // HTTPS defaults and its full explicit-port range remain independent of the debug exception.
+        listOf("https://gunter.example", "https://gunter.example:1", "https://gunter.example:3013", "https://gunter.example:65535").forEach {
+            assertNotNull(it, WebOriginPolicy.fromConfiguredOrigin(it))
+            assertEquals(WebOriginPolicy.fromConfiguredOrigin(it)!!.origin, WebOriginPolicy.fromConfiguredOrigin(it, allowLoopbackHttp = true)!!.origin)
+        }
+    }
+
+    @Test fun resourcesPermitOnlySelectedHttpTestOriginAndHttpsCdns() {
+        val local = WebOriginPolicy.fromConfiguredOrigin("http://127.0.0.1:3002", allowLoopbackHttp = true)!!
+        listOf("http://127.0.0.1:3002/js/main.js", "http://127.0.0.1:3002/api/tasks", "https://cdn.example/assets/app.js", "https://gunter.example/api").forEach {
+            assertTrue(it, local.isAllowedResource(it))
+        }
+        listOf(null, "http://127.0.0.1:3003/api", "http://127.0.0.1:3013/", "http://localhost:3002/", "http://192.168.1.20:3002/", "http://cdn.example/a.js", "file:///tmp/x", "content://x", "javascript:alert(1)").forEach {
+            assertFalse(it, local.isAllowedResource(it))
+        }
+        assertTrue(policy.isAllowedResource("https://cdn.example/assets/app.js"))
+        assertFalse(policy.isAllowedResource("http://127.0.0.1:3002/js/main.js"))
+    }
 }

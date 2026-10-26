@@ -14,11 +14,11 @@ const ORIGIN = 'https://gunter.example';
 const source = literal.replace('${JSONObject.quote(origin)}', JSON.stringify(ORIGIN));
 new vm.Script(source, { filename: 'WebExportScript.production.js' });
 
-function fixture({ origin = ORIGIN, childFrame = false, autoStart = true } = {}) {
+function fixture({ origin = ORIGIN, trustedOrigin = ORIGIN, childFrame = false, autoStart = true } = {}) {
   const messages = [], states = [], chunks = [], listeners = new Map();
   let clicks = 0, revoked = 0, nextBlob = 0;
   class URLMock extends URL {
-    static createObjectURL() { return `blob:${ORIGIN}/${++nextBlob}`; }
+    static createObjectURL() { return `blob:${origin}/${++nextBlob}`; }
     static revokeObjectURL() { revoked++; }
   }
   class Anchor {
@@ -52,7 +52,7 @@ function fixture({ origin = ORIGIN, childFrame = false, autoStart = true } = {})
   };
   context.window = context;
   context.top = childFrame ? {} : context;
-  vm.runInNewContext(source, context);
+  vm.runInNewContext(literal.replace('${JSONObject.quote(origin)}', JSON.stringify(trustedOrigin)), context);
   return { context, Anchor, bridge, messages, chunks, states, listeners, stats: () => ({ clicks, revoked }) };
 }
 
@@ -85,6 +85,21 @@ test('data URLs use the same protocol without sending their whole URL to native'
   assert.equal(Buffer.concat(f.chunks).toString(), 'hola');
   assert.equal(f.messages[0].size, '4');
   assert.ok(!JSON.stringify(f.messages).includes('data:text'));
+});
+
+test('explicit loopback test origin exports only its own main-frame Blob URLs', async () => {
+  const local = 'http://127.0.0.1:3002';
+  const f = fixture({ origin: local, trustedOrigin: local });
+  const url = f.context.URL.createObjectURL(new Blob(['USB fixture'], { type: 'text/plain' }));
+  new f.Anchor(url, 'prueba.txt').click();
+  await until(() => f.states.includes('prepared-not-saved'));
+  assert.equal(Buffer.concat(f.chunks).toString(), 'USB fixture');
+  for (const settings of [{ origin: 'http://127.0.0.1:3003' }, { origin: 'http://localhost:3002' }, { origin: local, childFrame: true }]) {
+    const foreign = fixture({ ...settings, trustedOrigin: local });
+    new foreign.Anchor('data:text/plain,blocked', 'x.txt').click();
+    assert.equal(foreign.messages.length, 0);
+    assert.equal(foreign.stats().clicks, 1);
+  }
 });
 
 test('detached anchor dispatchEvent used by FileSaver also exports without browser download', async () => {

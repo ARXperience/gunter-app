@@ -12,7 +12,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
 
-/** User-selected downloads. Credentials never leave the configured HTTPS origin. */
+/** User-selected downloads. Credentials never leave the configured origin. */
 class WebDownloadController(
     private val activity: Activity,
     private val currentWeb: () -> WebView?,
@@ -40,7 +40,7 @@ class WebDownloadController(
         if (policy == null || !policy.isInternal(currentWeb()?.url) || !policy.isInternal(address)) {
             explain(if (address.startsWith("blob:") || address.startsWith("data:"))
                 "No se pudo capturar esta exportación local. Necesita un Android System WebView compatible y una exportación iniciada desde la página actual. Actualiza WebView y repite; si persiste, usa Gunter en el navegador. No se guardó un archivo."
-                else "Esta descarga no pertenece al origen HTTPS autorizado de Gunter. No se guardó un archivo.")
+                else "Esta descarga no pertenece al origen autorizado de Gunter. No se guardó un archivo.")
             return
         }
         if (pending != null || busy || exports.isBusy) { explain("Termina o cancela la descarga anterior."); return }

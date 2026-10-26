@@ -43,7 +43,7 @@ class MainActivity : Activity() {
         status = TextView(this).apply { text = getSharedPreferences("gunter_mobile_runtime", MODE_PRIVATE).getString("notice", null) ?: (store.load()?.let { "Vinculado como ${it.deviceName}" } ?: "Este dispositivo aún no está vinculado."); setPadding(0, pad / 2, 0, pad / 2) }; root.addView(status)
         val clientOrigin = BuildConfig.GUNTER_WEB_ORIGIN
         val previewOrigin = if (BuildConfig.DEBUG) getSharedPreferences("gunter_web_preview", MODE_PRIVATE).getString("origin", "") else ""
-        server = field("URL HTTPS de Gunter", clientOrigin.ifBlank { previewOrigin.orEmpty().ifBlank { store.load()?.serverUrl ?: "" } })
+        server = field(if (BuildConfig.DEBUG && clientOrigin.isBlank()) "HTTPS o USB: http://127.0.0.1:3002" else "URL HTTPS de Gunter", clientOrigin.ifBlank { previewOrigin.orEmpty().ifBlank { store.load()?.serverUrl ?: "" } })
         server.isEnabled = BuildConfig.DEBUG
         pairing = field("Token de vinculación gp_…")
         pairing.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -69,11 +69,11 @@ class MainActivity : Activity() {
         setContentView(ScrollView(this).apply { isFillViewport = true; addView(root) })
     }
     private fun pair() {
-        val requested = WebOriginPolicy.fromConfiguredOrigin(server.text.toString().trim())
+        val requested = WebOriginPolicy.fromConfiguredOrigin(server.text.toString().trim(), allowLoopbackHttp = BuildConfig.DEBUG && BuildConfig.GUNTER_WEB_ORIGIN.isBlank())
         val fixed = WebOriginPolicy.fromConfiguredOrigin(BuildConfig.GUNTER_WEB_ORIGIN)
         val token = pairing.text.toString().trim()
         if (requested == null || (!BuildConfig.DEBUG && requested.origin != fixed?.origin) || !token.startsWith("gp_")) {
-            status.text = "Indica el origen HTTPS de Gunter y un acceso de un solo uso válido. La app de clientes sólo permite su servidor configurado."; return
+            status.text = if (BuildConfig.DEBUG && BuildConfig.GUNTER_WEB_ORIGIN.isBlank()) "Indica HTTPS o http://127.0.0.1:3002 por USB/adb reverse y un acceso de un solo uso válido. No se permiten localhost, LAN ni HTTP de internet; 3013 no es el backend." else "Indica el origen HTTPS de Gunter y un acceso de un solo uso válido. La app de clientes sólo permite su servidor configurado."; return
         }
         val url = requested.origin
         val deviceName = name.text.toString().trim().ifEmpty { Build.MODEL }
@@ -120,25 +120,38 @@ class MainActivity : Activity() {
     private fun registerPushToken() {
         val config = store.load() ?: return
         if (!BuildConfig.GUNTER_FCM_CONFIGURED || FirebaseApp.getApps(this).isEmpty()) { status.text = "Este APK no tiene avisos push configurados. La versión de prueba necesita Firebase para com.gunter.mobile.preview; la de clientes usa su configuración de distribución."; return }
+        if (runCatching { NodeApi(config.serverUrl) }.isFailure) { status.text = "Vuelve a vincular el dispositivo al servidor de este APK antes de activar los avisos."; return }
         getSharedPreferences("gunter_mobile_runtime", MODE_PRIVATE).edit().putBoolean("push_enabled", true).apply()
+        FirebaseMessaging.getInstance().isAutoInitEnabled = true
         status.text = "Activando avisos push…"
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!pushStillAllowed(config)) return@addOnCompleteListener
             if (!task.isSuccessful || task.result.isNullOrBlank()) { status.text = "No pude obtener el token de avisos de Firebase."; return@addOnCompleteListener }
             val token = task.result
-            Thread { runCatching { NodeApi(config.serverUrl).registerPushToken(config, token) }
-                .onSuccess { result -> runOnUiThread { status.text = if (result.optJSONObject("push")?.optBoolean("deliveryConfigured", false) == true) "Avisos push activados en este móvil." else "Token guardado; falta configurar el envío FCM en el servidor." } }
-                .onFailure { runOnUiThread { status.text = "No se pudieron activar los avisos push." } }
+            Thread { if (!pushStillAllowed(config)) return@Thread
+                runCatching { NodeApi(config.serverUrl).registerPushToken(config, token) }
+                .onSuccess { result -> runOnUiThread { if (pushStillAllowed(config)) status.text = if (result.optJSONObject("push")?.optBoolean("deliveryConfigured", false) == true) "Avisos push activados en este móvil." else "Token guardado; falta configurar el envío FCM en el servidor." } }
+                .onFailure { runOnUiThread { if (pushStillAllowed(config)) status.text = "No se pudieron activar los avisos push." } }
             }.start()
         }
     }
     private fun deactivatePush() {
         getSharedPreferences("gunter_mobile_runtime", MODE_PRIVATE).edit().putBoolean("push_enabled", false).apply()
-        if (FirebaseApp.getApps(this).isNotEmpty()) FirebaseMessaging.getInstance().deleteToken()
+        if (FirebaseApp.getApps(this).isNotEmpty()) {
+            FirebaseMessaging.getInstance().isAutoInitEnabled = false
+            FirebaseMessaging.getInstance().deleteToken()
+        }
         val config = store.load() ?: run { status.text = "Este dispositivo no está vinculado."; return }
         Thread { runCatching { NodeApi(config.serverUrl).clearPushToken(config) }
             .onSuccess { runOnUiThread { status.text = "Avisos push desactivados en el servidor." } }
             .onFailure { runOnUiThread { status.text = "No pude desactivar los avisos push." } }
         }.start()
+    }
+    private fun pushStillAllowed(expected: NodeConfig): Boolean {
+        if (!BuildConfig.GUNTER_FCM_CONFIGURED || !getSharedPreferences("gunter_mobile_runtime", MODE_PRIVATE).getBoolean("push_enabled", false)) return false
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false
+        val current = store.load() ?: return false
+        return current.nodeId == expected.nodeId && current.serverUrl == expected.serverUrl && current.nodeToken == expected.nodeToken
     }
     private fun stopNode() { stopService(Intent(this, GunterNodeService::class.java)); val notice = "Gunter se detuvo en este móvil. El dispositivo sigue vinculado."; getSharedPreferences("gunter_mobile_runtime", MODE_PRIVATE).edit().putString("notice", notice).apply(); status.text = notice }
     override fun onPause() { localReminders?.close(); localReminders = null; super.onPause() }

@@ -7,6 +7,11 @@ que elegir el servicio, almacenamiento persistente y secretos; este trabajo no
 contrata ni publica hosting. No usar el laboratorio visual ni una página de
 reserva como API de clientes.
 
+Elección actual: PC sólo para pruebas, sin contratar hosting. La preview Android
+DEBUG permite una conexión loopback por USB y una instancia con datos de prueba
+separados. Instrucciones en [ANDROID_PC_TEST.md](docs/ANDROID_PC_TEST.md). No
+sustituye el despliegue HTTPS ni la firma/aceptación de la futura release.
+
 1. Copia `.env.example` como `.env` y completa las variables necesarias sin publicar ese archivo.
 2. Sirve la aplicación mediante HTTPS. Define `ALLOWED_ORIGINS` con el origen público exacto y activa `AUTH_COOKIE_SECURE=true`.
 3. Si un proxy inverso termina TLS, define `TRUST_PROXY=true`; de lo contrario déjalo en `false`.

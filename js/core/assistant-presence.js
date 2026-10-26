@@ -58,6 +58,33 @@
         return `${salutation}${name ? ', ' + name : ''}. Es ${current.weekday}, son las ${current.time}. ${place} ${activity} ${question}`.replace(/ +/g, ' ').trim();
     }
     function create(runtime) {
+        const scheduleTimeout = runtime.setTimeout?.bind(runtime) || setTimeout;
+        const cancelTimeout = runtime.clearTimeout?.bind(runtime) || clearTimeout;
+        async function bounded(operation, milliseconds, fallback, expire = () => {}) {
+            let timer;
+            try {
+                // The race observes both fulfillment and rejection of a late dependency.
+                // Abort is advisory: the deadline must settle even if it is ignored.
+                const pending = Promise.resolve().then(operation).catch(() => fallback);
+                const deadline = new Promise(resolve => {
+                    timer = scheduleTimeout(() => { try { expire(); } catch {} finally { resolve(fallback); } }, milliseconds);
+                });
+                return await Promise.race([pending, deadline]);
+            } finally { cancelTimeout(timer); }
+        }
+        function accountUser(user, sessionStartedAt) {
+            const auth = runtime.GunterAuth;
+            if (!auth) return user;
+            try {
+                const current = auth.getUser?.();
+                if (current?.id !== user.id || (auth.canAccessLocalData && auth.canAccessLocalData() !== true)) return null;
+                if (auth.getSessionStartedAt && String(auth.getSessionStartedAt()) !== String(sessionStartedAt)) return null;
+                return current;
+            } catch { return null; }
+        }
+        function requireActive(signal, active) {
+            if (signal?.aborted || !active()) throw new Error('presence_request_inactive');
+        }
         function preferences() { try { return JSON.parse(runtime.localStorage.getItem('gunter_prefs') || '{}'); } catch { return {}; } }
         function savePreferences(values) {
             const next = { ...preferences(), ...values };
@@ -65,29 +92,40 @@
             runtime.dispatchEvent?.(new runtime.CustomEvent('gunter-location-change', { detail: next }));
             return next;
         }
-        async function useLocation() {
+        async function useLocation({ signal, active = () => true } = {}) {
+            requireActive(signal, active);
             if (!runtime.navigator?.geolocation) throw new Error('Este navegador no permite consultar tu ubicación. Puedes escribir tu ciudad.');
             const position = await new Promise((resolve, reject) => runtime.navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000, maximumAge: 300000, enableHighAccuracy: false }));
+            requireActive(signal, active);
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 7000);
+            const abort = () => controller.abort();
+            signal?.addEventListener('abort', abort, { once: true });
+            // A greeting owns its shorter outer deadline; do not leave an additional
+            // long-lived timer behind when an abort-ignoring reverse lookup hangs.
+            const timer = signal ? null : scheduleTimeout(abort, 7000);
             try {
+                requireActive(signal, active);
                 const response = await runtime.fetch((runtime.GUNTER_CONFIG?.PROXY_BASE_URL || '') + '/api/location/reverse', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
                     body: JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude })
                 });
                 const result = await response.json();
+                requireActive(signal, active);
                 if (!response.ok || !result.city) throw new Error('No pude confirmar tu ciudad. Puedes escribirla manualmente.');
                 return savePreferences({ city: result.city, locationSource: 'device', locationUpdatedAt: Date.now(), useDeviceLocation: true });
-            } finally { clearTimeout(timer); }
+            } finally { if (timer !== null) cancelTimeout(timer); signal?.removeEventListener('abort', abort); }
         }
-        async function location() {
+        async function location({ signal, active = () => true } = {}) {
+            requireActive(signal, active);
             let prefs = preferences();
             if (prefs.useDeviceLocation) {
                 try {
                     const permission = await runtime.navigator?.permissions?.query?.({ name: 'geolocation' });
-                    if (permission?.state === 'granted' && Date.now() - Number(prefs.locationUpdatedAt || 0) > 1800000) prefs = await useLocation();
+                    requireActive(signal, active);
+                    if (permission?.state === 'granted' && Date.now() - Number(prefs.locationUpdatedAt || 0) > 1800000) prefs = await useLocation({ signal, active });
                 } catch { /* Keep provenance of the last known location. */ }
             }
+            requireActive(signal, active);
             return { city: prefs.city || '', source: prefs.locationSource === 'device' ? Date.now() - Number(prefs.locationUpdatedAt || 0) < 1800000 ? 'device' : 'stored' : 'manual' };
         }
         function communicationPolicy(text = '') {
@@ -119,8 +157,9 @@
         const pageId = id();
         let entryPromise, entrySession, heartbeat;
         async function registerEntry(user, sessionStartedAt) {
-            if (entryPromise && entrySession === `${user.id}:${sessionStartedAt}`) return entryPromise;
-            entrySession = `${user.id}:${sessionStartedAt}`;
+            const requestedSession = `${user.id}:${sessionStartedAt}`;
+            if (entryPromise && entrySession === requestedSession) return entryPromise;
+            entrySession = requestedSession;
             greetingConsumed = false;
             entryPromise = (async () => {
                 let previous = null;
@@ -136,7 +175,7 @@
                 const response = await runtime.fetch(base, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...member, op: 'enter' }) });
                 const result = await response.json();
                 if (!response.ok || !result.ok || !result.entryId) throw new Error(result.error || 'entry_unavailable');
-                if (runtime.GunterAuth?.getUser?.()?.id && runtime.GunterAuth.getUser().id !== user.id) return { shouldGreet: false };
+                if (entrySession !== requestedSession || !accountUser(user, sessionStartedAt)) return { shouldGreet: false };
                 runtime.sessionStorage.setItem(ENTRY_KEY, JSON.stringify({ userId: user.id, sessionStartedAt, entryId: result.entryId }));
                 runtime.localStorage.removeItem('gunter_entry_pending');
                 member.entryId = result.entryId;
@@ -156,44 +195,49 @@
                     }
                 });
                 return result;
-            })().catch(error => { entryPromise = null; throw error; });
+            })().catch(error => { if (entrySession === requestedSession) entryPromise = null; throw error; });
             return entryPromise;
         }
         let greetingConsumed = false;
         async function greet(user, sessionStartedAt, { enabled = true } = {}) {
-            if (!user?.id || !sessionStartedAt) return null;
+            if (!user?.id || !sessionStartedAt || !accountUser(user, sessionStartedAt)) return null;
+            const requestedSession = `${user.id}:${sessionStartedAt}`;
+            const active = () => entrySession === requestedSession && !!accountUser(user, sessionStartedAt);
             const entry = await registerEntry(user, sessionStartedAt);
-            if (!entry.shouldGreet || greetingConsumed) return null;
+            if (!active() || !entry.shouldGreet || greetingConsumed) return null;
             greetingConsumed = true;
             if (!enabled || preferences().entryGreeting === false) return null;
-            const variantKey = 'gunter_greeting_variant_' + user.id;
-            const index = (Number(runtime.localStorage.getItem(variantKey) || -1) + 1) % 3;
-            runtime.localStorage.setItem(variantKey, String(index));
-            const place = await location();
             const premium = runtime.PremiumFeaturesService;
             const now = new Date(), current = moment(now, preferences().timezone);
+            const locationController = new AbortController();
+            const [place, tasks, events] = await Promise.all([
+                bounded(() => location({ signal: locationController.signal, active }), 600, {}, () => locationController.abort()),
+                bounded(() => runtime.GunterTasksService?.list?.() || [], 1200, []),
+                bounded(() => runtime.GunterEventsService?.list?.() || [], 1200, [])
+            ]);
+            if (!active()) return null;
             let activity = '', taskCount = 0, eventCount = 0;
             try {
-                const [tasks, events] = await Promise.all([runtime.GunterTasksService?.list?.() || [], runtime.GunterEventsService?.list?.() || []]);
-                taskCount = tasks.filter(task => task.ownerId === user.id && ['pending', 'doing'].includes(task.status) && (!task.dueAt || moment(new Date(task.dueAt), current.timezone).date <= current.date)).length;
-                eventCount = events.filter(event => event.ownerId === user.id && event.startAt && moment(new Date(event.startAt), current.timezone).date === current.date && new Date(event.endAt || event.startAt) >= now).length;
+                taskCount = (Array.isArray(tasks) ? tasks : []).filter(task => task.ownerId === user.id && ['pending', 'doing'].includes(task.status) && (!task.dueAt || moment(new Date(task.dueAt), current.timezone).date <= current.date)).length;
+                eventCount = (Array.isArray(events) ? events : []).filter(event => event.ownerId === user.id && event.startAt && moment(new Date(event.startAt), current.timezone).date === current.date && new Date(event.endAt || event.startAt) >= now).length;
                 if (taskCount || eventCount) activity = [taskCount && `${taskCount} tarea${taskCount === 1 ? '' : 's'} pendiente${taskCount === 1 ? '' : 's'}`, eventCount && `${eventCount} compromiso${eventCount === 1 ? '' : 's'} de hoy en la agenda`].filter(Boolean).join(' y ') + '.';
             } catch { /* Never invent unavailable activities. */ }
             let invitation;
             try {
                 if (runtime.GunterNlpLlm?.complete) {
                     const controller = new AbortController();
-                    const timeout = (runtime.setTimeout || setTimeout)(() => controller.abort(), 8000);
-                    let text;
-                    try { text = await runtime.GunterNlpLlm.complete(`Redacta una única pregunta breve y natural para cerrar una bienvenida. No saludes otra vez ni uses nombres, horas, ciudades, títulos ni cifras. No afirmes emociones, hechos o acciones. Ofrece trabajar juntos según estos datos: ${JSON.stringify({ period: current.period, weekday: current.weekday, tasksAvailable: taskCount > 0, agendaAvailable: eventCount > 0 })}. Varía la expresión, sin imitar ejemplos. Devuelve solo la pregunta entre ¿ y ?.`, { skipMemory: true, temperature: 0.65, maxTokens: 75, channel: 'entry', signal: controller.signal }); }
-                    finally { (runtime.clearTimeout || clearTimeout)(timeout); }
+                    const text = await bounded(() => runtime.GunterNlpLlm.complete(`Redacta una única pregunta breve y natural para cerrar una bienvenida. No saludes otra vez ni uses nombres, horas, ciudades, títulos ni cifras. No afirmes emociones, hechos o acciones. Ofrece trabajar juntos según estos datos: ${JSON.stringify({ period: current.period, weekday: current.weekday, tasksAvailable: taskCount > 0, agendaAvailable: eventCount > 0 })}. Varía la expresión, sin imitar ejemplos. Devuelve solo la pregunta entre ¿ y ?.`, { skipMemory: true, temperature: 0.65, maxTokens: 75, channel: 'entry', signal: controller.signal }), 2000, undefined, () => controller.abort());
                     const clean = String(text || '').trim();
                     if (/^¿[^¿?\n]{8,220}\?$/.test(clean) && !/[\d@]/.test(clean)) invitation = clean;
                 }
             } catch { /* Factual fallback when the configured brain is unavailable. */ }
-            const currentUser = runtime.GunterAuth?.getUser?.();
-            if (currentUser?.id && currentUser.id !== user.id) return null;
-            return composeGreeting({ user: currentUser || user, now, timezone: current.timezone, location: place, activity, invitation, mode: premium?.get?.('personalityMode'), style: premium?.get?.('voiceStyle'), index });
+            if (!active()) return null;
+            const currentUser = accountUser(user, sessionStartedAt);
+            if (!currentUser) return null;
+            const variantKey = 'gunter_greeting_variant_' + user.id;
+            const index = (Number(runtime.localStorage.getItem(variantKey) || -1) + 1) % 3;
+            runtime.localStorage.setItem(variantKey, String(index));
+            return composeGreeting({ user: currentUser, now, timezone: current.timezone, location: place, activity, invitation, mode: premium?.get?.('personalityMode'), style: premium?.get?.('voiceStyle'), index });
         }
         return { composeGreeting, preferences, savePreferences, useLocation, location, greet, personalityPrompt, communicationPolicy, nameOf, moment: (now = new Date()) => moment(now, preferences().timezone), timezone: () => timezone(preferences().timezone) };
     }

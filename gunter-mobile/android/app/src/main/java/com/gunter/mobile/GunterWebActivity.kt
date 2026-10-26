@@ -77,7 +77,7 @@ class GunterWebActivity : Activity() {
         }
         val fixed = BuildConfig.GUNTER_WEB_ORIGIN
         val configured = if (fixed.isNotBlank()) fixed else if (BuildConfig.DEBUG) previewPreferences.getString("origin", "") else ""
-        policy = WebOriginPolicy.fromConfiguredOrigin(configured)
+        policy = WebOriginPolicy.fromConfiguredOrigin(configured, allowLoopbackHttp = BuildConfig.DEBUG && fixed.isBlank())
         if (policy == null) showConfiguration() else {
             if (savedInstanceState?.getString(STATE_ORIGIN) == policy?.origin) restoreNavigation = savedInstanceState?.getBundle(STATE_WEB)
             createWebView()
@@ -124,10 +124,10 @@ class GunterWebActivity : Activity() {
         }
         val canConfigure = BuildConfig.DEBUG && BuildConfig.GUNTER_WEB_ORIGIN.isBlank()
         originLabel.text = "Candidato Android · configuración pendiente"
-        showPanel("Conectar con Gunter", if (canConfigure) "Introduce el origen HTTPS de pruebas, sin rutas ni credenciales. Los datos web y la vinculación del dispositivo son almacenes separados." else "Este APK aún no tiene un servidor HTTPS de clientes configurado. No puede iniciar sesión ni conectarse a un servidor elegido desde la pantalla.")
+        showPanel("Conectar con Gunter", if (canConfigure) "Prueba local por USB: usa http://127.0.0.1:3002 después de configurar adb reverse en tu PC. Sin USB no llegará a tu PC. Sólo se admite 127.0.0.1 con puerto 1024–65535 (no 3013); no localhost, LAN ni HTTP de internet. También puedes usar HTTPS. Los almacenes web y del dispositivo son separados. El micrófono depende del WebView del teléfono: esta configuración no certifica su funcionamiento." else "Este APK aún no tiene un servidor HTTPS de clientes configurado. No puede iniciar sesión ni conectarse a un servidor elegido desde la pantalla.")
         if (!canConfigure) return
         val field = EditText(this).apply {
-            hint = "https://gunter.ejemplo.com"
+            hint = "http://127.0.0.1:3002"
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
             setSingleLine(true)
             setText(policy?.origin ?: previewPreferences.getString("origin", ""))
@@ -135,8 +135,8 @@ class GunterWebActivity : Activity() {
         }
         overlay.addView(field)
         panelButton("Conectar a este origen") {
-            val next = WebOriginPolicy.fromConfiguredOrigin(field.text.toString().trim())
-            if (next == null) { field.error = "Usa sólo un origen HTTPS válido, sin ruta, usuario, contraseña ni token."; return@panelButton }
+            val next = WebOriginPolicy.fromConfiguredOrigin(field.text.toString().trim(), allowLoopbackHttp = BuildConfig.DEBUG && BuildConfig.GUNTER_WEB_ORIGIN.isBlank())
+            if (next == null) { field.error = "Usa HTTPS o http://127.0.0.1:3002 por USB. Puerto local 1024–65535, excepto 3013; sin ruta, usuario, contraseña ni token."; return@panelButton }
             val previous = previewPreferences.getString("origin", null)
             if (previous != null && previous != next.origin && previewPreferences.getBoolean("has_opened", false)) {
                 showDialog(AlertDialog.Builder(this)
@@ -211,8 +211,9 @@ class GunterWebActivity : Activity() {
         }
 
         override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
-            // HTTPS subresources (CDN/API) remain subject to browser CORS; no local content access.
-            if (!WebOriginPolicy.isHttps(request.url.toString()) || (request.isForMainFrame && policy?.isInternal(request.url.toString()) != true)) {
+            // Only the selected DEBUG loopback origin may use HTTP. HTTPS CDN/API
+            // resources remain subject to browser CORS; local content stays blocked.
+            if (policy?.isAllowedResource(request.url.toString()) != true || (request.isForMainFrame && policy?.isInternal(request.url.toString()) != true)) {
                 return WebResourceResponse("text/plain", "utf-8", 403, "Blocked", emptyMap(), ByteArrayInputStream(ByteArray(0)))
             }
             return null
@@ -366,12 +367,14 @@ class GunterWebActivity : Activity() {
 
     private fun confirmExternal(address: String) {
         if (!foreground) return
-        val scheme = WebOriginPolicy.externalScheme(address) ?: return
+        val localTest = BuildConfig.DEBUG && policy?.isLoopbackHttp == true && policy?.isInternal(address) == true
+        val scheme = WebOriginPolicy.externalScheme(address) ?: if (localTest) "http" else return
         showDialog(AlertDialog.Builder(this).setTitle("¿Abrir otra aplicación?")
             .setMessage("Destino: $address\n\nNo se enviará ningún mensaje ni se realizará una llamada automáticamente. La sesión del navegador es independiente de Gunter Android.")
             .setNegativeButton("Cancelar", null)
             .setPositiveButton("Abrir") { _, _ ->
                 if (!foreground) return@setPositiveButton
+                if (scheme == "http" && !(BuildConfig.DEBUG && policy?.isLoopbackHttp == true && policy?.isInternal(address) == true)) return@setPositiveButton
                 val action = when (scheme) { "tel" -> Intent.ACTION_DIAL; "mailto", "sms" -> Intent.ACTION_SENDTO; else -> Intent.ACTION_VIEW }
                 val intent = Intent(action, Uri.parse(address)).addCategory(Intent.CATEGORY_BROWSABLE)
                 try { startActivity(intent) } catch (_: ActivityNotFoundException) { toast("No hay una aplicación disponible para este enlace.") }

@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <application android:allowBackup="false" android:usesCleartextTraffic="false" android:label="@string/gunter_app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:theme="@style/AppTheme">
+        <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
+        <meta-data android:name="firebase_analytics_collection_enabled" android:value="false" />
         <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="@string/gunter_command_channel" />
         <activity android:name=".GunterWebActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
             <intent-filter>

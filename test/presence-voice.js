@@ -19,6 +19,21 @@ function runtime() {
     };
     return env;
 }
+function clocked(env = runtime()) {
+    let now = 0, next = 0;
+    const timers = new Map();
+    env.setTimeout = (callback, delay) => { const id = ++next; timers.set(id, { callback, at: now + delay }); return id; };
+    env.clearTimeout = id => timers.delete(id);
+    return { env, timers, async advance(milliseconds) {
+        const target = now + milliseconds;
+        while (true) {
+            const due = [...timers.entries()].filter(([, timer]) => timer.at <= target).sort((a, b) => a[1].at - b[1].at || a[0] - b[0])[0];
+            if (!due) break;
+            now = due[1].at; timers.delete(due[0]); due[1].callback(); await tick();
+        }
+        now = target; await tick();
+    } };
+}
 function voiceRuntime(fetcher, hybrid = null) {
     const audios = [], utterances = [], events = [];
     const window = {
@@ -93,6 +108,121 @@ function voiceRuntime(fetcher, hybrid = null) {
         assert.equal(prefs.city, 'Bogotá'); assert.equal((await service.location()).source, 'device');
         assert.ok(request.url.endsWith('/api/location/reverse'));
         assert.doesNotMatch(env.localStorage.getItem('gunter_prefs'), /latitude|longitude|4\.7/);
+    });
+    await test('lecturas opcionales colgadas no bloquean ni inventan tareas, agenda o ciudad', async () => {
+        const clock = clocked(), env = clock.env;
+        env.GunterTasksService = { list: () => new Promise(() => {}) };
+        env.GunterEventsService = { list: () => new Promise(() => {}) };
+        env.localStorage.setItem('gunter_prefs', JSON.stringify({ useDeviceLocation: true }));
+        env.navigator.permissions = { query: () => new Promise(() => {}) };
+        let settled = false;
+        const greeting = create(env).greet({ id: 'u1' }, 'session-1').then(value => { settled = true; return value; });
+        await tick(); await clock.advance(1199); assert.equal(settled, false);
+        await clock.advance(1);
+        const text = await greeting;
+        assert.ok(text); assert.doesNotMatch(text, /tareas? pendientes?|compromisos? de hoy|ciudad|Estás en/);
+        assert.equal(clock.timers.size, 0);
+    });
+    await test('una lectura colgada no elimina los datos factuales de la otra', async () => {
+        const clock = clocked(), env = clock.env;
+        env.GunterTasksService = { list: () => new Promise(() => {}) };
+        const now = Date.now();
+        env.GunterEventsService = { list: async () => [{ ownerId: 'u1', startAt: new Date(now).toISOString(), endAt: new Date(now + 3600000).toISOString() }] };
+        const greeting = create(env).greet({ id: 'u1' }, 'session-1');
+        await tick(); await clock.advance(1200);
+        assert.match(await greeting, /1 compromiso de hoy/);
+        assert.equal(clock.timers.size, 0);
+    });
+    await test('invitación que ignora abort termina por carrera real y usa cierre factual', async () => {
+        const clock = clocked(), env = clock.env; let signal, settled = false;
+        env.GunterNlpLlm = { complete: (_prompt, options) => { signal = options.signal; return new Promise(() => {}); } };
+        const greeting = create(env).greet({ id: 'u1' }, 'session-1').then(value => { settled = true; return value; });
+        await tick(); await clock.advance(1999); assert.equal(settled, false);
+        await clock.advance(1);
+        assert.ok(await greeting); assert.equal(signal.aborted, true); assert.equal(clock.timers.size, 0);
+    });
+    await test('resultados tardíos no duplican bienvenida ni cambian su variante o contenido', async () => {
+        const clock = clocked(), env = clock.env; let tasksDone, eventsDone, nlpDone, returned = 0;
+        env.GunterTasksService = { list: () => new Promise(resolve => { tasksDone = resolve; }) };
+        env.GunterEventsService = { list: () => new Promise(resolve => { eventsDone = resolve; }) };
+        env.GunterNlpLlm = { complete: () => new Promise(resolve => { nlpDone = resolve; }) };
+        const service = create(env), user = { id: 'u1' };
+        const greeting = service.greet(user, 'session-1').then(value => { returned++; return value; });
+        await tick(); await clock.advance(3200);
+        const text = await greeting, variant = env.localStorage.getItem('gunter_greeting_variant_u1');
+        tasksDone([{ ownerId: 'u1', status: 'pending' }]); eventsDone([]); nlpDone('¿Quieres organizar un plan conmigo?');
+        await tick(); await tick();
+        assert.equal(returned, 1); assert.equal(env.localStorage.getItem('gunter_greeting_variant_u1'), variant);
+        assert.doesNotMatch(text, /tarea pendiente|organizar un plan conmigo/);
+        assert.equal(await service.greet(user, 'session-1'), null);
+        assert.equal(clock.timers.size, 0);
+    });
+    await test('rechazos después del deadline permanecen observados sin unhandledRejection', async () => {
+        const clock = clocked(), env = clock.env; const rejected = [], unhandled = [];
+        env.GunterTasksService = { list: () => new Promise((_, reject) => rejected.push(reject)) };
+        env.GunterEventsService = { list: () => new Promise((_, reject) => rejected.push(reject)) };
+        env.GunterNlpLlm = { complete: () => new Promise((_, reject) => rejected.push(reject)) };
+        const listener = error => unhandled.push(error);
+        process.on('unhandledRejection', listener);
+        try {
+            const greeting = create(env).greet({ id: 'u1' }, 'session-1');
+            await tick(); await clock.advance(3200); assert.ok(await greeting);
+            rejected.forEach(reject => reject(new Error('late_dependency_failure')));
+            await tick(); await tick(); assert.deepEqual(unhandled, []);
+            assert.equal(clock.timers.size, 0);
+        } finally { process.removeListener('unhandledRejection', listener); }
+    });
+    await test('reverse lookup tardío no guarda ubicación ni deja temporizadores después del fallback', async () => {
+        const clock = clocked(), env = clock.env; let finishReverse, signal;
+        const initial = JSON.stringify({ city: 'Cali', locationSource: 'device', locationUpdatedAt: 1, useDeviceLocation: true });
+        env.localStorage.setItem('gunter_prefs', initial);
+        env.navigator.permissions = { query: async () => ({ state: 'granted' }) };
+        env.navigator.geolocation = { getCurrentPosition: resolve => resolve({ coords: { latitude: 4.7, longitude: -74.1 } }) };
+        const authFetch = env.fetch;
+        env.fetch = (url, options) => url.endsWith('/api/location/reverse')
+            ? (signal = options.signal, new Promise(resolve => { finishReverse = resolve; })) : authFetch(url, options);
+        const greeting = create(env).greet({ id: 'u1' }, 'session-1');
+        await tick(); await clock.advance(600); assert.ok(await greeting);
+        assert.equal(signal.aborted, true); assert.equal(clock.timers.size, 0);
+        finishReverse({ ok: true, json: async () => ({ city: 'Bogotá' }) });
+        await tick(); await tick(); assert.equal(env.localStorage.getItem('gunter_prefs'), initial);
+    });
+    await test('permiso tardío no inicia geolocalización después de expirar la bienvenida', async () => {
+        const clock = clocked(), env = clock.env; let finishPermission, gps = 0;
+        env.localStorage.setItem('gunter_prefs', JSON.stringify({ useDeviceLocation: true }));
+        env.navigator.permissions = { query: () => new Promise(resolve => { finishPermission = resolve; }) };
+        env.navigator.geolocation = { getCurrentPosition: () => { gps++; } };
+        const greeting = create(env).greet({ id: 'u1' }, 'session-1');
+        await tick(); await clock.advance(600); assert.ok(await greeting);
+        finishPermission({ state: 'granted' }); await tick(); await tick();
+        assert.equal(gps, 0); assert.equal(clock.timers.size, 0);
+    });
+    await test('cambio de cuenta, logout o cambio de sesión descartan una bienvenida en curso', async () => {
+        for (const change of ['account', 'logout', 'session']) {
+            const clock = clocked(), env = clock.env, user = { id: 'u1' };
+            let current = user, session = 'session-1';
+            env.GunterAuth = { getUser: () => current, getSessionStartedAt: () => session, canAccessLocalData: () => !!current };
+            env.GunterNlpLlm = { complete: () => new Promise(() => {}) };
+            const greeting = create(env).greet(user, 'session-1');
+            await tick();
+            if (change === 'account') current = { id: 'u2' };
+            if (change === 'logout') current = null;
+            if (change === 'session') session = 'session-2';
+            await clock.advance(2000);
+            assert.equal(await greeting, null, change);
+            assert.equal(env.localStorage.getItem('gunter_greeting_variant_u1'), null, change);
+            assert.equal(clock.timers.size, 0);
+        }
+    });
+    await test('logout antes de confirmar entrada no escribe entrada ni genera bienvenida', async () => {
+        const env = runtime(), user = { id: 'u1' }; let current = user, finishEntry;
+        env.GunterAuth = { getUser: () => current };
+        env.fetch = () => new Promise(resolve => { finishEntry = resolve; });
+        const greeting = create(env).greet(user, 'session-1'); await tick(); current = null;
+        finishEntry({ ok: true, json: async () => ({ ok: true, entryId: 'fixture_entry', shouldGreet: true }) });
+        assert.equal(await greeting, null);
+        assert.equal(env.sessionStorage.getItem('gunter_app_entry'), null);
+        assert.equal(env.localStorage.getItem('gunter_greeting_variant_u1'), null);
     });
     await test('la personalidad manual se aplica aun con voz y adaptación apagadas', () => {
         const env = runtime(); env.PremiumFeaturesService = { get: key => ({ personalityMode: 'coach', voiceStyle: 'warm', personalityIntensity: 'soft', voiceEnabled: false, adaptivePersonality: false })[key] };

@@ -28,8 +28,12 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
             presenceLoaded: !!window.GunterPresence,
             companionLoaded: !!window.GunterCompanion,
             companionMounted: !!document.getElementById('gunter-companion'),
+            companionHidden: document.getElementById('gunter-companion')?.classList.contains('is-hidden') === true,
             entryKnown: !!sessionStorage.getItem('gunter_app_entry'),
-            greetingEnabled: window.GunterPresence?.preferences?.().entryGreeting !== false
+            greetingEnabled: window.GunterPresence?.preferences?.().entryGreeting !== false,
+            greetingVariantPresent: !!window.GunterAuth?.getUser?.()?.id && localStorage.getItem('gunter_greeting_variant_' + window.GunterAuth.getUser().id) !== null,
+            greetingPatternPresent: JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /^Buen(?:os días|as tardes|as noches|a madrugada)/i.test(item.text)),
+            timePatternPresent: JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /son las/i.test(item.text))
         })));
         throw error;
     });
@@ -79,7 +83,12 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await page.locator('#gday-quickbar-form button[type="submit"]').click();
     await expect(page.locator('#gday-quickbar-input')).toHaveValue('', { timeout: 35_000 });
     await expect(page.locator('#gday-tasks-mount')).toContainText(taskTitle, { timeout: 15_000 }).catch(async error => {
-        console.log('Task flow diagnostics:', await page.evaluate(async () => ({ conversation: JSON.parse(localStorage.getItem('gunter_conversation') || '[]').slice(-2), traces: window.GunterTraceLogger?.getAll?.().slice?.(-1), tasks: await window.GunterTasksService.list() })));
+        console.log('Task flow diagnostics:', await page.evaluate(async () => ({
+            taskServiceLoaded: !!window.GunterTasksService,
+            pipelineLoaded: !!window.GunterPipeline,
+            taskMountPresent: !!document.getElementById('gday-tasks-mount'),
+            tasksAvailable: Array.isArray(await window.GunterTasksService.list())
+        })));
         throw error;
     });
 

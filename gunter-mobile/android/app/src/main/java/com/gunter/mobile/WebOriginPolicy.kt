@@ -4,22 +4,29 @@ import java.net.URI
 import java.util.Locale
 
 /** Exact scheme/host/effective-port checks; no prefix/suffix URL trust decisions. */
-class WebOriginPolicy private constructor(val origin: String, private val host: String, private val port: Int) {
+class WebOriginPolicy private constructor(val origin: String, private val scheme: String, private val host: String, private val port: Int) {
     val rootUrl: String get() = "$origin/"
+    val isLoopbackHttp: Boolean get() = scheme == "http"
 
     fun isInternal(value: String?): Boolean {
-        val uri = httpsUri(value) ?: return false
-        return uri.host.lowercase(Locale.ROOT) == host && effectivePort(uri) == port
+        val uri = networkUri(value, allowLoopbackHttp = isLoopbackHttp) ?: return false
+        return uri.scheme.equals(scheme, ignoreCase = true) && uri.host.lowercase(Locale.ROOT) == host && effectivePort(uri) == port
     }
+
+    /** HTTPS CDNs remain allowed; cleartext is only the selected test origin. */
+    fun isAllowedResource(value: String?): Boolean = isHttps(value) || (isLoopbackHttp && isInternal(value))
 
     companion object {
         /** A build/config value is an origin, never a path, query, credential or fragment. */
-        fun fromConfiguredOrigin(value: String?): WebOriginPolicy? {
-            val uri = httpsUri(value) ?: return null
+        fun fromConfiguredOrigin(value: String?, allowLoopbackHttp: Boolean = false): WebOriginPolicy? {
+            val uri = networkUri(value, allowLoopbackHttp) ?: return null
             if (uri.rawPath !in listOf("", "/") || uri.rawQuery != null || uri.rawFragment != null) return null
+            if (uri.scheme.equals("http", ignoreCase = true) && uri.port == -1) return null
+            val scheme = uri.scheme.lowercase(Locale.ROOT)
             val host = uri.host.lowercase(Locale.ROOT)
             val port = effectivePort(uri)
-            return WebOriginPolicy("https://$host${if (port == 443) "" else ":$port"}", host, port)
+            val defaultPort = if (scheme == "https") 443 else 80
+            return WebOriginPolicy("$scheme://$host${if (port == defaultPort) "" else ":$port"}", scheme, host, port)
         }
 
         fun isHttps(value: String?): Boolean = httpsUri(value) != null
@@ -36,8 +43,16 @@ class WebOriginPolicy private constructor(val origin: String, private val host: 
         }
 
         private fun httpsUri(value: String?): URI? {
+            return networkUri(value, allowLoopbackHttp = false)
+        }
+
+        private fun networkUri(value: String?, allowLoopbackHttp: Boolean): URI? {
             val uri = safeUri(value) ?: return null
-            if (!uri.scheme.equals("https", ignoreCase = true) || uri.isOpaque || uri.rawUserInfo != null) return null
+            val https = uri.scheme.equals("https", ignoreCase = true)
+            // Port 3013 belongs to the quarantined visual lab, not the app backend.
+            val loopback = allowLoopbackHttp && uri.scheme.equals("http", ignoreCase = true) && uri.host == "127.0.0.1"
+                && uri.port in 1024..65535 && uri.port != 3013
+            if ((!https && !loopback) || uri.isOpaque || uri.rawUserInfo != null) return null
             val host = uri.host ?: return null
             if (host.isBlank() || host.endsWith('.') || '%' in host || uri.port !in -1..65535 || uri.port == 0) return null
             // URI rejects ambiguous/unicode authorities; require an ASCII DNS name or bracketed IPv6.
@@ -47,7 +62,7 @@ class WebOriginPolicy private constructor(val origin: String, private val host: 
             return uri
         }
 
-        private fun effectivePort(uri: URI): Int = if (uri.port == -1) 443 else uri.port
+        private fun effectivePort(uri: URI): Int = if (uri.port == -1) { if (uri.scheme.equals("http", ignoreCase = true)) 80 else 443 } else uri.port
 
         private fun safeUri(value: String?): URI? {
             if (value.isNullOrEmpty() || value.length > 8192 || value.any { it.code <= 32 || it.code == 127 || it == '\\' }) return null

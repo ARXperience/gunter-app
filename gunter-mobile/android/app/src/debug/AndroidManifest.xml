@@ -1,0 +1,4 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Installed only in the isolated debug/preview variant, never in release. -->
+    <application android:networkSecurityConfig="@xml/gunter_debug_network_security" />
+</manifest>

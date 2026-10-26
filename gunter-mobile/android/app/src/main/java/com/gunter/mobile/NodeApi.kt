@@ -5,8 +5,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 class NodeApi(base: String) {
-    private val origin = WebOriginPolicy.fromConfiguredOrigin(base)?.origin
-        ?: throw IllegalArgumentException("gunter_mobile_https_origin_required")
+    private val origin = WebOriginPolicy.fromConfiguredOrigin(base, allowLoopbackHttp = BuildConfig.DEBUG && BuildConfig.GUNTER_WEB_ORIGIN.isBlank())?.origin
+        ?: throw IllegalArgumentException("gunter_mobile_valid_origin_required")
     init {
         if (!BuildConfig.DEBUG) require(origin == WebOriginPolicy.fromConfiguredOrigin(BuildConfig.GUNTER_WEB_ORIGIN)?.origin) {
             "gunter_mobile_repair_required"

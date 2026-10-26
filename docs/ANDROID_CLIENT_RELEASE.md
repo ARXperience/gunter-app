@@ -4,13 +4,13 @@ Estado de revisión: 2026-10-25. Entrega solicitada: APK instalable directamente
 
 **Hay un APK preview; no es una release aprobada para clientes.** El código incorpora una
 vista de la aplicación completa y conserva las capacidades del acompañante
-nativo. Faltan servidor HTTPS accesible, firma de distribución, integración
+nativo. Faltan servidor HTTPS para clientes, firma de distribución, integración
 de algunas funciones y aceptación en teléfonos reales. No confundir un test
 unitario, una captura de viewport móvil o un workflow escrito con esas pruebas.
 
 ## Alcance e identidad
 
-- Cliente conectado al despliegue HTTPS existente de Gunter; no instala Node,
+- Cliente conectable a un despliegue HTTPS de Gunter; no instala Node,
   modelos Windows, WhatsApp/Baileys ni un servidor en el teléfono.
 - Reutiliza las páginas web de conversación, Día, tareas, agenda, reuniones,
   documentos, resultados, conexiones y configuración. Su disponibilidad real
@@ -23,7 +23,8 @@ unitario, una captura de viewport móvil o un workflow escrito con esas pruebas.
 - Release fija un único origen HTTPS de confianza y no permite cambiarlo desde
   la pantalla. El origen de clientes aún no ha sido suministrado.
 - El puerto 3013 del laboratorio visual **no es** el servidor de la aplicación.
-  `localhost` o `127.0.0.1` en un teléfono designan ese teléfono, no el PC.
+  `localhost` o `127.0.0.1` en un teléfono designan ese teléfono, no el PC;
+  el modo USB de pruebas crea explícitamente ese enlace.
 
 ## Sin dominio propio
 
@@ -34,10 +35,15 @@ contenido estático; no ejecuta el servidor Node de Gunter, la IA ni WhatsApp.
 No apuntar el cliente a una página de reserva de Pages como si fuera su API.
 Referencia: [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages).
 
-La preview sin origen permite configurar explícitamente un HTTPS de pruebas.
-Mientras no exista un servidor, no hay login/chat conectado. La pantalla
+El propietario eligió **su PC sólo para pruebas**. La preview DEBUG sin origen
+compilado permite configurar explícitamente `http://127.0.0.1:3002` y enlazarlo
+por USB a una instancia del PC con datos independientes. Guía y límites en
+[ANDROID_PC_TEST.md](ANDROID_PC_TEST.md). No se inicia el servidor ni ADB sin
+la acción explícita del usuario; no se publicó ni contrató hosting. Release
+sigue exigiendo HTTPS. Mientras el backend no esté activo y enlazado, no hay
+login/chat conectado. La pantalla
 Dispositivo sigue permitiendo gestionar recordatorios exclusivamente locales;
-no implica IA offline ni sincronización. No se publicó ni contrató hosting.
+no implica IA offline ni sincronización.
 
 ## Funciones y límites reales
 
@@ -51,7 +57,7 @@ no implica IA offline ni sincronización. No se publicó ni contrató hosting.
 | Abrir aplicaciones, archivos o borradores SMS | Intent explícito; SMS nunca se envía directamente | Android puede impedir aperturas en segundo plano. Se informa dispatch, no efecto verificado; backend no marca éxito ni repite automáticamente |
 | Multimedia | Observación posterior acotada del estado/pista, además del permiso del listener | Sesiones reales de reproductores y rechazo de permisos; no se inventa una confirmación si no se observa |
 | Alarmas locales | Crear, consultar, editar y cancelar desde Dispositivo; persistencia privada con relectura, versión y mutationId, cancelación real de alarma/notificación; recuperación tras arranque/reanudación | Entrega con Doze, reinicio, canales y revocación. La lista no confirma entrega. No hay sincronización con jobs del servidor ni historial de registros retirados |
-| Push FCM | Opt-in y configuración distinta por paquete debug/release | Firebase de app y servidor, token real, permisos y entrega. Los avisos no contienen el comando ni eluden los límites de Android |
+| Push FCM | Auto-inicialización y Analytics desactivados de entrada; opt-in y configuración distinta por paquete debug/release, callbacks tardíos comprueban vínculo/permiso actuales | Firebase de app y servidor, token real, permisos y entrega. Los avisos no contienen el comando ni eluden los límites de Android |
 | Google Calendar/OAuth | No intenta GIS dentro del WebView; explica cómo usar el navegador | Falta flujo OAuth nativo con retorno seguro a la app. La sesión del navegador es independiente: conectarlo allí no transfiere tokens al WebView |
 | WhatsApp y otros conectores | Se usan las integraciones del servidor desde la UI compartida | Configuración y pruebas end-to-end del conector; el APK no crea por sí solo un bot de WhatsApp ni una conexión nueva |
 | Datos entre dispositivos/offline | Conserva los stores web por origen, sin migrar datos existentes | Sync general, conflictos, backups y motores offline móviles siguen pendientes según las ADR existentes |
@@ -68,8 +74,13 @@ no se amplían los permisos o la autonomía por instalar el APK.
 
 ## Barreras de seguridad implementadas
 
-Esquema/host/puerto exactos, sin credenciales incrustadas, orígenes ambiguos ni
-HTTP; errores TLS cancelados; cookies de terceros desactivadas; accesos
+Esquema/host/puerto exactos, sin credenciales incrustadas ni orígenes ambiguos;
+release no admite HTTP. La única excepción DEBUG manual es el literal
+`127.0.0.1` con puerto explícito 1024–65535 excepto 3013. La configuración de red
+Android limita cleartext al host, no al puerto; los redirects de subrecursos
+WebView no tienen todos un callback. No se certifica aislamiento entre puertos
+loopback y se usa sólo el servidor de prueba de confianza (ver la guía USB).
+Errores TLS cancelados; cookies de terceros desactivadas; accesos
 `file:`/`content:` del motor web desactivados; sin `addJavascriptInterface` ni
 puente genérico de ejecución. Los enlaces externos necesitan gesto y
 confirmación. El selector sólo devuelve documentos elegidos explícitamente.
@@ -103,14 +114,15 @@ gradle -p gunter-mobile/android --no-daemon :app:testDebugUnitTest :app:lintDebu
 node gunter-mobile/scripts/report-android-apk.cjs debug
 ```
 
-Debug sin origen compilado ofrece una entrada HTTPS de pruebas explícita.
+Debug sin origen compilado ofrece una entrada HTTPS de pruebas explícita o
+el modo loopback USB documentado.
 Cambiar el origen no traslada los datos o sesiones del origen anterior. El
 workflow `mobile-build.yml` prepara el SDK y ejecuta tests/lint/build en CI,
 y fue subido a `codex/android-client-candidate` con autorización del usuario.
 El primer intento (901f9b1) compiló Android pero falló lint por un atributo API27
 con minSdk26; se eliminó el atributo sin omitir lint. La ejecución
-[40233475226](https://github.com/ARXperience/gunter-app/actions/runs/40233475226)
-del commit `8b88a9e` pasó tests, lint y assembleDebug, incluyendo el diálogo y
+[40236652055](https://github.com/ARXperience/gunter-app/actions/runs/40236652055)
+del commit `12a966f` pasó tests, lint y assembleDebug, incluyendo el diálogo y
 el exportador reales. También pasó el build de simulador iOS; no es QA física.
 
 Para release, el propietario debe aportar por entorno/gestor de secretos:
@@ -162,11 +174,13 @@ runtime móvil, push simulado, Control Plane y UI se ejecutan sin teléfono ni
 proveedores reales. Los tests JVM de políticas/recordatorios usan adaptadores
 inyectados, no AlarmManager ni Firebase de un dispositivo.
 
-Resultado local: 55 tests JVM (51 políticas/recordatorios y 4 protocolo de
-exportación), 10 contratos Android, 12 aserciones OAuth, 8 tests de políticas
+Resultado local: 59 tests JVM (55 políticas/recordatorios y 4 de protocolo de
+exportación, incluidos cuatro nuevos tests del modo loopback),
+11 contratos Android, 12 aserciones OAuth, 8 tests de políticas
 de recordatorios móviles más 2 de aislamiento de confirmaciones,
-5 contratos fuente de su diálogo, 7 tests del script
-de exportación en VM, 8 del reporte APK, 52 del asistente, 4 del runtime móvil
+5 contratos fuente de su diálogo, 8 tests del script
+de exportación en VM, 2 del arranque aislado, 8 guardas del helper USB,
+8 del reporte APK, 52 del asistente, 4 del runtime móvil
 y 34 del Control Plane. No son pruebas de proveedores ni dispositivos.
 Los JVM se compilaron con Kotlin 2.0.21 y stdlib cacheada 1.9.23; `android.jar`
 36.1 sólo resuelve tipos del adaptador que no se ejecuta. No se cambió el SDK
@@ -198,9 +212,9 @@ Queda pendiente la validación física y la aceptación de los gaps de la tabla.
 
 ## Artefacto preview comprobado
 
-Actions generó y se descargó `app-debug.apk` del commit `8b88a9e`:
+Actions generó y se descargó `app-debug.apk` del commit `12a966f`:
 4.248.919 bytes, SHA-256
-`6bd8ea1b5d3e198541370f20b3037a9583307cf48823a7ce37a6c8be7ffa4a23`.
+`5668478579fe57accfbaf7e4a4e2ad1c0d8afb130294c9af16b8abfb7a062e09`.
 El hash local coincide con el informe de CI. `apksigner` oficial 36.0.0 verificó
 la firma v2 y el certificado **Android Debug**, no una identidad de distribución.
 `aapt2` confirmó `com.gunter.mobile.preview`, versión `0.2.0-preview`, minSdk26,
@@ -209,3 +223,12 @@ target/compile35 y launcher `GunterWebActivity`. No se instaló en un teléfono.
 La verificación de firma local complementa el reporte descargado, que conserva
 honestamente `signatureVerified:false` porque ese script no ejecuta apksigner.
 No se alteró el reporte ni se atribuyó una firma de clientes a la preview.
+
+El control general web es independiente del build Android: `npm test` pasó en
+Actions, pero el recorrido e2e no observó el saludo inicial. Se corrigieron
+fixtures de nombre y navegación obsoletos, y se añadió diagnóstico técnico
+sin textos de sesión. Se acotaron las esperas opcionales de ubicación,
+tareas/agenda y la invitación del modelo, sin saltar el registro de entrada
+ni la comprobación de cuenta/sesión. Los 24 tests locales de presencia pasan;
+la corrección aún requiere validación e2e en CI. No se ha marcado ese recorrido como aprobado ni se han
+omitido sus aserciones. Este pendiente también impide declarar release final.

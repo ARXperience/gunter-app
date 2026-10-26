@@ -64,7 +64,7 @@ class WebBlobExportController(
         attachedOrigin = policy.origin
         try {
             WebViewCompat.addWebMessageListener(view, WebExportScript.BRIDGE, setOf(policy.origin)) { source, message, sourceOrigin, isMainFrame, reply ->
-                if (source !== attached || source !== currentWeb() || !isMainFrame || currentPolicy()?.origin != attachedOrigin || policy.origin != WebOriginPolicy.fromConfiguredOrigin(sourceOrigin.toString())?.origin) return@addWebMessageListener
+                if (source !== attached || source !== currentWeb() || !isMainFrame || currentPolicy()?.origin != attachedOrigin || !policy.isInternal(sourceOrigin.toString())) return@addWebMessageListener
                 if (message.type != WebMessageCompat.TYPE_STRING) return@addWebMessageListener
                 val data = message.data ?: return@addWebMessageListener
                 if (data.length > WebExportProtocol.MAX_MESSAGE_CHARS) { cancelTransfer(); return@addWebMessageListener }

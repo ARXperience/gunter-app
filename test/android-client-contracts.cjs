@@ -29,7 +29,7 @@ test('descargas a selector autorizado, acotadas y sin redirect externo', () => {
 });
 test('credencial del nodo no sigue redirects ni se expone al motor web', () => {
     const api = native('NodeApi');
-    assert.match(api, /WebOriginPolicy.fromConfiguredOrigin\(base\)/);
+    assert.match(api, /WebOriginPolicy.fromConfiguredOrigin\(base, allowLoopbackHttp = BuildConfig.DEBUG && BuildConfig.GUNTER_WEB_ORIGIN.isBlank\(\)\)/);
     assert.match(api, /instanceFollowRedirects = false/);
     assert.match(api, /gunter_mobile_redirect_blocked/);
     assert.match(api, /if \(!BuildConfig.DEBUG\) require\(origin == WebOriginPolicy.fromConfiguredOrigin\(BuildConfig.GUNTER_WEB_ORIGIN\)\?\.origin\)/);
@@ -45,6 +45,26 @@ test('build debug aislado y release con origen/firma externos', () => {
     assert.match(build, /require\(gunterWebOrigin.isNotEmpty\(\)\)/);
     assert.match(native('MainActivity'), /server.isEnabled = BuildConfig.DEBUG/);
 });
+test('HTTP local sólo preview opt-in con host literal y release cerrado', () => {
+    const debugManifest = read('gunter-mobile/android/app/src/debug/AndroidManifest.xml');
+    const network = read('gunter-mobile/android/app/src/debug/res/xml/gunter_debug_network_security.xml').replace(/<!--[\s\S]*?-->/g, '');
+    const mainManifest = read('gunter-mobile/android/app/src/main/AndroidManifest.xml');
+    const policy = native('WebOriginPolicy');
+    const shell = native('GunterWebActivity');
+    assert.match(debugManifest, /networkSecurityConfig="@xml\/gunter_debug_network_security"/);
+    assert.match(network, /<base-config cleartextTrafficPermitted="false"\s*\/>/);
+    assert.match(network, /<domain-config cleartextTrafficPermitted="true">[\s\S]*?<domain includeSubdomains="false">127\.0\.0\.1<\/domain>/);
+    assert.equal((network.match(/<domain\s/g) || []).length, 1);
+    assert.doesNotMatch(network, /trust-anchors|certificates|localhost|includeSubdomains="true"/);
+    assert.match(mainManifest, /usesCleartextTraffic="false"/);
+    assert.doesNotMatch(mainManifest, /networkSecurityConfig/);
+    assert.match(policy, /allowLoopbackHttp: Boolean = false/);
+    assert.match(policy, /uri\.host == "127\.0\.0\.1"/);
+    assert.match(policy, /uri\.port in 1024\.\.65535 && uri\.port != 3013/);
+    assert.match(shell, /allowLoopbackHttp = BuildConfig.DEBUG && fixed.isBlank\(\)/);
+    assert.match(shell, /policy\?\.isAllowedResource\(request\.url\.toString\(\)\)/);
+    assert.match(native('WebBlobExportController'), /!policy\.isInternal\(sourceOrigin\.toString\(\)\)/);
+});
 test('recordatorios durables y no anuncio de hora exacta', () => {
     assert.match(native('ReminderStore'), /\.commit\(\)/);
     assert.match(native('ReminderStore'), /storage.get\(id\) != record/);
@@ -58,6 +78,13 @@ test('push manejado nativamente exige configuración, opt-in y vínculo válido'
     assert.match(push, /getBoolean\("push_enabled", false\)/);
     assert.match(push, /message.data\["kind"\] != "GUNTER_COMMAND_READY"/);
     assert.match(push, /runCatching \{ NodeApi\(config.serverUrl\) \}\.isFailure/);
+    const manifest = read('gunter-mobile/android/app/src/main/AndroidManifest.xml');
+    assert.match(manifest, /firebase_messaging_auto_init_enabled" android:value="false"/);
+    assert.match(manifest, /firebase_analytics_collection_enabled" android:value="false"/);
+    const activity = native('MainActivity');
+    assert.match(activity, /isAutoInitEnabled = true/);
+    assert.match(activity, /isAutoInitEnabled = false/);
+    assert.match(activity, /if \(!pushStillAllowed\(config\)\) return@addOnCompleteListener/);
 });
 const context = { module: { exports: {} }, require: () => ({}), Buffer };
 vm.runInNewContext(read('server/control-plane/skills.js'), context, { filename: 'skills.js' });

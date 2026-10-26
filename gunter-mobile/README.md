@@ -18,7 +18,10 @@ Dispositivo → Recordatorios de este móvil permite crear, consultar, editar y
 cancelar registros sólo locales, con revisión y confirmación. No se sincronizan
 automáticamente con los jobs del servidor. El cliente no requiere un dominio
 comprado, pero sí un servidor HTTPS para conversación y funciones conectadas;
-GitHub Pages no ejecuta ese backend.
+GitHub Pages no ejecuta ese backend. Para la elección actual del propietario,
+PC sólo para pruebas, la preview DEBUG admite un origen loopback por USB sin
+dominio; sigue [ANDROID_PC_TEST.md](../docs/ANDROID_PC_TEST.md). No es una
+excepción HTTP para release ni una publicación del PC.
 
 Núcleo embebible para los acompañantes Android/iOS. Se empareja con el Control Plane, mantiene heartbeat, recibe comandos y solo delega capacidades declaradas a un puente nativo que conserva los permisos del sistema.
 

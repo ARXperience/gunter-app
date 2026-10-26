@@ -93,6 +93,7 @@ catch (e) { console.warn('⚠️  Tutor module not available:', e.message); }
 
 // Configuration
 const PORT = process.env.PORT || 3001;
+const LISTEN_HOST = require('./server/listen-host').configuredHost(process.env.GUNTER_LISTEN_HOST);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
@@ -1970,7 +1971,7 @@ server.headersTimeout = 30 * 1000;
 server.keepAliveTimeout = 5 * 1000;
 server.maxHeadersCount = 100;
 
-server.listen(PORT, () => {
+server.listen(PORT, LISTEN_HOST, () => {
     console.log('');
     console.log('╔════════════════════════════════════════════════');
     console.log('║  🐧 GUNTER PROXY SERVER');
