@@ -245,5 +245,7 @@ su script. Referencia: [reglas de backup Android](https://developer.android.com/
 El núcleo pide `failIfMajorPerformanceCaveat:true` antes de compilar shaders. Si
 el navegador rechaza ese contexto, mantiene el fallback explícito y las funciones
 de Gunter, sin reintentar silenciosamente un camino 3D lento. No baja el detalle
-en hardware admitido ni acredita fluidez física. Referencia:
+en hardware admitido ni acredita fluidez física. También rechaza drivers CPU
+conocidos cuando el navegador los identifica; no guarda ni publica el nombre
+del driver y no evade el bloqueo de esa información por privacidad. Referencia:
 [atributos WebGL de Khronos](https://registry.khronos.org/webgl/specs/latest/1.0/#WEBGLCONTEXTATTRIBUTES).

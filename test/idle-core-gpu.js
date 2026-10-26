@@ -44,7 +44,8 @@ function environment(options={}) {
     gl.viewport=(...v)=>{viewport=v;};
     gl.enable=capability=>enabled.add(capability);gl.disable=capability=>enabled.delete(capability);
     gl.blendFuncSeparate=(...value)=>{gl.blend=value;};
-    gl.getExtension=name=>name==='EXT_color_buffer_float'?(options.noFloat?null:{}):name==='WEBGL_lose_context'?{loseContext(){losses++;}}:null;
+    gl.getExtension=name=>name==='EXT_color_buffer_float'?(options.noFloat?null:{}):name==='WEBGL_lose_context'?{loseContext(){losses++;}}:name==='WEBGL_debug_renderer_info'&&!options.hiddenRenderer?{UNMASKED_RENDERER_WEBGL:900}:null;
+    gl.getParameter=()=>options.hiddenRenderer?'WebKit WebGL':options.renderer||'Hardware GPU';
     function record(mode,count,instances=0) {
         if(instances) {assert.equal(mode,gl.TRIANGLE_STRIP);assert.equal(count,4);}
         else {assert.equal(mode,gl.TRIANGLES);assert.ok(count===3||count===96*64*6);}
@@ -116,6 +117,17 @@ check('browser-declared major performance caveat refuses heavy compilation witho
     assert.equal(e.created.Program.length,0,'no heavy shaders compiled on a refused context');
     assert.equal(e.created.Texture.length,0,'no GPU state allocated');
     e.core.dispose();released(e);
+});
+check('known CPU drivers cannot compile the heavy effect and private renderer strings are not published',()=>{
+    for(const renderer of ['ANGLE (Google, Vulkan SwiftShader Device)', 'Mesa llvmpipe', 'softpipe', 'Software Rasterizer', 'Microsoft Basic Render Driver']) {
+        const e=environment({renderer});
+        assert.equal(e.core.available,false);assert.equal(e.created.Program.length,0);assert.equal(e.created.Texture.length,0);
+        assert.match(e.core.error,/CPU/);assert.ok(!JSON.stringify(e.core.stats()).includes(renderer));
+        e.core.dispose();released(e);
+    }
+    const privateInfo=environment({renderer:'SwiftShader',hiddenRenderer:true});
+    assert.ok(privateInfo.core.available,'do not bypass a browser that hides driver information');
+    privateInfo.core.dispose();released(privateInfo);
 });
 check('density changes real ribbon instance counts at 25, 100 and 200 percent',()=>{
     const e=environment();

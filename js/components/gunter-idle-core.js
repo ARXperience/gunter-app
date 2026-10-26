@@ -1231,7 +1231,15 @@
                     // Never run this high-cost volume on a browser-declared slow
                     // software/readback path: it must not freeze chat or login.
                     failIfMajorPerformanceCaveat:true});
-                if(!gl||!gl.getExtension('EXT_color_buffer_float'))
+                if(!gl)throw new Error('No hay un contexto WebGL2 sin limitaciones graves de rendimiento.');
+                // Some browsers still expose a known CPU driver despite the
+                // caveat request. Classify locally; never store or report driver
+                // strings, and do not bypass privacy settings if info is hidden.
+                const debugInfo=gl.getExtension('WEBGL_debug_renderer_info');
+                const renderer=gl.getParameter(debugInfo?.UNMASKED_RENDERER_WEBGL||gl.RENDERER);
+                if(typeof renderer==='string'&&/swiftshader|llvmpipe|softpipe|software rasterizer|microsoft basic render driver/i.test(renderer))
+                    throw new Error('El efecto 3D está desactivado en renderizado por CPU para mantener Gunter utilizable.');
+                if(!gl.getExtension('EXT_color_buffer_float'))
                     throw new Error('El núcleo requiere WebGL2 y texturas flotantes renderizables (EXT_color_buffer_float).');
                 this.programs={
                     simulation:this.program(QUAD,SIM),bio:this.program(QUAD,BIO_SIM),velocity:this.program(QUAD,VELOCITY_CACHE),field:this.program(QUAD,FIELD_CACHE),strands:this.program(STRAND_VERTEX,STRAND_FRAGMENT),
