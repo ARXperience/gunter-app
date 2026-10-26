@@ -133,7 +133,19 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await page.locator('#pref-language').selectOption('es-MX');
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gunter_prefs')).city)).toBe('Cali');
     await page.locator('#config-tab-premium').click();
-    await page.evaluate(() => window.GunterCompanion.__handleFromWake('desactiva el saludo al entrar'));
+    const voicePath = await page.evaluate(async () => {
+        const tools = window.GunterAssistantTools, original = tools.dispatch, calls = [];
+        tools.dispatch = async (...args) => {
+            const result = await original(...args);
+            calls.push({ intent: result?.intent || null, status: result?.status || null });
+            return result;
+        };
+        try { await window.GunterCompanion.__handleFromWake('desactiva el saludo al entrar'); }
+        finally { tools.dispatch = original; }
+        return { calls, pendingKind: tools.getPending()?.toolId || null,
+            detectedKind: tools.detect('desactiva el saludo al entrar')?.toolId || null };
+    });
+    console.log('Voice confirmation technical path:', voicePath);
     expect(await page.evaluate(() => window.GunterAssistantTools.getPending()?.toolId === 'preferences.update'), 'spoken preference must create a pending preference tool').toBe(true);
     await expect(page.locator('#pref-entry-greeting')).toBeChecked();
     await page.evaluate(() => window.GunterCompanion.__handleFromWake('sí'));
