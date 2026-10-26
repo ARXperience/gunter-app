@@ -134,10 +134,12 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gunter_prefs')).city)).toBe('Cali');
     await page.locator('#config-tab-premium').click();
     await page.evaluate(() => window.GunterCompanion.__handleFromWake('desactiva el saludo al entrar'));
+    expect(await page.evaluate(() => window.GunterAssistantTools.getPending()?.toolId === 'preferences.update'), 'spoken preference must create a pending preference tool').toBe(true);
     await expect(page.locator('#pref-entry-greeting')).toBeChecked();
     await page.evaluate(() => window.GunterCompanion.__handleFromWake('sí'));
+    expect(await page.evaluate(() => !!window.GunterAssistantTools.getPending()), 'spoken yes must retain the pending operation').toBe(true);
     await expect(page.locator('#pref-entry-greeting')).toBeChecked();
-    await page.evaluate(() => window.GunterAssistantTools.dispatch('sí', { inputSource: 'text' }));
+    expect(await page.evaluate(async () => (await window.GunterAssistantTools.dispatch('sí', { inputSource: 'text' })).status)).toBe('complete');
     await expect(page.locator('#pref-entry-greeting')).not.toBeChecked();
     await page.evaluate(() => window.GunterCompanion.__handleFromWake('activa el saludo al entrar'));
     await expect(page.locator('#pref-entry-greeting')).not.toBeChecked();
