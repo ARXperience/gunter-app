@@ -114,7 +114,8 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     }, taskTitle), { timeout: 15_000 }).toBe('done');
 
     await page.goto('/config.html#preferences');
-    await page.locator('#config-tab-premium').click();
+    await page.locator('#config-tab-diagnostics').click();
+    await page.locator('#config-runtime-controls > summary').click();
     await expect(page.locator('#cp-hybrid-mode')).toBeVisible();
     await expect(page.locator('#cp-hybrid-mode option[value="LOCAL"]')).toHaveAttribute('disabled', '');
     await page.locator('#cp-hybrid-mode').selectOption('CLOUD');
