@@ -215,6 +215,7 @@ function browserModule(relativePath, windowOverrides = {}) {
                 location: controlOverrides.location,
                 localStorage: controlOverrides.localStorage,
                 document: controlOverrides.document,
+                PremiumFeaturesService: controlOverrides.premium,
                 GunterControlPlane: {
                     procedures: async () => ({ items: [{ id: 'proc_weekly', name: 'Completar reporte semanal', state: 'APPROVED', steps: [{ order: 1 }] }] }),
                     conversations: async () => ({ items: [{ id: 'whatsapp:ana', provider: 'whatsapp', peerId: '57300123', peerName: 'Ana' }] }),
@@ -361,6 +362,29 @@ function browserModule(relativePath, windowOverrides = {}) {
         assert.equal((await toolset.dispatch('mi ciudad es Cali')).status, 'complete');
         assert.equal((await toolset.dispatch('cambia la zona horaria a America/Bogota')).status, 'complete');
         assert.equal(toolset.detect('¿Qué es el saludo de entrada?'), null);
+    });
+    await test('saludo de entrada y bienvenida por voz no se confunden con el catálogo real activo', async () => {
+        const prefs = new Map(), control = { checked: true };
+        const premiumValues = { entryVoiceGreeting: true };
+        const premium = { DEFAULTS: { entryVoiceGreeting: true }, getAll: () => ({ ...premiumValues }),
+            get: key => premiumValues[key], set: (key, value) => { premiumValues[key] = value; },
+            FEATURE_MAP: [{ id: 'entryVoiceGreeting', title: 'Bienvenida por voz' }] };
+        const { toolset } = makeAssistantTools({ premium,
+            localStorage: { getItem: key => prefs.get(key) || null, setItem: (key, value) => prefs.set(key, value) },
+            document: { getElementById: id => id === 'pref-entry-greeting' ? control : null } });
+        const proposal = await toolset.dispatch('desactiva el saludo al entrar', { inputSource: 'voice' });
+        assert.equal(proposal.intent, 'preferences.update');
+        assert.equal(proposal.status, 'awaiting_confirmation');
+        assert.equal(control.checked, true);
+        assert.equal((await toolset.dispatch('sí', { inputSource: 'voice' })).status, 'awaiting_confirmation');
+        assert.equal(control.checked, true);
+        assert.equal((await toolset.dispatch('sí', { inputSource: 'text' })).status, 'complete');
+        assert.equal(control.checked, false);
+        assert.equal(JSON.parse(prefs.get('gunter_prefs')).entryGreeting, false);
+        assert.equal(premiumValues.entryVoiceGreeting, true, 'the independent speech preference is untouched');
+        for (const text of ['activa el saludo al entrar', 'desactiva el saludo de entrada', 'habilita la bienvenida al entrar'])
+            assert.equal(toolset.detect(text).toolId, 'preferences.update');
+        assert.equal(toolset.detect('desactiva el saludo por voz').toolId, 'settings.update');
     });
 
     await test('registro expone solo herramientas allowlist', () => {

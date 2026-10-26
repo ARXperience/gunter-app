@@ -923,6 +923,11 @@
             if (/^(?:(?:me )?puedes (?:decir |mostrar )?)?(?:que (?:puedes hacer|sabes hacer|funciones tienes|herramientas tienes|herramientas hay disponibles)|cuales son tus (?:funciones|herramientas)|lista (?:tus |las )?(?:funciones|herramientas))(?: (?:en |de )?gunter)?$/.test(questionText))
                 return { toolId: 'app.inspect', args: { rawText: text, capabilities: true } };
 
+            // Exact entry-welcome commands must win over fuzzy matches for the
+            // separate "Bienvenida por voz" feature. Muting speech is not the
+            // same preference as disabling the factual welcome itself.
+            if (/^(?:por favor )?(?:activa|activar|habilita|habilitar|desactiva|desactivar|quita|quitar) (?:el |la )?(?:saludo al entrar|saludar al entrar|saludo de entrada|bienvenida al entrar)[.!?]*$/.test(questionText))
+                return { toolId: 'preferences.update', args: parsePreferenceChange(t, text) };
             const localMatch = matchSettings(t, localSettings());
             const settingsStateQuestion = /^(?:esta|estan) (?:activad[oa]s?|desactivad[oa]s?|habilitad[oa]s?|disponibles?)\b/.test(questionText);
             const settingsQuestion = settingsStateQuestion || /^(?:que|cual|cuales|como|para que|donde|explica(?:me)?|dime|muestra(?:me)?|consulta|lista|ver)\b/.test(questionText);
