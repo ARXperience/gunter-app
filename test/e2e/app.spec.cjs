@@ -199,6 +199,10 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/day.html');
+    // The previous voice turns intentionally left chat expanded; close its
+    // restored dialog using the real button before touching the mobile home.
+    await page.locator('.gn-comp__chat-close').click();
+    await expect(page.locator('#gunter-companion')).not.toHaveClass(/is-expanded/);
     await page.locator('[data-orbit-route="day.html#capture"]').click();
     await expect(page.locator('#gday-quickbar-input')).toBeVisible();
     await page.locator('button[aria-label="Más opciones"]').click();
