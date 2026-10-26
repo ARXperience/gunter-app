@@ -17,9 +17,13 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await page.locator('#gr-pass2').fill(password);
     const registration = page.waitForResponse(response => response.url().endsWith('/api/auth/register') && response.request().method() === 'POST');
     await page.locator('#gr-submit').click();
-    expect((await registration).status(), 'valid fixture registration must succeed before checking navigation').toBe(200);
+    const registered = await registration;
+    expect(registered.status(), 'valid fixture registration must succeed before checking navigation').toBe(200);
+    expect((await registered.json()).user?.preferredName === 'Prueba', 'registration must retain the fixture preferred name').toBe(true);
     await expect(page).toHaveURL(/day\.html/);
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /Buen(?:os días|as tardes|as noches|a madrugada).*Prueba.*son las/i.test(item.text))).catch(async error => {
+    // This is a persistence assertion, not a rendered-frame assertion. Timer polling
+    // does not depend on the WebGL compositor producing requestAnimationFrame ticks.
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /Buen(?:os días|as tardes|as noches|a madrugada).*Prueba.*son las/i.test(item.text)), null, { polling: 100 }).catch(async error => {
         // Technical readiness only: no names, message text, cookies or tokens.
         console.log('Entry flow diagnostics:', await page.evaluate(() => ({
             readyState: document.readyState,
@@ -31,9 +35,13 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
             companionHidden: document.getElementById('gunter-companion')?.classList.contains('is-hidden') === true,
             entryKnown: !!sessionStorage.getItem('gunter_app_entry'),
             greetingEnabled: window.GunterPresence?.preferences?.().entryGreeting !== false,
+            profileMatchesFixture: window.GunterAuth?.getUser?.()?.preferredName === 'Prueba',
+            presenceNameMatchesFixture: window.GunterPresence?.nameOf?.(window.GunterAuth?.getUser?.()) === 'Prueba',
             greetingVariantPresent: !!window.GunterAuth?.getUser?.()?.id && localStorage.getItem('gunter_greeting_variant_' + window.GunterAuth.getUser().id) !== null,
             greetingPatternPresent: JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /^Buen(?:os días|as tardes|as noches|a madrugada)/i.test(item.text)),
-            timePatternPresent: JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /son las/i.test(item.text))
+            timePatternPresent: JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /son las/i.test(item.text)),
+            expectedGreetingPresent: JSON.parse(localStorage.getItem('gunter_companion_log') || '[]').some(item => /Buen(?:os días|as tardes|as noches|a madrugada).*Prueba.*son las/i.test(item.text)),
+            domContentLoadedMs: Math.round(performance.getEntriesByType('navigation')[0]?.domContentLoadedEventEnd || 0)
         })));
         throw error;
     });
