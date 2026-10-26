@@ -46,6 +46,8 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     });
     // Allow the authenticated entry (including the first SW activation) to finish.
     await page.waitForLoadState('load');
+    // The current start page is orbital; capture is an explicit interior route.
+    await page.locator('[data-orbit-route="day.html#capture"]').click();
     await expect(page.locator('#gday-quickbar-input')).toBeVisible();
     await page.waitForFunction(() => !!window.GunterDayController && !!window.GunterPipeline);
     const hybrid = await page.evaluate(async () => {
@@ -89,6 +91,8 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await page.locator('#gday-quickbar-input').fill(`Crea una tarea para ${taskTitle}`);
     await page.locator('#gday-quickbar-form button[type="submit"]').click();
     await expect(page.locator('#gday-quickbar-input')).toHaveValue('', { timeout: 35_000 });
+    await page.locator('.gw-section-links a[href="day.html#tasks"]').click();
+    await expect(page.locator('#gday-tasks-mount')).toBeVisible();
     await expect(page.locator('#gday-tasks-mount')).toContainText(taskTitle, { timeout: 15_000 }).catch(async error => {
         console.log('Task flow diagnostics:', await page.evaluate(async () => ({
             taskServiceLoaded: !!window.GunterTasksService,
@@ -192,6 +196,8 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/day.html');
+    await page.locator('[data-orbit-route="day.html#capture"]').click();
+    await expect(page.locator('#gday-quickbar-input')).toBeVisible();
     await page.locator('button[aria-label="Más opciones"]').click();
     await page.locator('.gunter-command-nav__mobile-panel a[href="day.html#capture"]').click();
     await expect(page.locator('#gday-quickbar-input')).toBeVisible();
