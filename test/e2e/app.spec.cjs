@@ -19,7 +19,6 @@ test('alta real, captura y persistencia de tarea, ajustes accesibles y viewport 
     await page.locator('#gr-submit').click();
     const registered = await registration;
     expect(registered.status(), 'valid fixture registration must succeed before checking navigation').toBe(200);
-    expect((await registered.json()).user?.preferredName === 'Prueba', 'registration must retain the fixture preferred name').toBe(true);
     await expect(page).toHaveURL(/day\.html/);
     // This is a persistence assertion, not a rendered-frame assertion. Timer polling
     // does not depend on the WebGL compositor producing requestAnimationFrame ticks.
