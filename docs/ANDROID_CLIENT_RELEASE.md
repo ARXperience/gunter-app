@@ -121,10 +121,12 @@ workflow `mobile-build.yml` prepara el SDK y ejecuta tests/lint/build en CI,
 y fue subido a `codex/android-client-candidate` con autorización del usuario.
 El primer intento (901f9b1) compiló Android pero falló lint por un atributo API27
 con minSdk26; se eliminó el atributo sin omitir lint. La ejecución
-[40252707932](https://github.com/ARXperience/gunter-app/actions/runs/40252707932)
-del commit `a929026` pasó tests, lint y assembleDebug, incluyendo el diálogo,
-exportador y modo USB. El log confirma origen compilado vacío, necesario para
-configurar manualmente el PC. También pasó el build de simulador iOS; no es QA física.
+[40259428386](https://github.com/ARXperience/gunter-app/actions/runs/40259428386)
+del commit `7c5c84b` pasó tests, lint y assembleDebug, incluyendo el diálogo,
+exportador, modo USB y reglas de privacidad. Lint no tiene errores, pero conserva
+53 advertencias (dependencias/target, internacionalización y uso deliberado de
+JavaScript, entre otras); no se ocultaron. La preview se compila sin origen fijo
+para configurar manualmente el PC. También pasó el build de simulador iOS; no es QA física.
 
 Para release, el propietario debe aportar por entorno/gestor de secretos:
 
@@ -181,7 +183,7 @@ exportación, incluidos cuatro nuevos tests del modo loopback),
 de recordatorios móviles más 2 de aislamiento de confirmaciones,
 5 contratos fuente de su diálogo, 8 tests del script
 de exportación en VM, 2 del arranque aislado, 8 guardas del helper USB,
-8 del reporte APK, 52 del asistente, 4 del runtime móvil
+8 del reporte APK, 53 del asistente, 4 del runtime móvil
 y 34 del Control Plane. No son pruebas de proveedores ni dispositivos.
 Los JVM se compilaron con Kotlin 2.0.21 y stdlib cacheada 1.9.23; `android.jar`
 36.1 sólo resuelve tipos del adaptador que no se ejecuta. No se cambió el SDK
@@ -213,27 +215,52 @@ Queda pendiente la validación física y la aceptación de los gaps de la tabla.
 
 ## Artefacto preview comprobado
 
-Actions generó y se descargó `app-debug.apk` del commit `a929026`:
-4.249.662 bytes, SHA-256
-`8ca1655e1145656b41dd243c68de20e374b4842d80897734c0de149c06f1e3ff`.
+Actions generó y se descargó `app-debug.apk` del commit `7c5c84b`:
+4.250.957 bytes, SHA-256
+`b705c531ef130663701e5408b0ef3a93e010c116a51f81f7a709176fc55bbe45`.
 El hash local coincide con el informe de CI. `apksigner` oficial 36.0.0 verificó
 la firma v2 y el certificado **Android Debug**, no una identidad de distribución.
 `aapt2` confirmó `com.gunter.mobile.preview`, versión `0.2.0-preview`, minSdk26,
 target/compile35 y launcher `GunterWebActivity`. No se instaló en un teléfono.
-Ubicación local: `output/android-client-a929026/android/app/build/outputs/apk/debug/app-debug.apk`.
+Ubicación local: `output/android-client-7c5c84b/android/app/build/outputs/apk/debug/app-debug.apk`.
+El siguiente teléfono elegido es un OPPO Reno11; falta confirmar su Android
+instalado. No se ejecutó ADB ni el backend de pruebas ni se concedieron permisos.
 
 La verificación de firma local complementa el reporte descargado, que conserva
 honestamente `signatureVerified:false` porque ese script no ejecuta apksigner.
 No se alteró el reporte ni se atribuyó una firma de clientes a la preview.
 
 El control general web es independiente del build Android: `npm test` pasó en
-Actions, pero el recorrido e2e no observó el saludo inicial. Se corrigieron
-fixtures de nombre y navegación obsoletos, y se añadió diagnóstico técnico
-sin textos de sesión. Se acotaron las esperas opcionales de ubicación,
-tareas/agenda y la invitación del modelo, sin saltar el registro de entrada
-ni la comprobación de cuenta/sesión. Los 24 tests locales de presencia pasan;
-la corrección aún requiere validación e2e en CI. No se ha marcado ese recorrido como aprobado ni se han
-omitido sus aserciones. Este pendiente también impide declarar release final.
+Actions. Se corrigieron fixtures obsoletos y se añadió diagnóstico técnico sin
+textos de sesión. Se acotaron esperas opcionales de ubicación, tareas/agenda y
+modelo sin saltar el registro de entrada ni la comprobación de cuenta/sesión;
+los 24 tests locales de presencia pasan. El recorrido de `c1ac669` ya superó la
+bienvenida sin el bloqueo prolongado, pero encontró después una captura oculta:
+la UI actual requiere entrar desde Inicio a Captura rápida. Se actualizó la
+prueba para recorrer esos enlaces visibles, sin forzar CSS ni omitir aserciones;
+el recorrido completo pasó después en
+[40259939307](https://github.com/ARXperience/gunter-app/actions/runs/40259939307),
+commit `c30b9b8`: registro/login, bienvenida, creación/persistencia/finalización
+de tarea, ajustes híbridos y preferencias con confirmación de voz, reingreso,
+cancelación de respuesta tardía y navegación de captura en viewport móvil sin
+overflow horizontal. También pasaron `npm test` y `npm audit --omit=dev` con
+instalación limpia del lockfile parcheado. No sustituye WebView ni dispositivo
+físico; la prueba usa el fallback honesto al no disponer de GPU admitida.
+
+Se corrigió además una colisión del catálogo: una orden exacta de «saludo al
+entrar» cambiaba el ajuste distinto de «bienvenida por voz». Ahora conserva la
+preferencia de voz independiente y, si se dicta, exige confirmación escrita.
+La nueva regresión prueba la detección con el catálogo activo y la relectura
+del valor guardado.
+
+Auditoría de dependencias del servidor: el lockfile actualiza sólo
+`follow-redirects` de 1.16.0 a 1.16.1, dentro del rango existente de Axios. El
+registro publicado confirma tarball e integridad; la auditoría de producción
+sobre ese lockfile informa 0 avisos conocidos. No implica ausencia de todos los
+riesgos ni actualiza por sí sola un `node_modules` existente: sigue la guía PC
+antes de iniciar la prueba. Referencias:
+[aviso de cabeceras array](https://github.com/advisories/GHSA-q3jh-wrc6-jgq8),
+[aviso de cabeceras sensibles](https://github.com/advisories/GHSA-8r9p-f939-6h3c).
 
 Revisión posterior de seguridad: reglas explícitas excluyen datos privados tanto
 del backup como de la transferencia Android entre dispositivos. No hay migración
@@ -249,3 +276,5 @@ en hardware admitido ni acredita fluidez física. También rechaza drivers CPU
 conocidos cuando el navegador los identifica; no guarda ni publica el nombre
 del driver y no evade el bloqueo de esa información por privacidad. Referencia:
 [atributos WebGL de Khronos](https://registry.khronos.org/webgl/specs/latest/1.0/#WEBGLCONTEXTATTRIBUTES).
+Los 70 contratos GPU y 50 del wrapper pasan en VM; no ejecutan shaders reales
+ni certifican el aspecto, detalle de formas o fluidez en el teléfono.

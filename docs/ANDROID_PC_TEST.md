@@ -9,6 +9,13 @@ probado todavía el APK en un teléfono real.
 
 Desde la raíz del repositorio, con Node y las dependencias ya instaladas:
 
+El lockfile actualizado incorpora el parche `follow-redirects@1.16.1`. Una
+instalación anterior de `node_modules` **no se actualiza al descargar código**:
+antes de usar el backend de prueba, reinstala con `npm ci` en una ventana de
+mantenimiento apropiada. No lo hagas mientras otro servidor del mismo checkout
+esté en uso sin coordinarlo. Este trabajo no reinstaló sus dependencias ni
+reinició esa instancia existente. Los helpers tampoco instalan paquetes.
+
 ```powershell
 # Sólo verifica herramientas/puerto; no arranca nada.
 pwsh -NoProfile -File .\gunter-mobile\scripts\start-android-pc-test.ps1
